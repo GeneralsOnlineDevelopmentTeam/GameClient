@@ -68,6 +68,11 @@ GameWindow *QuitMessageBoxYesNo(UnicodeString titleString,UnicodeString bodyStri
 }
 
 
+GameWindow* MessageBoxNoButtons(UnicodeString titleString, UnicodeString bodyString, bool bShowLogo)
+{
+	return TheWindowManager->gogoMessageBox(-1, -1, -1, -1, MSG_BOX_NO | MSG_BOX_YES, titleString, bodyString, nullptr, nullptr, nullptr, nullptr, bShowLogo);
+}
+
 GameWindow *MessageBoxYesNoCancel(UnicodeString titleString,UnicodeString bodyString, GameWinMsgBoxFunc yesCallback, GameWinMsgBoxFunc noCallback, GameWinMsgBoxFunc cancelCallback)///< convenience function for displaying a Message box with Yes,No and Cancel buttons
 {
 	return TheWindowManager->gogoMessageBox(-1,-1,-1,-1,MSG_BOX_NO | MSG_BOX_YES | MSG_BOX_CANCEL , titleString, bodyString, yesCallback, noCallback, NULL, cancelCallback);

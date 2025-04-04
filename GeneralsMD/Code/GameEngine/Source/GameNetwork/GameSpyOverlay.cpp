@@ -151,6 +151,12 @@ void RaiseGSMessageBox( void )
 	messageBoxWindow->winBringToTop();
 }
 
+void GSMessageBoxNoButtons(UnicodeString title, UnicodeString message, bool bShowLogo)
+{
+	ClearGSMessageBoxes();
+	messageBoxWindow = MessageBoxNoButtons(title, message, bShowLogo);
+}
+
 // Overlay screens -------------------------------------
 
 /**

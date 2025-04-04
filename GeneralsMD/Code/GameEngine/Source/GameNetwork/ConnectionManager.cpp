@@ -1444,7 +1444,9 @@ void ConnectionManager::initTransport() {
 		delete m_transport;
 		m_transport = NULL;
 	}
-	m_transport = new Transport;
+
+	// Generals Online
+	m_transport = new UDPTransport;
 	m_transport->reset();
 	m_transport->init(m_localAddr, m_localPort);
 }

@@ -1,5 +1,5 @@
 /*
-**	Command & Conquer Generals Zero Hour(tm)
+**	Command & Conquer Generals(tm)
 **	Copyright 2025 Electronic Arts Inc.
 **
 **	This program is free software: you can redistribute it and/or modify
@@ -28,38 +28,33 @@
 
 #pragma once
 
+// NGMP NOTE: We have multiple transports now, so UDPTransport is what Transport was. It's the legacy, direct connection transport the original game used. Transport is now a base class.
+
 #ifndef _TRANSPORT_H_
 #define _TRANSPORT_H_
 
-#include "GameNetwork/udp.h"
 #include "GameNetwork/NetworkDefs.h"
 
-/**
- * The transport layer handles the UDP socket for the game, and will packetize and
- * de-packetize multiple ACK/CommandPacket/etc packets into larger aggregates.
- */
-// we only ever allocate one of there, and it is quite large, so we really DON'T want
-// it to be a MemoryPoolObject (srj)
 class Transport //: public MemoryPoolObject
 {
 	//MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(Transport, "Transport")		
 public:
 
 	Transport();
-	~Transport();
+	virtual ~Transport();
 
-	Bool init( AsciiString ip, UnsignedShort port );
-	Bool init( UnsignedInt ip, UnsignedShort port );
-	void reset( void );
-	Bool update( void );									///< Call this once a GameEngine tick, regardless of whether the frame advances.
+	virtual Bool init(AsciiString ip, UnsignedShort port) = 0;
+	virtual Bool init( UnsignedInt ip, UnsignedShort port ) = 0;
+	virtual void reset( void ) = 0;
+	virtual Bool update( void ) = 0;									///< Call this once a GameEngine tick, regardless of whether the frame advances.
 
-	Bool doRecv( void );		///< call this to service the receive packets
-	Bool doSend( void );		///< call this to service the send queue.
+	virtual Bool doRecv( void ) = 0;		///< call this to service the receive packets
+	virtual Bool doSend( void ) = 0;		///< call this to service the send queue.
 
-	Bool queueSend(UnsignedInt addr, UnsignedShort port, const UnsignedByte *buf, Int len /*,
-		NetMessageFlags flags, Int id */);				///< Queue a packet for sending to the specified address and port.  This will be sent on the next update() call.
+	virtual Bool queueSend(UnsignedInt addr, UnsignedShort port, const UnsignedByte *buf, Int len /*,
+		NetMessageFlags flags, Int id */) = 0;				///< Queue a packet for sending to the specified address and port.  This will be sent on the next update() call.
 
-	inline Bool allowBroadcasts(Bool val) { if (!m_udpsock) return false; return (m_udpsock->AllowBroadcasts(val))?true:false; }
+	virtual inline Bool allowBroadcasts(Bool val) = 0;
 
 	// Latency insertion and packet loss
 	void setLatency( Bool val ) { m_useLatency = val; }
@@ -80,11 +75,7 @@ public:
 	DelayedTransportMessage m_delayedInBuffer[MAX_MESSAGES];
 #endif
 
-	UnsignedShort m_port;
-private:
-	Bool m_winsockInit;
-	UDP *m_udpsock;
-
+protected:
 	// Latency insertion and packet loss
 	Bool m_useLatency;
 	Bool m_usePacketLoss;

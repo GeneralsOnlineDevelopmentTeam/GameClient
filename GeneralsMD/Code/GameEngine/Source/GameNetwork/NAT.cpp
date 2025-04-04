@@ -618,7 +618,9 @@ void NAT::establishConnectionPaths() {
 void NAT::attachSlotList(GameSlot *slotList[], Int localSlot, UnsignedInt localIP) {
 	m_slotList = slotList;
 	m_localIP = localIP;
-	m_transport = new Transport;
+
+	// Generals Online
+	m_transport = new UDPTransport;
 	DEBUG_LOG(("NAT::attachSlotList - initting the transport socket with address %d.%d.%d.%d:%d\n",
 							m_localIP >> 24, (m_localIP >> 16) & 0xff, (m_localIP >> 8) & 0xff, m_localIP & 0xff, getSlotPort(localSlot)));
 
