@@ -1157,18 +1157,6 @@ void InitWOLGameGadgets( void )
 	DEBUG_ASSERTCRASH(pingImages[1], ("Can't find ping image!"));
 	DEBUG_ASSERTCRASH(pingImages[2], ("Can't find ping image!"));
 
-
-	// TODO_NGMP: Where does this happen in the normal game?
-#if defined(GENERALS_ONLINE)
-	for (Int i = 0; i < MAX_SLOTS; i++)
-	{
-		PopulatePlayerTemplateComboBox(i, comboBoxPlayerTemplate, theGameInfo, theGameInfo->getAllowObservers());
-
-		// Make sure selections are up to date on all machines
-		handlePlayerTemplateSelection(i);
-	}
-#endif
-
 	//Initialize the gadget IDs
 	parentWOLGameSetupID = TheNameKeyGenerator->nameToKey( AsciiString( "GameSpyGameOptionsMenu.wnd:GameSpyGameOptionsMenuParent" ) );
 	buttonBackID = TheNameKeyGenerator->nameToKey( AsciiString( "GameSpyGameOptionsMenu.wnd:ButtonBack" ) );
@@ -1376,6 +1364,17 @@ void InitWOLGameGadgets( void )
 		buttonBack->winEnable(TRUE);
 	}
 		//GadgetButtonSetEnabledColor(buttonAccept[0], GameSpyColor[GSCOLOR_ACCEPT_TRUE]);
+
+		// TODO_NGMP: Where does this happen in the normal game?
+#if defined(GENERALS_ONLINE)
+	for (Int i = 0; i < MAX_SLOTS; i++)
+	{
+		PopulatePlayerTemplateComboBox(i, comboBoxPlayerTemplate, theGameInfo, theGameInfo->getAllowObservers());
+
+		// Make sure selections are up to date on all machines
+		handlePlayerTemplateSelection(i);
+	}
+#endif
 }
 
 void DeinitWOLGameGadgets( void )
