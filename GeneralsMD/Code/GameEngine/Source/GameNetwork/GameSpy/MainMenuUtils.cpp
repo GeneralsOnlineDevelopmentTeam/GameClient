@@ -53,6 +53,7 @@
 
 #include "WWDownload/Registry.h"
 #include "WWDownload/urlBuilder.h"
+#include "../OnlineServices_Init.h"
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -221,6 +222,10 @@ static void startOnline( void )
 
 	TheScriptEngine->signalUIInteract(TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_ONLINE_SELECTED]);
 
+	// TODO_NGMP: Uninit this when leaving MP, waste of resources and cycles
+	NGMP_OnlineServicesManager::GetInstance()->Init();
+
+#if !defined(GENERALS_ONLINE)
 	DEBUG_ASSERTCRASH( !TheGameSpyBuddyMessageQueue, ("TheGameSpyBuddyMessageQueue exists!") );
 	DEBUG_ASSERTCRASH( !TheGameSpyPeerMessageQueue, ("TheGameSpyPeerMessageQueue exists!") );
 	DEBUG_ASSERTCRASH( !TheGameSpyInfo, ("TheGameSpyInfo exists!") );
@@ -236,6 +241,7 @@ static void startOnline( void )
 		configBuffer = NULL;
 	}
 
+
 #ifdef ALLOW_NON_PROFILED_LOGIN
 	UserPreferences pref;
 	pref.load("GameSpyLogin.ini");
@@ -247,6 +253,9 @@ static void startOnline( void )
 	else
 		TheShell->push( AsciiString("Menus/GameSpyLoginQuick.wnd") );
 #endif // ALLOW_NON_PROFILED_LOGIN
+#else
+	TheShell->push(AsciiString("Menus/GameSpyLoginProfile.wnd"));
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -774,6 +783,11 @@ void StartPatchCheck( void )
 	onlineCancelWindow = MessageBoxCancel(TheGameText->fetch("GUI:CheckingForPatches"),
 		TheGameText->fetch("GUI:CheckingForPatches"), CancelPatchCheckCallbackAndReopenDropdown);
 
+	startOnline();
+
+	// TODO_NGMP: Impl patch checks again
+
+	/*
 	s_asyncDNSLookupInProgress = TRUE;
 	Char hostname[] = "servserv.generals.ea.com";
 	Int ret = asyncGethostbyname(hostname);
@@ -787,6 +801,7 @@ void StartPatchCheck( void )
 		reallyStartPatchCheck();
 		break;
 	}
+	*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////

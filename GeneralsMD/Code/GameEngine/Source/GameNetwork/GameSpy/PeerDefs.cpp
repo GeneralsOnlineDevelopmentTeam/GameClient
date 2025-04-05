@@ -45,6 +45,7 @@
 #include "GameNetwork/GameSpyOverlay.h"
 #include "GameNetwork/RankPointValue.h"
 #include "GameLogic/GameLogic.h"
+#include "../NextGenMP_defines.h"
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -611,6 +612,8 @@ const AsciiString& GameSpyInfo::getConfig( void )
 // --------------------------------------------------------------
 void SetUpGameSpy( const char *motdBuffer, const char *configBuffer )
 {
+	// TODO_NGMP: dont call this, remove gamespy fully
+#if !defined(GENERALS_ONLINE)
 	if (!motdBuffer)
 		motdBuffer = "";
 	if (!configBuffer)
@@ -654,6 +657,7 @@ void SetUpGameSpy( const char *motdBuffer, const char *configBuffer )
 	ThePinger->startThreads();
 
 	TheRankPointValues = NEW RankPoints;
+#endif
 }
 
 void TearDownGameSpy( void )

@@ -1256,6 +1256,10 @@ target_include_directories(z_gameengine PUBLIC
     Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc
 )
 
+target_link_directories(z_gameengine PUBLIC
+   Source/GameNetwork/GeneralsOnline/Vendor
+)
+
 target_include_directories(z_gameengine PRIVATE
     Include/Precompiled
 )

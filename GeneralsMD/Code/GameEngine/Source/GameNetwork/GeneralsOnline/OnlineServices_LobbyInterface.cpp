@@ -312,12 +312,6 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache()
 			m_CurrentLobby = lobbyEntry;
 
 			// update NGMP Game if it exists
-			// TODO_NGMP: Cleanup game + dont store 2 ptrs
-			if (m_pGameInst == nullptr)
-			{
-				m_pGameInst = new NGMPGame();
-				TheNGMPGame = m_pGameInst;
-			}
 
 			// inform game instance too
 			if (TheNGMPGame != nullptr)
@@ -387,6 +381,13 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 	// convert
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody)
 		{
+			// TODO_NGMP: Cleanup game + dont store 2 ptrs
+			if (m_pGameInst == nullptr)
+			{
+				m_pGameInst = new NGMPGame();
+				TheNGMPGame = m_pGameInst;
+			}
+
 			bool bJoinSuccess = statusCode == 200;
 
 			// no response body from this, just http codes
@@ -590,6 +591,13 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
 		{
+			// TODO_NGMP: Cleanup game + dont store 2 ptrs
+			if (m_pGameInst == nullptr)
+			{
+				m_pGameInst = new NGMPGame();
+				TheNGMPGame = m_pGameInst;
+			}
+
 			nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 			CreateLobbyResponse resp = jsonObject.get<CreateLobbyResponse>();
 

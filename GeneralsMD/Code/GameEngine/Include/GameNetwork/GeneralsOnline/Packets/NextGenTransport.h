@@ -8,7 +8,7 @@
 
 
 #include "GameNetwork/GeneralsOnline/Vendor/enet/enet.h"
-#pragma comment(lib, "enet/enet64.lib")
+#pragma comment(lib, "ENet/enet.lib")
 
 // it to be a MemoryPoolObject (srj)
 class NextGenTransport : public Transport //: public MemoryPoolObject

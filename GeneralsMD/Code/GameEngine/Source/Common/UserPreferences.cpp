@@ -432,7 +432,13 @@ Int QuickMatchPreferences::getSide( void )
 CustomMatchPreferences::CustomMatchPreferences()
 {
 	AsciiString userPrefFilename;
+
+	// TODO_NGMP: Impl again
+#if defined(GENERALS_ONLINE)
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
+#else
+	Int localProfile = 0;
+#endif
 	userPrefFilename.format("GeneralsOnline\\CustomPref%d.ini", localProfile);
 	load(userPrefFilename);
 }

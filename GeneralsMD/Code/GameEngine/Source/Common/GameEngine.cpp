@@ -108,6 +108,10 @@
 
 #include "Common/version.h"
 
+// GENERALS ONLINE
+#include "../OnlineServices_Init.h"
+static NGMP_OnlineServicesManager* g_pOnlineServicesMgr = nullptr;
+
 #ifdef _INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -222,6 +226,13 @@ GameEngine::~GameEngine()
 
 	delete TheFileSystem;
 	TheFileSystem = NULL;
+
+	// GENERALS ONLINE
+	if (g_pOnlineServicesMgr != nullptr)
+	{
+		delete g_pOnlineServicesMgr;
+		g_pOnlineServicesMgr = nullptr;
+	}
 
 	if (TheGameLODManager)
 		delete TheGameLODManager;
@@ -701,6 +712,12 @@ void GameEngine::init( int argc, char *argv[] )
 
 	TheSubsystemList->resetAll();
 	HideControlBar();
+
+	// GENERALS ONLINE
+	if (g_pOnlineServicesMgr == nullptr)
+	{
+		g_pOnlineServicesMgr = new NGMP_OnlineServicesManager();
+	}
 }  // end init
 
 /** -----------------------------------------------------------------------------------------------
@@ -773,6 +790,11 @@ void GameEngine::update( void )
 		if ((TheNetwork == NULL && !TheGameLogic->isGamePaused()) || (TheNetwork && TheNetwork->isFrameDataReady()))
 		{
 			TheGameLogic->UPDATE();
+		}
+
+		if (g_pOnlineServicesMgr != nullptr)
+		{
+			g_pOnlineServicesMgr->Tick();
 		}
 
 	}	// end perfGather

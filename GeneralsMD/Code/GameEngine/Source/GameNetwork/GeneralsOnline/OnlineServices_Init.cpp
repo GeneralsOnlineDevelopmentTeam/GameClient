@@ -157,15 +157,16 @@ void NGMP_OnlineServicesManager::Init()
 		// TODO_NGMP: We dont EOS_Platform_Release or shutdown the below
 		m_EOSPlatformHandle = EOS_Platform_Create(&PlatformOptions);
 		// TODO_NGMP: Don't process any input if steam or eos overlays are showing
-
-		// initialize child classes, these need the platform handle
-		m_pAuthInterface = new NGMP_OnlineServices_AuthInterface();
-		m_pLobbyInterface = new NGMP_OnlineServices_LobbyInterface();
-		m_pRoomInterface = new NGMP_OnlineServices_RoomsInterface();
-
-		m_pHTTPManager = new HTTPManager();
 	}
 	*/
+
+	// initialize child classes, these need the platform handle
+	m_pAuthInterface = new NGMP_OnlineServices_AuthInterface();
+	m_pLobbyInterface = new NGMP_OnlineServices_LobbyInterface();
+	m_pRoomInterface = new NGMP_OnlineServices_RoomsInterface();
+
+	m_pHTTPManager = new HTTPManager();
+	
 }
 
 

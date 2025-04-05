@@ -151,6 +151,12 @@ void RaiseGSMessageBox( void )
 	messageBoxWindow->winBringToTop();
 }
 
+void GSMessageBoxCancel(UnicodeString title, UnicodeString message, GameWinMsgBoxFunc cancelFunc)
+{
+	ClearGSMessageBoxes();
+	messageBoxWindow = MessageBoxCancel(title, message, cancelFunc);
+}
+
 void GSMessageBoxNoButtons(UnicodeString title, UnicodeString message, bool bShowLogo)
 {
 	ClearGSMessageBoxes();

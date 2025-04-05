@@ -72,6 +72,12 @@
 #include "Common/CustomMatchPreferences.h"
 #include "Common/LadderPreferences.h"
 
+// GENERALS ONLINE:
+#include "../NextGenMP_defines.h"
+#include "../OnlineServices_Init.h"
+#include "../OnlineServices_LobbyInterface.h"
+#include "GameClient/MapUtil.h"
+
 //-----------------------------------------------------------------------------
 // DEFINES ////////////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
@@ -321,7 +327,13 @@ void PopupHostGameInit( WindowLayout *layout, void *userData )
 	textEntryGameNameID = TheNameKeyGenerator->nameToKey(AsciiString("PopupHostGame.wnd:TextEntryGameName"));
 	textEntryGameName = TheWindowManager->winGetWindowFromId(parentPopup, textEntryGameNameID);
 	UnicodeString name;
+
+#if defined(GENERALS_ONLINE)
+	name.translate("Generals Online Lobby");
+#else
 	name.translate(TheGameSpyInfo->getLocalName());
+#endif
+
 	GadgetTextEntrySetText(textEntryGameName, name);
 
 	textEntryGameDescriptionID = TheNameKeyGenerator->nameToKey(AsciiString("PopupHostGame.wnd:TextEntryGameDescription"));
@@ -569,6 +581,20 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 
 void createGame( void )
 {
+#if defined(GENERALS_ONLINE)
+	// TODO_NGMP: Support 'favorite map' again
+	AsciiString defaultMap = getDefaultMap(true);
+	const MapMetaData* md = TheMapCache->findMap(defaultMap);
+
+	UnicodeString gameName = GadgetTextEntryGetText(textEntryGameName);
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->CreateLobby(gameName, md->m_displayName, md->m_fileName, md->m_numPlayers);
+
+	GSMessageBoxCancel(UnicodeString(L"Creating Lobby"), UnicodeString(L"Lobby Creation is in progress..."), nullptr);
+
+	return;
+#else
+	// TODO_NGMP: Everything using TheGameSpy%
+
 	TheGameSpyInfo->setCurrentGroupRoom(0);
 	PeerRequest req;
 	UnicodeString gameName = GadgetTextEntryGetText(textEntryGameName);
@@ -619,4 +645,5 @@ void createGame( void )
 	req.hostPingStr = TheGameSpyInfo->getPingString().str();
 
 	TheGameSpyPeerMessageQueue->addRequest(req);
+#endif
 }

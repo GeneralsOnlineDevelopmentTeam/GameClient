@@ -68,6 +68,7 @@
 #include "GameNetwork/GameSpy/ThreadUtils.h"
 #include "GameNetwork/GameSpy/MainMenuUtils.h"
 #include "GameNetwork/WOLBrowser/WebBrowser.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -227,6 +228,11 @@ static UnsignedByte grabUByte(const char *s)
 
 static void updateNumPlayersOnline(void)
 {
+	NGMP_OnlineServicesManager::GetInstance()->RegisterForNATTypeChanges([=](NGMP_ENATType previousNATType, NGMP_ENATType newNATType)
+		{
+			updateNumPlayersOnline(); // UI refresh
+		});
+
 	GameWindow *playersOnlineWindow = TheWindowManager->winGetWindowFromId(
 		NULL, NAMEKEY("WOLWelcomeMenu.wnd:StaticTextNumPlayersOnline") );
 
@@ -237,17 +243,73 @@ static void updateNumPlayersOnline(void)
 		GadgetStaticTextSetText(playersOnlineWindow, valStr);
 	}
 
-	if (listboxInfo && TheGameSpyInfo)
+	// TODO_NGMP
+	//if (listboxInfo && TheGameSpyInfo)
+	if (listboxInfo)
 	{
 		GadgetListBoxReset(listboxInfo);
 		AsciiString aLine;
 		UnicodeString line;
+
+#if defined(GENERALS_ONLINE)
+		AsciiString aMotd = "TODO MOTD GOES HERE";
+#else
 		AsciiString aMotd = TheGameSpyInfo->getMOTD();
+#endif
 		UnicodeString headingStr;
 		//Kris: Patch 1.01 - November 12, 2003
 		//Removed number of players from string, and removed the argument. The number is incorrect anyways...
 		//This was a Harvard initiated fix.
 		headingStr.format(TheGameText->fetch("MOTD:NumPlayersHeading"));
+
+		//headingStr.format(TheGameText->fetch("MOTD:NumPlayersHeading"), lastNumPlayersOnline);
+
+		/*
+		NGMP_ENATType natType = NGMP_OnlineServicesManager::GetInstance()->GetNATType();
+		AsciiString natTypeColor;
+		switch (natType)
+		{
+			case NGMP_ENATType::NAT_TYPE_UNDETERMINED:
+				natTypeColor = "FF5DE2E7";
+				break;
+
+			case NGMP_ENATType::NAT_TYPE_OPEN:
+				natTypeColor = "FF00FF00";
+				break;
+
+			case NGMP_ENATType::NAT_TYPE_MODERATE:
+				natTypeColor = "FFFFFD55";
+				break;
+
+			case NGMP_ENATType::NAT_TYPE_STRICT:
+				natTypeColor = "FFFF0000";
+				break;
+		}
+
+		headingStr.format(L"Welcome to Generals NextGen Multiplayer.\n\n<hexcol>%hsYour NAT type is %hs", natTypeColor.str(), natType == NGMP_ENATType::NAT_TYPE_UNDETERMINED ? "being determined" : NGMP_OnlineServicesManager::GetInstance()->GetNATTypeString().str());
+		*/
+
+
+		//<hexcol>%hs for colors
+		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
+		ECapabilityState capUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP();
+		ECapabilityState capNATPMP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP();
+		ECapabilityState capipv4 = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasIPv4();
+		ECapabilityState capipv6 = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasIPv6();
+		bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
+		bool bHasPortMappedUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenUPnP();
+		int internalPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort_Internal();
+		int externalPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort_External();
+		headingStr.format(L"Welcome to Generals NextGen Multiplayer.\n \nNetwork Capabilities:\n\tUPnP: %hs\n\tNAT-PMP: %hs\n\tIPv4: %hs\n\tIPv6: %hs\n\tPort Mapped: %hs\n\tInternal Port: %d\n\tExternal Port: %d\n\tDirect Connect: %hs",
+			capUPnP == ECapabilityState::UNDETERMINED ? "Still Determining..." : capUPnP == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+			capNATPMP == ECapabilityState::UNDETERMINED ? "Still Determining..." : capNATPMP == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+			capipv4 == ECapabilityState::UNDETERMINED ? "Still Determining..." : capipv4 == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+			capipv6 == ECapabilityState::UNDETERMINED ? "Still Determining..." : capipv6 == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+			bHasPortMapped ? (bHasPortMappedUPnP ? "Yes (UPnP)" : "Yes (NAT-PMP)") : "No",
+			internalPort,
+			externalPort,
+			NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported"
+		);
 
 		while (headingStr.nextToken(&line, UnicodeString(L"\n")))
 		{
@@ -549,9 +611,23 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	// Set Keyboard to Main Parent
 	TheWindowManager->winSetFocus( parentWOLWelcome );
 
-	enableControls( TheGameSpyInfo->gotGroupRoomList() );
+
+#if defined(GENERALS_ONLINE)
+	enableControls( true );
+
+	// TODO_NGMP: disable things we havent implemented yet
+	buttonQuickMatch->winEnable(false);
+	buttonMyInfo->winEnable(false);
+	buttonBuddies->winEnable(false);
+	buttonbuttonOptions->winEnable(false);
+#else
+	enableControls(TheGameSpyInfo->gotGroupRoomList());
+#endif
 	TheShell->showShellMap(TRUE);
 
+
+	// TODO_NGMP
+#if !defined(GENERALS_ONLINE)
 	updateNumPlayersOnline();
 	updateOverallStats();
 
@@ -562,10 +638,12 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	{
 		GameSpyOpenOverlay(GSOVERLAY_LOCALESELECT);
 	}
+#endif
 
 	raiseMessageBoxes = TRUE;
 	TheTransitionHandler->setGroup("WOLWelcomeMenuFade");
 
+	
 } // WOLWelcomeMenuInit
 
 //-------------------------------------------------------------------------------------------------
@@ -615,6 +693,8 @@ void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 		raiseMessageBoxes = FALSE;
 	}
 
+	// TODO_NGMP: do we still care about FW helper?
+#if !defined(GENERALS_ONLINE)
 	if (TheFirewallHelper != NULL)
 	{
 		if (TheFirewallHelper->behaviorDetectionUpdate())
@@ -630,6 +710,7 @@ void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 			TheFirewallHelper = NULL;
 		}
 	}
+#endif
 
 	if (TheShell->isAnimFinished() && !buttonPushed && TheGameSpyPeerMessageQueue)
 	{
@@ -854,8 +935,13 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 				{
 					//TheGameSpyChat->clearGroupRoomList();
 					//peerListGroupRooms(TheGameSpyChat->getPeer(), ListGroupRoomsCallback, NULL, PEERTrue);
-					TheGameSpyInfo->joinBestGroupRoom();
-					enableControls( FALSE );
+
+					// TODO_NGMP
+					//TheGameSpyInfo->joinBestGroupRoom();
+					//enableControls( FALSE );
+					buttonPushed = TRUE;
+					nextScreen = "Menus/WOLCustomLobby.wnd";
+					TheShell->pop();
 
 
 					/*

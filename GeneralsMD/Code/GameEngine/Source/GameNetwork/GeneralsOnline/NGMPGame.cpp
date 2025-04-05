@@ -78,9 +78,9 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 
 				// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
 				slot->setColor(0);
-				slot->setTeamNumber(0);
+				slot->setTeamNumber(7);
 				slot->setStartPos(0);
-				slot->setPlayerTemplate(2);
+				slot->setPlayerTemplate(PLAYERTEMPLATE_RANDOM);
 			}
 			else
 			{
@@ -92,9 +92,9 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 
 				// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
 				slot->setColor(1);
-				slot->setTeamNumber(1);
+				slot->setTeamNumber(7);
 				slot->setStartPos(1);
-				slot->setPlayerTemplate(2);
+				slot->setPlayerTemplate(PLAYERTEMPLATE_RANDOM);
 				++realInsertPos;
 				// TODO_NGMP: Check player lists are synced across game with > 2 clients
 			}
