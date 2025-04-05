@@ -626,11 +626,11 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	TheShell->showShellMap(TRUE);
 
 
-	// TODO_NGMP
-#if !defined(GENERALS_ONLINE)
 	updateNumPlayersOnline();
 	updateOverallStats();
 
+	// TODO_NGMP
+#if !defined(GENERALS_ONLINE)
 	UpdateLocalPlayerStats();
 
 	GameSpyMiscPreferences cPref;
