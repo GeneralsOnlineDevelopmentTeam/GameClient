@@ -4,9 +4,99 @@
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h"
 #include "GameNetwork/GeneralsOnline/NetworkBitstream.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.h"
+#include "GameNetwork/GeneralsOnline/json.hpp"
+
+WebSocket::WebSocket()
+{
+	m_pCurl = curl_easy_init();
+}
+
+WebSocket::~WebSocket()
+{
+	Disconnect();
+}
+
+void WebSocket::Connect(const char* url)
+{
+	if (m_pCurl != nullptr)
+	{
+		curl_easy_setopt(m_pCurl, CURLOPT_URL, url);
+
+		curl_easy_setopt(m_pCurl, CURLOPT_CONNECT_ONLY, 2L); /* websocket style */
+
+		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 0); /* websocket style */
+		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 0); /* websocket style */
+
+		/* Perform the request, res gets the return code */
+		CURLcode res = curl_easy_perform(m_pCurl);
+		/* Check for errors */
+		if (res != CURLE_OK)
+		{
+			m_bConnected = false;
+			fprintf(stderr, "curl_easy_perform() failed: %s\n",
+				curl_easy_strerror(res));
+		}
+		else
+		{
+			/* connected and ready */
+			m_bConnected = true;
+		}
+	}
+}
+
+void WebSocket::SendData_RoomChatMessage(const char* szMessage)
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::NETWORK_ROOM_CHAT;
+	j["message"] = szMessage;
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+}
+
+void WebSocket::Disconnect()
+{
+	// send close
+	size_t sent;
+	(void)curl_ws_send(m_pCurl, "", 0, &sent, 0, CURLWS_CLOSE);
+
+	// cleanup
+	curl_easy_cleanup(m_pCurl);
+}
+
+void WebSocket::Send(const char* send_payload)
+{
+	size_t sent;
+	CURLcode result = curl_ws_send(m_pCurl, send_payload, strlen(send_payload), &sent, 0,
+			CURLWS_BINARY);
+
+	if (result != CURLE_OK)
+	{
+		fprintf(stderr, "curl_ws_send() failed: %s\n",
+			curl_easy_strerror(result));
+	}
+}
+
+void WebSocket::Tick()
+{
+	// do recv
+	size_t rlen = 0;
+	const struct curl_ws_frame* meta = nullptr;
+	char buffer[256] = { 0 };
+
+	CURLcode ret = CURL_LAST;
+	ret = curl_ws_recv(m_pCurl, buffer, sizeof(buffer), &rlen, &meta);
+
+	if (ret != CURL_LAST && ret != CURLE_AGAIN)
+	{
+		NetworkLog("Got websocket msg: %s", buffer);
+	}
+
+}
 
 NGMP_OnlineServices_RoomsInterface::NGMP_OnlineServices_RoomsInterface()
 {
+	
 	/*
 	// Register for EOS callbacks, we will handle them internally and pass them onto the game as necessary
 	EOS_HLobby LobbyHandle = EOS_Platform_GetLobbyInterface(NGMP_OnlineServicesManager::GetInstance()->GetEOSPlatformHandle());
@@ -297,6 +387,8 @@ void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeStr
 	AsciiString strChatMsg;
 	strChatMsg.translate(strChatMsgUnicode);
 
+	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(strChatMsg.str());
+
 	NetRoom_ChatMessagePacket chatPacket(strChatMsg);
 
 	std::vector<uint64_t> vecUsers;
@@ -305,7 +397,7 @@ void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeStr
 		vecUsers.push_back(kvPair.first);
 	}
 
-	m_pNetRoomMesh->SendToMesh(chatPacket, vecUsers);
+	//m_pNetRoomMesh->SendToMesh(chatPacket, vecUsers);
 }
 
 void NGMP_OnlineServices_RoomsInterface::ApplyLocalUserPropertiesToCurrentNetworkRoom()

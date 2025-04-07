@@ -11,6 +11,33 @@ class NGMP_OnlineServices_RoomsInterface;
 
 #pragma comment(lib, "libcurl/libcurl.lib")
 
+
+#include "GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h"
+
+enum EWebSocketMessageID
+{
+	NETWORK_ROOM_CHAT = 1
+};
+
+class WebSocket
+{
+public:
+	WebSocket();
+	~WebSocket();
+	void Connect(const char* url);
+	void Disconnect();
+
+	void SendData_RoomChatMessage(const char* szMessage);
+
+	void Tick();
+
+	void Send(const char* message);
+
+private:
+	CURL* m_pCurl = nullptr;
+	bool m_bConnected = false;
+};
+
 class NetworkRoom
 {
 public:
@@ -80,12 +107,15 @@ public:
 		}
 	}
 
+	WebSocket* GetWebSocket() const { return m_pWebSocket; }
 	HTTPManager* GetHTTPManager() const { return m_pHTTPManager; }
 
 	NGMP_OnlineServices_AuthInterface* GetAuthInterface() const { return m_pAuthInterface; }
 	NGMP_OnlineServices_LobbyInterface* GetLobbyInterface() const { return m_pLobbyInterface; }
 	NGMP_OnlineServices_RoomsInterface* GetRoomsInterface() const { return m_pRoomInterface; }
 
+	void OnLogin(bool bSuccess);
+	
 	void Init();
 
 	void Tick();
@@ -155,4 +185,6 @@ private:
 
 	int64_t m_lastUserPut = -1;
 	int64_t m_timeBetweenUserPuts = 60000;
+
+	WebSocket* m_pWebSocket = nullptr;
 };

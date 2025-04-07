@@ -10,6 +10,19 @@ NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
 	m_pOnlineServicesManager = this;
 }
 
+void NGMP_OnlineServicesManager::OnLogin(bool bSuccess)
+{
+	// TODO_NGMP: disconnect websocket when leaving MP
+	// TODO_NGMP: websocket keep alive
+	if (bSuccess)
+	{
+		// connect to WS
+		// TODO_NGMP: Handle WS conn failure
+		m_pWebSocket = new WebSocket();
+		m_pWebSocket->Connect("wss://127.0.0.1:8443");
+	}
+}
+
 void NGMP_OnlineServicesManager::Init()
 {
 	/*
@@ -173,6 +186,11 @@ void NGMP_OnlineServicesManager::Init()
 
 void NGMP_OnlineServicesManager::Tick()
 {
+	if (m_pWebSocket != nullptr)
+	{
+		m_pWebSocket->Tick();
+	}
+
 	if (m_pHTTPManager != nullptr)
 	{
 		m_pHTTPManager->MainThreadTick();

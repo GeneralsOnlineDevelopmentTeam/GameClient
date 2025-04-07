@@ -320,6 +320,8 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess)
 {
 	if (bSuccess)
 	{
+		NGMP_OnlineServicesManager::GetInstance()->OnLogin(bSuccess);
+
 		// move on to network capabilities section
 		ClearGSMessageBoxes();
 		GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining local network capabilities... this may take a few seconds"), true);
