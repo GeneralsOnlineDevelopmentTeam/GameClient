@@ -16,7 +16,9 @@ class NGMP_OnlineServices_RoomsInterface;
 
 enum EWebSocketMessageID
 {
-	NETWORK_ROOM_CHAT = 1
+	UNKNOWN = -1,
+	NETWORK_ROOM_CHAT_FROM_CLIENT = 1,
+	NETWORK_ROOM_CHAT_FROM_SERVER = 2
 };
 
 class WebSocket

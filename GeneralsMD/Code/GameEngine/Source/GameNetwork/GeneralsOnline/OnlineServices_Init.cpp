@@ -20,6 +20,8 @@ void NGMP_OnlineServicesManager::OnLogin(bool bSuccess)
 		// TODO_NGMP: Handle WS conn failure
 		m_pWebSocket = new WebSocket();
 		m_pWebSocket->Connect("wss://127.0.0.1:8443");
+
+		// TODO_NGMP: This hangs forever if it fails to connect
 	}
 }
 

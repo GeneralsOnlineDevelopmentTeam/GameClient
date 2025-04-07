@@ -47,7 +47,7 @@ void WebSocket::Connect(const char* url)
 void WebSocket::SendData_RoomChatMessage(const char* szMessage)
 {
 	nlohmann::json j;
-	j["msg_id"] = EWebSocketMessageID::NETWORK_ROOM_CHAT;
+	j["msg_id"] = EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_CLIENT;
 	j["message"] = szMessage;
 	std::string strBody = j.dump();
 
@@ -77,6 +77,22 @@ void WebSocket::Send(const char* send_payload)
 	}
 }
 
+class WebSocketMessageBase
+{
+public:
+	EWebSocketMessageID msg_id;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessageBase, msg_id)
+};
+
+class WebSocketMessage_RoomChatIncoming : public WebSocketMessageBase
+{
+public:
+	std::string message;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message)
+};
+
 void WebSocket::Tick()
 {
 	// do recv
@@ -90,6 +106,38 @@ void WebSocket::Tick()
 	if (ret != CURL_LAST && ret != CURLE_AGAIN)
 	{
 		NetworkLog("Got websocket msg: %s", buffer);
+
+		try
+		{
+
+			nlohmann::json jsonObject = nlohmann::json::parse(buffer);
+
+			if (jsonObject.contains("msg_id"))
+			{
+				WebSocketMessageBase msgDetails = jsonObject.get<WebSocketMessageBase>();
+				EWebSocketMessageID msgID = msgDetails.msg_id;
+
+				switch (msgID)
+				{
+				case EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_SERVER:
+				{
+					WebSocketMessage_RoomChatIncoming chatData = jsonObject.get<WebSocketMessage_RoomChatIncoming>();
+
+					UnicodeString strChatMsg;
+					strChatMsg.format(L"%hs", chatData.message.c_str());
+
+					NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg);
+				}
+				break;
+				default:
+					break;
+				}
+			}
+		}
+		catch (...)
+		{
+
+		}
 	}
 
 }
