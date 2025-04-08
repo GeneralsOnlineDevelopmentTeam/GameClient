@@ -73,7 +73,9 @@ public:
 		}
 	}
 
-	int GetCurrentRoomID() const { return m_CurrentRoomID;}
+	void OnRosterUpdated(std::vector<std::string> vecUsers);
+
+	int GetCurrentRoomID() const { return m_CurrentRoomID; }
 
 private:
 	void ApplyLocalUserPropertiesToCurrentNetworkRoom();

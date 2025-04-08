@@ -133,6 +133,14 @@ public:
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message)
 };
 
+class WebSocketMessage_NetworkRoomMemberListUpdate : public WebSocketMessageBase
+{
+public:
+	std::vector<std::string> users;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkRoomMemberListUpdate, users)
+};
+
 void WebSocket::Tick()
 {
 	if (!m_bConnected)
@@ -173,6 +181,7 @@ void WebSocket::Tick()
 
 						switch (msgID)
 						{
+
 						case EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_SERVER:
 						{
 							WebSocketMessage_RoomChatIncoming chatData = jsonObject.get<WebSocketMessage_RoomChatIncoming>();
@@ -183,6 +192,14 @@ void WebSocket::Tick()
 							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg);
 						}
 						break;
+
+						case EWebSocketMessageID::NETWORK_ROOM_MEMBER_LIST_UPDATE:
+						{
+							WebSocketMessage_NetworkRoomMemberListUpdate memberList = jsonObject.get<WebSocketMessage_NetworkRoomMemberListUpdate>();
+							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->OnRosterUpdated(memberList.users);
+						}
+						break;
+
 						default:
 							break;
 						}
@@ -539,6 +556,25 @@ void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeStr
 
 
 	//m_pNetRoomMesh->SendToMesh(chatPacket, vecUsers);
+}
+
+void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string> vecUsers)
+{
+	m_mapMembers.clear();
+
+	Int64 i = 0;
+	for (std::string strDisplayName : vecUsers)
+	{
+		NetworkRoomMember newMember;
+		newMember.m_strName = AsciiString(strDisplayName.c_str());
+		m_mapMembers.emplace(i, newMember);
+			++i;
+	}
+
+	if (m_RosterNeedsRefreshCallback != nullptr)
+	{
+		m_RosterNeedsRefreshCallback();
+	}
 }
 
 void NGMP_OnlineServices_RoomsInterface::ApplyLocalUserPropertiesToCurrentNetworkRoom()
