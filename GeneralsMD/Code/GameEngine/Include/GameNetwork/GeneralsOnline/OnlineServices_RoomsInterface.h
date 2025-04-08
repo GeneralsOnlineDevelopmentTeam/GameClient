@@ -73,6 +73,8 @@ public:
 		}
 	}
 
+	int GetCurrentRoomID() const { return m_CurrentRoomID;}
+
 private:
 	void ApplyLocalUserPropertiesToCurrentNetworkRoom();
 

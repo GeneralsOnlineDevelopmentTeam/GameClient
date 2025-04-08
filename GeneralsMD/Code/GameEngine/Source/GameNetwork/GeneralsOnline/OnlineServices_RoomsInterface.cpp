@@ -16,6 +16,16 @@ WebSocket::~WebSocket()
 	Disconnect();
 }
 
+int WebSocket::Ping()
+{
+	size_t sent;
+	CURLcode result =
+		curl_ws_send(m_pCurl, "wsping", strlen("wsping"), &sent, 0,
+			CURLWS_PING);
+	return (int)result;
+}
+
+
 void WebSocket::Connect(const char* url)
 {
 	if (m_bConnected)
@@ -32,7 +42,7 @@ void WebSocket::Connect(const char* url)
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 0); /* websocket style */
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 0); /* websocket style */
 
-		curl_easy_setopt(m_pCurl, CURLOPT_TIMEOUT_MS, 1000);
+		//curl_easy_setopt(m_pCurl, CURLOPT_TIMEOUT_MS, 1000);
 
 		/* Perform the request, res gets the return code */
 		CURLcode res = curl_easy_perform(m_pCurl);
@@ -60,6 +70,16 @@ void WebSocket::SendData_RoomChatMessage(const char* szMessage)
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_CLIENT;
 	j["message"] = szMessage;
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+}
+
+void WebSocket::SendData_JoinNetworkRoom(int roomID)
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::NETWORK_ROOM_CHANGE_ROOM;
+	j["room"] = roomID;
 	std::string strBody = j.dump();
 
 	Send(strBody.c_str());
@@ -93,8 +113,7 @@ void WebSocket::Send(const char* send_payload)
 
 	if (result != CURLE_OK)
 	{
-		fprintf(stderr, "curl_ws_send() failed: %s\n",
-			curl_easy_strerror(result));
+		NetworkLog("curl_ws_send() failed: %s\n", curl_easy_strerror(result));
 	}
 }
 
@@ -129,40 +148,77 @@ void WebSocket::Tick()
 	CURLcode ret = CURL_LAST;
 	ret = curl_ws_recv(m_pCurl, buffer, sizeof(buffer), &rlen, &meta);
 
-	if (ret != CURL_LAST && ret != CURLE_AGAIN)
+	if (ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
 	{
 		NetworkLog("Got websocket msg: %s", buffer);
 
-		try
+		// what type of message?
+		if (meta != nullptr)
 		{
-
-			nlohmann::json jsonObject = nlohmann::json::parse(buffer);
-
-			if (jsonObject.contains("msg_id"))
+			if (meta->flags & CURLWS_PONG) // PONG
 			{
-				WebSocketMessageBase msgDetails = jsonObject.get<WebSocketMessageBase>();
-				EWebSocketMessageID msgID = msgDetails.msg_id;
-
-				switch (msgID)
+				NetworkLog("Got websocket pong");
+			}
+			else if (meta->flags & CURLWS_TEXT) // PONG
+			{
+				try
 				{
-				case EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_SERVER:
-				{
-					WebSocketMessage_RoomChatIncoming chatData = jsonObject.get<WebSocketMessage_RoomChatIncoming>();
 
-					UnicodeString strChatMsg;
-					strChatMsg.format(L"%hs", chatData.message.c_str());
+					nlohmann::json jsonObject = nlohmann::json::parse(buffer);
 
-					NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg);
+					if (jsonObject.contains("msg_id"))
+					{
+						WebSocketMessageBase msgDetails = jsonObject.get<WebSocketMessageBase>();
+						EWebSocketMessageID msgID = msgDetails.msg_id;
+
+						switch (msgID)
+						{
+						case EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_SERVER:
+						{
+							WebSocketMessage_RoomChatIncoming chatData = jsonObject.get<WebSocketMessage_RoomChatIncoming>();
+
+							UnicodeString strChatMsg;
+							strChatMsg.format(L"%hs", chatData.message.c_str());
+
+							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg);
+						}
+						break;
+						default:
+							break;
+						}
+					}
 				}
-				break;
-				default:
-					break;
+				catch (...)
+				{
+
 				}
 			}
+			else if (meta->flags & CURLWS_BINARY) // PONG
+			{
+				NetworkLog("Got websocket binary");
+				// noop
+			}
+			else if (meta->flags & CURLWS_CONT) // PONG
+			{
+				// noop
+			}
+			else if (meta->flags & CURLWS_CLOSE)
+			{
+				// TODO_NGMP: Handle this
+			}
+			else if (meta->flags & CURLWS_PING)
+			{
+				NetworkLog("Got websocket ping");
+				// TODO_NGMP: Handle this
+			}
+			else if (meta->flags & CURLWS_OFFSET)
+			{
+				// noop
+			}
 		}
-		catch (...)
+		else
 		{
-
+			NetworkLog("websocket meta was null");
 		}
 	}
 
@@ -279,6 +335,16 @@ void NGMP_OnlineServices_RoomsInterface::UpdateRoomDataCache()
 
 void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<void()> onStartCallback, std::function<void()> onCompleteCallback)
 {
+	// TODO_NGMP: Safety
+
+	// TODO_NGMP: Remove this, its no longer a call really, or make a call
+	onStartCallback();
+	m_CurrentRoomID = roomIndex;
+	NetworkRoom targetNetworkRoom = NGMP_OnlineServicesManager::GetInstance()->GetGroupRooms().at(roomIndex);
+	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_JoinNetworkRoom(targetNetworkRoom.GetRoomID());
+
+	onCompleteCallback();
+
 	/*
 	// TODO_NGMP: Only set this when actually joining successfully
 	m_CurrentRoomID = roomIndex;
@@ -470,6 +536,7 @@ void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeStr
 	{
 		vecUsers.push_back(kvPair.first);
 	}
+
 
 	//m_pNetRoomMesh->SendToMesh(chatPacket, vecUsers);
 }

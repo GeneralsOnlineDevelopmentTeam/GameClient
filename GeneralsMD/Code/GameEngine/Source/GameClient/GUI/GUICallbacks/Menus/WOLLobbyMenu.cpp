@@ -381,7 +381,7 @@ static void populateGroupRoomListbox(GameWindow *lb)
 	{
 		// TODO_NGMP: Support current group color highlighting again
 		int roomID = netRoom.GetRoomID();
-		if (roomID == 0)
+		if (roomID == NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetCurrentRoomID())
 		{
 			Int selected = GadgetComboBoxAddEntry(lb, netRoom.GetRoomDisplayName(), GameSpyColor[GSCOLOR_CURRENTROOM]);
 			GadgetComboBoxSetItemData(lb, selected, (void*)(roomID));
@@ -790,6 +790,8 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	comboLobbyGroupRoomsID = TheNameKeyGenerator->nameToKey(AsciiString("WOLCustomLobby.wnd:ComboBoxGroupRooms"));
 	comboLobbyGroupRooms = TheWindowManager->winGetWindowFromId(parent, comboLobbyGroupRoomsID);
 
+	GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Welcome to C&C Generals NextGen Multiplayer!"), GameMakeColor(255, 194, 15, 255), -1, -1);
+
 	GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
 
 	populateGroupRoomListbox(comboLobbyGroupRooms);
@@ -827,7 +829,7 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForJoinLobbyCallback(NGMP_WOLLobbyMenu_JoinLobbyCallback);
 
 	// NGMP: Request lobbies
-	GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Welcome to C&C Generals NextGen Multiplayer!"), GameMakeColor(255, 194, 15, 255), -1, -1);
+	
 	//GadgetListBoxSetItemData(listboxLobbyChat, (void*)-1, index);
 	
 	// TODO_NGMP: player list change callbacks
@@ -847,14 +849,20 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	// attempt to join the first room
 	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->JoinRoom(0, []()
 		{
-			GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
+			//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
 		},
 		[]()
 		{
-			GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Joined room"), GameMakeColor(255, 194, 15, 255), -1, -1);
+			UnicodeString msg;
+			msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetGroupRooms().at(0).GetRoomDisplayName().str());
+			GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 
 			// refresh on join
 			refreshPlayerList(TRUE);
+
+			RefreshGameListBoxes();
+
+			populateGroupRoomListbox(comboLobbyGroupRooms);
 		});
 
 	GrabWindowInfo();
@@ -1874,8 +1882,6 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 		//---------------------------------------------------------------------------------------------
 		case GCM_SELECTED:
 			{
-			// TODO_NGMP: Support this functionality again
-			/*
 				if (s_tryingToHostOrJoin)
 					break;
 				GameWindow *control = (GameWindow *)mData1;
@@ -1890,6 +1896,32 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					{
 						Int groupID;
 						groupID = (Int)GadgetComboBoxGetItemData(comboLobbyGroupRooms, rowSelected);
+						
+						// did it change?
+						if (groupID != NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetCurrentRoomID())
+						{
+							// join
+							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->JoinRoom(groupID, [=]()
+								{
+									//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
+								},
+								[=]()
+								{
+									UnicodeString msg;
+									msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetGroupRooms().at(groupID).GetRoomDisplayName().str());
+									GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+									// refresh on join
+									refreshPlayerList(TRUE);
+
+									RefreshGameListBoxes();
+
+									populateGroupRoomListbox(comboLobbyGroupRooms);
+								});
+						}
+
+						// TODO_NGMP: What does TheGameSpyConfig->restrictGamesToLobby() do?
+						/*
 						DEBUG_LOG(("ItemData was %d, current Group Room is %d\n", groupID, TheGameSpyInfo->getCurrentGroupRoom()));
 						if (groupID && groupID != TheGameSpyInfo->getCurrentGroupRoom())
 						{
@@ -1906,9 +1938,9 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 								TheGameSpyPeerMessageQueue->addRequest(req);
 							}
 						}
+						*/
 					}
 				}
-				*/
 			} // case GCM_SELECTED
 			break;
 
