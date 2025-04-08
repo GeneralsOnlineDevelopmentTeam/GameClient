@@ -42,11 +42,15 @@ void WebSocket::Connect(const char* url)
 			m_bConnected = false;
 			fprintf(stderr, "curl_easy_perform() failed: %s\n",
 				curl_easy_strerror(res));
+
+			NetworkLog("[WebSocket] Failed to connect");
 		}
 		else
 		{
 			/* connected and ready */
 			m_bConnected = true;
+
+			NetworkLog("[WebSocket] Connected");
 		}
 	}
 }

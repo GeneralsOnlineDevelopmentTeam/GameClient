@@ -39,8 +39,9 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 	}
 }
 
-void NGMP_OnlineServicesManager::OnLogin(bool bSuccess)
+void NGMP_OnlineServicesManager::OnLogin(bool bSuccess, const char* szWSAddr, const char* szWSToken)
 {
+	// TODO_NGMP: Support websocket reconnects here and on server
 	// TODO_NGMP: disconnect websocket when leaving MP
 	// TODO_NGMP: websocket keep alive
 	if (bSuccess)
@@ -48,7 +49,8 @@ void NGMP_OnlineServicesManager::OnLogin(bool bSuccess)
 		// connect to WS
 		// TODO_NGMP: Handle WS conn failure
 		m_pWebSocket = new WebSocket();
-		m_pWebSocket->Connect("wss://127.0.0.1:8443");
+
+		m_pWebSocket->Connect(std::format("{}/{}", szWSAddr, szWSToken).c_str());
 
 		// TODO_NGMP: This hangs forever if it fails to connect
 	}

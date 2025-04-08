@@ -29,8 +29,10 @@ struct AuthResponse
 	std::string al_token;
 	int64_t user_id = -1;
 	std::string display_name = "";
+	std::string ws_uri = "";
+	std::string ws_token = "";
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(AuthResponse, result, ss_token, al_token, user_id, display_name)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(AuthResponse, result, ss_token, al_token, user_id, display_name, ws_uri, ws_token)
 };
 
 std::string GenerateGamecode()
@@ -86,7 +88,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 					m_strDisplayName = authResp.display_name;
 
 					// trigger callback
-					OnLoginComplete(true);
+					OnLoginComplete(true, authResp.ws_uri.c_str(), authResp.ws_token.c_str());
 				}
 				else if (authResp.result == EAuthResponseResult::FAILED)
 				{
@@ -129,7 +131,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						m_strDisplayName = authResp.display_name;
 
 						// trigger callback
-						OnLoginComplete(true);
+						OnLoginComplete(true, authResp.ws_uri.c_str(), authResp.ws_token.c_str());
 					}
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
@@ -169,7 +171,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 							m_strDisplayName = authResp.display_name;
 
 							// trigger callback
-							OnLoginComplete(true);
+							OnLoginComplete(true, authResp.ws_uri.c_str(), authResp.ws_token.c_str());
 						}
 						else if (authResp.result == EAuthResponseResult::FAILED)
 						{
@@ -247,7 +249,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						m_strDisplayName = authResp.display_name;
 
 						// trigger callback
-						OnLoginComplete(true);
+						OnLoginComplete(true, authResp.ws_uri.c_str(), authResp.ws_token.c_str());
 					}
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
@@ -255,7 +257,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						m_bWaitingLogin = false;
 
 						// trigger callback
-						OnLoginComplete(false);
+						OnLoginComplete(false, "", "");
 					}
 				
 			}, nullptr);
@@ -263,11 +265,11 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 	}
 }
 
-void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess)
+void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const char* szWSAddr, const char* szWSToken)
 {
 	if (bSuccess)
 	{
-		NGMP_OnlineServicesManager::GetInstance()->OnLogin(bSuccess);
+		NGMP_OnlineServicesManager::GetInstance()->OnLogin(bSuccess, szWSAddr, szWSToken);
 
 		// move on to network capabilities section
 		ClearGSMessageBoxes();

@@ -125,7 +125,7 @@ public:
 	NGMP_OnlineServices_LobbyInterface* GetLobbyInterface() const { return m_pLobbyInterface; }
 	NGMP_OnlineServices_RoomsInterface* GetRoomsInterface() const { return m_pRoomInterface; }
 
-	void OnLogin(bool bSuccess);
+	void OnLogin(bool bSuccess, const char* szWSAddr, const char* szWSToken);
 	
 	void Init();
 
