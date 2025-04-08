@@ -646,14 +646,14 @@ set(GAMEENGINE_SRC
     Source/Common/System/FileSystem.cpp
     Source/Common/System/FunctionLexicon.cpp
     Source/Common/System/GameCommon.cpp
-    Source/Common/System/GameMemory.cpp
+    #Source/Common/System/GameMemory.cpp
     Source/Common/System/GameType.cpp
     Source/Common/System/Geometry.cpp
     Source/Common/System/KindOf.cpp
     Source/Common/System/List.cpp
     Source/Common/System/LocalFile.cpp
     Source/Common/System/LocalFileSystem.cpp
-    Source/Common/System/MemoryInit.cpp
+    #Source/Common/System/MemoryInit.cpp
     Source/Common/System/ObjectStatusTypes.cpp
     Source/Common/System/QuickTrig.cpp
     Source/Common/System/QuotedPrintable.cpp
@@ -1243,6 +1243,21 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.cpp
     Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Lobby_StartGamePacket.cpp
 )
+
+if(GENZH_GAMEMEMORY_ENABLE)
+    # Uses the original Game Memory implementation.
+    list(APPEND GAMEENGINE_SRC
+        Source/Common/System/GameMemory.cpp
+        Source/Common/System/MemoryInit.cpp
+    )
+else()
+    # Uses the null implementation when disabled.
+    list(APPEND GAMEENGINE_SRC
+        Source/Common/System/GameMemoryNull.cpp
+        Include/Common/GameMemoryNull.h
+    )
+endif()
+
 
 add_library(z_gameengine STATIC)
 
