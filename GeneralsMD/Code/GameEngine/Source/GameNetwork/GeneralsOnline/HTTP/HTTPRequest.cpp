@@ -182,12 +182,6 @@ void HTTPRequest::PlatformStartRequest()
 
 		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
-
-		CURLcode res = curl_easy_perform(m_pCURL);
-		if (res != CURLE_OK)
-		{
-			NetworkLog("CURL ERROR: %d", res);
-		}
-		NetworkLog("RES: %d", res);
+		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
 	}
 }

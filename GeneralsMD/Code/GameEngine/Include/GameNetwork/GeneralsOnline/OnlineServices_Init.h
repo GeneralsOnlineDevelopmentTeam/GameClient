@@ -82,6 +82,15 @@ public:
 
 	NGMP_OnlineServicesManager();
 	
+	enum EEnvironment
+	{
+		DEV,
+		PROD
+	};
+
+	const static EEnvironment g_Environment = EEnvironment::DEV;
+	static std::string GetAPIEndpoint(const char* szEndpoint, bool bAttachToken);
+
 	static NGMP_OnlineServicesManager* GetInstance()
 	{
 		return m_pOnlineServicesManager;

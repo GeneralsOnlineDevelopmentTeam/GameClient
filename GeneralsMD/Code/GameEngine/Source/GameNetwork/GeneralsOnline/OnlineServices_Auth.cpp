@@ -13,94 +13,6 @@
 
 
 #include "GameNetwork/GeneralsOnline/vendor/libcurl/curl.h"
-static int ping(CURL* curl, const char* send_payload)
-{
-	size_t sent;
-	CURLcode result =
-		curl_ws_send(curl, send_payload, strlen(send_payload), &sent, 0,
-			CURLWS_PING);
-	return (int)result;
-}
-
-static int sendmessage(CURL* curl, const char* send_payload)
-{
-	size_t sent;
-	CURLcode result =
-		curl_ws_send(curl, send_payload, strlen(send_payload), &sent, 0,
-			CURLWS_BINARY);
-	return (int)result;
-}
-
-static int recv_pong(CURL* curl, const char* expected_payload)
-{
-	size_t rlen;
-	const struct curl_ws_frame* meta;
-	char buffer[256];
-	CURLcode result = curl_ws_recv(curl, buffer, sizeof(buffer), &rlen, &meta);
-	if (!result) {
-		if (meta->flags & CURLWS_PONG) {
-			int same = 0;
-			fprintf(stderr, "ws: got PONG back\n");
-			if (rlen == strlen(expected_payload)) {
-				if (!memcmp(expected_payload, buffer, rlen)) {
-					fprintf(stderr, "ws: got the same payload back\n");
-					same = 1;
-				}
-			}
-			if (!same)
-				fprintf(stderr, "ws: did NOT get the same payload back\n");
-		}
-		else {
-			fprintf(stderr, "recv_pong: got %u bytes rflags %x\n", (int)rlen,
-				meta->flags);
-		}
-	}
-	fprintf(stderr, "ws: curl_ws_recv returned %u, received %u\n",
-		(unsigned int)result, (unsigned int)rlen);
-	return (int)result;
-}
-
-static CURLcode recv_any(CURL* curl)
-{
-	size_t rlen = 0;
-	const struct curl_ws_frame* meta = nullptr;
-	char buffer[256] = { 0 };
-
-	CURLcode ret = CURL_LAST;
-	ret = curl_ws_recv(curl, buffer, sizeof(buffer), &rlen, &meta);
-
-	if (ret != CURL_LAST && ret != CURLE_AGAIN)
-	{
-		NetworkLog("Got websocket msg: %s", buffer);
-	}
-	return ret;
-}
-
-/* close the connection */
-static void websocket_close(CURL* curl)
-{
-	size_t sent;
-	(void)curl_ws_send(curl, "", 0, &sent, 0, CURLWS_CLOSE);
-}
-
-static void websocket(CURL* curl)
-{
-	static bool bSendPing = true;
-
-	if (bSendPing)
-	{
-		bSendPing = false;
-		sendmessage(curl, "Hello World");
-	}
-	recv_any(curl);
-	//if (ping(curl, "foobar"))
-		//return;
-	//if (recv_pong(curl, "foobar")) {
-		//return;
-	//}
-	//websocket_close(curl);
-}
-
 
 enum class EAuthResponseResult : int
 {
@@ -177,28 +89,21 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 				}
 				else if (authResp.result == EAuthResponseResult::FAILED)
 				{
-					NetworkLog("LOGIN: Login failed, trying to re-auth");
-
-					// do normal login flow, token is bad or expired etc
-					m_bWaitingLogin = true;
-					m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-					m_strCode = GenerateGamecode();
-
-					std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
-
-					ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+					NetworkLog("LOGIN: Login failed, dev account cannot reauth");
 				}
 
 			}, nullptr);
 	}
 	else
 	{
-		if (DoCredentialsExist())
+		if (NGMP_OnlineServicesManager::g_Environment == NGMP_OnlineServicesManager::EEnvironment::DEV)
 		{
-			std::string strToken = GetCredentials();
-
+			// use dev account
+			NetworkLog("[NGMP] Secondary instance detected... using dev account for testing purposes");
 			// login
-			std::string strLoginURI = "https://playgenerals.online/cloud/env:dev/LoginWithToken";
+			std::string strToken = "ILOVECODE2";
+			
+			std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginWithToken", false);
 			std::map<std::string, std::string> mapHeaders;
 
 			nlohmann::json j;
@@ -207,7 +112,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
 				{
-					nlohmann::json jsonObject = nlohmann::json::parse(strBody, nullptr, false, true);
+					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 					AuthResponse authResp = jsonObject.get<AuthResponse>();
 
 					if (authResp.result == EAuthResponseResult::SUCCEEDED)
@@ -227,29 +132,71 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 					}
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
-						NetworkLog("LOGIN: Login failed, trying to re-auth");
-
-						// do normal login flow, token is bad or expired etc
-						m_bWaitingLogin = true;
-						m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-						m_strCode = GenerateGamecode();
-
-						std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
-
-						ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+						NetworkLog("LOGIN: Login failed, dev account cannot reauth");
 					}
 
 				}, nullptr);
 		}
 		else
 		{
-			m_bWaitingLogin = true;
-			m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-			m_strCode = GenerateGamecode();
+			if (DoCredentialsExist())
+			{
+				std::string strToken = GetCredentials();
 
-			std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+				// login
+				std::string strLoginURI = "https://playgenerals.online/cloud/env:dev/LoginWithToken";
+				std::map<std::string, std::string> mapHeaders;
 
-			ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+				nlohmann::json j;
+				j["token"] = strToken.c_str();
+				std::string strPostData = j.dump();
+
+				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+					{
+						nlohmann::json jsonObject = nlohmann::json::parse(strBody, nullptr, false, true);
+						AuthResponse authResp = jsonObject.get<AuthResponse>();
+
+						if (authResp.result == EAuthResponseResult::SUCCEEDED)
+						{
+							NetworkLog("LOGIN: Logged in");
+							m_bWaitingLogin = false;
+
+							SaveCredentials(authResp.al_token.c_str());
+
+							// store data locally
+							m_strToken = authResp.ss_token;
+							m_userID = authResp.user_id;
+							m_strDisplayName = authResp.display_name;
+
+							// trigger callback
+							OnLoginComplete(true);
+						}
+						else if (authResp.result == EAuthResponseResult::FAILED)
+						{
+							NetworkLog("LOGIN: Login failed, trying to re-auth");
+
+							// do normal login flow, token is bad or expired etc
+							m_bWaitingLogin = true;
+							m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+							m_strCode = GenerateGamecode();
+
+							std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+
+							ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+						}
+
+					}, nullptr);
+			}
+			else
+			{
+				m_bWaitingLogin = true;
+				m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+				m_strCode = GenerateGamecode();
+
+				std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+
+				ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+			}
 		}
 	}
 }

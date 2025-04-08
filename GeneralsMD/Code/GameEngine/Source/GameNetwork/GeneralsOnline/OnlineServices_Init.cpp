@@ -10,6 +10,35 @@ NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
 	m_pOnlineServicesManager = this;
 }
 
+std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, bool bAttachToken)
+{
+	if (bAttachToken)
+	{
+		std::string strToken = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken();
+
+		if (g_Environment == EEnvironment::DEV)
+		{
+			return std::format("https://localhost:8444/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
+		}
+		else // PROD
+		{
+			return std::format("https://www.playgenerals.online:8444/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
+		}
+
+	}
+	else
+	{
+		if (g_Environment == EEnvironment::DEV)
+		{
+			return std::format("https://localhost:8444/cloud/env:dev/{}", szEndpoint);
+		}
+		else // PROD
+		{
+			return std::format("https://www.playgenerals.online:8444/cloud/env:dev/{}", szEndpoint);
+		}
+	}
+}
+
 void NGMP_OnlineServicesManager::OnLogin(bool bSuccess)
 {
 	// TODO_NGMP: disconnect websocket when leaving MP

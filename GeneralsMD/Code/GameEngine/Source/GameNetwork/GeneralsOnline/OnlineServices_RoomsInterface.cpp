@@ -18,6 +18,11 @@ WebSocket::~WebSocket()
 
 void WebSocket::Connect(const char* url)
 {
+	if (m_bConnected)
+	{
+		return;
+	}
+
 	if (m_pCurl != nullptr)
 	{
 		curl_easy_setopt(m_pCurl, CURLOPT_URL, url);
@@ -26,6 +31,8 @@ void WebSocket::Connect(const char* url)
 
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 0); /* websocket style */
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 0); /* websocket style */
+
+		curl_easy_setopt(m_pCurl, CURLOPT_TIMEOUT_MS, 1000);
 
 		/* Perform the request, res gets the return code */
 		CURLcode res = curl_easy_perform(m_pCurl);
@@ -56,6 +63,11 @@ void WebSocket::SendData_RoomChatMessage(const char* szMessage)
 
 void WebSocket::Disconnect()
 {
+	if (!m_bConnected)
+	{
+		return;
+	}
+
 	// send close
 	size_t sent;
 	(void)curl_ws_send(m_pCurl, "", 0, &sent, 0, CURLWS_CLOSE);
@@ -66,6 +78,11 @@ void WebSocket::Disconnect()
 
 void WebSocket::Send(const char* send_payload)
 {
+	if (!m_bConnected)
+	{
+		return;
+	}
+
 	size_t sent;
 	CURLcode result = curl_ws_send(m_pCurl, send_payload, strlen(send_payload), &sent, 0,
 			CURLWS_BINARY);
@@ -95,6 +112,11 @@ public:
 
 void WebSocket::Tick()
 {
+	if (!m_bConnected)
+	{
+		return;
+	}
+
 	// do recv
 	size_t rlen = 0;
 	const struct curl_ws_frame* meta = nullptr;

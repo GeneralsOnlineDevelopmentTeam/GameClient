@@ -53,6 +53,7 @@
 #include "GameClient/GlobalLanguage.h"
 #include "GameClient/GameWindowTransitions.h"
 #include "Common/NameKeyGenerator.h"
+#include "../NextGenMP_defines.h"
 
 // PUBLIC DATA ////////////////////////////////////////////////////////////////////////////////////
 GameWindowManager *TheWindowManager = NULL;
@@ -1676,10 +1677,12 @@ GameWindow *GameWindowManager::gogoMessageBox(Int x, Int y, Int width, Int heigh
 
 {
 	// first check to make sure we have some buttons to display
+#if !defined(GENERALS_ONLINE)
 	if(buttonFlags == 0 )
 	{
 		return NULL;
 	}
+#endif
 	GameWindow *trueParent = NULL;
 	//Changed by Chris
 	if(useLogo)

@@ -52,21 +52,10 @@ public:
 		return m_capNATPMP;
 	}
 
-	ECapabilityState HasIPv6()
-	{
-		return m_capIPv6;
-	}
-
-	ECapabilityState HasIPv4()
-	{
-		return m_capIPv4;
-	}
-
 	bool HasPortOpen() const { return m_bHasPortOpenedViaUPNP || m_bHasPortOpenedViaNATPMP; }
 	bool HasPortOpenUPnP() const { return m_bHasPortOpenedViaUPNP; }
 	bool HasPortOpenNATPMP() const { m_bHasPortOpenedViaNATPMP; }
-	int GetOpenPort_External() const { return m_PreferredPortExternal; }
-	int GetOpenPort_Internal() const { return m_PreferredPortInternal; }
+	int GetOpenPort() const { return m_PreferredPort; }
 
 	void UPnP_RemoveAllMappingsToThisMachine();
 
@@ -82,14 +71,11 @@ private:
 	ECapabilityState m_directConnect = ECapabilityState::UNDETERMINED;
 	ECapabilityState m_capUPnP = ECapabilityState::UNDETERMINED;
 	ECapabilityState m_capNATPMP = ECapabilityState::UNDETERMINED;
-	ECapabilityState m_capIPv4 = ECapabilityState::UNDETERMINED;
-	ECapabilityState m_capIPv6 = ECapabilityState::UNDETERMINED;
 
 	bool m_bHasPortOpenedViaUPNP = false;
 	bool m_bHasPortOpenedViaNATPMP = false;
 
-	uint16_t m_PreferredPortInternal = 0;
-	uint16_t m_PreferredPortExternal = 0;
+	uint16_t m_PreferredPort = 0;
 
 	SOCKET m_NATSocket;
 	bool m_bNATCheckInProgress = false;

@@ -25,62 +25,8 @@ void PortMapper::Tick()
 	{
 		m_bPortMapperWorkComplete.store(false);
 
-		// check IPv4
-		std::map<std::string, std::string> mapHeaders;
-		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(std::format("https://playgenerals.online/cloud/env:dev:{}/DetermineIPCapabilities", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken()).c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody)
-			{
-				if (bSuccess && statusCode != 0)
-				{
-					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-					IPCapsResult result = jsonObject.get<IPCapsResult>();
-
-					// NOTE: 6 can still be reported here... if we ONLY have ipV6 and no IPV4... proxies etc can cause / alter behavior.
-					m_capIPv4 = (result.ipversion == 4) ? ECapabilityState::SUPPORTED : ECapabilityState::UNSUPPORTED;
-
-					if (result.ipversion == 6)
-					{
-						m_capIPv6 = ECapabilityState::SUPPORTED;
-					}
-				}
-				else
-				{
-					// only if it didnt resolve earlier
-					if (m_capIPv4 != ECapabilityState::SUPPORTED)
-					{
-						m_capIPv4 = ECapabilityState::UNSUPPORTED;
-					}
-				}
-
-				// now check IPv6
-				std::map<std::string, std::string> mapHeaders;
-				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(std::format("https://playgenerals.online/cloud/env:dev:{}/DetermineIPCapabilities", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken()).c_str(), EIPProtocolVersion::FORCE_IPV6, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody)
-					{
-						if (bSuccess && statusCode != 0)
-						{
-							nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-							IPCapsResult result = jsonObject.get<IPCapsResult>();
-
-							m_capIPv6 = (result.ipversion == 6) ? ECapabilityState::SUPPORTED : ECapabilityState::UNSUPPORTED;
-
-							// NOTE: 4 can still be reported here... if we ONLY have ipV4 and no IPV6... proxies etc can cause / alter behavior.
-							if (result.ipversion == 4)
-							{
-								m_capIPv4 = ECapabilityState::SUPPORTED;
-							}
-						}
-						else
-						{
-							// only if it didnt resolve earlier
-							if (m_capIPv6 != ECapabilityState::SUPPORTED)
-							{
-								m_capIPv6 = ECapabilityState::UNSUPPORTED;
-							}
-						}
-
-						// start nat checker
-						StartNATCheck();
-					});
-			});
+		// start nat checker
+		StartNATCheck();
 	}
 
 	if (m_bNATCheckInProgress)
@@ -119,7 +65,7 @@ void PortMapper::Tick()
 		}
 
 		// now recv again
-		char buffer[1024];
+		char buffer[1024] = { 0 };
 		sockaddr_in clientAddr;
 		int clientAddrLen = sizeof(clientAddr);
 
@@ -164,7 +110,7 @@ void PortMapper::StartNATCheck()
 	WSADATA wsaData;
 	
 	sockaddr_in serverAddr;
-	const int PORT = m_PreferredPortInternal;
+	const int PORT = m_PreferredPort;
 
 	// Initialize Winsock
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
@@ -218,11 +164,11 @@ void PortMapper::StartNATCheck()
 	m_bNATCheckInProgress = true;
 	m_probeStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 	std::string strToken = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken();
-	std::string strURI = std::format("https://playgenerals.online/cloud/env:dev:{}/NATCheck", strToken.c_str());
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("NATCheck", true);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
-	j["preferred_port"] = m_PreferredPortExternal;
+	j["preferred_port"] = m_PreferredPort;
 	std::string strPostData = j.dump();
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
@@ -248,9 +194,6 @@ void PortMapper::BackgroundThreadRun()
 	m_directConnect = ECapabilityState::UNDETERMINED;
 	m_capUPnP = ECapabilityState::UNDETERMINED;
 	m_capNATPMP = ECapabilityState::UNDETERMINED;
-	m_capIPv4 = ECapabilityState::UNDETERMINED;
-	m_capIPv6 = ECapabilityState::UNDETERMINED;
-
 	
 	// TODO_NGMP: Do this on a background thread?
 
@@ -316,13 +259,11 @@ void PortMapper::TryForwardPreferredPorts()
 	// TODO_NGMP: Better detection of if in use already
 	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 	std::mt19937 gen(seed);
-	std::uniform_int_distribution<> dis(35000, 45000);
-	std::uniform_int_distribution<> disInternal(5000, 15000);
+	std::uniform_int_distribution<> dis(5000, 25000);
 
-	m_PreferredPortInternal = disInternal(gen);
-	m_PreferredPortExternal = dis(gen);
+	m_PreferredPort = dis(gen);
 
-	NetworkLog("PortMapper: Attempting to open ext port %d and forward to local port %d", m_PreferredPortExternal, m_PreferredPortInternal);
+	NetworkLog("PortMapper: Attempting to open ext port %d and forward to local port %d", m_PreferredPort, m_PreferredPort);
 
 	// TODO_NGMP: If everything fails, try a new port?
 	
@@ -411,14 +352,13 @@ bool PortMapper::ForwardPreferredPort_UPnP()
 		return false;
 	}
 
-	std::string strExternalPort = std::format("{}", m_PreferredPortExternal);
-	std::string strInternalPort = std::format("{}", m_PreferredPortInternal);
+	std::string strPort = std::format("{}", m_PreferredPort);
 
 	error = UPNP_AddPortMapping(
 		upnp_urls.controlURL,
 		upnp_data.first.servicetype,
-		strExternalPort.c_str(),
-		strInternalPort.c_str(),
+		strPort.c_str(),
+		strPort.c_str(),
 		lan_address,
 		"C&C Generals Online",
 		"UDP",
@@ -454,9 +394,9 @@ bool PortMapper::ForwardPreferredPort_UPnP()
 			map_lease_duration);
 
 		if (!error
-			&& strcmp(map_wan_port, strExternalPort.c_str()) == 0
+			&& strcmp(map_wan_port, strPort.c_str()) == 0
 			&& strcmp(map_lan_address, lan_address) == 0
-			&& strcmp(map_lan_port, strInternalPort.c_str()) == 0
+			&& strcmp(map_lan_port, strPort.c_str()) == 0
 			&& strcmp(map_protocol, "UDP") == 0
 			&& strcmp(map_description, "C&C Generals Online") == 0
 			)
@@ -489,7 +429,7 @@ bool PortMapper::ForwardPreferredPort_NATPMP()
 	natpmpresp_t response;
 	initnatpmp(&natpmp, 0, 0);
 
-	sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, m_PreferredPortInternal, m_PreferredPortExternal, 86400);
+	sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, m_PreferredPort, m_PreferredPort, 86400);
 	do
 	{
 		fd_set fds;
@@ -617,13 +557,12 @@ void PortMapper::RemovePortMapping_UPnP()
 		return;
 	}
 
-	std::string strExternalPort = std::format("{}", m_PreferredPortExternal);
-	std::string strInternalPort = std::format("{}", m_PreferredPortInternal);
+	std::string strPort = std::format("{}", m_PreferredPort);
 
 	error = UPNP_DeletePortMapping(
 		upnp_urls.controlURL,
 		upnp_data.first.servicetype,
-		strExternalPort.c_str(),
+		strPort.c_str(),
 		"UDP",
 		0);
 
@@ -646,7 +585,7 @@ void PortMapper::RemovePortMapping_NATPMP()
 	natpmpresp_t response;
 	initnatpmp(&natpmp, 0, 0);
 
-	sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, m_PreferredPortInternal, m_PreferredPortExternal, 0);
+	sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, m_PreferredPort, m_PreferredPort, 0);
 	do
 	{
 		fd_set fds;
