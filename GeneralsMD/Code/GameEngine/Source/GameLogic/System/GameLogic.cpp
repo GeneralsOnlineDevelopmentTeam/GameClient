@@ -112,6 +112,9 @@
 
 #include <rts/profile.h>
 
+#include "../ngmp_include.h"
+#include "../ngmp_interfaces.h"
+
 DECLARE_PERF_TIMER(SleepyMaintenance)
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.		 
@@ -128,6 +131,7 @@ FILE *g_UT_commaLog=NULL;
 #include "../../GameEngineDevice/Include/W3DDevice/GameClient/Module/W3DModelDraw.h"
 extern void externalAddTree(Coord3D location, Real scale, Real angle, AsciiString name);
 #endif
+
 
 
 #ifdef _INTERNAL
@@ -1188,7 +1192,10 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 		else
 		{
 			DEBUG_LOG(("Starting gamespy game\n"));
-			TheGameInfo = game = TheGameSpyGame;	/// @todo: MDC add back in after demo
+			// NGMP_CHANGE
+			NGMPGame* NextGenMPGame = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
+			TheGameInfo = game = NextGenMPGame;	/// @todo: MDC add back in after demo
+			//TheGameInfo = game = TheGameSpyGame;	/// @todo: MDC add back in after demo
 		}
 	}
 	else
@@ -2830,7 +2837,10 @@ Int GameLogic::rebalanceChildSleepyUpdate(Int i)
 // balance down, not up), so this one is hand-unrolled for
 // max efficiency. I have left the pristine non-unrolled
 // version present for clarity. (Yes, this is worth doing.) (srj) 
-#if 1
+
+	// NGMP_CHANGE: REvert...
+	// TODO_NGMP: Fix this and re-enable
+#if 0
 	UpdateModulePtr* pI = &m_sleepyUpdates[i];
 
 	// our children are i*2 and i*2+1
@@ -3685,7 +3695,8 @@ void GameLogic::update( void )
 
 	// Update the Recorder
 	{
-		TheRecorder->UPDATE();
+		// TODO_NGMP: Re-enable this
+		//TheRecorder->UPDATE();
 	}
 
 	// process client commands

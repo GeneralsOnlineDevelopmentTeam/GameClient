@@ -318,6 +318,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache()
 				// inform game instance too
 				if (TheNGMPGame != nullptr)
 				{
+					TheNGMPGame->SyncWithLobby(m_CurrentLobby);
 					TheNGMPGame->UpdateSlotsFromCurrentLobby();
 
 					if (m_RosterNeedsRefreshCallback != nullptr)
@@ -626,18 +627,27 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					m_CurrentLobby.lobbyID = resp.lobby_id;
 					m_CurrentLobby.owner = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 
+					m_CurrentLobby.name = std::string(strName.str());
+					m_CurrentLobby.map_name = std::string(strMapName.str());
+					m_CurrentLobby.map_path = std::string(strInitialMapPath.str());
+					m_CurrentLobby.current_players = 1;
+					m_CurrentLobby.max_players = initialMaxSize;
 
+					LobbyMemberEntry me;
+
+					me.user_id = m_CurrentLobby.owner;
+					me.display_name = std::string(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
+					me.ready = true; // host is always ready
+
+					m_CurrentLobby.members.push_back(me);
+
+	
 					// TODO_NGMP: Cleanup game + dont store 2 ptrs
 					if (m_pGameInst == nullptr)
 					{
 						m_pGameInst = new NGMPGame();
 						TheNGMPGame = m_pGameInst;
 
-						AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-						TheNGMPGame->setLocalName(localName);
-
-						// set in game, this actually means in lobby... not in game play, and is necessary to start the game
-						TheNGMPGame->setInGame();
 
 						// TODO_NGMP: Rest of these
 						/*
@@ -649,6 +659,16 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 						TheNGMPGame.setGameName(info->getGameName());
 						*/
 					}
+
+
+					AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
+					TheNGMPGame->setLocalName(localName);
+
+					// set in game, this actually means in lobby... not in game play, and is necessary to start the game
+					TheNGMPGame->setInGame();
+
+					TheNGMPGame->SyncWithLobby(m_CurrentLobby);
+					TheNGMPGame->UpdateSlotsFromCurrentLobby();
 
 					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->OnJoinedOrCreatedLobby();
 				}

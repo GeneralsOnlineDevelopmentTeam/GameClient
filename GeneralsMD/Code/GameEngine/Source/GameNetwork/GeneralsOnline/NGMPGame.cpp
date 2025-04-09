@@ -52,6 +52,11 @@ NGMPGame::NGMPGame()
 	UpdateSlotsFromCurrentLobby();
 }
 
+void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
+{
+	// TODO_NGMP: More here
+	setMap(lobby.map_path.c_str());
+}
 
 void NGMPGame::UpdateSlotsFromCurrentLobby()
 {
@@ -224,7 +229,7 @@ void NGMPGame::startGame(Int gameID)
 	//DEBUG_ASSERTCRASH(TheNAT == NULL, ("TheNAT is not NULL when it should be"));
 
 	//UnsignedInt localIP = TheGameSpyInfo->getInternalIP();
-	UnsignedInt localIP = 0;
+	UnsignedInt localIP = 1337; // dont care anymore
 	setLocalIP(localIP);
 
 	// fill in GS-specific info

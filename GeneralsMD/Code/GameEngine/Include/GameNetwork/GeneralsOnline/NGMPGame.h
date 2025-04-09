@@ -1,6 +1,8 @@
 #pragma once
 #include "../GameInfo.h"
 
+class LobbyEntry;
+
 class NGMPGameSlot : public GameSlot
 {
 public:
@@ -67,6 +69,7 @@ public:
 	NGMPGame();
 	virtual void reset(void);
 
+	void SyncWithLobby(LobbyEntry& lobby);
 	void UpdateSlotsFromCurrentLobby();
 
 	void cleanUpSlotPointers(void);

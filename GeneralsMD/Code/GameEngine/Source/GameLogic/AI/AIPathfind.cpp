@@ -4033,6 +4033,10 @@ void Pathfinder::classifyFence( Object *obj, Bool insert )
 	cellBounds.lo.y = REAL_TO_INT_FLOOR((pos->y + 0.5f)/PATHFIND_CELL_SIZE_F);
 	Bool didAnything = false;
 
+	// NGMP_CHANGE: Safety
+	cellBounds.hi.x = 9999999;
+	cellBounds.hi.y = 9999999;
+
  	for (Int iy = 0; iy < numStepsY; ++iy, tl_x += ydx, tl_y += ydy)
  	{
  		Real x = tl_x;
