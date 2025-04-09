@@ -185,8 +185,23 @@ Int NGMPGame::getLocalSlotNum(void) const
 	if (!m_inGame)
 		return -1;
 
-	AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
+	Int64 localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 
+	for (Int i = 0; i < MAX_SLOTS; ++i)
+	{
+		const NGMPGameSlot* slot = (const NGMPGameSlot*)getConstSlot(i);
+		if (slot == NULL) {
+			continue;
+		}
+		if (slot->m_userID == localUserID)
+		{
+			return i;
+		}
+	}
+
+	//AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
+	// NGMP_CHANGE: This was using a string compare... moved it to use user id comparison, quicker
+	/*
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
 		const GameSlot* slot = getConstSlot(i);
@@ -196,6 +211,8 @@ Int NGMPGame::getLocalSlotNum(void) const
 		if (slot->isPlayer(localName))
 			return i;
 	}
+	*/
+
 	return -1;
 }
 

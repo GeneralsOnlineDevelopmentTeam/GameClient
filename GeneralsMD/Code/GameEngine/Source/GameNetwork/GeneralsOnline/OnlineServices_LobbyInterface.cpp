@@ -100,7 +100,7 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 {
 	m_vecLobbies.clear();
 
-	std::string strURI = std::format("https://playgenerals.online/cloud/env:dev:{}/Lobbies", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken());
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies", true);
 	std::map<std::string, std::string> mapHeaders;
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody)
@@ -280,24 +280,26 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache()
 	// refresh lobby
 	if (m_CurrentLobby.lobbyID != -1)
 	{
-		std::string strURI = std::format("https://playgenerals.online/cloud/env:dev:{}/Lobby/{}", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken(), m_CurrentLobby.lobbyID);
+		std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 		std::map<std::string, std::string> mapHeaders;
 
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody)
 		{
 			// TODO_NGMP: Error handling
-			nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+			nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody);
+
+			auto lobbyEntryJSON = jsonObjectRoot["lobby"];
 
 			LobbyEntry lobbyEntry;
-			jsonObject["id"].get_to(lobbyEntry.lobbyID);
-			jsonObject["owner"].get_to(lobbyEntry.owner);
-			jsonObject["name"].get_to(lobbyEntry.name);
-			jsonObject["map_name"].get_to(lobbyEntry.map_name);
-			jsonObject["map_path"].get_to(lobbyEntry.map_path);
-			jsonObject["current_players"].get_to(lobbyEntry.current_players);
-			jsonObject["max_players"].get_to(lobbyEntry.max_players);
+			lobbyEntryJSON["id"].get_to(lobbyEntry.lobbyID);
+			lobbyEntryJSON["owner"].get_to(lobbyEntry.owner);
+			lobbyEntryJSON["name"].get_to(lobbyEntry.name);
+			lobbyEntryJSON["map_name"].get_to(lobbyEntry.map_name);
+			lobbyEntryJSON["map_path"].get_to(lobbyEntry.map_path);
+			lobbyEntryJSON["current_players"].get_to(lobbyEntry.current_players);
+			lobbyEntryJSON["max_players"].get_to(lobbyEntry.max_players);
 
-			for (const auto& memberEntryIter : jsonObject["members"])
+			for (const auto& memberEntryIter : lobbyEntryJSON["members"])
 			{
 				LobbyMemberEntry memberEntry;
 
@@ -386,6 +388,21 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 			{
 				m_pGameInst = new NGMPGame();
 				TheNGMPGame = m_pGameInst;
+
+				AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
+				TheNGMPGame->setLocalName(localName);
+
+				// set in game, this actually means in lobby... not in game play, and is necessary to start the game
+				TheNGMPGame->setInGame();
+
+				// TODO_NGMP: Rest of these
+				/*
+				TheNGMPGame.setExeCRC(info->getExeCRC());
+				TheNGMPGame.setIniCRC(info->getIniCRC());
+				TheNGMPGame.setAllowObservers(info->getAllowObservers());
+				TheNGMPGame.setHasPassword(info->getHasPassword());
+				TheNGMPGame.setGameName(info->getGameName());
+				*/
 			}
 
 			bool bJoinSuccess = statusCode == 200;
@@ -570,9 +587,8 @@ struct CreateLobbyResponse
 
 void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize)
 {
-	m_CurrentLobby = LobbyEntry();
-
-	std::string strURI = std::format("https://playgenerals.online/cloud/env:dev:{}/Lobbies", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken());
+	m_CurrentLobby = LobbyEntry();	
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies", true);
 	std::map<std::string, std::string> mapHeaders;
 
 	// convert
@@ -596,6 +612,22 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 			{
 				m_pGameInst = new NGMPGame();
 				TheNGMPGame = m_pGameInst;
+
+				AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
+				TheNGMPGame->setLocalName(localName);
+
+				// set in game, this actually means in lobby... not in game play, and is necessary to start the game
+				TheNGMPGame->setInGame();
+
+				// TODO_NGMP: Rest of these
+				/*
+				TheNGMPGame.setLocalName(m_localName);
+				TheNGMPGame.setExeCRC(info->getExeCRC());
+				TheNGMPGame.setIniCRC(info->getIniCRC());
+				TheNGMPGame.setAllowObservers(info->getAllowObservers());
+				TheNGMPGame.setHasPassword(info->getHasPassword());
+				TheNGMPGame.setGameName(info->getGameName());
+				*/
 			}
 
 			nlohmann::json jsonObject = nlohmann::json::parse(strBody);

@@ -894,6 +894,52 @@ void RefreshGameListBox( GameWindow *win, Bool showMap )
 	// empty listbox
 	GadgetListBoxReset(win);
 
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SearchForLobbies(
+		[=]()
+		{
+			win->winEnable(false);
+			GadgetListBoxAddEntryText(win, UnicodeString(L"Searching for public lobbies..."), GameMakeColor(255, 194, 15, 255), -1, -1);
+		},
+		[=](std::vector<LobbyEntry> vecLobbies)
+		{
+			size_t numResults = vecLobbies.size();
+
+			GadgetListBoxReset(win);
+			if (numResults == 0)
+			{
+				win->winEnable(false);
+				GadgetListBoxAddEntryText(win, UnicodeString(L"No lobbies were found"), GameMakeColor(255, 194, 15, 255), -1, -1);
+			}
+			else
+			{
+				win->winEnable(true);
+
+				Int indexToSelect = -1;
+
+				int i = 0;
+				for (LobbyEntry lobby : vecLobbies)
+				{
+					Int index = insertGame(win, lobby, showMap);
+					if (i == selectedID)
+					{
+						indexToSelect = index;
+					}
+
+					++i;
+				}
+
+				// restore selection
+				GadgetListBoxSetSelected(win, indexToSelect); // even for -1, so we can disable the 'Join Game' button
+				//	if(prevPos > 10)
+				GadgetListBoxSetTopVisibleEntry(win, prevPos);//+ 1
+
+				if (indexToSelect < 0 && selectedID)
+				{
+					TheWindowManager->winSetLoneWindow(NULL);
+				}
+			}
+		});
+
 	// TODO_NGMP: Impl below again + support buddy games
 	/*
 	// sort our games
