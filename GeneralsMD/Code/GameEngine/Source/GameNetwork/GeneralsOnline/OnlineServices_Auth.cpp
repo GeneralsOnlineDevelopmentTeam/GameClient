@@ -72,48 +72,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
 			{
-				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-				AuthResponse authResp = jsonObject.get<AuthResponse>();
-
-				if (authResp.result == EAuthResponseResult::SUCCEEDED)
-				{
-					NetworkLog("LOGIN: Logged in");
-					m_bWaitingLogin = false;
-
-					SaveCredentials(authResp.al_token.c_str());
-
-					// store data locally
-					m_strToken = authResp.ss_token;
-					m_userID = authResp.user_id;
-					m_strDisplayName = authResp.display_name;
-
-					// trigger callback
-					OnLoginComplete(true, authResp.ws_uri.c_str(), authResp.ws_token.c_str());
-				}
-				else if (authResp.result == EAuthResponseResult::FAILED)
-				{
-					NetworkLog("LOGIN: Login failed, dev account cannot reauth");
-				}
-
-			}, nullptr);
-	}
-	else
-	{
-		if (NGMP_OnlineServicesManager::g_Environment == NGMP_OnlineServicesManager::EEnvironment::DEV)
-		{
-			// use dev account
-			NetworkLog("[NGMP] Secondary instance detected... using dev account for testing purposes");
-			// login
-			std::string strToken = "ILOVECODE2";
-			
-			
-			std::map<std::string, std::string> mapHeaders;
-
-			nlohmann::json j;
-			j["token"] = strToken.c_str();
-			std::string strPostData = j.dump();
-
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+				try
 				{
 					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 					AuthResponse authResp = jsonObject.get<AuthResponse>();
@@ -137,25 +96,35 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 					{
 						NetworkLog("LOGIN: Login failed, dev account cannot reauth");
 					}
+				}
+				catch (...)
+				{
 
-				}, nullptr);
-		}
-		else
+				}
+
+			}, nullptr);
+	}
+	else
+	{
+		if (NGMP_OnlineServicesManager::g_Environment == NGMP_OnlineServicesManager::EEnvironment::DEV)
 		{
-			if (DoCredentialsExist())
-			{
-				std::string strToken = GetCredentials();
+			// use dev account
+			NetworkLog("[NGMP] Secondary instance detected... using dev account for testing purposes");
+			// login
+			std::string strToken = "ILOVECODE2";
+			
+			
+			std::map<std::string, std::string> mapHeaders;
 
-				// login
-				std::map<std::string, std::string> mapHeaders;
+			nlohmann::json j;
+			j["token"] = strToken.c_str();
+			std::string strPostData = j.dump();
 
-				nlohmann::json j;
-				j["token"] = strToken.c_str();
-				std::string strPostData = j.dump();
-
-				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+				{
+					try
 					{
-						nlohmann::json jsonObject = nlohmann::json::parse(strBody, nullptr, false, true);
+						nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 						AuthResponse authResp = jsonObject.get<AuthResponse>();
 
 						if (authResp.result == EAuthResponseResult::SUCCEEDED)
@@ -175,16 +144,69 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						}
 						else if (authResp.result == EAuthResponseResult::FAILED)
 						{
-							NetworkLog("LOGIN: Login failed, trying to re-auth");
+							NetworkLog("LOGIN: Login failed, dev account cannot reauth");
+						}
+					}
+					catch (...)
+					{
 
-							// do normal login flow, token is bad or expired etc
-							m_bWaitingLogin = true;
-							m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-							m_strCode = GenerateGamecode();
+					}
+					
 
-							std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+				}, nullptr);
+		}
+		else
+		{
+			if (DoCredentialsExist())
+			{
+				std::string strToken = GetCredentials();
 
-							ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+				// login
+				std::map<std::string, std::string> mapHeaders;
+
+				nlohmann::json j;
+				j["token"] = strToken.c_str();
+				std::string strPostData = j.dump();
+
+				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+					{
+						try
+						{
+							nlohmann::json jsonObject = nlohmann::json::parse(strBody, nullptr, false, true);
+							AuthResponse authResp = jsonObject.get<AuthResponse>();
+
+							if (authResp.result == EAuthResponseResult::SUCCEEDED)
+							{
+								NetworkLog("LOGIN: Logged in");
+								m_bWaitingLogin = false;
+
+								SaveCredentials(authResp.al_token.c_str());
+
+								// store data locally
+								m_strToken = authResp.ss_token;
+								m_userID = authResp.user_id;
+								m_strDisplayName = authResp.display_name;
+
+								// trigger callback
+								OnLoginComplete(true, authResp.ws_uri.c_str(), authResp.ws_token.c_str());
+							}
+							else if (authResp.result == EAuthResponseResult::FAILED)
+							{
+								NetworkLog("LOGIN: Login failed, trying to re-auth");
+
+								// do normal login flow, token is bad or expired etc
+								m_bWaitingLogin = true;
+								m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+								m_strCode = GenerateGamecode();
+
+								std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+
+								ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+							}
+						}
+						catch (...)
+						{
+
 						}
 
 					}, nullptr);
@@ -224,6 +246,8 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
 			{
+				try
+				{
 					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 					AuthResponse authResp = jsonObject.get<AuthResponse>();
 
@@ -259,6 +283,11 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						// trigger callback
 						OnLoginComplete(false, "", "");
 					}
+				}
+				catch (...)
+				{
+
+				}
 				
 			}, nullptr);
 		}

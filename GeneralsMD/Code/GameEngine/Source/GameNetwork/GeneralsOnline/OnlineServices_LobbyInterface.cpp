@@ -106,31 +106,38 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody)
 	{
 		// TODO_NGMP: Error handling
-		nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-
-		for (const auto& lobbyEntryIter : jsonObject["lobbies"])
+		try
 		{
-			LobbyEntry lobbyEntry;
-			lobbyEntryIter["id"].get_to(lobbyEntry.lobbyID);
-			lobbyEntryIter["owner"].get_to(lobbyEntry.owner);
-			lobbyEntryIter["name"].get_to(lobbyEntry.name);
-			lobbyEntryIter["map_name"].get_to(lobbyEntry.map_name);
-			lobbyEntryIter["map_path"].get_to(lobbyEntry.map_path);
-			lobbyEntryIter["current_players"].get_to(lobbyEntry.current_players);
-			lobbyEntryIter["max_players"].get_to(lobbyEntry.max_players);
+			nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 
-			for (const auto& memberEntryIter : lobbyEntryIter["members"])
+			for (const auto& lobbyEntryIter : jsonObject["lobbies"])
 			{
-				LobbyMemberEntry memberEntry;
+				LobbyEntry lobbyEntry;
+				lobbyEntryIter["id"].get_to(lobbyEntry.lobbyID);
+				lobbyEntryIter["owner"].get_to(lobbyEntry.owner);
+				lobbyEntryIter["name"].get_to(lobbyEntry.name);
+				lobbyEntryIter["map_name"].get_to(lobbyEntry.map_name);
+				lobbyEntryIter["map_path"].get_to(lobbyEntry.map_path);
+				lobbyEntryIter["current_players"].get_to(lobbyEntry.current_players);
+				lobbyEntryIter["max_players"].get_to(lobbyEntry.max_players);
 
-				memberEntryIter["user_id"].get_to(memberEntry.user_id);
-				memberEntryIter["display_name"].get_to(memberEntry.display_name);
-				memberEntryIter["ready"].get_to(memberEntry.ready);
+				for (const auto& memberEntryIter : lobbyEntryIter["members"])
+				{
+					LobbyMemberEntry memberEntry;
 
-				lobbyEntry.members.push_back(memberEntry);
+					memberEntryIter["user_id"].get_to(memberEntry.user_id);
+					memberEntryIter["display_name"].get_to(memberEntry.display_name);
+					memberEntryIter["ready"].get_to(memberEntry.ready);
+
+					lobbyEntry.members.push_back(memberEntry);
+				}
+
+				m_vecLobbies.push_back(lobbyEntry);
 			}
+		}
+		catch (...)
+		{
 
-			m_vecLobbies.push_back(lobbyEntry);
 		}
 
 		onCompleteCallback(m_vecLobbies);
@@ -286,44 +293,51 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache()
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody)
 		{
 			// TODO_NGMP: Error handling
-			nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody);
-
-			auto lobbyEntryJSON = jsonObjectRoot["lobby"];
-
-			LobbyEntry lobbyEntry;
-			lobbyEntryJSON["id"].get_to(lobbyEntry.lobbyID);
-			lobbyEntryJSON["owner"].get_to(lobbyEntry.owner);
-			lobbyEntryJSON["name"].get_to(lobbyEntry.name);
-			lobbyEntryJSON["map_name"].get_to(lobbyEntry.map_name);
-			lobbyEntryJSON["map_path"].get_to(lobbyEntry.map_path);
-			lobbyEntryJSON["current_players"].get_to(lobbyEntry.current_players);
-			lobbyEntryJSON["max_players"].get_to(lobbyEntry.max_players);
-
-			for (const auto& memberEntryIter : lobbyEntryJSON["members"])
+				try
 			{
-				LobbyMemberEntry memberEntry;
+				nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody);
 
-				memberEntryIter["user_id"].get_to(memberEntry.user_id);
-				memberEntryIter["display_name"].get_to(memberEntry.display_name);
-				memberEntryIter["ready"].get_to(memberEntry.ready);
+				auto lobbyEntryJSON = jsonObjectRoot["lobby"];
 
-				lobbyEntry.members.push_back(memberEntry);
-			}
+				LobbyEntry lobbyEntry;
+				lobbyEntryJSON["id"].get_to(lobbyEntry.lobbyID);
+				lobbyEntryJSON["owner"].get_to(lobbyEntry.owner);
+				lobbyEntryJSON["name"].get_to(lobbyEntry.name);
+				lobbyEntryJSON["map_name"].get_to(lobbyEntry.map_name);
+				lobbyEntryJSON["map_path"].get_to(lobbyEntry.map_path);
+				lobbyEntryJSON["current_players"].get_to(lobbyEntry.current_players);
+				lobbyEntryJSON["max_players"].get_to(lobbyEntry.max_players);
 
-			// store
-			m_CurrentLobby = lobbyEntry;
-
-			// update NGMP Game if it exists
-
-			// inform game instance too
-			if (TheNGMPGame != nullptr)
-			{
-				TheNGMPGame->UpdateSlotsFromCurrentLobby();
-
-				if (m_RosterNeedsRefreshCallback != nullptr)
+				for (const auto& memberEntryIter : lobbyEntryJSON["members"])
 				{
-					m_RosterNeedsRefreshCallback();
+					LobbyMemberEntry memberEntry;
+
+					memberEntryIter["user_id"].get_to(memberEntry.user_id);
+					memberEntryIter["display_name"].get_to(memberEntry.display_name);
+					memberEntryIter["ready"].get_to(memberEntry.ready);
+
+					lobbyEntry.members.push_back(memberEntry);
 				}
+
+				// store
+				m_CurrentLobby = lobbyEntry;
+
+				// update NGMP Game if it exists
+
+				// inform game instance too
+				if (TheNGMPGame != nullptr)
+				{
+					TheNGMPGame->UpdateSlotsFromCurrentLobby();
+
+					if (m_RosterNeedsRefreshCallback != nullptr)
+					{
+						m_RosterNeedsRefreshCallback();
+					}
+				}
+			}
+			catch (...)
+			{
+
 			}
 		});
 	}
@@ -630,27 +644,34 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 				*/
 			}
 
-			nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-			CreateLobbyResponse resp = jsonObject.get<CreateLobbyResponse>();
-
-			if (resp.result == ECreateLobbyResponseResult::SUCCEEDED)
+			try
 			{
-				// store the basic info (lobby id), we will immediately kick off a full get				
-				m_CurrentLobby.lobbyID = resp.lobby_id;
+				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+				CreateLobbyResponse resp = jsonObject.get<CreateLobbyResponse>();
 
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->OnJoinedOrCreatedLobby();
+				if (resp.result == ECreateLobbyResponseResult::SUCCEEDED)
+				{
+					// store the basic info (lobby id), we will immediately kick off a full get				
+					m_CurrentLobby.lobbyID = resp.lobby_id;
+
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->OnJoinedOrCreatedLobby();
+				}
+				else
+				{
+					NetworkLog("[NGMP] Failed to create lobby!\n");
+				}
+
+				// TODO_NGMP: Impl
+				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
+
+				// Set our properties
+				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ResetCachedRoomData();
+				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ApplyLocalUserPropertiesToCurrentNetworkRoom();
 			}
-			else
+			catch (...)
 			{
-				NetworkLog("[NGMP] Failed to create lobby!\n");
+
 			}
-
-			// TODO_NGMP: Impl
-			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
-
-			// Set our properties
-			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ResetCachedRoomData();
-			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ApplyLocalUserPropertiesToCurrentNetworkRoom();
 
 		});
 	return;
