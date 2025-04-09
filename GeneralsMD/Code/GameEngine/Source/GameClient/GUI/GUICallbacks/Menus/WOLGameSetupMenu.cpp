@@ -1545,7 +1545,10 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 	// Recorded stats games can never limit superweapons, limit armies, or have inflated starting cash.
 		// This should probably be enforced at the gamespy level as well, to prevent expoits.
-		Int isUsingStats = TheGameSpyGame->getUseStats();
+		// TODO_NGMP: reimpl
+		//Int isUsingStats = TheGameSpyGame->getUseStats();
+		bool isUsingStats = true;
+
 		game->setStartingCash( isUsingStats? TheMultiplayerSettings->getDefaultStartingMoney() : customPref.getStartingCash() );
 		game->setSuperweaponRestriction( isUsingStats? 0 : customPref.getSuperweaponRestricted() ? 1 : 0 );
 		if (isUsingStats)

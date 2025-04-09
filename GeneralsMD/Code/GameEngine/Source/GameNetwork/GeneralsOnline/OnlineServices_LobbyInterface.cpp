@@ -149,16 +149,7 @@ bool NGMP_OnlineServices_LobbyInterface::IsHost()
 	if (IsInLobby())
 	{
 		int64_t myUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-
-		for (const auto& member : m_CurrentLobby.members)
-		{
-			if (member.m_bIsHost)
-			{
-				return member.user_id == myUserID;
-			}
-		}
-
-		return false;
+		return m_CurrentLobby.owner == myUserID;
 	}
 
 	return false;
@@ -397,28 +388,6 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 	// convert
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody)
 		{
-			// TODO_NGMP: Cleanup game + dont store 2 ptrs
-			if (m_pGameInst == nullptr)
-			{
-				m_pGameInst = new NGMPGame();
-				TheNGMPGame = m_pGameInst;
-
-				AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-				TheNGMPGame->setLocalName(localName);
-
-				// set in game, this actually means in lobby... not in game play, and is necessary to start the game
-				TheNGMPGame->setInGame();
-
-				// TODO_NGMP: Rest of these
-				/*
-				TheNGMPGame.setExeCRC(info->getExeCRC());
-				TheNGMPGame.setIniCRC(info->getIniCRC());
-				TheNGMPGame.setAllowObservers(info->getAllowObservers());
-				TheNGMPGame.setHasPassword(info->getHasPassword());
-				TheNGMPGame.setGameName(info->getGameName());
-				*/
-			}
-
 			bool bJoinSuccess = statusCode == 200;
 
 			// no response body from this, just http codes
@@ -427,6 +396,29 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 				NetworkLog("[NGMP] Joined lobby");
 
 				m_CurrentLobby = lobbyInfo;
+
+				// TODO_NGMP: Cleanup game + dont store 2 ptrs
+				if (m_pGameInst == nullptr)
+				{
+					m_pGameInst = new NGMPGame();
+					TheNGMPGame = m_pGameInst;
+
+					AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
+					TheNGMPGame->setLocalName(localName);
+
+					// set in game, this actually means in lobby... not in game play, and is necessary to start the game
+					TheNGMPGame->setInGame();
+
+					// TODO_NGMP: Rest of these
+					/*
+					TheNGMPGame.setExeCRC(info->getExeCRC());
+					TheNGMPGame.setIniCRC(info->getIniCRC());
+					TheNGMPGame.setAllowObservers(info->getAllowObservers());
+					TheNGMPGame.setHasPassword(info->getHasPassword());
+					TheNGMPGame.setGameName(info->getGameName());
+					*/
+				}
+
 				OnJoinedOrCreatedLobby();
 			}
 			else if (statusCode == 401)
@@ -621,29 +613,6 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
 		{
-			// TODO_NGMP: Cleanup game + dont store 2 ptrs
-			if (m_pGameInst == nullptr)
-			{
-				m_pGameInst = new NGMPGame();
-				TheNGMPGame = m_pGameInst;
-
-				AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-				TheNGMPGame->setLocalName(localName);
-
-				// set in game, this actually means in lobby... not in game play, and is necessary to start the game
-				TheNGMPGame->setInGame();
-
-				// TODO_NGMP: Rest of these
-				/*
-				TheNGMPGame.setLocalName(m_localName);
-				TheNGMPGame.setExeCRC(info->getExeCRC());
-				TheNGMPGame.setIniCRC(info->getIniCRC());
-				TheNGMPGame.setAllowObservers(info->getAllowObservers());
-				TheNGMPGame.setHasPassword(info->getHasPassword());
-				TheNGMPGame.setGameName(info->getGameName());
-				*/
-			}
-
 			try
 			{
 				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
@@ -651,8 +620,35 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 				if (resp.result == ECreateLobbyResponseResult::SUCCEEDED)
 				{
+					// TODO: Do we need more info here? we kick off a lobby GET immediately, maybe that should be the response to creating
+					
 					// store the basic info (lobby id), we will immediately kick off a full get				
 					m_CurrentLobby.lobbyID = resp.lobby_id;
+					m_CurrentLobby.owner = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+
+
+					// TODO_NGMP: Cleanup game + dont store 2 ptrs
+					if (m_pGameInst == nullptr)
+					{
+						m_pGameInst = new NGMPGame();
+						TheNGMPGame = m_pGameInst;
+
+						AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
+						TheNGMPGame->setLocalName(localName);
+
+						// set in game, this actually means in lobby... not in game play, and is necessary to start the game
+						TheNGMPGame->setInGame();
+
+						// TODO_NGMP: Rest of these
+						/*
+						TheNGMPGame.setLocalName(m_localName);
+						TheNGMPGame.setExeCRC(info->getExeCRC());
+						TheNGMPGame.setIniCRC(info->getIniCRC());
+						TheNGMPGame.setAllowObservers(info->getAllowObservers());
+						TheNGMPGame.setHasPassword(info->getHasPassword());
+						TheNGMPGame.setGameName(info->getGameName());
+						*/
+					}
 
 					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->OnJoinedOrCreatedLobby();
 				}
