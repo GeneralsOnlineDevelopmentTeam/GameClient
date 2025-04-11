@@ -5,29 +5,37 @@
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_Hello.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.h"
+#include "../ngmp_include.h"
+#include "../NGMP_interfaces.h"
+#include <ws2ipdef.h>
 
-void NetworkMesh::SendHelloMsg(uint64_t targetUser)
+
+void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers)
 {
-	NetRoom_HelloPacket helloPacket;
+	CBitStream* pBitStream = packet.Serialize();
 
-	std::vector<uint64_t> vecUsers;
-	vecUsers.push_back(targetUser);
+	ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
+		ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
 
-	SendToMesh(helloPacket, vecUsers);
-}
+	for (auto& connection : m_mapConnections)
+	{
+		ENetPeer* peer = connection.second.m_peer;
 
-void NetworkMesh::SendHelloAckMsg(uint64_t targetUser)
-{
-	NetRoom_HelloAckPacket helloAckPacket;
+		if (peer != nullptr)
+		{
+			int ret = enet_peer_send(peer, 0, pENetPacket);
 
-	std::vector<uint64_t> vecUsers;
-	vecUsers.push_back(targetUser);
+			if (ret == 0)
+			{
+				NetworkLog("Packet Sent!");
+			}
+			else
+			{
+				NetworkLog("Packet Failed To Send!");
+			}
+		}
+	}
 
-	SendToMesh(helloAckPacket, vecUsers);
-}
-
-void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<uint64_t> vecTargetUsers)
-{
 	/*
 	auto P2PHandle = EOS_Platform_GetP2PInterface(NGMP_OnlineServicesManager::GetInstance()->GetEOSPlatformHandle());
 
@@ -59,191 +67,246 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<uint64_t> vecTar
 	*/
 }
 
-void NetworkMesh::ConnectToMesh(const char* szRoomID)
+void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember)
 {
-	/*
-	m_SockID.ApiVersion = EOS_P2P_SOCKETID_API_LATEST;
-	strcpy(m_SockID.SocketName, szRoomID);
+	//m_mapConnections[lobbyMember.user_id] = PlayerConnection();
 
-	// TODO_NGMP: Dont automatically accept connections that aren't in the room roster, security
+	ENetAddress addr;
 
-	// connection created callback
-	auto P2PHandle = EOS_Platform_GetP2PInterface(NGMP_OnlineServicesManager::GetInstance()->GetEOSPlatformHandle());
 
-	// TODO_NGMP: This is specific to socket ID, unregister it when we leave or join another room
-	EOS_P2P_AddNotifyPeerConnectionEstablishedOptions opts;
-	opts.ApiVersion = EOS_P2P_ADDNOTIFYPEERCONNECTIONESTABLISHED_API_LATEST;
-	opts.LocalUserId = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetEOSUser();
-	opts.SocketId = &m_SockID;
-	EOS_P2P_AddNotifyPeerConnectionEstablished(P2PHandle, &opts, this, [](const EOS_P2P_OnPeerConnectionEstablishedInfo* Data)
+	// TODO_NGMP: Connect to correct IP + the remote preferred port
+	enet_address_set_host(&addr, lobbyMember.strIPAddress.c_str());
+	addr.port = lobbyMember.preferredPort;
+
+	// TODO_NGMP: error handle on get host ip
+	char ip[INET_ADDRSTRLEN + 1] = { 0 };
+	enet_address_get_host_ip(&addr, ip, sizeof(ip));
+
+	/* Initiate the connection, allocating the two channels 0 and 1. */
+	ENetPeer* peer = enet_host_connect(enetInstance, &addr, 2, 0);
+
+	if (peer == nullptr)
+	{
+		// TODO_NGMP: Better handling
+		NetworkLog("No available peers for initiating an ENet connection.");
+		return;
+	}
+
+	// store it
+	m_mapConnections[lobbyMember.user_id] = PlayerConnection(lobbyMember.user_id, addr, peer);
+
+
+}
+
+// TODO_NGMP: enet_deinitialize
+// TODO_NGMP: enet_host_destroy(server);
+// TODO_NGMP: enet_host_destroy(client);
+static bool m_bEnetInitialized = false;
+void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
+{
+	// TODO_NGMP: Cleanup properly
+	m_mapConnections.clear();
+
+	if (!m_bEnetInitialized)
+	{
+		if (enet_initialize() != 0)
 		{
-			NetworkMesh* pMesh = (NetworkMesh * )Data->ClientData;
+			// TODO_NGMP: Handle error
+			NetworkLog("Network Init Failed!");
+			m_bEnetInitialized = false;
+			return;
+		}
+		else
+		{
+			NetworkLog("Network Initialized!");
+			m_bEnetInitialized = true;
+		}
+	}
 
-			NetworkMemberBase* pMember = nullptr;
+	// create server
+	if (enetInstance == nullptr)
+	{
+		server_address.host = ENET_HOST_ANY;
+		server_address.port = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 
-			if (pMesh->GetMeshType() == ENetworkMeshType::NETWORK_ROOM)
-			{
-				pMember = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetRoomMemberFromID(Data->RemoteUserId);
-			}
-			else if (pMesh->GetMeshType() == ENetworkMeshType::GAME_LOBBY)
-			{
-				// TODO_NGMP: Custom
-				//pMember = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromID(Data->RemoteUserId);
-			}
+		enetInstance = enet_host_create(&server_address,
+			8,  // max game size is 8 and we are p2p and fake a connection to ourselves // TODO_NGMP: Do we need to support more, e.g. spectators?
+			2,  // 2 channels, 0 is lobby, 1 is gameplay
+			0,
+			0);
 
-			if (pMember != nullptr)
-			{
-				// TODO_NGMP: Handle reconnection
-				if (Data->NetworkType == EOS_ENetworkConnectionType::EOS_NCT_NoConnection)
-				{
-					pMember->m_connectionState = ENetworkConnectionState::NOT_CONNECTED;
-				}
-				else if (Data->NetworkType == EOS_ENetworkConnectionType::EOS_NCT_DirectConnection)
-				{
-					pMember->m_connectionState = ENetworkConnectionState::CONNECTED_DIRECT;
-				}
-				else if (Data->NetworkType == EOS_ENetworkConnectionType::EOS_NCT_RelayedConnection)
-				{
-					pMember->m_connectionState = ENetworkConnectionState::CONNECTED_RELAYED;
-				}
-			}
+		if (enetInstance == NULL)
+		{
+			// TODO_NGMP: Handle error
+			NetworkLog("Network Listen Failed!");
+			m_bEnetInitialized = false;
+			return;
+		}
+	}
 
-			// TODO_NGMP: abstract lobbies away better
-
-			// invoke a roster change so the UI updates
-			if (pMesh->GetMeshType() == ENetworkMeshType::NETWORK_ROOM)
-			{
-				if (NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_RosterNeedsRefreshCallback != nullptr)
-				{
-					NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_RosterNeedsRefreshCallback();
-				}
-			}
-			else if (pMesh->GetMeshType() == ENetworkMeshType::GAME_LOBBY)
-			{
-				if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_RosterNeedsRefreshCallback != nullptr)
-				{
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_RosterNeedsRefreshCallback();
-				}
-			}
-
-			
-		});
-		*/
+	// now connect to everyone in the lobby
+	for (LobbyMemberEntry& lobbyMember : lobby.members)
+	{
+		ConnectToSingleUser(lobbyMember);
+	}
 }
 
 void NetworkMesh::Tick()
 {
-	/*
-	auto P2PHandle = EOS_Platform_GetP2PInterface(NGMP_OnlineServicesManager::GetInstance()->GetEOSPlatformHandle());
-
-	uint8_t channelToUse = (uint8_t)m_meshType;
-
-	// recv
-	EOS_P2P_GetNextReceivedPacketSizeOptions sizeOptions;
-	sizeOptions.ApiVersion = EOS_P2P_GETNEXTRECEIVEDPACKETSIZE_API_LATEST;
-	sizeOptions.LocalUserId = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetEOSUser();
-	sizeOptions.RequestedChannel = &channelToUse; // room mesh channels
-
-	uint32_t numBytes = 0;
-	while (EOS_P2P_GetNextReceivedPacketSize(P2PHandle, &sizeOptions, &numBytes) == EOS_EResult::EOS_Success)
+	// tick
 	{
-		CBitStream bitstream(numBytes);
+		ENetEvent event;
 
-		EOS_P2P_ReceivePacketOptions options;
-		options.ApiVersion = EOS_P2P_RECEIVEPACKET_API_LATEST;
-		options.LocalUserId = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetEOSUser();
-		options.MaxDataSizeBytes = numBytes;
-		options.RequestedChannel = &channelToUse; // room mesh channels
-
-		EOS_ProductUserId outRemotePeerID = nullptr;
-		EOS_P2P_SocketId outSocketID;
-		uint8_t outChannel = 0;
-		EOS_EResult result = EOS_P2P_ReceivePacket(P2PHandle, &options, &outRemotePeerID, &outSocketID, &outChannel, (void*)bitstream.GetRawBuffer(), &numBytes);
-
-		if (result == EOS_EResult::EOS_Success)
+		while (enet_host_service(enetInstance, &event, 0) > 0)
 		{
-			// TODO_NGMP: Reject any packets from members not in the room? or mesh
-			char szEOSUserID[EOS_PRODUCTUSERID_MAX_LENGTH + 1] = { 0 };
-			int32_t outLenLocal = sizeof(szEOSUserID);
-			EOS_ProductUserId_ToString(outRemotePeerID, szEOSUserID, &outLenLocal);
-			NetworkLog("[NGMP]: Received %d bytes from user %s", numBytes, szEOSUserID);
-
-			EPacketID packetID = bitstream.Read<EPacketID>();
-
-			// Game Mesh / Lobby packets only
-			if (m_meshType == ENetworkMeshType::GAME_LOBBY)
+			switch (event.type)
 			{
-				if (packetID == EPacketID::PACKET_ID_LOBBY_START_GAME)
-				{
-					// TODO_NGMP: Ignore if not host sending
-					NetworkLog("[NGMP]: Got start game packet from %s", szEOSUserID);
-
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
-				}
-			}
-			else if (m_meshType == ENetworkMeshType::NETWORK_ROOM || m_meshType == ENetworkMeshType::GAME_LOBBY)// NetRoom AND Game Mesh / Lobby packets
+			case ENET_EVENT_TYPE_CONNECT:
 			{
-				if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO)
+				char ip[INET_ADDRSTRLEN + 1] = { 0 };
+				if (enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip)) == 0)
 				{
-					NetRoom_HelloPacket helloPacket(bitstream);
-
-					NetworkLog("[NGMP]: Got hello from %s, sending ack", szEOSUserID);
-					SendHelloAckMsg(outRemotePeerID);
+					NetworkLog("[SERVER] A new client connected from %s:%u.\n",
+						ip,
+						event.peer->address.port);
 				}
-				else if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO_ACK)
-				{
-					NetRoom_HelloAckPacket helloAckPacket(bitstream);
 
-					NetworkLog("[NGMP]: Received ack from %s, we're now connected", szEOSUserID);
-				}
-				else if (packetID == EPacketID::PACKET_ID_NET_ROOM_CHAT_MSG)
-				{
-					NetRoom_ChatMessagePacket chatPacket(bitstream);
-
-					// TODO_NGMP: Support longer msgs
-					NetworkLog("[NGMP]: Received chat message of len %d: %s", chatPacket.GetMsg().length(), chatPacket.GetMsg().c_str());
-
-					// determine the username
-					// TODO_NGMP: Use inheritence
-
-					if (m_meshType == ENetworkMeshType::NETWORK_ROOM)
+				// find user
+				// TODO_NGMP: What if it isnt found? could be an unauthorized user but could also be someone connecting before we know they're in the lobby
+				PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
+				if (pConnection != nullptr)
 					{
-						std::map<EOS_ProductUserId, NetworkRoomMember>& mapRoomMembers = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetMembersListForCurrentRoom();
+						NetworkLog("Found connection for user %d", pConnection->m_userID);
+					}
 
-						if (mapRoomMembers.find(outRemotePeerID) != mapRoomMembers.end())
+				break;
+			}
+				
+
+			case ENET_EVENT_TYPE_RECEIVE:
+			{
+				NetworkLog("[SERVER] A packet of length %u containing %s was received from %s on channel %u.\n",
+					event.packet->dataLength,
+					event.packet->data,
+					event.peer->data,
+					event.channelID);
+
+				// process
+				// TODO_NGMP: Reject any packets from members not in the room? or mesh
+
+				CBitStream bitstream(event.packet->data, event.packet->dataLength, (EPacketID)event.packet->data[0]);
+				NetworkLog("[NGMP]: Received %d bytes from user %d", event.packet->dataLength, event.peer->incomingPeerID);
+
+				EPacketID packetID = bitstream.Read<EPacketID>();
+
+				// Game Mesh / Lobby packets only
+				if (m_meshType == ENetworkMeshType::GAME_LOBBY)
+				{
+					// TODO_NGMP: Determine this all on connect instead of with a handshake, or keep the handshake for hole punching...
+					if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO)
+					{
+
+						// server sends hello ack in response to hello
+						char ip[INET_ADDRSTRLEN + 1] = { 0 };
+						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
+
+						NetRoom_HelloPacket helloPacket(bitstream);
+
+						NetworkLog("[NGMP]: Got hello from %s:%d (user ID: %d), sending ack", ip, event.peer->address.port, helloPacket.GetUserID());
+
+						// just send manually to that one user, dont broadcast
+						NetRoom_HelloAckPacket ackPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
+						CBitStream* pBitStream = ackPacket.Serialize();
+
+						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
+							ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+
+						int ret = enet_peer_send(event.peer, 0, pENetPacket);
+						if (ret == 0)
 						{
-							UnicodeString str;
-							str.format(L"%hs: %hs", mapRoomMembers[outRemotePeerID].m_strName.str(), chatPacket.GetMsg().c_str());
-							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(str);
+							NetworkLog("Packet Sent!");
+
+							// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
+							// store the connection
+							m_mapConnections[helloPacket.GetUserID()] = PlayerConnection(helloPacket.GetUserID(), event.peer->address, event.peer);
+
+							NetworkLog("[NGMP]: Registered connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, helloPacket.GetUserID());
 						}
 						else
 						{
-							// TODO_NGMP: Error, user sending us messages isnt in the room
+							NetworkLog("Packet Failed To Send!");
 						}
 					}
-					else if (m_meshType == ENetworkMeshType::GAME_LOBBY)
+					else if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO_ACK)
 					{
-						// TODO_NGMP: Custom
-						/*
-						std::map<EOS_ProductUserId, LobbyMember*>& mapRoomMembers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
+						NetRoom_HelloAckPacket helloAckPacket(bitstream);
 
-						if (mapRoomMembers.find(outRemotePeerID) != mapRoomMembers.end())
+						char ip[INET_ADDRSTRLEN + 1] = { 0 };
+						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
+						NetworkLog("[NGMP]: Received ack from %s (user ID: %d), we're now connected", ip, helloAckPacket.GetUserID());
+
+						// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
+						// store the connection
+						m_mapConnections[helloAckPacket.GetUserID()] = PlayerConnection(helloAckPacket.GetUserID(), event.peer->address, event.peer);
+
+						NetworkLog("[NGMP]: Registered client connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, helloAckPacket.GetUserID());
+					}
+					
+					else if (packetID == EPacketID::PACKET_ID_LOBBY_START_GAME)
+					{
+						// TODO_NGMP: Ignore if not host sending
+						NetworkLog("[NGMP]: Got start game packet from %d", event.peer->incomingPeerID);
+
+						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
+					}
+					else if (packetID == EPacketID::PACKET_ID_NET_ROOM_CHAT_MSG)
+					{
+						NetRoom_ChatMessagePacket chatPacket(bitstream);
+
+						// TODO_NGMP: Support longer msgs
+						NetworkLog("[NGMP]: Received chat message of len %d: %s from %d", chatPacket.GetMsg().length(), chatPacket.GetMsg().c_str(), event.peer->incomingPeerID);
+
+						// find user
+						for (auto& connectionData : m_mapConnections)
 						{
-							UnicodeString str;
-							str.format(L"%hs: %hs", mapRoomMembers[outRemotePeerID]->m_strName.str(), chatPacket.GetMsg().c_str());
-							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
+							if (connectionData.second.m_peer->address.host == event.peer->address.host
+								&& connectionData.second.m_peer->address.port == event.peer->address.port)
+							{
+								auto lobbyUsers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
+								for (const auto& lobbyUser : lobbyUsers)
+								{
+									if (lobbyUser.user_id == connectionData.first)
+									{
+										UnicodeString str;
+										str.format(L"%hs: %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
+										NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
+
+										break;
+									}
+								}
+
+								break;
+								//NetworkLog("Found connection for user %d", connectionData.first);
+							}
 						}
-						else
-						{
-							// TODO_NGMP: Error, user sending us messages isnt in the room
-						}
-						*/
-/*
+
 					}
 				}
+				
+				/* Clean up the packet now that we're done using it. */
+				enet_packet_destroy(event.packet);
+
+				break;
 			}
-			
+
+			case ENET_EVENT_TYPE_DISCONNECT:
+				NetworkLog("[SERVER] %s disconnected.\n", event.peer->data);
+
+				/* Reset the peer's client information. */
+
+				event.peer->data = NULL;
+			}
 		}
 	}
-	*/
+
 }

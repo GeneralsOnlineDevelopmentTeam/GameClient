@@ -11,6 +11,8 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	std::string display_name;
 	bool ready;
 
+	std::string strIPAddress;
+	uint16_t preferredPort;
 	// NOTE: NetworkMemberBase is not deserialized
 
 	bool IsValid() const { return user_id != -1; }
@@ -175,7 +177,7 @@ public:
 
 	bool IsHost();
 
-	void UpdateRoomDataCache();
+	void UpdateRoomDataCache(std::function<void(void)> fnCallback = nullptr);
 
 	std::function<void(UnicodeString strMessage)> m_OnChatCallback = nullptr;
 	void RegisterForChatCallback(std::function<void(UnicodeString strMessage)> cb)

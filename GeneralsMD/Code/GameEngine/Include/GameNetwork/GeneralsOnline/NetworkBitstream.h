@@ -18,12 +18,27 @@ class MemoryBuffer
 public:
 	MemoryBuffer()
 	{
+		m_bOwnership = true;
 		m_pBuffer = nullptr;
 		m_bufferSize = 0;
 	}
 
+	// reading over network, enet allocated and owns the memory
+	MemoryBuffer(uint8_t* pExistingBuffer, size_t size)
+	{
+		m_bOwnership = false;
+		m_pBuffer = pExistingBuffer;
+		m_bufferSize = size;
+		/*
+		m_pBuffer = (uint8_t*)malloc(size);
+		memset(m_pBuffer, 0, size);
+		m_bufferSize = size;
+		*/
+	}
+
 	MemoryBuffer(size_t size)
 	{
+		m_bOwnership = true;
 		m_pBuffer = (uint8_t*)malloc(size);
 		memset(m_pBuffer, 0, size);
 		m_bufferSize = size;
@@ -36,6 +51,7 @@ public:
 
 		std::swap(m_pBuffer, rhs.m_pBuffer);
 		std::swap(m_bufferSize, rhs.m_bufferSize);
+		std::swap(m_bOwnership, rhs.m_bOwnership);
 
 		return *this;
 	}
@@ -44,8 +60,11 @@ public:
 	{
 		if (m_pBuffer != nullptr)
 		{
-			free(m_pBuffer);
-			m_pBuffer = nullptr;
+			if (m_bOwnership)
+			{
+				free(m_pBuffer);
+				m_pBuffer = nullptr;
+			}
 		}
 	}
 
@@ -55,6 +74,8 @@ public:
 protected:
 	uint8_t* m_pBuffer = nullptr;
 	size_t m_bufferSize = 0;
+
+	bool m_bOwnership = false;
 };
 
 class CBitStream
@@ -71,6 +92,18 @@ public:
 	CBitStream(std::vector<BYTE> vecBytes);
 	CBitStream(CBitStream* bsIn);
 	~CBitStream();
+
+	// reading over network, enet allocated and owns the memory
+	CBitStream(uint8_t* pExistingBuffer, size_t size, EPacketID packetID)
+	{
+		// TODO_NGMP: Mark that we dont own this buffer and should not free it, or free it via Enet functions
+		m_memBuffer = MemoryBuffer(pExistingBuffer, size);
+
+		m_packetID = packetID;
+
+		// set offset to 0, we're about to read, not write
+		m_Offset = 0;
+	}
 
 	template<typename T>
 	void Write(T val)

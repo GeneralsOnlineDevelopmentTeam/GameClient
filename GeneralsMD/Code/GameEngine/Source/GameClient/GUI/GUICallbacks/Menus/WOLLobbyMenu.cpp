@@ -2113,7 +2113,9 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					// Send the message
 					if (!handleLobbySlashCommands(txtInput))
 					{
-						NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->SendChatMessageToCurrentRoom(txtInput);
+						AsciiString txtInputAscii;
+						txtInputAscii.translate(txtInput);
+						NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(txtInputAscii.str());
 						// TODO_NGMP: Support private message again
 						//TheGameSpyInfo->sendChat( txtInput, false, listboxLobbyPlayers );
 					}

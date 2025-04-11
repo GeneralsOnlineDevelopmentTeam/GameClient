@@ -48,23 +48,22 @@ void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeSt
 {
 	// TODO_NGMP: Custom
 	// TODO_NGMP: Support unicode again
-	/*
 	AsciiString strChatMsg;
 	strChatMsg.translate(strChatMsgUnicode);
 
 	NetRoom_ChatMessagePacket chatPacket(strChatMsg);
 
-	std::vector<EOS_ProductUserId> vecUsers;
-	for (auto kvPair : m_mapMembers)
+	// TODO_NGMP: Move to uint64 for user id
+	std::vector<int64_t> vecUsersToSend;
+	for (auto kvPair : m_CurrentLobby.members)
 	{
-		vecUsers.push_back(kvPair.first);
+		vecUsersToSend.push_back(kvPair.user_id);
 	}
-
+	
 	if (m_pLobbyMesh != nullptr)
 	{
-		m_pLobbyMesh->SendToMesh(chatPacket, vecUsers);
+		m_pLobbyMesh->SendToMesh(chatPacket, vecUsersToSend);
 	}
-	*/
 }
 
 NGMP_OnlineServices_LobbyInterface::NGMP_OnlineServices_LobbyInterface()
@@ -128,6 +127,10 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 					memberEntryIter["user_id"].get_to(memberEntry.user_id);
 					memberEntryIter["display_name"].get_to(memberEntry.display_name);
 					memberEntryIter["ready"].get_to(memberEntry.ready);
+
+					// NOTE: These fields won't be present becauase they're private properties
+					memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
+					memberEntryIter["port"].get_to(memberEntry.preferredPort);
 
 					lobbyEntry.members.push_back(memberEntry);
 				}
@@ -252,12 +255,7 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 			}
 		});
 
-	// join the network mesh too
-	if (m_pLobbyMesh == nullptr)
-	{
-		m_pLobbyMesh = new NetworkMesh(ENetworkMeshType::GAME_LOBBY);
-		m_pLobbyMesh->ConnectToMesh(m_strCurrentLobbyID.c_str());
-	}
+	
 
 	// inform game instance too
 	// TODO_NGMP: replace all these with UpdateRoomDataCache
@@ -273,7 +271,7 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 	*/
 }
 
-void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache()
+void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(void)> fnCallback)
 {
 	// refresh lobby
 	if (m_CurrentLobby.lobbyID != -1)
@@ -306,8 +304,34 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache()
 					memberEntryIter["user_id"].get_to(memberEntry.user_id);
 					memberEntryIter["display_name"].get_to(memberEntry.display_name);
 					memberEntryIter["ready"].get_to(memberEntry.ready);
+					memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
+					memberEntryIter["port"].get_to(memberEntry.preferredPort);
 
 					lobbyEntry.members.push_back(memberEntry);
+
+					// TODO_NGMP: Much more robust system here
+					// TODO_NGMP: If we lose connection to someone in the mesh, who is STILL in otehrs mesh, we need to disconnect or retry
+					// TODO_NGMP: handle failure to connect to some users
+					
+					// is it a new member? connect
+					bool bIsNew = true;
+					for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
+					{
+						if (currentMember.user_id == memberEntry.user_id)
+						{
+							bIsNew = false;
+							break;
+						}
+					}
+
+					if (bIsNew)
+					{
+						// if we're joining as a client (not host), lobby mesh will be null here, but it's ok because the initial creation will sync to everyone
+						if (m_pLobbyMesh != nullptr)
+						{
+							m_pLobbyMesh->ConnectToSingleUser(memberEntry);
+						}
+					}
 				}
 
 				// store
@@ -325,6 +349,11 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache()
 					{
 						m_RosterNeedsRefreshCallback();
 					}
+				}
+
+				if (fnCallback != nullptr)
+				{
+					fnCallback();
 				}
 			}
 			catch (...)
@@ -381,14 +410,19 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 	m_CurrentLobby = LobbyEntry();
 	LobbyEntry lobbyInfo = GetLobbyFromIndex(index);
 
-	std::string strURI = std::format("https://playgenerals.online/cloud/env:dev:{}/Lobby/{}", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken(), lobbyInfo.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), lobbyInfo.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	NetworkLog("[NGMP] Joining lobby with id %d", lobbyInfo.lobbyID);
 
+	nlohmann::json j;
+	j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+	std::string strPostData = j.dump();
+
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
 		{
+			// TODO_NGMP: Dont do extra get here, just return it in the put...
 			bool bJoinSuccess = statusCode == 200;
 
 			// no response body from this, just http codes
@@ -410,6 +444,10 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 					// set in game, this actually means in lobby... not in game play, and is necessary to start the game
 					TheNGMPGame->setInGame();
 
+					// dont need to do these here, updateroomdatacache does it for us
+					//TheNGMPGame->SyncWithLobby(m_CurrentLobby);
+					//TheNGMPGame->UpdateSlotsFromCurrentLobby();
+
 					// TODO_NGMP: Rest of these
 					/*
 					TheNGMPGame.setExeCRC(info->getExeCRC());
@@ -420,7 +458,11 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 					*/
 				}
 
-				OnJoinedOrCreatedLobby();
+				// we need to get more lobby info before triggering the game callback...
+				UpdateRoomDataCache([=]()
+					{
+						OnJoinedOrCreatedLobby();
+					});
 			}
 			else if (statusCode == 401)
 			{
@@ -610,6 +652,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 	j["map_name"] = strMapName.str();
 	j["map_path"] = strInitialMapPath.str();
 	j["max_players"] = initialMaxSize;
+	j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 	std::string strPostData = j.dump();
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
@@ -638,6 +681,8 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					me.user_id = m_CurrentLobby.owner;
 					me.display_name = std::string(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
 					me.ready = true; // host is always ready
+					me.strIPAddress = "127.0.0.1";
+					me.preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 
 					m_CurrentLobby.members.push_back(me);
 
@@ -909,5 +954,10 @@ void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby()
 	// must be done in a callback, this is an async function
 	UpdateRoomDataCache();
 
-	
+	// join the network mesh too
+	if (m_pLobbyMesh == nullptr)
+	{
+		m_pLobbyMesh = new NetworkMesh(ENetworkMeshType::GAME_LOBBY);
+		m_pLobbyMesh->ConnectToMesh(m_CurrentLobby);
+	}
 }

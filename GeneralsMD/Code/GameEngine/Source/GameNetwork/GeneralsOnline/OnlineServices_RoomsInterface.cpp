@@ -545,17 +545,6 @@ void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeStr
 	strChatMsg.translate(strChatMsgUnicode);
 
 	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(strChatMsg.str());
-
-	NetRoom_ChatMessagePacket chatPacket(strChatMsg);
-
-	std::vector<uint64_t> vecUsers;
-	for (auto kvPair : m_mapMembers)
-	{
-		vecUsers.push_back(kvPair.first);
-	}
-
-
-	//m_pNetRoomMesh->SendToMesh(chatPacket, vecUsers);
 }
 
 void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string> vecUsers)
