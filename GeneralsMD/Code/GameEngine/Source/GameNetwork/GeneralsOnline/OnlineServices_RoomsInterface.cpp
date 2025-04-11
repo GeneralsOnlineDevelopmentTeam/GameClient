@@ -75,6 +75,17 @@ void WebSocket::SendData_RoomChatMessage(const char* szMessage)
 	Send(strBody.c_str());
 }
 
+void WebSocket::SendData_MarkReady(bool bReady)
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::NETWORK_ROOM_MARK_READY;
+	j["ready"] = bReady;
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+}
+
+
 void WebSocket::SendData_JoinNetworkRoom(int roomID)
 {
 	nlohmann::json j;

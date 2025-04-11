@@ -103,6 +103,82 @@ Bool NextGenTransport::update(void)
 
 Bool NextGenTransport::doRecv(void)
 {
+	TransportMessage incomingMessage;
+	unsigned char* buf = (unsigned char*)&incomingMessage;
+
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	while (pMesh->HasGamePacket())
+	{
+		QueuedGamePacket gamePacket = pMesh->RecvGamePacket();
+
+		NetworkLog("[NGMP]: Received %d bytes from user %d", gamePacket.m_packet->dataLength, gamePacket.m_userID);
+
+		uint32_t numBytes = gamePacket.m_packet->dataLength;
+
+		// avoiding memcpy, since the game memcpy's it into a free slot anyway
+		buf = (unsigned char*)gamePacket.m_packet->data;
+
+			/*
+			TransportMessageHeader header;
+	UnsignedByte data[MAX_MESSAGE_LEN];
+	Int length;
+	UnsignedInt addr;
+	UnsignedShort port;
+			*/
+
+		// generals logic
+#if defined(_DEBUG) || defined(_INTERNAL)
+// Packet loss simulation
+		if (m_usePacketLoss)
+		{
+			if (TheGlobalData->m_packetLoss >= GameClientRandomValue(0, 100))
+			{
+				continue;
+			}
+		}
+#endif
+
+		//		DEBUG_LOG(("UDPTransport::doRecv - Got something! len = %d\n", len));
+				// Decrypt the packet
+		//		DEBUG_LOG(("buffer = "));
+		//		for (Int munkee = 0; munkee < len; ++munkee) {
+		//			DEBUG_LOG(("%02x", *(buf + munkee)));
+		//		}
+		//		DEBUG_LOG(("\n"));
+		decryptBuf(buf, numBytes);
+
+		incomingMessage.length = numBytes - sizeof(TransportMessageHeader);
+
+		//if (numBytes <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
+		if (numBytes <= sizeof(TransportMessageHeader))
+		{
+			m_unknownPackets[m_statisticsSlot]++;
+			m_unknownBytes[m_statisticsSlot] += numBytes;
+			continue;
+		}
+
+		// Something there; stick it somewhere
+//		DEBUG_LOG(("Saw %d bytes from %d:%d\n", len, ntohl(from.sin_addr.S_un.S_addr), ntohs(from.sin_port)));
+		m_incomingPackets[m_statisticsSlot]++;
+		m_incomingBytes[m_statisticsSlot] += numBytes;
+
+		for (int i = 0; i < MAX_MESSAGES; ++i)
+		{
+			if (m_inBuffer[i].length == 0)
+			{
+				// Empty slot; use it
+				m_inBuffer[i].length = incomingMessage.length;
+
+				// dont care about address anymore
+				//m_inBuffer[i].addr = ntohl(from.sin_addr.S_un.S_addr);
+				//m_inBuffer[i].port = ntohs(from.sin_port);
+
+				memcpy(&m_inBuffer[i], buf, numBytes);
+				break;
+			}
+		}
+	}
+
 	/*
 	TransportMessage incomingMessage;
 	unsigned char* buf = (unsigned char*)&incomingMessage;
@@ -222,7 +298,35 @@ Bool NextGenTransport::doSend(void)
 		{
 			// TODO_NGMP: Get this from game info, not the lobby, we should tear lobby down probably
 			// addr is actually player index...
-			//LobbyMember* pMember = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromIndex(m_outBuffer[i].addr);
+			// TODO: What if it's empty?
+			LobbyMemberEntry lobbyMember = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromIndex(m_outBuffer[i].addr);
+
+			if (lobbyMember.IsValid())
+			{
+				retval = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->SendGamePacket((void*)(&m_outBuffer[i]), (uint32_t)m_outBuffer[i].length + sizeof(TransportMessageHeader), lobbyMember);
+			}
+			else
+			{
+				retval = false;
+			}
+
+			if (retval)
+			{
+				//DEBUG_LOG(("Sending %d bytes to %d:%d\n", m_outBuffer[i].length + sizeof(TransportMessageHeader), m_outBuffer[i].addr, m_outBuffer[i].port));
+				m_outgoingPackets[m_statisticsSlot]++;
+				m_outgoingBytes[m_statisticsSlot] += m_outBuffer[i].length + sizeof(TransportMessageHeader);
+				m_outBuffer[i].length = 0;  // Remove from queue
+				//				DEBUG_LOG(("UDPTransport::doSend - sent %d butes to %d.%d.%d.%d:%d\n", bytesSent,
+				//					(m_outBuffer[i].addr >> 24) & 0xff,
+				//					(m_outBuffer[i].addr >> 16) & 0xff,
+				//					(m_outBuffer[i].addr >> 8) & 0xff,
+				//					m_outBuffer[i].addr & 0xff,
+				//					m_outBuffer[i].port));
+			}
+			else
+			{
+				retval = FALSE;
+			}
 
 			// TODO_NGMP: Custom
 

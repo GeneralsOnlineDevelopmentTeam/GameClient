@@ -2322,10 +2322,10 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 					{
 						// host wants to start
 						NGMPGame* game = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
-						if (game && game->isInGame() && game->getSlot(0) && game->getSlot(0)->isPlayer( resp.nick.c_str() ))
+						if (game && game->isInGame() && game->getSlot(0) && game->getSlot(0)->isPlayer(resp.nick.c_str()))
 						{
 							Int slotNum = game->getLocalSlotNum();
-							GameSlot *slot = game->getSlot(slotNum);
+							GameSlot* slot = game->getSlot(slotNum);
 							if (slot && (slot->isAccepted() == false))
 							{
 								GadgetListBoxAddEntryText(listboxGameSetupChat, TheGameText->fetch("GUI:HostWantsToStart"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);

@@ -10,8 +10,52 @@
 #include <ws2ipdef.h>
 
 
+bool NetworkMesh::HasGamePacket()
+{
+	return !m_queueQueuedGamePackets.empty();
+}
+
+QueuedGamePacket NetworkMesh::RecvGamePacket()
+{
+	if (HasGamePacket())
+	{
+		QueuedGamePacket frontPacket = m_queueQueuedGamePackets.front();
+		m_queueQueuedGamePackets.pop();
+		return frontPacket;
+	}
+
+	return QueuedGamePacket();
+}
+
+bool NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, LobbyMemberEntry& lobbyMember)
+{
+	ENetPacket* pENetPacket = enet_packet_create(pBuffer, totalDataSize, ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+
+
+	if (m_mapConnections.contains(lobbyMember.user_id))
+	{
+		int ret = enet_peer_send(m_mapConnections[lobbyMember.user_id].m_peer, 1, pENetPacket);
+
+		if (ret == 0)
+		{
+			NetworkLog("Game Packet Sent!");
+			return true;
+		}
+		else
+		{
+			NetworkLog("Game Packet Failed To Send!");
+			return false;
+		}
+	}
+
+	// TODO_NGMP: Error
+	NetworkLog("Packet Failed To Send, client connection not found!");
+	return false;
+}
+
 void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers)
 {
+	// TODO_NGMP: Respect vecTargetUsers again
 	CBitStream* pBitStream = packet.Serialize();
 
 	ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
@@ -157,6 +201,7 @@ void NetworkMesh::Tick()
 	{
 		ENetEvent event;
 
+		// TODO_NGMP: Switch to send/recv model isntead of events
 		while (enet_host_service(enetInstance, &event, 0) > 0)
 		{
 			switch (event.type)
@@ -190,6 +235,23 @@ void NetworkMesh::Tick()
 					event.packet->data,
 					event.peer->data,
 					event.channelID);
+
+				// was it on the game channel? just queue it for generals and bail
+				if (event.channelID == 1)
+				{
+					// find conneciton
+					PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
+
+					if (pConnection != nullptr)
+					{
+						m_queueQueuedGamePackets.push(QueuedGamePacket{ event.packet, pConnection->m_userID });
+					}
+					else
+					{
+						// TODO_NGMP: Handle
+					}
+					continue;
+				}
 
 				// process
 				// TODO_NGMP: Reject any packets from members not in the room? or mesh

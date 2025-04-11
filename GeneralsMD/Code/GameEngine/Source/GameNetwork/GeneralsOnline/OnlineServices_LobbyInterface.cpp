@@ -126,7 +126,7 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 
 					memberEntryIter["user_id"].get_to(memberEntry.user_id);
 					memberEntryIter["display_name"].get_to(memberEntry.display_name);
-					memberEntryIter["ready"].get_to(memberEntry.ready);
+					memberEntryIter["ready"].get_to(memberEntry.m_bIsReady);
 
 					// NOTE: These fields won't be present becauase they're private properties
 					memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
@@ -160,6 +160,21 @@ bool NGMP_OnlineServices_LobbyInterface::IsHost()
 
 void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetworkRoom()
 {
+	// TODO_NGMP: Better detection of this, dont update always
+	
+	// TODO_NGMP: Support unreadying again when player changes team etc
+	// are we ready?
+
+	GameSlot* pLocalSlot = TheNGMPGame->getSlot(TheNGMPGame->getLocalSlotNum());
+	if (IsHost())
+	{
+		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_MarkReady(true);
+	}
+	else
+	{
+		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_MarkReady(pLocalSlot->isAccepted());
+	}
+
 	/*
 	EOS_HLobby LobbyHandle = EOS_Platform_GetLobbyInterface(NGMP_OnlineServicesManager::GetInstance()->GetEOSPlatformHandle());
 
@@ -303,7 +318,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 
 					memberEntryIter["user_id"].get_to(memberEntry.user_id);
 					memberEntryIter["display_name"].get_to(memberEntry.display_name);
-					memberEntryIter["ready"].get_to(memberEntry.ready);
+					memberEntryIter["ready"].get_to(memberEntry.m_bIsReady);
 					memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
 					memberEntryIter["port"].get_to(memberEntry.preferredPort);
 
@@ -664,6 +679,9 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 				if (resp.result == ECreateLobbyResponseResult::SUCCEEDED)
 				{
+					// reset before copy
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ResetCachedRoomData();
+					 
 					// TODO: Do we need more info here? we kick off a lobby GET immediately, maybe that should be the response to creating
 					
 					// store the basic info (lobby id), we will immediately kick off a full get				
@@ -680,7 +698,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 					me.user_id = m_CurrentLobby.owner;
 					me.display_name = std::string(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
-					me.ready = true; // host is always ready
+					me.m_bIsReady = true; // host is always ready
 					me.strIPAddress = "127.0.0.1";
 					me.preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 
@@ -726,7 +744,6 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
 
 				// Set our properties
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ResetCachedRoomData();
 				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ApplyLocalUserPropertiesToCurrentNetworkRoom();
 			}
 			catch (...)

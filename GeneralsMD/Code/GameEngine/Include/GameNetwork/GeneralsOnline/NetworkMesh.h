@@ -26,6 +26,12 @@ public:
 
 struct LobbyMemberEntry;
 
+struct QueuedGamePacket
+{
+	ENetPacket* m_packet = nullptr;
+	int64_t m_userID = -1;
+};
+
 class NetworkMesh
 {
 public:
@@ -38,6 +44,13 @@ public:
 	{
 
 	}
+
+	
+	std::queue<QueuedGamePacket> m_queueQueuedGamePackets;
+
+	bool HasGamePacket();
+	QueuedGamePacket RecvGamePacket();
+	bool SendGamePacket(void* pBuffer, uint32_t totalDataSize, LobbyMemberEntry& lobbyMember);
 
 	void SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers);
 
@@ -55,7 +68,8 @@ private:
 	{
 		for (auto& connection : m_mapConnections)
 		{
-			if (connection.second.m_peer == peer)
+			if (connection.second.m_peer->address.host == peer->address.host
+				&& connection.second.m_peer->address.port == peer->address.port)
 			{
 				return &connection.second;
 			}

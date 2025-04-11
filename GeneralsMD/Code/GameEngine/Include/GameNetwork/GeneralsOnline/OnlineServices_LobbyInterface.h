@@ -9,7 +9,6 @@ struct LobbyMemberEntry : public NetworkMemberBase
 {
 	int64_t user_id = -1;
 	std::string display_name;
-	bool ready;
 
 	std::string strIPAddress;
 	uint16_t preferredPort;
@@ -38,7 +37,6 @@ class NGMP_OnlineServices_LobbyInterface
 {
 public:
 	NGMP_OnlineServices_LobbyInterface();
-
 
 	void SearchForLobbies(std::function<void()> onStartCallback, std::function<void(std::vector<LobbyEntry>)> onCompleteCallback);
 
@@ -204,10 +202,11 @@ public:
 
 	void SendToMesh(NetworkPacket& packet)
 	{
-		// TODO_NGMP: Custom
+		// TODO_NGMP: Respect vecTargetUsers again
+		std::vector<int64_t> vecUsers;
 		/*
-		std::vector<EOS_ProductUserId> vecUsers;
-		for (auto kvPair : m_mapMembers)
+		std::vector<uint64_t> vecUsers;
+		for (auto kvPair : m_CurrentLobby.members)
 		{
 			vecUsers.push_back(kvPair.first);
 		}
@@ -217,7 +216,14 @@ public:
 			m_pLobbyMesh->SendToMesh(packet, vecUsers);
 		}
 		*/
+
+		if (m_pLobbyMesh != nullptr)
+		{
+			m_pLobbyMesh->SendToMesh(packet, vecUsers);
+		}
 	}
+
+	NetworkMesh* GetNetworkMesh() { return m_pLobbyMesh; }
 
 	void JoinLobby(int index);
 

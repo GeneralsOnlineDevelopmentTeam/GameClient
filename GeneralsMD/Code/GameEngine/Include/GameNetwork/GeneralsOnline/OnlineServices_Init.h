@@ -20,7 +20,8 @@ enum EWebSocketMessageID
 	NETWORK_ROOM_CHAT_FROM_CLIENT = 1,
 	NETWORK_ROOM_CHAT_FROM_SERVER = 2,
 	NETWORK_ROOM_CHANGE_ROOM = 3,
-	NETWORK_ROOM_MEMBER_LIST_UPDATE = 4
+	NETWORK_ROOM_MEMBER_LIST_UPDATE = 4,
+	NETWORK_ROOM_MARK_READY = 5
 };
 
 class WebSocket
@@ -33,6 +34,7 @@ public:
 
 	void SendData_RoomChatMessage(const char* szMessage);
 	void SendData_JoinNetworkRoom(int roomID);
+	void SendData_MarkReady(bool bReady);
 
 	void Tick();
 
