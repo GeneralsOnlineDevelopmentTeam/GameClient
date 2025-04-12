@@ -240,8 +240,7 @@ public:
 
 	NetworkMesh* GetNetworkMesh() { return m_pLobbyMesh; }
 
-	void JoinLobbyByIndex(int index);
-	void JoinLobbyByID(int id);
+	void JoinLobby(int index);
 
 	LobbyEntry GetLobbyFromIndex(int index);
 

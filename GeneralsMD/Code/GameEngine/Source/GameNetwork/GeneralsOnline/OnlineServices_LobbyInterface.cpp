@@ -420,7 +420,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 	*/
 }
 
-void NGMP_OnlineServices_LobbyInterface::JoinLobbyByID(int index)
+void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 {
 	m_CurrentLobby = LobbyEntry();
 	LobbyEntry lobbyInfo = GetLobbyFromIndex(index);
