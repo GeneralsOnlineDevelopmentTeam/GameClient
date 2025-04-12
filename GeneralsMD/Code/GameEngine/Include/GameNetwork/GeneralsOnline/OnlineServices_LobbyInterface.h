@@ -68,7 +68,7 @@ public:
 	AsciiString m_PendingCreation_InitialMapPath;
 	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize);
 
-	void OnJoinedOrCreatedLobby();
+	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails = false);
 
 	UnicodeString GetCurrentLobbyDisplayName();
 	UnicodeString GetCurrentLobbyMapDisplayName();

@@ -199,13 +199,13 @@ void PortMapper::BackgroundThreadRun()
 
 	// UPnP
 	int errorCode = 0;
-	struct UPNPDev* upnp_dev = upnpDiscover(2000, nullptr, nullptr, 0, 0, 2, &errorCode);
+	m_pCachedUPnPDevice = upnpDiscover(2000, nullptr, nullptr, 0, 0, 2, &errorCode);
 
 	char lan_address[64];
 	char wan_address[64];
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
-	int IGDStatus = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, sizeof(lan_address), wan_address, sizeof(wan_address));
+	int IGDStatus = UPNP_GetValidIGD(m_pCachedUPnPDevice, &upnp_urls, &upnp_data, lan_address, sizeof(lan_address), wan_address, sizeof(wan_address));
 
 	m_capUPnP = (IGDStatus == 1) ? ECapabilityState::SUPPORTED : ECapabilityState::UNSUPPORTED;
 
@@ -334,13 +334,12 @@ void PortMapper::CleanupPorts()
 bool PortMapper::ForwardPreferredPort_UPnP()
 {
 	int error = 0;
-	struct UPNPDev* upnp_dev = upnpDiscover(2000, nullptr, nullptr, 0, 0, 2,&error);
 
 	char lan_address[64];
 	char wan_address[64];
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
-	int status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, sizeof(lan_address), wan_address, sizeof(wan_address));
+	int status = UPNP_GetValidIGD(m_pCachedUPnPDevice, &upnp_urls, &upnp_data, lan_address, sizeof(lan_address), wan_address, sizeof(wan_address));
 
 	if (status == 1)
 	{
@@ -458,13 +457,12 @@ void PortMapper::UPnP_RemoveAllMappingsToThisMachine()
 {
 	NetworkLog("PortMapper: UPnP unmapping all mappings to this machine");
 	int error = 0;
-	struct UPNPDev* upnp_dev = upnpDiscover(2000, nullptr, nullptr, 0, 0, 2, &error);
 
 	char lan_address[64];
 	char wan_address[64];
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
-	int status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, sizeof(lan_address), wan_address, sizeof(wan_address));
+	int status = UPNP_GetValidIGD(m_pCachedUPnPDevice, &upnp_urls, &upnp_data, lan_address, sizeof(lan_address), wan_address, sizeof(wan_address));
 
 	if (status == 1)
 	{
@@ -539,13 +537,12 @@ void PortMapper::RemovePortMapping_UPnP()
 {
 	NetworkLog("PortMapper: UPnP starting unmapping of port");
 	int error = 0;
-	struct UPNPDev* upnp_dev = upnpDiscover(2000, nullptr, nullptr, 0, 0, 2, &error);
 
 	char lan_address[64];
 	char wan_address[64];
 	struct UPNPUrls upnp_urls;
 	struct IGDdatas upnp_data;
-	int status = UPNP_GetValidIGD(upnp_dev, &upnp_urls, &upnp_data, lan_address, sizeof(lan_address), wan_address, sizeof(wan_address));
+	int status = UPNP_GetValidIGD(m_pCachedUPnPDevice, &upnp_urls, &upnp_data, lan_address, sizeof(lan_address), wan_address, sizeof(wan_address));
 
 	if (status == 1)
 	{

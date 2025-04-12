@@ -55,6 +55,7 @@
 #include "Common/GlobalData.h"
 #include "Common/file.h"
 #include "Common/FileSystem.h"
+#include "../NextGenMP_defines.h"
 
 
 #ifdef _INTERNAL
@@ -372,6 +373,17 @@ void GameTextManager::init( void )
 	UnicodeString ourName = fetch("GUI:Command&ConquerGenerals");
 	AsciiString ourNameA;
 	ourNameA.translate(ourName);	//get ASCII version for Win 9x
+
+#if defined(GENERALS_ONLINE)
+		ourName.concat(L" [Generals Online]");
+		ourNameA.concat(" [Generals Online]");
+
+		if (IsDebuggerPresent())
+		{
+			ourName.concat(L"[Debugger]");
+			ourNameA.concat("[Debugger]");
+		}
+#endif
 
 	extern HWND ApplicationHWnd;  ///< our application window handle
 	if (ApplicationHWnd) {

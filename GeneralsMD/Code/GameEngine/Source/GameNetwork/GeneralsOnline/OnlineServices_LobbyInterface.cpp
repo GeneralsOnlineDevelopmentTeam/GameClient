@@ -965,11 +965,14 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 		*/
 }
 
-void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby()
+void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails)
 {
 	// TODO_NGMP: We need this on create, but this is a double call on join because we already got this info
 	// must be done in a callback, this is an async function
-	UpdateRoomDataCache();
+	if (!bAlreadyUpdatedDetails)
+	{
+		UpdateRoomDataCache();
+	}
 
 	// join the network mesh too
 	if (m_pLobbyMesh == nullptr)

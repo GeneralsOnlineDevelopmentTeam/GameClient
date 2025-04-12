@@ -86,4 +86,7 @@ private:
 	int64_t m_probeStartTime = -1;
 	static const int m_probesExpected = 5;
 	bool m_probesReceived[m_probesExpected];
+
+	// TODO_NGMP: Do we need to refresh this periodically? or just do it on login. It would be kinda weird if the local network device changed during gameplay...
+	struct UPNPDev* m_pCachedUPnPDevice = nullptr;
 };
