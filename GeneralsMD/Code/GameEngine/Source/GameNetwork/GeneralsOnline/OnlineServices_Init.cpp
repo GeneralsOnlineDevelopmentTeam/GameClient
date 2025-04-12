@@ -1,7 +1,21 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
+#include "../json.hpp"
 
 NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager = nullptr;
+
+enum class EVersionCheckResponseResult : int
+{
+	OK = 0,
+	NEEDS_UPDATE = 1
+};
+
+struct VersionCheckResponse
+{
+	EVersionCheckResponseResult result;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result)
+};
 
 NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
 {
@@ -37,6 +51,41 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 			return std::format("https://www.playgenerals.online:8444/cloud/env:dev/{}", szEndpoint);
 		}
 	}
+}
+
+void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bNeedsUpdate)> fnCallback)
+{
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck", false);
+
+	nlohmann::json j;
+	j["ver"] = GENERALS_ONLINE_VERSION;
+	j["netver"] = GENERALS_ONLINE_NET_VERSION;
+	j["servicesver"] = GENERALS_ONLINE_SERVICE_VERSION;
+	std::string strPostData = j.dump();
+
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+			try
+			{
+				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+				VersionCheckResponse authResp = jsonObject.get<VersionCheckResponse>();
+
+				if (authResp.result == EVersionCheckResponseResult::OK)
+				{
+					NetworkLog("VERSION CHECK: Up To Date");
+					fnCallback(false);
+				}
+				else
+				{
+					fnCallback(true);
+				}
+			}
+			catch (...)
+			{
+				NetworkLog("VERSION CHECK: Failed to parse response");
+			}
+		});
 }
 
 void NGMP_OnlineServicesManager::OnLogin(bool bSuccess, const char* szWSAddr, const char* szWSToken)

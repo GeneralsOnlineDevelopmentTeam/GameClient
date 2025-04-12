@@ -222,9 +222,6 @@ static void startOnline( void )
 
 	TheScriptEngine->signalUIInteract(TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_ONLINE_SELECTED]);
 
-	// TODO_NGMP: Uninit this when leaving MP, waste of resources and cycles
-	NGMP_OnlineServicesManager::GetInstance()->Init();
-
 #if !defined(GENERALS_ONLINE)
 	DEBUG_ASSERTCRASH( !TheGameSpyBuddyMessageQueue, ("TheGameSpyBuddyMessageQueue exists!") );
 	DEBUG_ASSERTCRASH( !TheGameSpyPeerMessageQueue, ("TheGameSpyPeerMessageQueue exists!") );
@@ -783,7 +780,30 @@ void StartPatchCheck( void )
 	onlineCancelWindow = MessageBoxCancel(TheGameText->fetch("GUI:CheckingForPatches"),
 		TheGameText->fetch("GUI:CheckingForPatches"), CancelPatchCheckCallbackAndReopenDropdown);
 
-	startOnline();
+	// online services must be initialized
+	// TODO_NGMP: Uninit this when leaving MP, waste of resources and cycles
+	NGMP_OnlineServicesManager::GetInstance()->Init();
+
+	NGMP_OnlineServicesManager::GetInstance()->StartVersionCheck([](bool bNeedsUpdate)
+		{
+			if (!bNeedsUpdate)
+			{
+				startOnline();
+			}
+			else
+			{
+				// TODO_NGMP: Later we should allow in-game updates
+				if (onlineCancelWindow)
+				{
+					TheWindowManager->winDestroy(onlineCancelWindow);
+					onlineCancelWindow = NULL;
+				}
+
+				onlineCancelWindow = MessageBoxOk(TheGameText->fetch("GUI:PatchAvailable"),
+					UnicodeString(L"An update is required.\n\nPlease visit www.playgenerals.online to download the latest update"), CancelPatchCheckCallbackAndReopenDropdown);
+			}
+		});
+	
 
 	// TODO_NGMP: Impl patch checks again
 
