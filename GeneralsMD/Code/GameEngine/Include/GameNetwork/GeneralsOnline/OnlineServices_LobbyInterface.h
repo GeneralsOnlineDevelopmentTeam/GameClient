@@ -56,6 +56,21 @@ public:
 		//m_transport->SetSocket(m_pLobbyMesh->GetSocketID());
 	}
 
+	void SetLobbyListDirty()
+	{
+		m_bLobbyListDirty = true;
+	}
+
+	void ConsumeLobbyListDirtyFlag()
+	{
+		m_bLobbyListDirty = false;
+	}
+
+	bool IsLobbyListDirty()
+	{
+		return m_bLobbyListDirty;
+	}
+
 	NextGenTransport* GetGameTransport()
 	{
 		return m_transport;
@@ -120,7 +135,7 @@ public:
 			int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 			if ((currTime - m_lastForceRefresh) > 5000)
 			{
-				UpdateRoomDataCache();
+				//UpdateRoomDataCache();
 				m_lastForceRefresh = currTime;
 			}
 		}
@@ -225,7 +240,8 @@ public:
 
 	NetworkMesh* GetNetworkMesh() { return m_pLobbyMesh; }
 
-	void JoinLobby(int index);
+	void JoinLobbyByIndex(int index);
+	void JoinLobbyByID(int id);
 
 	LobbyEntry GetLobbyFromIndex(int index);
 
@@ -242,4 +258,6 @@ private:
 	NetworkMesh* m_pLobbyMesh = nullptr;
 
 	NGMPGame* m_pGameInst = nullptr;
+
+	bool m_bLobbyListDirty = false;
 };

@@ -764,6 +764,9 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	buttonRefreshID = TheNameKeyGenerator->nameToKey(AsciiString("WOLCustomLobby.wnd:ButtonRefresh"));
 	buttonRefresh = TheWindowManager->winGetWindowFromId(parent, buttonRefreshID);
 
+	// GENERALS_ONLINE: Disable refresh button, we refresh via push now, this button isn't necessary
+	//buttonRefresh->winHide(TRUE);
+
 	buttonJoinID = TheNameKeyGenerator->nameToKey(AsciiString("WOLCustomLobby.wnd:ButtonJoin"));
 	buttonJoin = TheWindowManager->winGetWindowFromId(parent, buttonJoinID);
 	buttonJoin->winEnable(FALSE);
@@ -1131,6 +1134,25 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 	{
 		RaiseGSMessageBox();
 		raiseMessageBoxes = false;
+	}
+	
+	// do we need to update?
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
+	if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty())
+	{
+		const bool bShouldAutoRefresh = false;
+
+		pLobbyInterface->ConsumeLobbyListDirtyFlag();
+		
+		if (bShouldAutoRefresh)
+		{
+			refreshGameList(true);
+		}
+		else
+		{
+			GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Your lobby list is outdated. Hit refresh to see the latest servers."), GameMakeColor(255, 194, 15, 255), -1, -1);
+		}
+		
 	}
 
 	if (TheShell->isAnimFinished() && TheTransitionHandler->isFinished() && !buttonPushed && TheGameSpyPeerMessageQueue)

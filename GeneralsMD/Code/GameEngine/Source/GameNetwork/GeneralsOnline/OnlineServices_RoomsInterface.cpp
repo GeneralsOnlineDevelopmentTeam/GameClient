@@ -211,6 +211,20 @@ void WebSocket::Tick()
 						}
 						break;
 
+						case EWebSocketMessageID::LOBBY_CURRENT_LOBBY_UPDATE:
+						{
+							// re-get the room info as it is stale
+							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateRoomDataCache(nullptr);
+						}
+						break;
+
+						case EWebSocketMessageID::NETWORK_ROOM_LOBBY_LIST_UPDATE:
+						{
+							// re-get the room info as it is stale
+							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SetLobbyListDirty();
+						}
+						break;
+
 						default:
 							break;
 						}
