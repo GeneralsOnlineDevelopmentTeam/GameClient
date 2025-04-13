@@ -1632,6 +1632,7 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 		stats.write();
 	}
 
+	// TODO_NGMP: fix end of match flow / score screen
 	if ( screenType == SCORESCREEN_INTERNET )
 	{
 		DEBUG_LOG(("populatePlayerInfo() - SCORESCREEN_INTERNET\n"));

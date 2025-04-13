@@ -145,6 +145,10 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				lobbyEntryIter["current_players"].get_to(lobbyEntry.current_players);
 				lobbyEntryIter["max_players"].get_to(lobbyEntry.max_players);
 
+				// NOTE: These fields won't be present becauase they're private properties
+				//memberEntryIter["enc_key"].get_to(strEncKey);
+				//memberEntryIter["enc_nonce"].get_to(strEncIV)
+
 				for (const auto& memberEntryIter : lobbyEntryIter["members"])
 				{
 					LobbyMemberEntry memberEntry;
@@ -154,8 +158,9 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 					memberEntryIter["ready"].get_to(memberEntry.m_bIsReady);
 
 					// NOTE: These fields won't be present becauase they're private properties
-					memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
-					memberEntryIter["port"].get_to(memberEntry.preferredPort);
+					//memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
+					//memberEntryIter["port"].get_to(memberEntry.preferredPort);
+
 
 					lobbyEntry.members.push_back(memberEntry);
 				}
@@ -337,6 +342,26 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 				lobbyEntryJSON["current_players"].get_to(lobbyEntry.current_players);
 				lobbyEntryJSON["max_players"].get_to(lobbyEntry.max_players);
 
+				std::string strEncKey;
+				std::string strEncIV;
+				lobbyEntryJSON["enc_key"].get_to(strEncKey);
+				lobbyEntryJSON["enc_nonce"].get_to(strEncIV);
+
+				lobbyEntry.EncKey.resize(32);
+				lobbyEntry.EncIV.resize(32);
+				lobbyEntry.EncKey.clear();
+				lobbyEntry.EncIV.clear();
+
+				for (char c : strEncKey)
+				{
+					lobbyEntry.EncKey.push_back((BYTE)c);
+				}
+
+				for (char c : strEncIV)
+				{
+					lobbyEntry.EncIV.push_back((BYTE)c);
+				}
+
 				for (const auto& memberEntryIter : lobbyEntryJSON["members"])
 				{
 					LobbyMemberEntry memberEntry;
@@ -346,7 +371,6 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					memberEntryIter["ready"].get_to(memberEntry.m_bIsReady);
 					memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
 					memberEntryIter["port"].get_to(memberEntry.preferredPort);
-
 					lobbyEntry.members.push_back(memberEntry);
 
 					// TODO_NGMP: Much more robust system here

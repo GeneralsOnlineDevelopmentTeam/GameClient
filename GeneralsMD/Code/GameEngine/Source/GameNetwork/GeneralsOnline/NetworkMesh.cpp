@@ -10,6 +10,8 @@
 #include "../ngmp_include.h"
 #include "../NGMP_interfaces.h"
 #include <ws2ipdef.h>
+#include "../../NetworkDefs.h"
+#include "../../NetworkInterface.h"
 
 
 bool NetworkMesh::HasGamePacket()
@@ -60,7 +62,9 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 	// 
 	// TODO_NGMP: Respect vecTargetUsers again
 	CBitStream* pBitStream = packet.Serialize();
-	pBitStream->Encrypt();
+
+	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+	pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
 
 	ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 		ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
@@ -247,6 +251,8 @@ void NetworkMesh::Tick()
 
 	// tick
 	{
+		auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+
 		ENetEvent event;
 		// TODO_NGMP: If we cant connect to someone, log it and leave the lobby
 		// TODO_NGMP: Switch to send/recv model isntead of events
@@ -310,7 +316,8 @@ void NetworkMesh::Tick()
 				CBitStream bitstream(event.packet->data, event.packet->dataLength, (EPacketID)event.packet->data[0]);
 				NetworkLog("[NGMP]: Received %d bytes from user %d", event.packet->dataLength, event.peer->incomingPeerID);
 
-				bitstream.Decrypt();
+				
+				bitstream.Decrypt(currentLobby.EncKey, currentLobby.EncIV);
 
 				EPacketID packetID = bitstream.Read<EPacketID>();
 
@@ -332,7 +339,8 @@ void NetworkMesh::Tick()
 						// just send manually to that one user, dont broadcast
 						NetRoom_HelloAckPacket ackPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
 						CBitStream* pBitStream = ackPacket.Serialize();
-						pBitStream->Encrypt();
+
+						pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
 
 						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 							ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
@@ -413,7 +421,7 @@ void NetworkMesh::Tick()
 						// send pong
 						NetworkPacket_Pong pongPacket;
 						CBitStream* pBitStream = pongPacket.Serialize();
-						pBitStream->Encrypt();
+						pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
 
 						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 							ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
@@ -477,6 +485,14 @@ void NetworkMesh::Tick()
 
 void NetworkMesh::SendPing()
 {
+	// TODO_NGMP: Better way of checking we have everything we need / are fully in the lobby
+	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+	if (currentLobby.EncKey.empty() || currentLobby.EncIV.empty())
+	{
+		NetworkLog("No encryption key or IV, not sending ping");
+		return;
+	}
+
 	m_lastPing = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
 	for (auto& connectionInfo : m_mapConnections)
@@ -484,7 +500,8 @@ void NetworkMesh::SendPing()
 		// this also does some hole punching... so don't even check if we're connected, just sent
 		NetworkPacket_Ping pingPacket;
 		CBitStream* pBitStream = pingPacket.Serialize();
-		pBitStream->Encrypt();
+		
+		pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
 
 		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 			ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags

@@ -15,11 +15,7 @@ CBitStream::CBitStream(EPacketID packetID)
 }
 
 #define ENABLE_ENCRYPTION
-static bool didOneTimeGen = false;
-unsigned char g_nonce[crypto_aead_aegis256_NPUBBYTES];
-unsigned char g_key[crypto_aead_aegis256_KEYBYTES];
-
-void CBitStream::Decrypt()
+void CBitStream::Decrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 {
 #if defined(ENABLE_ENCRYPTION)
 #define ADDITIONAL_DATA (const unsigned char *) "123456"
@@ -32,44 +28,34 @@ void CBitStream::Decrypt()
 		&m_memBuffer.GetData()[0], m_memBuffer.GetAllocatedSize(),
 		ADDITIONAL_DATA,
 		ADDITIONAL_DATA_LEN,
-		g_nonce, g_key) != 0)
+		&vecIV.data()[0], &vecKey.data()[0]) != 0)
 	{
 		/* message forged! */
+		NetworkLog("[NGMP]: Message forged! Decrypt failed");
+	}
+	else
+	{
+		// resize buffer
+		vecDecryptedBytes.resize(decrypted_len);
+
+		m_memBuffer.ReAllocate(decrypted_len);
+		memcpy(&m_memBuffer.GetData()[0], &vecDecryptedBytes[0], decrypted_len);
 	}
 
-	// resize buffer
-	vecDecryptedBytes.resize(decrypted_len);
-
-	m_memBuffer.ReAllocate(decrypted_len);
-	memcpy(&m_memBuffer.GetData()[0], &vecDecryptedBytes[0], decrypted_len);
 #endif
 }
 
 
 
-void CBitStream::Encrypt()
+void CBitStream::Encrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 {
 #if defined(ENABLE_ENCRYPTION)
-	#define ENCRYPT_TEST_FIXED_DATA
+	//#define ENCRYPT_TEST_FIXED_DATA
 	
 	// encrypt
 	#define ADDITIONAL_DATA (const unsigned char *) "123456"
 	#define ADDITIONAL_DATA_LEN 6
 
-	
-
-	if (!didOneTimeGen)
-	{
-#if defined(ENCRYPT_TEST_FIXED_DATA)
-		memset(g_key, 1, crypto_aead_aegis256_KEYBYTES);
-		memset(g_nonce, 1, sizeof(g_nonce));
-#else
-		crypto_aead_aegis256_keygen(g_key);
-		randombytes_buf(g_nonce, sizeof g_nonce);
-#endif
-
-		didOneTimeGen = true;
-	}
 	std::vector<unsigned char> ciphertext(GetNumBytesUsed() + crypto_aead_aegis256_ABYTES);
 
 	unsigned long long ciphertext_len;
@@ -81,7 +67,7 @@ void CBitStream::Encrypt()
 	crypto_aead_aegis256_encrypt(&ciphertext.data()[0], &ciphertext_len,
 		GetRawBuffer(), GetNumBytesUsed(),
 		ADDITIONAL_DATA, ADDITIONAL_DATA_LEN,
-		NULL, g_nonce, g_key);
+		NULL, &vecIV.data()[0], &vecKey.data()[0]);
 
 	// resize buffer and copy back
 	ciphertext.resize(ciphertext_len);

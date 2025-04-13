@@ -27,6 +27,8 @@ struct LobbyEntry
 	std::string map_path;
 	int current_players;
 	int max_players;
+	std::vector<BYTE> EncKey;
+	std::vector<BYTE> EncIV;
 	std::vector<LobbyMemberEntry> members;
 };
 
@@ -102,6 +104,12 @@ public:
 			cb(bSuccess);
 		}
 		m_vecCreateLobby_PendingCallbacks.clear();
+	}
+
+
+	LobbyEntry& GetCurrentLobby()
+	{
+		return m_CurrentLobby;
 	}
 
 	NGMPGame* GetCurrentGame()

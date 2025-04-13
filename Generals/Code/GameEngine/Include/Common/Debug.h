@@ -44,6 +44,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+#include "../../GameEngine/Include/GameNetwork/GeneralsOnline/NextGenMP_defines.h"
 
 #ifndef __DEBUG_H_
 #define __DEBUG_H_
