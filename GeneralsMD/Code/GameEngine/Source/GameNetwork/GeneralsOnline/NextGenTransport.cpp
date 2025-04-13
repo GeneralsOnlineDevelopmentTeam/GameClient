@@ -149,8 +149,18 @@ Bool NextGenTransport::doRecv(void)
 
 		incomingMessage.length = numBytes - sizeof(TransportMessageHeader);
 
-		//if (numBytes <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
-		if (numBytes <= sizeof(TransportMessageHeader))
+		// is it a generals packet?
+		if (isGeneralsPacket(&incomingMessage))
+		{
+			NetworkLog("Game Packet Recv: Is a generals packet");
+		}
+		else
+		{
+			NetworkLog("Game Packet Recv: Is NOT a generals packet");
+		}
+
+		if (numBytes <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
+		//if (numBytes <= sizeof(TransportMessageHeader))
 		{
 			m_unknownPackets[m_statisticsSlot]++;
 			m_unknownBytes[m_statisticsSlot] += numBytes;
@@ -407,6 +417,16 @@ Bool NextGenTransport::queueSend(UnsignedInt addr, UnsignedShort port, const Uns
 			crc.computeCRC((unsigned char*)(&(m_outBuffer[i].header.magic)), m_outBuffer[i].length + sizeof(TransportMessageHeader) - sizeof(UnsignedInt));
 			//			DEBUG_LOG(("About to assign the CRC for the packet\n"));
 			m_outBuffer[i].header.crc = crc.get();
+
+			// is it a generals packet?
+			if (isGeneralsPacket(&m_outBuffer[i]))
+			{
+				NetworkLog("Game Packet Queue Sending: Is a generals packet");
+			}
+			else
+			{
+				NetworkLog("Game Packet Queue Sending: Is NOT a generals packet");
+			}
 
 			// Encrypt packet
 //			DEBUG_LOG(("buffer: "));
