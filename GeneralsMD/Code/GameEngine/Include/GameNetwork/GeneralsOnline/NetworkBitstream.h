@@ -10,7 +10,9 @@ enum EPacketID
 	PACKET_ID_NET_ROOM_HELLO,
 	PACKET_ID_NET_ROOM_HELLO_ACK,
 	PACKET_ID_NET_ROOM_CHAT_MSG,
-	PACKET_ID_LOBBY_START_GAME
+	PACKET_ID_LOBBY_START_GAME,
+	PACKET_ID_PING,
+	PACKET_ID_PONG
 };
 
 class MemoryBuffer
@@ -125,6 +127,14 @@ public:
 	T Read()
 	{
 		T outVar;
+
+		// safety
+		if (m_Offset >= m_memBuffer.GetAllocatedSize())
+		{
+			NetworkLog("[NGMP] Trying to read starting from %d, but buffer is only %d", m_Offset, m_memBuffer.GetAllocatedSize());
+			__debugbreak();
+			return outVar;
+		}
 
 		uint8_t valSize = sizeof(T);
 		memcpy(&outVar, m_memBuffer.GetData() + m_Offset, valSize);

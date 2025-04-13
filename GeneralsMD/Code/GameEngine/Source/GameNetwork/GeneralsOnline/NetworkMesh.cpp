@@ -5,6 +5,8 @@
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_Hello.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.h"
+#include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.h"
+#include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_Pong.h"
 #include "../ngmp_include.h"
 #include "../NGMP_interfaces.h"
 #include <ws2ipdef.h>
@@ -111,20 +113,25 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 	*/
 }
 
-void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember)
+void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsReconnect)
 {
-	//m_mapConnections[lobbyMember.user_id] = PlayerConnection();
-
 	ENetAddress addr;
-
-
-	// TODO_NGMP: Connect to correct IP + the remote preferred port
 	enet_address_set_host(&addr, lobbyMember.strIPAddress.c_str());
 	addr.port = lobbyMember.preferredPort;
 
 	// TODO_NGMP: error handle on get host ip
 	char ip[INET_ADDRSTRLEN + 1] = { 0 };
 	enet_address_get_host_ip(&addr, ip, sizeof(ip));
+
+	NetworkLog("Connecting to %s:%d.", ip, addr.port);
+
+	ConnectToSingleUser(addr, lobbyMember.user_id, bIsReconnect);
+}
+
+void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect /*= false*/)
+{
+
+	// TODO_NGMP: Connect to correct IP + the remote preferred port
 
 	/* Initiate the connection, allocating the two channels 0 and 1. */
 	ENetPeer* peer = enet_host_connect(enetInstance, &addr, 2, 0);
@@ -137,9 +144,18 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember)
 	}
 
 	// store it
-	m_mapConnections[lobbyMember.user_id] = PlayerConnection(lobbyMember.user_id, addr, peer);
+	m_mapConnections[user_id] = PlayerConnection(user_id, addr, peer);
+	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING;
 
-
+	if (bIsReconnect)
+	{
+		m_mapConnections[user_id].m_ConnectionAttempts++;
+	}
+	else
+	{
+		m_mapConnections[user_id].m_ConnectionAttempts = 1;
+	}
+	m_mapConnections[user_id].m_lastConnectionAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 }
 
 // TODO_NGMP: enet_deinitialize
@@ -197,10 +213,39 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 
 void NetworkMesh::Tick()
 {
+	// TODO_NGMP: calculate latencies
+	Int64 currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	if (currTime - m_lastPing > 1000)
+	{
+		SendPing();
+	}
+
+	// service connection attempts
+	/*
+		m_mapConnections[lobbyMember.user_id].m_State = EConnectionState::CONNECTING;
+	m_mapConnections[lobbyMember.user_id].m_ConnectionAttempts = 1;
+	m_mapConnections[lobbyMember.user_id].m_lastConnectionAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	*/
+
+	/*
+	for (auto& kvPair : m_mapConnections)
+	{
+		if (kvPair.second.m_State == EConnectionState::CONNECTING)
+		{
+			int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+			if ((currTime - kvPair.second.m_lastConnectionAttempt) > 1000)
+			{
+				// TODO_NGMP: Handle connection failure
+				kvPair.second.m_ConnectionAttempts++;
+				kvPair.second.m_lastConnectionAttempt = currTime;
+			}
+		}
+	}*/
+
 	// tick
 	{
 		ENetEvent event;
-
+		// TODO_NGMP: If we cant connect to someone, log it and leave the lobby
 		// TODO_NGMP: Switch to send/recv model isntead of events
 		while (enet_host_service(enetInstance, &event, 0) > 0)
 		{
@@ -222,6 +267,9 @@ void NetworkMesh::Tick()
 				if (pConnection != nullptr)
 					{
 						NetworkLog("Found connection for user %d", pConnection->m_userID);
+
+						// TODO_NGMP: Add a timeout for connections
+						pConnection->m_State = EConnectionState::CONNECTED_DIRECT;
 					}
 
 				break;
@@ -353,6 +401,27 @@ void NetworkMesh::Tick()
 						}
 
 					}
+					else if (packetID == EPacketID::PACKET_ID_PING)
+					{
+						NetworkLog("Received Ping");
+						// send pong
+						NetworkPacket_Pong pongPacket;
+						CBitStream* pBitStream = pongPacket.Serialize();
+
+						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
+							ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+
+						PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
+
+						if (pConnection != nullptr)
+						{
+							enet_peer_send(pConnection->m_peer, 0, pENetPacket);
+						}
+					}
+					else if (packetID == EPacketID::PACKET_ID_PONG)
+					{
+						NetworkLog("Received Pong");
+					}
 				}
 				
 				/* Clean up the packet now that we're done using it. */
@@ -362,13 +431,56 @@ void NetworkMesh::Tick()
 			}
 
 			case ENET_EVENT_TYPE_DISCONNECT:
+				
+				// was it a timeout while attempting to connect?
+
+				PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
+
+				if (pConnection != nullptr)
+				{
+					if (pConnection->m_State == EConnectionState::CONNECTING)
+					{
+						NetworkLog("[SERVER] %d timed out while connecting.\n", pConnection->m_userID);
+
+						// should we retry?
+						if (pConnection->m_ConnectionAttempts < 5)
+						{
+							NetworkLog("[SERVER] Attemping to connect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts+1);
+							ConnectToSingleUser(pConnection->m_address, pConnection->m_userID, true);
+						}
+						else
+						{
+							// TODO_NGMP: Leave lobby etc
+							NetworkLog("[SERVER] Exhausted retry attempts connecting to %d.\n", pConnection->m_userID);
+						}
+					}
+					else
+					{
+						NetworkLog("[SERVER] %d disconnected.\n", pConnection->m_userID);
+					}
+
+				}
+
 				NetworkLog("[SERVER] %s disconnected.\n", event.peer->data);
-
-				/* Reset the peer's client information. */
-
-				event.peer->data = NULL;
 			}
 		}
 	}
 
+}
+
+void NetworkMesh::SendPing()
+{
+	m_lastPing = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+	for (auto& connectionInfo : m_mapConnections)
+	{
+		// this also does some hole punching... so don't even check if we're connected, just sent
+		NetworkPacket_Ping pingPacket;
+		CBitStream* pBitStream = pingPacket.Serialize();
+
+		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
+			ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+
+		enet_peer_send(connectionInfo.second.m_peer, 0, pENetPacket);
+	}
 }

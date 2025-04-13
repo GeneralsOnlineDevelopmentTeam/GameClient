@@ -2,6 +2,16 @@
 
 #include "NGMP_include.h"
 
+enum class EConnectionState
+{
+	NOT_CONNECTED,
+	CONNECTING,
+	CONNECTED_DIRECT,
+	//CONNECTED_RELAY_1
+	//CONNECTED_RELAY_2
+	CONNECTION_FAILED
+};
+
 class PlayerConnection
 {
 public:
@@ -22,6 +32,10 @@ public:
 	int64_t m_userID = -1;
 	ENetAddress m_address;
 	ENetPeer* m_peer = nullptr;
+
+	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
+	int m_ConnectionAttempts = 0;
+	int64_t m_lastConnectionAttempt = -1;
 };
 
 struct LobbyMemberEntry;
@@ -54,14 +68,24 @@ public:
 
 	void SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers);
 
-	void ConnectToSingleUser(LobbyMemberEntry& member);
+	void ConnectToSingleUser(LobbyMemberEntry& member, bool bIsReconnect = false);
+	void ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect = false);
 	void ConnectToMesh(LobbyEntry& lobby);
 
 	void Tick();
 
+	int64_t m_lastPing = -1;
+	void SendPing();
+
 	ENetworkMeshType GetMeshType() const { return m_meshType; }
 
 	//EOS_P2P_SocketId GetSocketID() const { return m_SockID; }
+
+
+	std::map<int64_t, PlayerConnection>& GetAllConnections()
+	{
+		return m_mapConnections;
+	}
 
 private:
 	PlayerConnection* GetConnectionForPeer(ENetPeer* peer)

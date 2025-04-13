@@ -12,7 +12,7 @@ CBitStream::CBitStream(EPacketID packetID)
 
 CBitStream::CBitStream(int64_t len, void* pBuffer, size_t sz)
 {
-	m_memBuffer = MemoryBuffer(BITSTREAM_DEFAULT_SIZE);
+	m_memBuffer = MemoryBuffer(len);
 
 	memcpy(m_memBuffer.GetData() + m_Offset, pBuffer, sz);
 	m_Offset += sz;

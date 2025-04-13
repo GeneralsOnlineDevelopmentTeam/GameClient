@@ -1159,6 +1159,8 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.h
     Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_Hello.h
     Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h
+    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.h
+    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.h
     Include/GameNetwork/GeneralsOnline/Packets/NextGenTransport.h
     Include/GameNetwork/GeneralsOnline/Vendor/ENet/callbacks.h
     Include/GameNetwork/GeneralsOnline/Vendor/ENet/enet.h
@@ -1242,6 +1244,8 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.cpp
     Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.cpp
     Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Lobby_StartGamePacket.cpp
+    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.cpp
+    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Pong.cpp
 )
 
 if(GENZH_GAMEMEMORY_ENABLE)
