@@ -103,12 +103,16 @@ Bool NextGenTransport::update(void)
 
 Bool NextGenTransport::doRecv(void)
 {
+	bool bRet = false;
+
 	TransportMessage incomingMessage;
 	unsigned char* buf = (unsigned char*)&incomingMessage;
 
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
 	while (pMesh->HasGamePacket())
 	{
+		bRet = true;
+
 		QueuedGamePacket gamePacket = pMesh->RecvGamePacket();
 
 		NetworkLog("[NGMP]: Received %d bytes from user %d", gamePacket.m_packet->dataLength, gamePacket.m_userID);
@@ -116,7 +120,8 @@ Bool NextGenTransport::doRecv(void)
 		uint32_t numBytes = gamePacket.m_packet->dataLength;
 
 		// avoiding memcpy, since the game memcpy's it into a free slot anyway
-		buf = (unsigned char*)gamePacket.m_packet->data;
+		//buf = (unsigned char*)gamePacket.m_packet->data;
+		memcpy(buf, gamePacket.m_packet->data, numBytes);
 
 			/*
 			TransportMessageHeader header;
@@ -152,7 +157,7 @@ Bool NextGenTransport::doRecv(void)
 		// is it a generals packet?
 		if (isGeneralsPacket(&incomingMessage))
 		{
-			NetworkLog("Game Packet Recv: Is a generals packet");
+			//NetworkLog("Game Packet Recv: Is a generals packet");
 		}
 		else
 		{
@@ -292,7 +297,7 @@ Bool NextGenTransport::doRecv(void)
 	return bRet;
 	*/
 
-	return false;
+	return bRet;
 }
 
 Bool NextGenTransport::doSend(void)
@@ -421,11 +426,11 @@ Bool NextGenTransport::queueSend(UnsignedInt addr, UnsignedShort port, const Uns
 			// is it a generals packet?
 			if (isGeneralsPacket(&m_outBuffer[i]))
 			{
-				NetworkLog("Game Packet Queue Sending: Is a generals packet");
+				//NetworkLog("Game Packet Queue Sending: Is a generals packet");
 			}
 			else
 			{
-				NetworkLog("Game Packet Queue Sending: Is NOT a generals packet");
+				//NetworkLog("Game Packet Queue Sending: Is NOT a generals packet");
 			}
 
 			// Encrypt packet
