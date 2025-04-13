@@ -21,6 +21,7 @@
 // This assumes the buf is a multiple of 4 bytes.  Extra is not encrypted.
 static inline void encryptBuf( unsigned char *buf, Int len )
 {
+	return;
 	UnsignedInt mask = 0x0000Fade;
 
 	UnsignedInt *uintPtr = (UnsignedInt *) (buf);
@@ -36,6 +37,7 @@ static inline void encryptBuf( unsigned char *buf, Int len )
 // This assumes the buf is a multiple of 4 bytes.  Extra is not encrypted.
 static inline void decryptBuf( unsigned char *buf, Int len )
 {
+	return;
 	UnsignedInt mask = 0x0000Fade;
 
 	UnsignedInt *uintPtr = (UnsignedInt *) (buf);

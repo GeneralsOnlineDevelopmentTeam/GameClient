@@ -58,7 +58,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 	static HANDLE MPMutex = NULL;
 	MPMutex = CreateMutex(NULL, FALSE, "685EAFF2-3216-4265-FFFF-251C5F4B82F3");
-	if (GetLastError() == ERROR_ALREADY_EXISTS)
+	if (true)
 	{
 		// use dev account
 		NetworkLog("[NGMP] Secondary instance detected... using dev account for testing purposes");

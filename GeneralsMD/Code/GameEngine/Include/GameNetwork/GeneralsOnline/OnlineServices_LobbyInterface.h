@@ -56,6 +56,9 @@ public:
 		//m_transport->SetSocket(m_pLobbyMesh->GetSocketID());
 	}
 
+	// updates
+	void UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, int newMaxPlayers);
+
 	void SetLobbyListDirty()
 	{
 		m_bLobbyListDirty = true;

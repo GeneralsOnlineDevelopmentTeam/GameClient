@@ -318,8 +318,7 @@ void WOLPositionStartSpots( void )
 	} else {
 		DEBUG_ASSERTCRASH(win != NULL, ("no map preview window"));
 
-		// TODO_NGMP: Correct map, not default
-		AsciiString map = getDefaultMap(true);
+		AsciiString map = TheNGMPGame->getMap();
 		positionStartSpots( map, buttonMapStartPosition, win);
 	}
 }
@@ -1001,11 +1000,9 @@ void WOLDisplayGameOptions( void )
 	if (theGame->getLocalSlotNum() >= 0)
 		localSlot = theGame->getConstSlot(theGame->getLocalSlotNum());
 
-	// TODO_NGMP: Correct map, not default
-	AsciiString map = getDefaultMap(true);
+	AsciiString map = theGame->getMap();
 	const MapMetaData *md = TheMapCache->findMap(map);
-	//if (md && localSlot && localSlot->hasMap()) // TODO_NGMP
-	if (md != nullptr)
+	if (md && localSlot && localSlot->hasMap())
 	{
 		GadgetStaticTextSetText(textEntryMapDisplay, md->m_displayName);
 	}

@@ -44,6 +44,31 @@ AsciiString NGMP_OnlineServices_LobbyInterface::GetCurrentLobbyMapPath()
 	return strPath;
 }
 
+enum class ELobbyUpdateField
+{
+	MAP = 0
+};
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, int newMaxPlayers)
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	// TODO_NGMP: How does the game handle if we have 8 playesr and go to a smaller map? Looks like it just wont let the host start which is fine
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::MAP;
+	j["map"] = strMap.str();
+	j["map_path"] = strMapPath.str();
+	j["max_players"] = newMaxPlayers;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+			
+		});
+}
+
 void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode)
 {
 	// TODO_NGMP: Custom
