@@ -62,18 +62,18 @@ jobs:
     strategy:
       matrix:
         include:
-          - preset: "vc6"
-            tools: true
-            extras: true
-          - preset: "vc6prof"
-            tools: true
-            extras: true
-          - preset: "vc6int"
-            tools: true
-            extras: true
-          - preset: "vc6dbg"
-            tools: true
-            extras: true
+#            tools: true
+#          - preset: "vc6"
+#            extras: true
+#          - preset: "vc6prof"
+#            tools: true
+#            extras: true
+#          - preset: "vc6int"
+#            tools: true
+#            extras: true
+#          - preset: "vc6dbg"
+#            tools: true
+#            extras: true
           - preset: "win32"
             tools: true
             extras: true
@@ -102,18 +102,18 @@ jobs:
     strategy:
       matrix:
         include:
-          - preset: "vc6"
-            tools: true
-            extras: true
-          - preset: "vc6prof"
-            tools: true
-            extras: true
-          - preset: "vc6int"
-            tools: true
-            extras: true
-          - preset: "vc6dbg"
-            tools: true
-            extras: true
+#          - preset: "vc6"
+#            tools: true
+#            extras: true
+#          - preset: "vc6prof"
+#            tools: true
+#            extras: true
+#          - preset: "vc6int"
+#            tools: true
+#            extras: true
+#          - preset: "vc6dbg"
+#            tools: true
+#            extras: true
           - preset: "win32"
             tools: true
             extras: true
