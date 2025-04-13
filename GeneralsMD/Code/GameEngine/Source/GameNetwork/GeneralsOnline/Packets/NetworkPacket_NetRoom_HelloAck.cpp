@@ -15,5 +15,6 @@ CBitStream* NetRoom_HelloAckPacket::Serialize()
 {
 	CBitStream* pBitstream = new CBitStream(EPacketID::PACKET_ID_NET_ROOM_HELLO_ACK);
 	pBitstream->Write<int64_t>(m_user_id);
+
 	return pBitstream;
 }

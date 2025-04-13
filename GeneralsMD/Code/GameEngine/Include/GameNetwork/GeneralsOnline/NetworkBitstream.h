@@ -46,6 +46,15 @@ public:
 		m_bufferSize = size;
 	}
 
+	void ReAllocate(size_t size)
+	{
+		if (m_bOwnership)
+		{
+			m_pBuffer = (uint8_t*)realloc((void*)m_pBuffer, size);
+			m_bufferSize = size;
+		}
+	}
+
 	MemoryBuffer& operator=(MemoryBuffer&& rhs)
 	{
 		if (&rhs == this)
@@ -87,6 +96,9 @@ public:
 	{
 		m_memBuffer = MemoryBuffer();
 	};
+
+	void Encrypt();
+	void Decrypt();
 
 	CBitStream(EPacketID packetID);
 	CBitStream(int64_t len);

@@ -1171,6 +1171,85 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/Vendor/ENet/unix.h
     Include/GameNetwork/GeneralsOnline/Vendor/ENet/utility.h
     Include/GameNetwork/GeneralsOnline/Vendor/ENet/win32.h
+
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/core.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_aead_aegis128l.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_aead_aegis256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_aead_aes256gcm.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_aead_chacha20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_aead_xchacha20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_auth.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_auth_hmacsha256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_auth_hmacsha512.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_auth_hmacsha512256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_box.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_box_curve25519xchacha20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_box_curve25519xsalsa20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_ed25519.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_hchacha20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_hsalsa20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_ristretto255.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_salsa20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_salsa2012.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_salsa208.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_generichash.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_generichash_blake2b.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_hash.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_hash_sha256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_hash_sha512.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_kdf.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_kdf_blake2b.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_kdf_hkdf_sha256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_kdf_hkdf_sha512.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_kx.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_onetimeauth.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_onetimeauth_poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_pwhash.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_pwhash_argon2i.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_pwhash_argon2id.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_pwhash_scryptsalsa208sha256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_scalarmult.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_scalarmult_curve25519.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_scalarmult_ed25519.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_scalarmult_ristretto255.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_secretbox.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_secretbox_xchacha20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_secretbox_xsalsa20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_secretstream_xchacha20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_shorthash.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_shorthash_siphash24.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_sign.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_sign_ed25519.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_sign_edwards25519sha512batch.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_chacha20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_salsa20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_salsa2012.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_salsa208.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_xchacha20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_xsalsa20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_verify_16.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_verify_32.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_verify_64.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/export.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/randombytes.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/randombytes_internal_random.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/randombytes_sysrandom.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/runtime.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/utils.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/version.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/asm_cet.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/chacha20_ietf_ext.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/common.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/ed25519_ref10.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/ed25519_ref10_fe_25_5.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/ed25519_ref10_fe_51.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/implementations.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/mutex.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/softaes.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/sse2_64_32.h
+
     Include/GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h
     Include/GameNetwork/GeneralsOnline/Vendor/libcurl/curlver.h
     Include/GameNetwork/GeneralsOnline/Vendor/libcurl/easy.h

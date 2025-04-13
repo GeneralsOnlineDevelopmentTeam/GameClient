@@ -57,11 +57,14 @@ bool NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, LobbyMem
 
 void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers)
 {
+	// 
 	// TODO_NGMP: Respect vecTargetUsers again
 	CBitStream* pBitStream = packet.Serialize();
+	pBitStream->Encrypt();
 
 	ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 		ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+
 
 	for (auto& connection : m_mapConnections)
 	{
@@ -307,6 +310,8 @@ void NetworkMesh::Tick()
 				CBitStream bitstream(event.packet->data, event.packet->dataLength, (EPacketID)event.packet->data[0]);
 				NetworkLog("[NGMP]: Received %d bytes from user %d", event.packet->dataLength, event.peer->incomingPeerID);
 
+				bitstream.Decrypt();
+
 				EPacketID packetID = bitstream.Read<EPacketID>();
 
 				// Game Mesh / Lobby packets only
@@ -327,6 +332,7 @@ void NetworkMesh::Tick()
 						// just send manually to that one user, dont broadcast
 						NetRoom_HelloAckPacket ackPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
 						CBitStream* pBitStream = ackPacket.Serialize();
+						pBitStream->Encrypt();
 
 						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 							ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
@@ -407,6 +413,7 @@ void NetworkMesh::Tick()
 						// send pong
 						NetworkPacket_Pong pongPacket;
 						CBitStream* pBitStream = pongPacket.Serialize();
+						pBitStream->Encrypt();
 
 						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 							ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
@@ -477,6 +484,7 @@ void NetworkMesh::SendPing()
 		// this also does some hole punching... so don't even check if we're connected, just sent
 		NetworkPacket_Ping pingPacket;
 		CBitStream* pBitStream = pingPacket.Serialize();
+		pBitStream->Encrypt();
 
 		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 			ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
