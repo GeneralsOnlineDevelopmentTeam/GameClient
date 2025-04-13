@@ -5,6 +5,7 @@ set(WW3D2_SRC
     agg_def.cpp
     animobj.cpp
     assetmgr.cpp
+    assetstatus.cpp
     bitmaphandler.cpp
     bmp2d.cpp
     boxrobj.cpp
@@ -85,6 +86,7 @@ set(WW3D2_SRC
     sortingrenderer.cpp
     soundrobj.cpp
     sphereobj.cpp
+    static_sort_list.cpp
     statistics.cpp
     streak.cpp
     streakRender.cpp
@@ -107,6 +109,7 @@ set(WW3D2_SRC
     agg_def.h
     animobj.h
     assetmgr.h
+    assetstatus.h
     bitmaphandler.h
     bmp2d.h
     boxrobj.h
@@ -195,6 +198,7 @@ set(WW3D2_SRC
     sortingrenderer.h
     soundrobj.h
     sphereobj.h
+    static_sort_list.h
     statistics.h
     streak.h
     streakRender.h
@@ -232,6 +236,6 @@ if (NOT IS_VS6_BUILD)
 endif()
 
 target_link_libraries(g_ww3d2 PRIVATE
-    g_browserengine
+    core_browserengine
     g_wwcommon
 )

@@ -27,7 +27,6 @@ target_include_directories(z_profile INTERFACE
 )
 
 target_link_libraries(z_profile PRIVATE
-    gz_config
-    gz_utility
-    zi_libraries_include
+    core_config
+    zi_always
 )

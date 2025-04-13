@@ -12,7 +12,6 @@ set(GAMEENGINE_SRC
     Source/Common/System/AsciiString.cpp
     Source/Common/System/BuildAssistant.cpp
     Source/Common/System/CDManager.cpp
-    Source/Common/System/Compression.cpp
     Source/Common/System/CopyProtection.cpp
     Source/Common/System/CriticalSection.cpp
     Source/Common/System/DataChunk.cpp
@@ -32,7 +31,7 @@ set(GAMEENGINE_SRC
     Source/Common/System/LocalFile.cpp
     Source/Common/System/LocalFileSystem.cpp
     #Source/Common/System/MemoryInit.cpp
-    Source/Common/System/QuickTrig.cpp
+    Source/Common/System/ObjectStatusTypes.cpp
     Source/Common/System/QuotedPrintable.cpp
     Source/Common/System/Radar.cpp
     Source/Common/System/RAMFile.cpp
@@ -40,7 +39,6 @@ set(GAMEENGINE_SRC
     Source/Common/System/Snapshot.cpp
     Source/Common/System/StackDump.cpp
     Source/Common/System/StreamingArchiveFile.cpp
-    Source/Common/System/String.cpp
     Source/Common/System/SubsystemInterface.cpp
     Source/Common/System/Trig.cpp
     Source/Common/System/UnicodeString.cpp
@@ -364,7 +362,6 @@ set(GAMEENGINE_SRC
     Source/GameClient/Drawable/Update/BeaconClientUpdate.cpp
     Source/GameLogic/Object/Update/LaserUpdate.cpp
     Source/GameClient/Drawable/Update/SwayClientUpdate.cpp
-    Source/GameClient/Drawable/DrawableManager.cpp
     "Source/GameClient/System/Debug Displayers/AudioDebugDisplay.cpp"
     Source/GameClient/System/Anim2D.cpp
     Source/GameClient/System/CampaignManager.cpp
@@ -617,6 +614,7 @@ set(GAMEENGINE_SRC
     Include/Common/Money.h
     Include/Common/MultiplayerSettings.h
     Include/Common/NameKeyGenerator.h
+    Include/Common/ObjectStatusTypes.h
     Include/Common/OSDisplay.h
     Include/Common/Overridable.h
     Include/Common/Override.h
@@ -628,7 +626,6 @@ set(GAMEENGINE_SRC
     Include/Common/PlayerTemplate.h
     Include/Common/ProductionPrerequisite.h
     Include/Common/QuickmatchPreferences.h
-    Include/Common/QuickTrig.h
     Include/Common/QuotedPrintable.h
     Include/Common/Radar.h
     Include/Common/RAMFile.h
@@ -650,7 +647,6 @@ set(GAMEENGINE_SRC
     Include/Common/StatsCollector.h
     Include/Common/STLTypedefs.h
     Include/Common/StreamingArchiveFile.h
-    Include/Common/string.h
     Include/Common/SubsystemInterface.h
     Include/Common/SystemInfo.h
     Include/Common/Team.h
@@ -887,7 +883,6 @@ set(GAMEENGINE_SRC
     Include/GameLogic/ObjectCreationList.h
     Include/GameLogic/ObjectIter.h
     Include/GameLogic/ObjectScriptStatusBits.h
-    Include/GameLogic/ObjectStatusBits.h
     Include/GameLogic/ObjectTypes.h
     Include/GameLogic/PartitionManager.h
     Include/GameLogic/PolygonTrigger.h
@@ -931,7 +926,6 @@ set(GAMEENGINE_SRC
     Include/GameClient/DisplayStringManager.h
     Include/GameClient/Drawable.h
     Include/GameClient/DrawableInfo.h
-    Include/GameClient/DrawableManager.h
     Include/GameClient/DrawGroupInfo.h
     Include/GameClient/EstablishConnectionsMenu.h
     Include/GameClient/Eva.h
@@ -1056,7 +1050,7 @@ set(GAMEENGINE_SRC
     Include/Precompiled/PreRTS.h
 )
 
-if(GENZH_GAMEMEMORY_ENABLE)
+if(RTS_GAMEMEMORY_ENABLE)
     # Uses the original Game Memory implementation.
     list(APPEND GAMEENGINE_SRC
         Source/Common/System/GameMemory.cpp
@@ -1083,17 +1077,16 @@ target_include_directories(g_gameengine PRIVATE
 )
 
 target_link_libraries(g_gameengine PRIVATE
-    gi_libraries_include
-    gi_libraries_source
+    gi_always
 )
 
 target_link_libraries(g_gameengine PUBLIC
     d3d8lib
-    g_browserdispatch
-    g_compression
+    core_browserdispatch
+    core_compression
     g_wwvegas
-    gz_config
-    gz_utility
+    core_config
+    core_utility
     gamespy::gamespy
     stlport
 )

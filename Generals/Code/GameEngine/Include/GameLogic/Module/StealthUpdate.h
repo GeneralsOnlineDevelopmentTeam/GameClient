@@ -37,7 +37,7 @@
 
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class Thing;
-enum StealthLookType;
+enum StealthLookType CPP_11(: Int);
 class FXList;
 
 enum
@@ -95,7 +95,6 @@ public:
 		//
 		m_stealthDelay		= UINT_MAX;
 		m_stealthLevel		= 0;
-		m_hintDetectableStates = 0;
 		m_stealthSpeed		= 0.0f;
 		m_friendlyOpacityMin = 0.5f;
 		m_friendlyOpacityMax = 1.0f;

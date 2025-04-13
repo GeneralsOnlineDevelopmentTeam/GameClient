@@ -15,7 +15,6 @@ set(WWLIB_SRC
     hash.cpp
     ini.cpp
     jshell.cpp
-    LaunchWeb.cpp
     mpu.cpp
     multilist.cpp
     mutex.cpp
@@ -71,7 +70,6 @@ set(WWLIB_SRC
     INI.H
     inisup.h
     iostruct.h
-    LaunchWeb.h
     LISTNODE.H
     mempool.h
     MPU.H
@@ -124,5 +122,5 @@ target_sources(g_wwlib PRIVATE ${WWLIB_SRC})
 
 target_link_libraries(g_wwlib PRIVATE
     g_wwcommon
-    gi_libraries_include
+    gi_always
 )

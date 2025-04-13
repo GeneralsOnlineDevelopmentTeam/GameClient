@@ -17,7 +17,6 @@ set(WWLIB_SRC
     hash.cpp
     ini.cpp
     jshell.cpp
-    LaunchWeb.cpp
     mpu.cpp
     multilist.cpp
     mutex.cpp
@@ -76,7 +75,6 @@ set(WWLIB_SRC
     INI.H
     inisup.h
     iostruct.h
-    LaunchWeb.h
     LISTNODE.H
     mempool.h
     MPU.H
@@ -128,7 +126,11 @@ set_target_properties(z_wwlib PROPERTIES OUTPUT_NAME wwlib)
 
 target_sources(z_wwlib PRIVATE ${WWLIB_SRC})
 
+target_include_directories(z_wwlib PUBLIC
+    .
+)
+
 target_link_libraries(z_wwlib PRIVATE
     z_wwcommon
-    zi_libraries_include
+    zi_always
 )

@@ -85,11 +85,11 @@ class SpecialPowerModule;
 
 class BattlePlanBonuses;
 
-enum BattlePlanStatus;
-enum UpgradeStatusType;
-enum CommandSourceType;
+enum BattlePlanStatus CPP_11(: Int);
+enum UpgradeStatusType CPP_11(: Int);
+enum CommandSourceType CPP_11(: Int);
 
-enum ScienceAvailabilityType
+enum ScienceAvailabilityType CPP_11(: Int)
 {
 	SCIENCE_AVAILABILITY_INVALID = -1,
 
@@ -720,8 +720,8 @@ private:
 	Int													m_holdTheLineBattlePlans;			///< Number of strategy centers with active hold the line plan
 	Int													m_searchAndDestroyBattlePlans;///< Number of strategy centers with active search and destroy plan
 	BattlePlanBonuses*					m_battlePlanBonuses;
-	UpgradeMaskType										m_upgradesInProgress;					///< Bit field of in Production status upgrades
-	UpgradeMaskType										m_upgradesCompleted;					///< Bit field of upgrades completed.  Bits are assigned by UpgradeCenter
+	UpgradeMaskType							m_upgradesInProgress;					///< Bit field of in Production status upgrades
+	UpgradeMaskType							m_upgradesCompleted;					///< Bit field of upgrades completed.  Bits are assigned by UpgradeCenter
 	Energy											m_energy;											///< current energy production & consumption
 	MissionStats								m_stats;											///< stats about the current mission (units destroyed, etc)
 	BuildListInfo*							m_pBuildList;									///< linked list of buildings for PLAYER_COMPUTER.

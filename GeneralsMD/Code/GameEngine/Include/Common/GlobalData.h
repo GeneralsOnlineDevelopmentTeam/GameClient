@@ -44,12 +44,12 @@
 
 // FORWARD DECLARATIONS ///////////////////////////////////////////////////////////////////////////
 struct FieldParse;
-enum _TerrainLOD;
+enum _TerrainLOD CPP_11(: Int);
 class GlobalData;
 class INI;
 class WeaponBonusSet;
-enum BodyDamageType;
-enum AIDebugOptions;
+enum BodyDamageType CPP_11(: Int);
+enum AIDebugOptions CPP_11(: Int);
 
 // PUBLIC /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -531,9 +531,13 @@ private:
 	GlobalData *newOverride( void );		/** create a new override, copy data from previous
 																			override, and return it */
 
-
+#if defined(_MSC_VER) && _MSC_VER < 1300
 	GlobalData(const GlobalData& that) { DEBUG_CRASH(("unimplemented")); }
 	GlobalData& operator=(const GlobalData& that) { DEBUG_CRASH(("unimplemented")); return *this; }
+#else
+	GlobalData(const GlobalData& that) = delete;
+	GlobalData& operator=(const GlobalData& that) = default;
+#endif
 
 };
 

@@ -1,7 +1,7 @@
 # Build tools
 
 # Build useful tool binaries.
-if(GENZH_BUILD_ZEROHOUR_TOOLS)
+if(RTS_BUILD_ZEROHOUR_TOOLS)
     add_subdirectory(DebugWindow)
     add_subdirectory(GUIEdit)
     add_subdirectory(ImagePacker)
@@ -13,12 +13,11 @@ if(GENZH_BUILD_ZEROHOUR_TOOLS)
 endif()
 
 # Build less useful tool/test binaries.
-if(GENZH_BUILD_ZEROHOUR_EXTRAS)
+if(RTS_BUILD_ZEROHOUR_EXTRAS)
     add_subdirectory(assetcull)
     add_subdirectory(Autorun)
     add_subdirectory(Babylon)
     add_subdirectory(buildVersionUpdate)
-    add_subdirectory(Compress)
     add_subdirectory(CRCDiff)
     add_subdirectory(Launcher)
     add_subdirectory(mangler)

@@ -194,7 +194,7 @@ GameEngine::GameEngine( void )
 	m_quitting = FALSE;
 	m_isActive = FALSE;
 
-	_Module.Init(NULL, ApplicationHInstance);
+	_Module.Init(NULL, ApplicationHInstance, NULL);
 }
 
 //-------------------------------------------------------------------------------------------------

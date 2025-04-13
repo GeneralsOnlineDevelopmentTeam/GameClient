@@ -47,7 +47,6 @@
 #include "WW3D2/mesh.h"
 #include "WW3D2/meshmdl.h"
 #include "Lib/BaseType.h"
-#include "W3DDevice/GameClient/W3DGranny.h"
 #include "W3DDevice/GameClient/HeightMap.h"
 #include "d3dx8math.h"
 #include "Common/GlobalData.h"
@@ -58,8 +57,10 @@
 #include "GameLogic/TerrainLogic.h"
 #include "WW3D2/dx8caps.h"
 #include "GameClient/Drawable.h"
+#ifdef USE_WWSHADE
 #include "wwshade/shdmesh.h"
 #include "wwshade/shdsubmesh.h"
+#endif
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -701,7 +702,7 @@ Int W3DShadowGeometry::initFromHLOD(RenderObjClass *robj)
 		}
 
 		
-#if (1) //(cnc3)(gth) Support for ShaderMeshes!
+#ifdef USE_WWSHADE //(cnc3)(gth) Support for ShaderMeshes!
 // I'm coding this as a completely independent block rather than re-factoring the code above
 // because it will probably save us pain in future merges.
 		if (hlod->Peek_Lod_Model(top,i) && hlod->Peek_Lod_Model(top,i)->Class_ID() == RenderObjClass::CLASSID_SHDMESH)
@@ -1508,14 +1509,9 @@ void W3DVolumetricShadow::RenderDynamicMeshVolume(Int meshIndex, Int lightIndex,
 	}
 
 
-	try {
 	if(pvIndices)
 	{
 		memcpy(pvIndices,geometry->GetPolygonIndex(0,(short *)pvIndices),numPolys*3*sizeof(short));
-	}
-	IndexBufferExceptionFunc();
-	} catch(...) {
-		IndexBufferExceptionFunc();
 	}
 
 	shadowIndexBufferD3D->Unlock();

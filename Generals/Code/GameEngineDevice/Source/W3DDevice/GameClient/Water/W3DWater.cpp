@@ -201,9 +201,9 @@ void WaterRenderObjClass::setupJbaWaterShader(void)
 	VertexMaterialClass *vmat=VertexMaterialClass::Get_Preset(VertexMaterialClass::PRELIT_DIFFUSE);
 	DX8Wrapper::Set_Material(vmat);
 	REF_PTR_RELEASE(vmat);
-	m_riverTexture->Set_Mag_Filter(TextureFilterClass::FILTER_TYPE_BEST);
-	m_riverTexture->Set_Min_Filter(TextureFilterClass::FILTER_TYPE_BEST);
-	m_riverTexture->Set_Mip_Mapping(TextureFilterClass::FILTER_TYPE_BEST);
+	m_riverTexture->Get_Filter().Set_Mag_Filter(TextureFilterClass::FILTER_TYPE_BEST);
+	m_riverTexture->Get_Filter().Set_Min_Filter(TextureFilterClass::FILTER_TYPE_BEST);
+	m_riverTexture->Get_Filter().Set_Mip_Mapping(TextureFilterClass::FILTER_TYPE_BEST);
 
 
 //	Setting *setting=&m_settings[m_tod];	
@@ -211,7 +211,7 @@ void WaterRenderObjClass::setupJbaWaterShader(void)
 
 	DX8Wrapper::Apply_Render_State_Changes();	//force update of view and projection matrices
 	DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_ALPHAOP,   D3DTOP_ADD );
-	DX8Wrapper::_Get_D3D_Device8()->SetTexture(3,m_riverAlphaEdge->Peek_DX8_Texture());	
+	DX8Wrapper::_Get_D3D_Device8()->SetTexture(3,m_riverAlphaEdge->Peek_D3D_Texture());	
 	DX8Wrapper::Set_DX8_Texture_Stage_State(3,  D3DTSS_ADDRESSU, D3DTADDRESS_WRAP);
 	DX8Wrapper::Set_DX8_Texture_Stage_State(3,  D3DTSS_ADDRESSV, D3DTADDRESS_WRAP);
 	DX8Wrapper::Set_DX8_Texture_Stage_State(0,  D3DTSS_TEXCOORDINDEX, 0);
@@ -221,8 +221,8 @@ void WaterRenderObjClass::setupJbaWaterShader(void)
 	Bool doSparkles = true;
 
 	if (m_riverWaterPixelShader && doSparkles) {
-		DX8Wrapper::_Get_D3D_Device8()->SetTexture(1,m_waterSparklesTexture->Peek_DX8_Texture());	
-		DX8Wrapper::_Get_D3D_Device8()->SetTexture(2,m_waterNoiseTexture->Peek_DX8_Texture());	
+		DX8Wrapper::_Get_D3D_Device8()->SetTexture(1,m_waterSparklesTexture->Peek_D3D_Texture());	
+		DX8Wrapper::_Get_D3D_Device8()->SetTexture(2,m_waterNoiseTexture->Peek_D3D_Texture());	
 
 		DX8Wrapper::Set_DX8_Texture_Stage_State(1,  D3DTSS_ADDRESSU, D3DTADDRESS_WRAP);
 		DX8Wrapper::Set_DX8_Texture_Stage_State(1,  D3DTSS_ADDRESSV, D3DTADDRESS_WRAP);
@@ -1014,14 +1014,14 @@ Int WaterRenderObjClass::init(Real waterLevel, Real dx, Real dy, SceneClass *par
 	Set_Force_Visible(TRUE);	//water is always visible since it's a composite object made of multiple planes all over the map.
 
 	ReAcquireResources();
-
+#if 0	//MD does not support the old bump-mapped water at all so no point loading textures. -MW 8-11-03
 	if (type == WATER_TYPE_2_PVSHADER || (W3DShaderManager::getChipset() >= DC_GENERIC_PIXEL_SHADER_1_1))
 	{	//geforce3 specific water requires some extra D3D assets
 		m_pDev=DX8Wrapper::_Get_D3D_Device8();
 		//save previous thumbnail mode
-		WW3D::TextureThumbnailModeEnum 	tmMode=WW3D::Get_Texture_Thumbnail_Mode ();
+		bool thumbnails_enabled = WW3D::Get_Thumbnail_Enabled();
+		WW3D::Set_Thumbnail_Enabled(false);
 
-		WW3D::Set_Texture_Thumbnail_Mode(WW3D::TEXTURE_THUMBNAIL_MODE_OFF);
 		//load bump map textures off disk
 		TextureClass *pBumpSource;	//temporary textures in a format W3D understands
 		TextureClass *pBumpSource2;	//temporary textures in a format W3D understands
@@ -1043,8 +1043,9 @@ Int WaterRenderObjClass::init(Real waterLevel, Real dx, Real dy, SceneClass *par
 			REF_PTR_RELEASE(pBumpSource2);
 		}
 		//restore previous thumpnail mode
-		WW3D::Set_Texture_Thumbnail_Mode(tmMode);
+		WW3D::Set_Thumbnail_Enabled(thumbnails_enabled);
 	}
+#endif
 
 	//Setup material for regular water
 	m_vertexMaterialClass=VertexMaterialClass::Get_Preset(VertexMaterialClass::PRELIT_DIFFUSE);
@@ -1073,8 +1074,8 @@ Int WaterRenderObjClass::init(Real waterLevel, Real dx, Real dy, SceneClass *par
 		{
 			if (material->Peek_Texture(i))
 			{		
-				material->Peek_Texture(i)->Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
-				material->Peek_Texture(i)->Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
+				material->Peek_Texture(i)->Get_Filter().Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
+				material->Peek_Texture(i)->Get_Filter().Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
 			}
 		}
 	}
@@ -1296,8 +1297,8 @@ void WaterRenderObjClass::replaceSkyboxTexture(const AsciiString& oldTexName, co
 		{
 			if (material->Peek_Texture(i))
 			{		
-				material->Peek_Texture(i)->Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
-				material->Peek_Texture(i)->Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
+				material->Peek_Texture(i)->Get_Filter().Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
+				material->Peek_Texture(i)->Get_Filter().Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
 			}
 		}
 	}
@@ -1855,7 +1856,7 @@ void WaterRenderObjClass::drawSea(RenderInfoClass & rinfo)
 	m_pDev->SetRenderState( D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA );
 
 	m_pDev->SetRenderState(D3DRS_ALPHABLENDENABLE , TRUE);
-	m_pDev->SetTexture( 1, m_pReflectionTexture->Peek_DX8_Texture());
+	m_pDev->SetTexture( 1, m_pReflectionTexture->Peek_D3D_Texture());
 
 //	m_pDev->SetRenderState(D3DRS_FILLMODE,D3DFILL_WIREFRAME);//LORENZEN
 
@@ -2890,7 +2891,7 @@ void WaterRenderObjClass::setupFlatWaterShader(void)
 		else
 		{	//Assume no shroud, so stage 3 will be "NULL" texture but using actual white because
 			//pixel shader on GF4 generates random colors with SetTexture(3,NULL).
-			DX8Wrapper::_Get_D3D_Device8()->SetTexture(3,m_whiteTexture->Peek_DX8_Texture());	
+			DX8Wrapper::_Get_D3D_Device8()->SetTexture(3,m_whiteTexture->Peek_D3D_Texture());	
 		}
 	}
 
@@ -2899,9 +2900,9 @@ void WaterRenderObjClass::setupFlatWaterShader(void)
 	VertexMaterialClass *vmat=VertexMaterialClass::Get_Preset(VertexMaterialClass::PRELIT_DIFFUSE);
 	DX8Wrapper::Set_Material(vmat);
 	REF_PTR_RELEASE(vmat);
-	m_riverTexture->Set_Mag_Filter(TextureFilterClass::FILTER_TYPE_BEST);
-	m_riverTexture->Set_Min_Filter(TextureFilterClass::FILTER_TYPE_BEST);
-	m_riverTexture->Set_Mip_Mapping(TextureFilterClass::FILTER_TYPE_BEST);
+	m_riverTexture->Get_Filter().Set_Mag_Filter(TextureFilterClass::FILTER_TYPE_BEST);
+	m_riverTexture->Get_Filter().Set_Min_Filter(TextureFilterClass::FILTER_TYPE_BEST);
+	m_riverTexture->Get_Filter().Set_Mip_Mapping(TextureFilterClass::FILTER_TYPE_BEST);
 
 	DX8Wrapper::Apply_Render_State_Changes();	//force update of view and projection matrices
 
@@ -2912,8 +2913,8 @@ void WaterRenderObjClass::setupFlatWaterShader(void)
 	Bool doSparkles = true;
 
 	if (m_trapezoidWaterPixelShader && doSparkles) {
-		DX8Wrapper::_Get_D3D_Device8()->SetTexture(1,m_waterSparklesTexture->Peek_DX8_Texture());	
-		DX8Wrapper::_Get_D3D_Device8()->SetTexture(2,m_waterNoiseTexture->Peek_DX8_Texture());	
+		DX8Wrapper::_Get_D3D_Device8()->SetTexture(1,m_waterSparklesTexture->Peek_D3D_Texture());	
+		DX8Wrapper::_Get_D3D_Device8()->SetTexture(2,m_waterNoiseTexture->Peek_D3D_Texture());	
 
 		DX8Wrapper::Set_DX8_Texture_Stage_State(1,  D3DTSS_ADDRESSU, D3DTADDRESS_WRAP);
 		DX8Wrapper::Set_DX8_Texture_Stage_State(1,  D3DTSS_ADDRESSV, D3DTADDRESS_WRAP);

@@ -74,7 +74,7 @@ static const Real MIN_ACTION_TOLERANCE = 70.0f;
 //-------------------------------------------------------------------------------------------------
 /** Available Dozer actions */
 //-------------------------------------------------------------------------------------------------
-enum DozerActionType
+enum DozerActionType CPP_11(: Int)
 {
 	DOZER_ACTION_PICK_ACTION_POS,		///< pick a location "around" the target to do our action
 	DOZER_ACTION_MOVE_TO_ACTION_POS,///< move to our action pos we've picked
@@ -561,8 +561,8 @@ StateReturnType DozerActionDoActionState::update( void )
 				{
 
 					// clear the under construction status
-					goalObject->clearStatus( OBJECT_STATUS_UNDER_CONSTRUCTION );
-					goalObject->clearStatus( OBJECT_STATUS_RECONSTRUCTING );
+					goalObject->clearStatus( MAKE_OBJECT_STATUS_MASK( OBJECT_STATUS_UNDER_CONSTRUCTION ) );
+					goalObject->clearStatus( MAKE_OBJECT_STATUS_MASK( OBJECT_STATUS_RECONSTRUCTING ) );
 
 					// stop playing the construction sound!
 					dozerAI->finishBuildingSound();
@@ -1684,13 +1684,12 @@ Object *DozerAIUpdate::construct( const ThingTemplate *what,
 	// what will our initial status bits be, it is important to do this early
 	// before the hooks add/subtract power from a player are executed
 	//
-	ObjectStatusMaskType statusBits = OBJECT_STATUS_UNDER_CONSTRUCTION;
+	ObjectStatusMaskType statusBits = MAKE_OBJECT_STATUS_MASK( OBJECT_STATUS_UNDER_CONSTRUCTION );
 	if( isRebuild )
-		BitSet( statusBits, OBJECT_STATUS_RECONSTRUCTING );
+		statusBits.set( OBJECT_STATUS_RECONSTRUCTING );
 
 	// create an object at the destination location
-	Object *obj = TheThingFactory->newObject( what, owningPlayer->getDefaultTeam(), 
-																						(ObjectStatusBits)statusBits );
+	Object *obj = TheThingFactory->newObject( what, owningPlayer->getDefaultTeam(), statusBits );
 
 	// even though we haven't actually built anything yet, this keeps things tidy
 	obj->setProducer( getObject() );

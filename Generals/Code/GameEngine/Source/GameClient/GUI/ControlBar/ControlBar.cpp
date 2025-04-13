@@ -1346,9 +1346,12 @@ void ControlBar::update( void )
 
 		}  
 		else // get the first and only drawble in the selection list
-			drawToEvaluateFor = TheInGameUI->getAllSelectedDrawables()->front();
-		Object *obj = drawToEvaluateFor ? drawToEvaluateFor->getObject() : NULL;
-		setPortraitByObject( obj );
+			// TheSuperHackers @fix Mauller 07/04/2025 The first access to this can return an empty list
+			if (!TheInGameUI->getAllSelectedDrawables()->empty()) {
+				drawToEvaluateFor = TheInGameUI->getAllSelectedDrawables()->front();
+				Object *obj = drawToEvaluateFor ? drawToEvaluateFor->getObject() : NULL;
+				setPortraitByObject( obj );
+			}
 		
 		return;
 	}
@@ -1744,7 +1747,7 @@ void ControlBar::evaluateContextUI( void )
 			return;
 
 		// we show no interface for objects being sold
-		if( BitIsSet( obj->getStatusBits(), OBJECT_STATUS_SOLD ) )
+		if( obj->getStatusBits().test( OBJECT_STATUS_SOLD ) )
 			return;
 
 		static const NameKeyType key_OCLUpdate = NAMEKEY( "OCLUpdate" );
@@ -1756,7 +1759,7 @@ void ControlBar::evaluateContextUI( void )
 		// more important than anything
 		//
 		Bool contextSelected = FALSE;
-		if( BitIsSet( obj->getStatusBits(), OBJECT_STATUS_UNDER_CONSTRUCTION ) )
+		if( obj->getStatusBits().test( OBJECT_STATUS_UNDER_CONSTRUCTION ) )
 		{
 
 			switchToContext( CB_CONTEXT_UNDER_CONSTRUCTION, drawToEvaluateFor );
