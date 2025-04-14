@@ -778,6 +778,11 @@ void GameEngine::update( void )
 			TheGameClient->UPDATE();
 			TheMessageStream->propagateMessages();
 
+			if (g_pOnlineServicesMgr != nullptr)
+			{
+				g_pOnlineServicesMgr->Tick();
+			}
+
 			if (TheNetwork != NULL)
 			{
 				TheNetwork->UPDATE();
@@ -792,10 +797,7 @@ void GameEngine::update( void )
 			TheGameLogic->UPDATE();
 		}
 
-		if (g_pOnlineServicesMgr != nullptr)
-		{
-			g_pOnlineServicesMgr->Tick();
-		}
+		
 
 	}	// end perfGather
 

@@ -202,8 +202,9 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 		server_address.host = ENET_HOST_ANY;
 		server_address.port = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 
+		// TODO_NGMP: Correct values here
 		enetInstance = enet_host_create(&server_address,
-			8,  // max game size is 8 and we are p2p and fake a connection to ourselves // TODO_NGMP: Do we need to support more, e.g. spectators?
+			32,  // max game size is 8 and we are p2p and fake a connection to ourselves // TODO_NGMP: Do we need to support more, e.g. spectators?
 			2,  // 2 channels, 0 is lobby, 1 is gameplay
 			0,
 			0);
@@ -449,6 +450,19 @@ void NetworkMesh::Tick()
 					else if (packetID == EPacketID::PACKET_ID_PONG)
 					{
 						NetworkLog("Received Pong");
+
+						
+						// store delta on connection
+						PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
+
+						if (pConnection != nullptr)
+						{
+							int l = currTime - pConnection->pingSent;
+							pConnection->latency = currTime - pConnection->pingSent;
+							//pConnection->pingSent = -1;
+
+							NetworkLog("Latency for connection to user %lld is %d (var %d)", pConnection->m_userID, pConnection->latency, l);
+						}
 					}
 				}
 				
@@ -498,6 +512,8 @@ void NetworkMesh::Tick()
 
 void NetworkMesh::SendPing()
 {
+	m_lastPing = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
 	// TODO_NGMP: Better way of checking we have everything we need / are fully in the lobby
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
 	if (currentLobby.EncKey.empty() || currentLobby.EncIV.empty())
@@ -505,8 +521,6 @@ void NetworkMesh::SendPing()
 		NetworkLog("No encryption key or IV, not sending ping");
 		return;
 	}
-
-	m_lastPing = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
 	for (auto& connectionInfo : m_mapConnections)
 	{
@@ -520,5 +534,7 @@ void NetworkMesh::SendPing()
 			ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
 
 		enet_peer_send(connectionInfo.second.m_peer, 0, pENetPacket);
+
+		connectionInfo.second.pingSent = m_lastPing;
 	}
 }

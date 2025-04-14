@@ -7,8 +7,8 @@ enum class EConnectionState
 	NOT_CONNECTED,
 	CONNECTING,
 	CONNECTED_DIRECT,
-	//CONNECTED_RELAY_1
-	//CONNECTED_RELAY_2
+	CONNECTED_RELAY_1,
+	CONNECTED_RELAY_2,
 	CONNECTION_FAILED
 };
 
@@ -36,6 +36,9 @@ public:
 	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
 	int m_ConnectionAttempts = 0;
 	int64_t m_lastConnectionAttempt = -1;
+
+	int64_t pingSent = -1;
+	int latency = -1;
 };
 
 struct LobbyMemberEntry;
