@@ -1374,3 +1374,5 @@ target_compile_definitions(z_gameengine PRIVATE
 )
 
 target_precompile_headers(z_gameengine PRIVATE Include/Precompiled/PreRTS.h)
+
+add_compile_definitions(GENERALS_ONLINE)

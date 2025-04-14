@@ -55,7 +55,6 @@
 #include "Common/GlobalData.h"
 #include "Common/file.h"
 #include "Common/FileSystem.h"
-#include "../NextGenMP_defines.h"
 
 
 #ifdef _INTERNAL
