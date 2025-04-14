@@ -53,7 +53,20 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 	}
 }
 
-void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bNeedsUpdate)> fnCallback)
+void NGMP_OnlineServicesManager::Shutdown()
+{
+	if (m_pHTTPManager != nullptr)
+	{
+		m_pHTTPManager->Shutdown();
+	}
+
+	if (m_pWebSocket != nullptr)
+	{
+		m_pWebSocket->Shutdown();
+	}
+}
+
+void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback)
 {
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck", false);
 
@@ -74,16 +87,17 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bNeed
 				if (authResp.result == EVersionCheckResponseResult::OK)
 				{
 					NetworkLog("VERSION CHECK: Up To Date");
-					fnCallback(false);
+					fnCallback(true, false);
 				}
 				else
 				{
-					fnCallback(true);
+					fnCallback(true, true);
 				}
 			}
 			catch (...)
 			{
 				NetworkLog("VERSION CHECK: Failed to parse response");
+				fnCallback(false, false);
 			}
 		});
 }
@@ -316,4 +330,9 @@ void NGMP_OnlineServicesManager::Tick()
 				});
 		}
 	};
+}
+
+void WebSocket::Shutdown()
+{
+	Disconnect();
 }

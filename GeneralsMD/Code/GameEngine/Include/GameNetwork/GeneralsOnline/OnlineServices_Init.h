@@ -34,6 +34,8 @@ public:
 	void Connect(const char* url);
 	void Disconnect();
 
+	void Shutdown();
+
 	void SendData_RoomChatMessage(const char* szMessage);
 	void SendData_JoinNetworkRoom(int roomID);
 	void SendData_MarkReady(bool bReady);
@@ -105,6 +107,7 @@ public:
 		return m_pOnlineServicesManager;
 	}
 
+	void Shutdown();
 
 	~NGMP_OnlineServicesManager()
 	{
@@ -125,9 +128,21 @@ public:
 			delete m_pRoomInterface;
 			m_pRoomInterface = nullptr;
 		}
+
+		if (m_pHTTPManager != nullptr)
+		{
+			delete m_pHTTPManager;
+			m_pHTTPManager = nullptr;
+		}
+
+		if (m_pWebSocket != nullptr)
+		{
+			delete m_pWebSocket;
+			m_pWebSocket = nullptr;
+		}
 	}
 
-	void StartVersionCheck(std::function<void(bool bNeedsUpdate)> fnCallback);
+	void StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback);
 
 	WebSocket* GetWebSocket() const { return m_pWebSocket; }
 	HTTPManager* GetHTTPManager() const { return m_pHTTPManager; }

@@ -72,13 +72,20 @@ void HTTPManager::PlatformThreadedTick_Locked()
 
 void HTTPManager::Shutdown()
 {
+	m_mutex.lock();
+	curl_multi_cleanup(m_pCurl);
+	m_pCurl = nullptr;
 
+	m_mutex.unlock();
+
+	// TODO_HTTP: Wait for background thread to finish
+	m_bExitRequested = true;
 }
 
 void HTTPManager::BackgroundThreadRun()
 {
 	// TODO_HTTP: While should be until core is existing
-	while (true)
+	while (!m_bExitRequested)
 	{
 		PlatformThreadedTick_PreLock();
 
@@ -123,7 +130,7 @@ HTTPRequest* HTTPManager::PlatformCreateRequest(EHTTPVerb httpVerb, EIPProtocolV
 
 HTTPManager::~HTTPManager()
 {
-	curl_multi_cleanup(m_pCurl);
+	Shutdown();
 }
 
 void HTTPManager::MainThreadTick()

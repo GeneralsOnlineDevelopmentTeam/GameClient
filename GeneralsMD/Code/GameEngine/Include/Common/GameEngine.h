@@ -55,6 +55,9 @@ class Radar;
 class WebBrowser;
 class ParticleSystemManager;
 
+void InitGeneralsOnline();
+void TearDownGeneralsOnline();
+
 /**
  * The implementation of the game engine
  */

@@ -54,6 +54,7 @@
 #include "WWDownload/Registry.h"
 #include "WWDownload/urlBuilder.h"
 #include "../OnlineServices_Init.h"
+#include "Common/GameEngine.h"
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -772,6 +773,9 @@ void StopAsyncDNSCheck( void )
 
 void StartPatchCheck( void )
 {
+	// GENERALS ONLINE
+	InitGeneralsOnline();
+
 	checkingForPatchBeforeGameSpy = TRUE;
 	cantConnectBeforeOnline = FALSE;
 	timeThroughOnline++;
@@ -784,23 +788,43 @@ void StartPatchCheck( void )
 	// TODO_NGMP: Uninit this when leaving MP, waste of resources and cycles
 	NGMP_OnlineServicesManager::GetInstance()->Init();
 
-	NGMP_OnlineServicesManager::GetInstance()->StartVersionCheck([](bool bNeedsUpdate)
+	NGMP_OnlineServicesManager::GetInstance()->StartVersionCheck([](bool bSuccess, bool bNeedsUpdate)
 		{
-			if (!bNeedsUpdate)
+			cantConnectBeforeOnline = !bSuccess;
+			mustDownloadPatch = bNeedsUpdate;
+
+			if (!bSuccess)
 			{
-				startOnline();
-			}
-			else
-			{
-				// TODO_NGMP: Later we should allow in-game updates
 				if (onlineCancelWindow)
 				{
 					TheWindowManager->winDestroy(onlineCancelWindow);
 					onlineCancelWindow = NULL;
 				}
 
-				onlineCancelWindow = MessageBoxOk(TheGameText->fetch("GUI:PatchAvailable"),
-					UnicodeString(L"An update is required.\n\nPlease visit www.playgenerals.online to download the latest update"), CancelPatchCheckCallbackAndReopenDropdown);
+				TearDownGeneralsOnline();
+
+				MessageBoxOk(TheGameText->fetch("GUI:CannotConnectToServservTitle"),
+					TheGameText->fetch("GUI:CannotConnectToServserv"),
+					noPatchBeforeOnlineCallback);
+			}
+			else
+			{
+				if (!bNeedsUpdate)
+				{
+					startOnline();
+				}
+				else
+				{
+					// TODO_NGMP: Later we should allow in-game updates
+					if (onlineCancelWindow)
+					{
+						TheWindowManager->winDestroy(onlineCancelWindow);
+						onlineCancelWindow = NULL;
+					}
+
+					onlineCancelWindow = MessageBoxOk(TheGameText->fetch("GUI:PatchAvailable"),
+						UnicodeString(L"An update is required.\n\nPlease visit www.playgenerals.online to download the latest update"), CancelPatchCheckCallbackAndReopenDropdown);
+				}
 			}
 		});
 	

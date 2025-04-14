@@ -111,6 +111,20 @@
 // GENERALS ONLINE
 #include "../OnlineServices_Init.h"
 static NGMP_OnlineServicesManager* g_pOnlineServicesMgr = nullptr;
+static bool g_bTearDownGeneralsOnlineRequested = false;
+void InitGeneralsOnline()
+{
+	// GENERALS ONLINE
+	if (g_pOnlineServicesMgr == nullptr)
+	{
+		g_pOnlineServicesMgr = new NGMP_OnlineServicesManager();
+	}
+}
+
+void TearDownGeneralsOnline()
+{
+	g_bTearDownGeneralsOnlineRequested = true;
+}
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -712,12 +726,6 @@ void GameEngine::init( int argc, char *argv[] )
 
 	TheSubsystemList->resetAll();
 	HideControlBar();
-
-	// GENERALS ONLINE
-	if (g_pOnlineServicesMgr == nullptr)
-	{
-		g_pOnlineServicesMgr = new NGMP_OnlineServicesManager();
-	}
 }  // end init
 
 /** -----------------------------------------------------------------------------------------------
@@ -778,6 +786,18 @@ void GameEngine::update( void )
 			TheGameClient->UPDATE();
 			TheMessageStream->propagateMessages();
 
+			if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
+			{
+				g_bTearDownGeneralsOnlineRequested = false;
+
+				if (g_pOnlineServicesMgr != nullptr)
+				{
+					g_pOnlineServicesMgr->Shutdown();
+					delete g_pOnlineServicesMgr;
+					g_pOnlineServicesMgr = nullptr;
+				}
+
+			}
 			if (g_pOnlineServicesMgr != nullptr)
 			{
 				g_pOnlineServicesMgr->Tick();

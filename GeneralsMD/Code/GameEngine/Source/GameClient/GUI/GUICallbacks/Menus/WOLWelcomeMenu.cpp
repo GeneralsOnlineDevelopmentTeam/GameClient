@@ -868,6 +868,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 
 		case GBM_SELECTED:
 			{
+			// TODO_NGMP: Support exiting online again
 				if (buttonPushed)
 					break;
 
@@ -879,22 +880,10 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 					//DEBUG_ASSERTCRASH(TheGameSpyChat->getPeer(), ("No GameSpy Peer object!"));
 					//TheGameSpyChat->disconnectFromChat();
 					
-					PeerRequest req;
-					req.peerRequestType = PeerRequest::PEERREQUEST_LOGOUT;
-					TheGameSpyPeerMessageQueue->addRequest( req );
-					BuddyRequest breq;
-					breq.buddyRequestType = BuddyRequest::BUDDYREQUEST_LOGOUT;
-					TheGameSpyBuddyMessageQueue->addRequest( breq );
+					// NGMP: Don't need to logout here, just kill the WS connection, that triggers a log out
+					TearDownGeneralsOnline();
 
-					DEBUG_LOG(("Tearing down GameSpy from WOLWelcomeMenuSystem(GBM_SELECTED)\n"));
-					TearDownGameSpy();
-
-					/*
-					if (TheGameSpyChat->getPeer())
-					{
-						peerDisconnect(TheGameSpyChat->getPeer());
-					}
-					*/
+					DEBUG_LOG(("Tearing down GeneralsOnline from WOLWelcomeMenuSystem(GBM_SELECTED)\n"));
 
 					buttonPushed = TRUE;
 

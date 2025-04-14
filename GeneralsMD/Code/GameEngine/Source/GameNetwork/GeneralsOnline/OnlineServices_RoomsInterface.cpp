@@ -13,7 +13,7 @@ WebSocket::WebSocket()
 
 WebSocket::~WebSocket()
 {
-	Disconnect();
+	Shutdown();
 }
 
 int WebSocket::Ping()
@@ -103,12 +103,16 @@ void WebSocket::Disconnect()
 		return;
 	}
 
-	// send close
-	size_t sent;
-	(void)curl_ws_send(m_pCurl, "", 0, &sent, 0, CURLWS_CLOSE);
+	if (m_pCurl != nullptr)
+	{
+		// send close
+		size_t sent;
+		(void)curl_ws_send(m_pCurl, "", 0, &sent, 0, CURLWS_CLOSE);
 
-	// cleanup
-	curl_easy_cleanup(m_pCurl);
+		// cleanup
+		curl_easy_cleanup(m_pCurl);
+		m_pCurl = nullptr;
+	}
 }
 
 void WebSocket::Send(const char* send_payload)

@@ -91,6 +91,8 @@ private:
 	std::string m_strProxyAddr;
 	uint16_t m_proxyPort;
 
+	bool m_bExitRequested = false;
+
 	std::thread* m_backgroundThread = nullptr;
 
 	std::recursive_mutex m_mutex;
