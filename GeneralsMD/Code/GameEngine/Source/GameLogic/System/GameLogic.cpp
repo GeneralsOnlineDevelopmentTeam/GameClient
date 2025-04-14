@@ -445,11 +445,12 @@ void GameLogic::reset( void )
 	destroyAllObjectsImmediate();
 
 	// set the hash to be rather large. We need to optimize this value later.
-//	m_objHash.clear();
-//	m_objHash.resize(OBJ_HASH_SIZE);
-	m_objVector.clear();
-	m_objVector.resize(OBJ_HASH_SIZE, NULL);
-
+	m_objHash.clear();
+#if USING_STLPORT
+	m_objHash.resize(OBJ_HASH_SIZE);
+#else
+	m_objHash.reserve(OBJ_HASH_SIZE);
+#endif
 	m_gamePaused = FALSE;
 	m_inputEnabledMemory = TRUE;
 	m_mouseVisibleMemory = TRUE;
@@ -2279,7 +2280,9 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 
 	// Turn off shadows
 	TheWritableGlobalData->m_useShadowVolumes = false;
+#ifdef DEBUG_CRASHING
 	TheWritableGlobalData->m_debugIgnoreAsserts = TRUE;
+#endif
 
 	// Just look somewhere.  lookAt does some terrain specific setup, so it is good
 	// to call it.  jba
@@ -2724,8 +2727,8 @@ void GameLogic::deselectObject(Object *obj, PlayerMaskType playerMask, Bool affe
 // ------------------------------------------------------------------------------------------------
 inline void GameLogic::validateSleepyUpdate() const
 {
-// pretty slow, so do only for DEBUG for now. turn on if you suspect wonkiness.
-#ifdef _DEBUG
+// pretty slow, so do only for DEBUG_CRASHING for now. turn on if you suspect wonkiness.
+#ifdef DEBUG_CRASHING
 	#define SLEEPY_DEBUG
 #endif
 #ifdef SLEEPY_DEBUG
@@ -3662,12 +3665,12 @@ void GameLogic::update( void )
 	Bool isMPGameOrReplay = (TheRecorder && TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
 	Bool isSoloGameOrReplay = (TheRecorder && !TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
 	Bool generateForMP = (isMPGameOrReplay && (m_frame % TheGameInfo->getCRCInterval()) == 0);
-#if defined(_DEBUG) || defined(_INTERNAL)
+#ifdef DEBUG_CRC
 	Bool generateForSolo = isSoloGameOrReplay && ((m_frame && (m_frame%100 == 0)) ||
 		(getFrame() > TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && ((m_frame % REPLAY_CRC_INTERVAL) == 0)));
 #else
 	Bool generateForSolo = isSoloGameOrReplay && ((m_frame % REPLAY_CRC_INTERVAL) == 0);
-#endif // defined(_DEBUG) || defined(_INTERNAL)
+#endif // DEBUG_CRC
 
 	if (generateForSolo || generateForMP)
 	{
@@ -3868,12 +3871,7 @@ void GameLogic::addObjectToLookupTable( Object *obj )
 		return;
 
 	// add to lookup
-//	m_objHash[ obj->getID() ] = obj;
-	ObjectID newID = obj->getID();
-	while( newID >= m_objVector.size() ) // Fail case is hella rare, so faster to double up on size() call
-		m_objVector.resize(m_objVector.size() * 2, NULL);
-
-	m_objVector[ newID ] = obj;
+	m_objHash[ obj->getID() ] = obj;
 
 }  // end addObjectToLookupTable
 
@@ -3888,8 +3886,7 @@ void GameLogic::removeObjectFromLookupTable( Object *obj )
 		return;
 
 	// remove from lookup table
-//	m_objHash.erase( obj->getID() );
-	m_objVector[ obj->getID() ] = NULL;
+	m_objHash.erase( obj->getID() );
 
 }  // end removeObjectFromLookupTable
 
