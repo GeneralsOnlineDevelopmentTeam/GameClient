@@ -59,7 +59,6 @@
 #include "GameClient/Keyboard.h"
 #include "GameClient/Mouse.h"
 #include "Common/StackDump.h"
-#include "../../GameEngine/Include/GameNetwork/GeneralsOnline/NextGenMP_defines.h"
 
 // Horrible reference, but we really, really need to know if we are windowed.
 extern bool DX8Wrapper_IsWindowed;
