@@ -38,6 +38,9 @@ void CBitStream::Decrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 		// resize buffer
 		vecDecryptedBytes.resize(decrypted_len);
 
+		// reset the read offset
+		m_Offset = 0;
+
 		m_memBuffer.ReAllocate(decrypted_len);
 		memcpy(&m_memBuffer.GetData()[0], &vecDecryptedBytes[0], decrypted_len);
 	}
@@ -72,7 +75,7 @@ void CBitStream::Encrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 	// resize buffer and copy back
 	ciphertext.resize(ciphertext_len);
 
-	//m_memBuffer.ReAllocate(ciphertext_len);
+	m_memBuffer.ReAllocate(ciphertext_len);
 	memcpy(&m_memBuffer.GetData()[0], &ciphertext[0], ciphertext.size());
 	m_Offset = ciphertext.size();
 #endif

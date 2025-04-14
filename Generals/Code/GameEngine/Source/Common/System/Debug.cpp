@@ -59,6 +59,7 @@
 #include "GameClient/Keyboard.h"
 #include "GameClient/Mouse.h"
 #include "Common/StackDump.h"
+#include "../../GameEngine/Include/GameNetwork/GeneralsOnline/NextGenMP_defines.h"
 
 // Horrible reference, but we really, really need to know if we are windowed.
 extern bool DX8Wrapper_IsWindowed;
@@ -421,6 +422,9 @@ void DebugLog(const char *format, ...)
 */
 void DebugCrash(const char *format, ...)
 {
+#if defined(GENERALS_ONLINE)
+	return;
+#endif
 	// Note: You might want to make this thread safe, but we cannot. The reason is that 
 	// there is an implicit requirement on other threads that the message loop be running.
 

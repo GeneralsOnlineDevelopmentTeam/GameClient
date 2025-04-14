@@ -42,7 +42,7 @@ struct LobbyMemberEntry;
 
 struct QueuedGamePacket
 {
-	ENetPacket* m_packet = nullptr;
+	CBitStream* m_bs = nullptr;
 	int64_t m_userID = -1;
 };
 
@@ -64,7 +64,7 @@ public:
 
 	bool HasGamePacket();
 	QueuedGamePacket RecvGamePacket();
-	bool SendGamePacket(void* pBuffer, uint32_t totalDataSize, LobbyMemberEntry& lobbyMember);
+	bool SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
 
 	void SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers);
 

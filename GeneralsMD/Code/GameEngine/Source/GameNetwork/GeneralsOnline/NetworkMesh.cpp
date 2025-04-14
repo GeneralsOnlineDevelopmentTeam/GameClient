@@ -31,14 +31,20 @@ QueuedGamePacket NetworkMesh::RecvGamePacket()
 	return QueuedGamePacket();
 }
 
-bool NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, LobbyMemberEntry& lobbyMember)
+bool NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t user_id)
 {
-	ENetPacket* pENetPacket = enet_packet_create(pBuffer, totalDataSize, ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+	// TODO_NGMP: Reduce memcpy's done here
+	// encrypt
+	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+	CBitStream bitstream(totalDataSize, (BYTE*)pBuffer, totalDataSize);
+	bitstream.Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+	ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
 
 
-	if (m_mapConnections.contains(lobbyMember.user_id))
+	if (m_mapConnections.contains(user_id))
 	{
-		int ret = enet_peer_send(m_mapConnections[lobbyMember.user_id].m_peer, 1, pENetPacket);
+		int ret = enet_peer_send(m_mapConnections[user_id].m_peer, 1, pENetPacket);
 
 		if (ret == 0)
 		{
@@ -67,7 +73,7 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 	pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
 
 	ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
-		ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+		0); // TODO_NGMP: Support flags
 
 
 	for (auto& connection : m_mapConnections)
@@ -301,7 +307,14 @@ void NetworkMesh::Tick()
 
 					if (pConnection != nullptr)
 					{
-						m_queueQueuedGamePackets.push(QueuedGamePacket{ event.packet, pConnection->m_userID });
+						// decrypt
+						CBitStream* bitstream = new CBitStream(event.packet->dataLength, event.packet->data, event.packet->dataLength);
+						bitstream->Decrypt(currentLobby.EncKey, currentLobby.EncIV);
+						//bitstream->ResetOffsetForLocalRead();
+
+						m_queueQueuedGamePackets.push(QueuedGamePacket{ bitstream, pConnection->m_userID });
+
+						enet_packet_destroy(event.packet);
 					}
 					else
 					{

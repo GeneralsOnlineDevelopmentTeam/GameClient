@@ -61,7 +61,7 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 void NGMPGame::UpdateSlotsFromCurrentLobby()
 {
 	// NOTE: Generals expects slot 0 to be host, this is hardcoded in places, EOS always returns the local player in index 0, so we need to correct this...
-
+	bool bAddedFirstAI = false;
 	int realInsertPos = 1;
 
 	for (Int i = 0; i < MAX_SLOTS; ++i)
@@ -82,8 +82,8 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 				slot->setState(SLOT_PLAYER, str, 0);
 
 				// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
-				slot->setColor(0);
-				slot->setTeamNumber(7);
+				slot->setColor(5);
+				slot->setTeamNumber(0);
 				slot->setStartPos(0);
 				slot->setPlayerTemplate(PLAYERTEMPLATE_RANDOM);
 			}
@@ -96,9 +96,9 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 
 
 				// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
-				slot->setColor(i);
-				slot->setTeamNumber(i);
-				slot->setStartPos(i);
+				slot->setColor(5);
+				slot->setTeamNumber(realInsertPos);
+				slot->setStartPos(realInsertPos);
 				slot->setPlayerTemplate(PLAYERTEMPLATE_RANDOM);
 				++realInsertPos;
 				// TODO_NGMP: Check player lists are synced across game with > 2 clients
@@ -129,7 +129,22 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 
 			if (slot != nullptr)
 			{
-				slot->setState(SLOT_OPEN);
+				//bAddedFirstAI = true;
+				if (!bAddedFirstAI)
+				{
+					bAddedFirstAI = true;
+					slot->setState(SLOT_EASY_AI);
+
+					// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
+					slot->setColor(4);
+					slot->setTeamNumber(2);
+					slot->setStartPos(i);
+					slot->setPlayerTemplate(PLAYERTEMPLATE_RANDOM);
+				}
+				else
+				{
+					slot->setState(SLOT_OPEN);
+				}
 			}
 		}
 

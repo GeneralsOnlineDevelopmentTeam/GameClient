@@ -13,43 +13,6 @@
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
 #endif
 
-//--------------------------------------------------------------------------
-// Packet-level encryption is an XOR operation, for speed reasons.  To get
-// the max throughput, we only XOR whole 4-byte words, so the last bytes
-// can be non-XOR'd.
-
-// This assumes the buf is a multiple of 4 bytes.  Extra is not encrypted.
-static inline void encryptBuf( unsigned char *buf, Int len )
-{
-	return;
-	UnsignedInt mask = 0x0000Fade;
-
-	UnsignedInt *uintPtr = (UnsignedInt *) (buf);
-
-	for (int i=0 ; i<len/4 ; i++) {
-		*uintPtr = (*uintPtr) ^ mask;
-		*uintPtr = htonl(*uintPtr);
-		uintPtr++;
-		mask += 0x00000321; // just for fun
-	}
-}
-
-// This assumes the buf is a multiple of 4 bytes.  Extra is not encrypted.
-static inline void decryptBuf( unsigned char *buf, Int len )
-{
-	return;
-	UnsignedInt mask = 0x0000Fade;
-
-	UnsignedInt *uintPtr = (UnsignedInt *) (buf);
-
-	for (int i=0 ; i<len/4 ; i++) {
-		*uintPtr = htonl(*uintPtr);
-		*uintPtr = (*uintPtr) ^ mask;
-		uintPtr++;
-		mask += 0x00000321; // just for fun
-	}
-}
-
 NextGenTransport::NextGenTransport()
 {
 
@@ -117,13 +80,18 @@ Bool NextGenTransport::doRecv(void)
 
 		QueuedGamePacket gamePacket = pMesh->RecvGamePacket();
 
-		NetworkLog("[NGMP]: Received %d bytes from user %d", gamePacket.m_packet->dataLength, gamePacket.m_userID);
+		uint32_t numBytes = gamePacket.m_bs->GetNumBytesAllocated();
 
-		uint32_t numBytes = gamePacket.m_packet->dataLength;
+		NetworkLog("[NGMP]: Received %d bytes from user %d", numBytes, gamePacket.m_userID);
+
+		
 
 		// avoiding memcpy, since the game memcpy's it into a free slot anyway
 		//buf = (unsigned char*)gamePacket.m_packet->data;
-		memcpy(buf, gamePacket.m_packet->data, numBytes);
+		memcpy(buf, gamePacket.m_bs->GetRawBuffer(), numBytes);
+
+		// delete the bitstream
+		delete gamePacket.m_bs;
 
 			/*
 			TransportMessageHeader header;
@@ -144,15 +112,6 @@ Bool NextGenTransport::doRecv(void)
 			}
 		}
 #endif
-
-		//		DEBUG_LOG(("UDPTransport::doRecv - Got something! len = %d\n", len));
-				// Decrypt the packet
-		//		DEBUG_LOG(("buffer = "));
-		//		for (Int munkee = 0; munkee < len; ++munkee) {
-		//			DEBUG_LOG(("%02x", *(buf + munkee)));
-		//		}
-		//		DEBUG_LOG(("\n"));
-		decryptBuf(buf, numBytes);
 
 		incomingMessage.length = numBytes - sizeof(TransportMessageHeader);
 
@@ -316,11 +275,22 @@ Bool NextGenTransport::doSend(void)
 			// TODO_NGMP: Get this from game info, not the lobby, we should tear lobby down probably
 			// addr is actually player index...
 			// TODO: What if it's empty?
-			LobbyMemberEntry lobbyMember = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromIndex(m_outBuffer[i].addr);
+			//LobbyMemberEntry lobbyMember = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromIndex(m_outBuffer[i].addr);
+			NGMPGameSlot* pSlot = (NGMPGameSlot*)NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame()->getSlot(m_outBuffer[i].addr);
 
-			if (lobbyMember.IsValid())
+			if (pSlot->m_userID == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
 			{
-				retval = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->SendGamePacket((void*)(&m_outBuffer[i]), (uint32_t)m_outBuffer[i].length + sizeof(TransportMessageHeader), lobbyMember);
+				NetworkLog("Sending to self...");
+				__debugbreak();
+			}
+			else
+			{
+				NetworkLog("Sending to remote...");
+			}
+
+			if (pSlot != nullptr)
+			{
+				retval = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->SendGamePacket((void*)(&m_outBuffer[i]), (uint32_t)m_outBuffer[i].length + sizeof(TransportMessageHeader), pSlot->m_userID);
 			}
 			else
 			{
@@ -434,11 +404,6 @@ Bool NextGenTransport::queueSend(UnsignedInt addr, UnsignedShort port, const Uns
 			{
 				//NetworkLog("Game Packet Queue Sending: Is NOT a generals packet");
 			}
-
-			// Encrypt packet
-//			DEBUG_LOG(("buffer: "));
-			encryptBuf((unsigned char*)&m_outBuffer[i], len + sizeof(TransportMessageHeader));
-			//			DEBUG_LOG(("\n"));
 
 			return true;
 		}
