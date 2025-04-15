@@ -552,6 +552,8 @@ NameKeyType listboxGameSetupChatID = NAMEKEY_INVALID;
 
 static void handleColorSelection(int index)
 {
+	// TODO_NGMP
+	return;
 	GameWindow *combo = comboBoxColor[index];
 	Int color, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
@@ -680,6 +682,9 @@ static void handlePlayerTemplateSelection(int index)
 
 static void handleStartPositionSelection(Int player, int startPos)
 {
+	// TODO_NGMP
+	return;
+
 	NGMPGame* myGame = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
 	
 	if (myGame)
@@ -746,6 +751,9 @@ static void handleStartPositionSelection(Int player, int startPos)
 
 static void handleTeamSelection(int index)
 {
+	// TODO_NGMP
+	return;
+
 	GameWindow *combo = comboBoxTeam[index];
 	Int team, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
@@ -787,7 +795,9 @@ static void handleTeamSelection(int index)
 }
 
 static void handleStartingCashSelection()
-{
+{// TODO_NGMP
+	return;
+
   GameInfo *myGame = TheGameSpyInfo->getCurrentStagingRoom();
   
   if (myGame)
@@ -811,6 +821,8 @@ static void handleStartingCashSelection()
 
 static void handleLimitSuperweaponsClick()
 {
+	// TODO_NGMP
+	return;
   GameInfo *myGame = TheGameSpyInfo->getCurrentStagingRoom();
   
   if (myGame)
@@ -1815,6 +1827,38 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		return;
 	}
 
+	if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bHostMigrated)
+	{
+		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bHostMigrated = false;
+
+		// TODO_NGMP: Make sure we did a lobby get first
+		// did we become the host?
+		bool bIsHost = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost();
+
+		if (bIsHost)
+		{
+			NetworkLog("Host left and server migrated the host to us...");
+
+			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. You are now the host."), GameMakeColor(255, 255, 255, 255), -1, -1);
+
+			// enable host buttons
+			buttonSelectMap->winEnable(true);
+
+			// rename start button
+			buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
+
+			// mark myself as ready
+
+			// NOTE: don't need to mark ourselves ready, the service did it for us upon migration
+			// TODO_NGMP: Should probably force ready for host?
+			//InitWOLGameGadgets();
+		}
+		else
+		{
+			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. a new host has been selected."), GameMakeColor(255, 255, 255, 255), -1, -1);
+		}
+	}
+
 	if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bPendingHostHasLeft)
 	{
 		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bPendingHostHasLeft = false;
@@ -1827,7 +1871,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		// TODO_NGMP: Impl host migration, less annoying for users
 
 		GSMessageBoxOk(TheGameText->fetch("GUI:HostLeftTitle"), TheGameText->fetch("GUI:HostLeft"));
-		
+
 		PopBackToLobby();
 
 		return;
@@ -2750,6 +2794,14 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	{
 		TheGameSpyInfo->sendChat(UnicodeString(uText.str()+4), TRUE, NULL);
 		return TRUE; // was a slash command
+	}
+	else if (token == "leave")
+	{
+		PopBackToLobby();
+	}
+	else if (token == "quit")
+	{
+		exit(0);
 	}
 	else if (token == "connections" || token == "conns" || token == "c")
 	{

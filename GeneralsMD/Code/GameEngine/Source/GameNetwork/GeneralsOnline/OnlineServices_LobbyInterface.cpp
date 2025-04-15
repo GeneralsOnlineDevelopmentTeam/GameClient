@@ -408,6 +408,12 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					}
 				}
 
+				// did the host change?
+				if (lobbyEntry.owner != m_CurrentLobby.owner)
+				{
+					m_bHostMigrated = true;
+				}
+
 				// store
 				m_CurrentLobby = lobbyEntry;
 
@@ -774,7 +780,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					me.user_id = m_CurrentLobby.owner;
 					me.display_name = std::string(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
 					me.m_bIsReady = true; // host is always ready
-					me.strIPAddress = "127.0.0.1";
+					me.strIPAddress = "127.0.0.1"; // TODO_NGMP: use localhost for non-host players too that are local...
 					me.preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 
 					m_CurrentLobby.members.push_back(me);

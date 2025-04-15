@@ -257,6 +257,7 @@ public:
 
 	std::vector<LobbyEntry> m_vecLobbies;
 
+	bool m_bHostMigrated = false;
 	bool m_bPendingHostHasLeft = false;
 
 private:
