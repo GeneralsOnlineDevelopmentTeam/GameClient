@@ -12,6 +12,11 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	uint16_t preferredPort;
 	// NOTE: NetworkMemberBase is not deserialized
 
+	int side = -1;
+	int color = -1;
+	int team = -1;
+	int startpos = -1;
+
 	bool IsValid() const { return user_id != -1; }
 };
 
@@ -58,6 +63,11 @@ public:
 
 	// updates
 	void UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, int newMaxPlayers);
+
+	void UpdateCurrentLobby_MySide(int side, int updatedStartPos);
+	void UpdateCurrentLobby_MyColor(int side);
+	void UpdateCurrentLobby_MyStartPos(int side);
+	void UpdateCurrentLobby_MyTeam(int side);
 
 	void SetLobbyListDirty()
 	{

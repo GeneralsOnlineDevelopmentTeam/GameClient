@@ -46,7 +46,15 @@ AsciiString NGMP_OnlineServices_LobbyInterface::GetCurrentLobbyMapPath()
 
 enum class ELobbyUpdateField
 {
-	MAP = 0
+	LOBBY_MAP = 0,
+	MY_SIDE = 1, // TODO_NGMP: IMPL
+	MY_COLOR = 2, // TODO_NGMP: IMPL
+	MY_START_POS = 3, // TODO_NGMP: IMPL
+	MY_TEAM = 4, // TODO_NGMP: IMPL
+	LOBBY_VANILLA_TEAMS = 5, // TODO_NGMP: IMPL
+	LOBBY_STARTING_CASH = 6, // TODO_NGMP: IMPL
+	LOBBY_RECORD_STATES = 7, // TODO_NGMP: IMPL
+	LOBBY_LIMIT_SUPERWEAPONS = 8 // TODO_NGMP: IMPL
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, int newMaxPlayers)
@@ -54,9 +62,8 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strM
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
-	// TODO_NGMP: How does the game handle if we have 8 playesr and go to a smaller map? Looks like it just wont let the host start which is fine
 	nlohmann::json j;
-	j["field"] = ELobbyUpdateField::MAP;
+	j["field"] = ELobbyUpdateField::LOBBY_MAP;
 	j["map"] = strMap.str();
 	j["map_path"] = strMapPath.str();
 	j["max_players"] = newMaxPlayers;
@@ -66,6 +73,75 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strM
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
 		{
 			
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MySide(int side, int updatedStartPos)
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::MY_SIDE;
+	j["side"] = side;
+	j["start_pos"] = updatedStartPos;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyColor(int color)
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::MY_COLOR;
+	j["color"] = color;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyStartPos(int startpos)
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::MY_START_POS;
+	j["startpos"] = startpos;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyTeam(int team)
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::MY_TEAM;
+	j["team"] = team;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+
 		});
 }
 
@@ -160,6 +236,15 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 					// NOTE: These fields won't be present becauase they're private properties
 					//memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
 					//memberEntryIter["port"].get_to(memberEntry.preferredPort);
+
+
+					// TODO_NGMP: MAybe surface the player slots via tooltip?
+
+					// NOTE: These fields wont be presen't because they really don't matter until you're in the match
+					//memberEntryIter["side"].get_to(memberEntry.side);
+					//memberEntryIter["color"].get_to(memberEntry.color);
+					//memberEntryIter["team"].get_to(memberEntry.team);
+					//memberEntryIter["startpos"].get_to(memberEntry.startpos);
 
 
 					lobbyEntry.members.push_back(memberEntry);
@@ -381,6 +466,11 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					memberEntryIter["ready"].get_to(memberEntry.m_bIsReady);
 					memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
 					memberEntryIter["port"].get_to(memberEntry.preferredPort);
+					memberEntryIter["side"].get_to(memberEntry.side);
+					memberEntryIter["color"].get_to(memberEntry.color);
+					memberEntryIter["team"].get_to(memberEntry.team);
+					memberEntryIter["startpos"].get_to(memberEntry.startpos);
+
 					lobbyEntry.members.push_back(memberEntry);
 
 					// TODO_NGMP: Much more robust system here

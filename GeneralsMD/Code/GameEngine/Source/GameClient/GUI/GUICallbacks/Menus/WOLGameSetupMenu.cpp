@@ -552,8 +552,6 @@ NameKeyType listboxGameSetupChatID = NAMEKEY_INVALID;
 
 static void handleColorSelection(int index)
 {
-	// TODO_NGMP
-	return;
 	GameWindow *combo = comboBoxColor[index];
 	Int color, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
@@ -582,35 +580,19 @@ static void handleColorSelection(int index)
 					}
 				}
 			}
+
+			// TODO_NGMP: Enforce this on the service too
 			if(!colorAvailable)
 				return;
 		}
 
-		slot->setColor(color);
+		// NGMP: Dont set it locally / directly anymore, rely on the lobby service instead
+		//slot->setColor(color);
 
-		if (TheGameSpyInfo->amIHost())
+		// NGMP: Update lobby (if local, for remote players we'll get it from the service)
+		if (index == myGame->getLocalSlotNum())
 		{
-			// send around a new slotlist
-			TheGameSpyInfo->setGameOptions();
-			WOLDisplaySlotList();
-		}
-		else
-		{
-			// request the color from the host
-			if (!slot->isPlayer(TheGameSpyInfo->getLocalName()))
-				return;
-
-			AsciiString options;
-			options.format("Color=%d", color);
-			AsciiString hostName;
-			hostName.translate(myGame->getSlot(0)->getName());
-			PeerRequest req;
-			req.peerRequestType = PeerRequest::PEERREQUEST_UTMPLAYER;
-			req.UTM.isStagingRoom = TRUE;
-			req.id = "REQ/";
-			req.nick = hostName.str();
-			req.options = options.str();
-			TheGameSpyPeerMessageQueue->addRequest(req);
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_MyColor(color);
 		}
 	}
 }
@@ -632,12 +614,15 @@ static void handlePlayerTemplateSelection(int index)
 		Int oldTemplate = slot->getPlayerTemplate();
 		slot->setPlayerTemplate(playerTemplate);
 
+		int updatedStartPos = slot->getStartPos();
+
 		if (oldTemplate == PLAYERTEMPLATE_OBSERVER)
 		{
 			// was observer, so populate color & team with all, and enable
 			GadgetComboBoxSetSelectedPos(comboBoxColor[index], 0);
 			GadgetComboBoxSetSelectedPos(comboBoxTeam[index], 0);
 			slot->setStartPos(-1);
+			updatedStartPos = -1;
 		}
 		else if (playerTemplate == PLAYERTEMPLATE_OBSERVER)
 		{
@@ -645,9 +630,17 @@ static void handlePlayerTemplateSelection(int index)
 			GadgetComboBoxSetSelectedPos(comboBoxColor[index], 0);
 			GadgetComboBoxSetSelectedPos(comboBoxTeam[index], 0);
 			slot->setStartPos(-1);
+			updatedStartPos = -1;
 		}
 
+		// NGMP: Update lobby (if local, for remote players we'll get it from the service)
+		if (index == myGame->getLocalSlotNum())
+		{
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_MySide(playerTemplate, updatedStartPos);
+		}
 
+		// NGMP: Dont set it locally / directly anymore, rely on the lobby service instead
+		/*
 		if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost())
 		{
 			// send around a new slotlist
@@ -675,16 +668,15 @@ static void handlePlayerTemplateSelection(int index)
 			req.options = options.str();
 			TheGameSpyPeerMessageQueue->addRequest(req);
 			*/
+		/*
 		}
+			*/
 	}
 }
 
 
 static void handleStartPositionSelection(Int player, int startPos)
 {
-	// TODO_NGMP
-	return;
-
 	NGMPGame* myGame = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
 	
 	if (myGame)
@@ -715,34 +707,14 @@ static void handleStartPositionSelection(Int player, int startPos)
 			if( !isAvailable )
 				return;
 		}
-		slot->setStartPos(startPos);
 
-		if (myGame->amIHost())
-		{
-			// send around a new slotlist
-			myGame->resetAccepted();
-			TheGameSpyInfo->setGameOptions();
-			WOLDisplaySlotList();
-		}
-		else
-		{
-			// request the color from the host
-			if (AreSlotListUpdatesEnabled())
-			{
-				// request the playerTemplate from the host
-				AsciiString options;
-				options.format("StartPos=%d", slot->getStartPos());
-				AsciiString hostName;
-				hostName.translate(myGame->getSlot(0)->getName());
-				PeerRequest req;
-				req.peerRequestType = PeerRequest::PEERREQUEST_UTMPLAYER;
-				req.UTM.isStagingRoom = TRUE;
-				req.id = "REQ/";
-				req.nick = hostName.str();
-				req.options = options.str();
-				TheGameSpyPeerMessageQueue->addRequest(req);
+		// NGMP: Dont set it locally / directly anymore, rely on the lobby service instead
+		//slot->setStartPos(startPos);
 
-			}
+		// NGMP: Update lobby (if local, for remote players we'll get it from the service)
+		if (player == myGame->getLocalSlotNum())
+		{
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_MyStartPos(startPos);
 		}
 	}
 }
@@ -751,9 +723,6 @@ static void handleStartPositionSelection(Int player, int startPos)
 
 static void handleTeamSelection(int index)
 {
-	// TODO_NGMP
-	return;
-
 	GameWindow *combo = comboBoxTeam[index];
 	Int team, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
@@ -767,29 +736,13 @@ static void handleTeamSelection(int index)
 		if (team == slot->getTeamNumber())
 			return;
 
-		slot->setTeamNumber(team);
+		// NGMP: Dont set it locally / directly anymore, rely on the lobby service instead
+		//slot->setTeamNumber(team);
 
-		if (TheGameSpyInfo->amIHost())
+		// NGMP: Update lobby (if local, for remote players we'll get it from the service)
+		if (index == myGame->getLocalSlotNum())
 		{
-			// send around a new slotlist
-			myGame->resetAccepted();
-			TheGameSpyInfo->setGameOptions();
-			WOLDisplaySlotList();
-		}
-		else
-		{
-			// request the team from the host
-			AsciiString options;
-			options.format("Team=%d", team);
-			AsciiString hostName;
-			hostName.translate(myGame->getSlot(0)->getName());
-			PeerRequest req;
-			req.peerRequestType = PeerRequest::PEERREQUEST_UTMPLAYER;
-			req.UTM.isStagingRoom = TRUE;
-			req.id = "REQ/";
-			req.nick = hostName.str();
-			req.options = options.str();
-			TheGameSpyPeerMessageQueue->addRequest(req);
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_MyTeam(team);
 		}
 	}
 }
