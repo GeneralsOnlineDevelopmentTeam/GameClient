@@ -225,6 +225,24 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 	}
 }
 
+void NetworkMesh::Disconnect()
+{
+	if (enetInstance != nullptr)
+	{
+		for (auto& connectionData : m_mapConnections)
+		{
+			ENetPeer* peer = connectionData.second.m_peer;
+			if (peer != nullptr)
+			{
+				enet_peer_disconnect(peer, 0);
+				enet_peer_reset(peer);
+			}
+		}
+
+		enet_host_destroy(enetInstance);
+	}
+}
+
 void NetworkMesh::Tick()
 {
 	// TODO_NGMP: calculate latencies

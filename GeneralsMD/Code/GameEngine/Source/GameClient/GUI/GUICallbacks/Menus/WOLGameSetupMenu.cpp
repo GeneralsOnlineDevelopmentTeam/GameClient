@@ -255,23 +255,28 @@ WindowLayout *WOLMapSelectLayout = NULL;
 void PopBackToLobby( void )
 {
 	// delete TheNAT, its no good for us anymore.
-	delete TheNAT;
-	TheNAT = NULL;
-
-	if (TheGameSpyInfo) // this can be blown away by a disconnect on the map transfer screen
+	if (TheNAT != nullptr)
 	{
-		NGMPGame* game = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
-
-		game->reset();
-		TheGameSpyInfo->leaveStagingRoom();
-		//TheGameSpyInfo->joinBestGroupRoom();
+		delete TheNAT;
+		TheNAT = NULL;
 	}
+
+	if (TheNGMPGame) // this can be blown away by a disconnect on the map transfer screen
+	{
+		TheNGMPGame->reset();
+
+
+	}
+
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->LeaveCurrentLobby();
 
 	DEBUG_LOG(("PopBackToLobby() - parentWOLGameSetup is %X\n", parentWOLGameSetup));
 	if (parentWOLGameSetup)
 	{
 		nextScreen = "Menus/WOLCustomLobby.wnd";
 		TheShell->pop();
+
+
 	}
 }
 
@@ -1414,6 +1419,11 @@ Bool initialAcceptEnable = FALSE;
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 {
+	// TODO_NGMP: impl this again
+	GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
+	if (buttonBuddy)
+		buttonBuddy->winEnable(FALSE);
+
 	// register for chat events
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForChatCallback([](UnicodeString strMessage)
 		{
@@ -1787,6 +1797,24 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		return;
 	}
 
+	if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bPendingHostHasLeft)
+	{
+		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bPendingHostHasLeft = false;
+
+		buttonPushed = true;
+		DEBUG_LOG(("Host left lobby\n"));
+		if (TheNGMPGame)
+			TheNGMPGame->reset();
+
+		// TODO_NGMP: Impl host migration, less annoying for users
+
+		GSMessageBoxOk(TheGameText->fetch("GUI:HostLeftTitle"), TheGameText->fetch("GUI:HostLeft"));
+		
+		PopBackToLobby();
+
+		return;
+	}
+
 	if (raiseMessageBoxes)
 	{
 		RaiseGSMessageBox();
@@ -1814,6 +1842,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 				{
 				case PeerResponse::PEERRESPONSE_DISCONNECT:
 					{
+					// TODO_NGMP: hook this up again
 						sawImportantMessage = TRUE;
 						AsciiString disconMunkee;
 						disconMunkee.format("GUI:GSDisconReason%d", resp.discon.reason);
@@ -2966,13 +2995,8 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 						WOLMapSelectLayout = NULL;
 					}
 
-					NGMPGame* game = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
-					game->reset();
-					//peerLeaveRoom(TheGameSpyChat->getPeer(), StagingRoom, NULL);
-					TheGameSpyInfo->leaveStagingRoom();
-					buttonPushed = true;
-					nextScreen = "Menus/WOLCustomLobby.wnd";
-					TheShell->pop();
+					
+					PopBackToLobby();
 
 				} //if ( controlID == buttonBack )
 				else if ( controlID == buttonCommunicatorID )

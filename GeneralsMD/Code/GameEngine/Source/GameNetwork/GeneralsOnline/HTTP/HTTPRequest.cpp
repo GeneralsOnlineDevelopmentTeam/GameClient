@@ -101,7 +101,10 @@ void HTTPRequest::InvokeCallbackIfComplete()
 	if (m_bIsComplete)
 	{
 		// TODO_HTTP: Assert if not game thread
-		m_completionCallback(true, m_responseCode, m_strResponse);
+		if (m_completionCallback != nullptr)
+		{
+			m_completionCallback(true, m_responseCode, m_strResponse);
+		}
 	}
 }
 
@@ -159,7 +162,7 @@ void HTTPRequest::PlatformStartRequest()
 		}
 		curl_easy_setopt(m_pCURL, CURLOPT_HTTPHEADER, headers);
 
-		if (m_httpVerb == EHTTPVerb::POST || m_httpVerb == EHTTPVerb::PUT)
+		if (m_httpVerb == EHTTPVerb::HTTP_VERB_POST || m_httpVerb == EHTTPVerb::HTTP_VERB_PUT || m_httpVerb == EHTTPVerb::HTTP_VERB_DELETE)
 		{
 			//if (m_strPostData.length() > 0)
 			{
@@ -169,9 +172,13 @@ void HTTPRequest::PlatformStartRequest()
 		}
 
 		// needed for PUT etc
-		if (m_httpVerb == EHTTPVerb::PUT)
+		if (m_httpVerb == EHTTPVerb::HTTP_VERB_PUT)
 		{
 			curl_easy_setopt(m_pCURL, CURLOPT_CUSTOMREQUEST, "PUT");
+		}
+		else if (m_httpVerb == EHTTPVerb::HTTP_VERB_DELETE)
+		{
+			curl_easy_setopt(m_pCURL, CURLOPT_CUSTOMREQUEST, "DELETE");
 		}
 
 		if (pHTTPManager->IsProxyEnabled())

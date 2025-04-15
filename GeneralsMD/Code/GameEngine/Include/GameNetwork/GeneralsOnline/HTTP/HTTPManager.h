@@ -11,9 +11,10 @@
 
 enum class EHTTPVerb
 {
-	GET,
-	POST,
-	PUT
+	HTTP_VERB_GET,
+	HTTP_VERB_POST,
+	HTTP_VERB_PUT,
+	HTTP_VERB_DELETE
 };
 
 enum class EIPProtocolVersion
@@ -34,6 +35,7 @@ public:
 	void SendGETRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback = nullptr);
 	void SendPOSTRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, const char* szPostData, std::function<void(bool bSuccess, int statusCode, std::string strBody)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback = nullptr);
 	void SendPUTRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, const char* szData, std::function<void(bool bSuccess, int statusCode, std::string strBody)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback = nullptr);
+	void SendDELETERequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, const char* szData, std::function<void(bool bSuccess, int statusCode, std::string strBody)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback = nullptr);
 
 	void Shutdown();
 

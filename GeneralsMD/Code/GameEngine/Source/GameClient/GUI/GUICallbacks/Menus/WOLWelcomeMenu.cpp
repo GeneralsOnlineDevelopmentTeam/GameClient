@@ -623,7 +623,7 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	buttonQuickMatch->winEnable(false);
 	buttonMyInfo->winEnable(false);
 	buttonBuddies->winEnable(false);
-	buttonbuttonOptions->winEnable(false);
+	//buttonbuttonOptions->winEnable(false);
 #else
 	enableControls(TheGameSpyInfo->gotGroupRoomList());
 #endif

@@ -14,7 +14,7 @@ HTTPManager::HTTPManager() noexcept
 
 void HTTPManager::SendGETRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback)
 {
-	HTTPRequest* pRequest = PlatformCreateRequest(EHTTPVerb::GET, protover, szURI, inHeaders, completionCallback, progressCallback);
+	HTTPRequest* pRequest = PlatformCreateRequest(EHTTPVerb::HTTP_VERB_GET, protover, szURI, inHeaders, completionCallback, progressCallback);
 
 	m_mutex.lock();
 	m_vecRequestsPendingstart.push_back(pRequest);
@@ -23,7 +23,7 @@ void HTTPManager::SendGETRequest(const char* szURI, EIPProtocolVersion protover,
 
 void HTTPManager::SendPOSTRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, const char* szPostData, std::function<void(bool bSuccess, int statusCode, std::string strBody)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback)
 {
-	HTTPRequest* pRequest = PlatformCreateRequest(EHTTPVerb::POST, protover, szURI, inHeaders, completionCallback, progressCallback);
+	HTTPRequest* pRequest = PlatformCreateRequest(EHTTPVerb::HTTP_VERB_POST, protover, szURI, inHeaders, completionCallback, progressCallback);
 	pRequest->SetPostData(szPostData);
 
 	m_mutex.lock();
@@ -33,7 +33,17 @@ void HTTPManager::SendPOSTRequest(const char* szURI, EIPProtocolVersion protover
 
 void HTTPManager::SendPUTRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, const char* szData, std::function<void(bool bSuccess, int statusCode, std::string strBody)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/)
 {
-	HTTPRequest* pRequest = PlatformCreateRequest(EHTTPVerb::PUT, protover, szURI, inHeaders, completionCallback, progressCallback);
+	HTTPRequest* pRequest = PlatformCreateRequest(EHTTPVerb::HTTP_VERB_PUT, protover, szURI, inHeaders, completionCallback, progressCallback);
+	pRequest->SetPostData(szData);
+
+	m_mutex.lock();
+	m_vecRequestsPendingstart.push_back(pRequest);
+	m_mutex.unlock();
+}
+
+void HTTPManager::SendDELETERequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, const char* szData, std::function<void(bool bSuccess, int statusCode, std::string strBody)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/)
+{
+	HTTPRequest* pRequest = PlatformCreateRequest(EHTTPVerb::HTTP_VERB_DELETE, protover, szURI, inHeaders, completionCallback, progressCallback);
 	pRequest->SetPostData(szData);
 
 	m_mutex.lock();

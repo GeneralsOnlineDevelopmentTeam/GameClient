@@ -336,3 +336,8 @@ void WebSocket::Shutdown()
 {
 	Disconnect();
 }
+
+void WebSocket::SendData_LeaveNetworkRoom()
+{
+	SendData_JoinNetworkRoom(-1);
+}

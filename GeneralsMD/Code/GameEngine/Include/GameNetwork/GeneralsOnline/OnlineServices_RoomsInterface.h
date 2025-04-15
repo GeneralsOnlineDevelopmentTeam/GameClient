@@ -24,6 +24,11 @@ public:
 	std::function<void()> m_PendingRoomJoinCompleteCallback = nullptr;
 	void JoinRoom(int roomIndex, std::function<void()> onStartCallback, std::function<void()> onCompleteCallback);
 
+	void LeaveRoom()
+	{
+		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LeaveNetworkRoom();
+	}
+
 	std::function<void(UnicodeString strMessage)> m_OnChatCallback = nullptr;
 	void RegisterForChatCallback(std::function<void(UnicodeString strMessage)> cb)
 	{

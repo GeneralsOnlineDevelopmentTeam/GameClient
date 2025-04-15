@@ -253,9 +253,13 @@ public:
 
 	void JoinLobby(int index);
 
+	void LeaveCurrentLobby();
+
 	LobbyEntry GetLobbyFromIndex(int index);
 
 	std::vector<LobbyEntry> m_vecLobbies;
+
+	bool m_bPendingHostHasLeft = false;
 
 private:
 	std::vector<std::function<void(bool)>> m_vecCreateLobby_PendingCallbacks = std::vector<std::function<void(bool)>>();

@@ -75,6 +75,8 @@ public:
 	void ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect = false);
 	void ConnectToMesh(LobbyEntry& lobby);
 
+	void Disconnect();
+
 	void Tick();
 
 	int64_t m_lastPing = -1;

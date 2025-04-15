@@ -327,8 +327,18 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody)
 		{
 			// TODO_NGMP: Error handling
-				try
+			try
 			{
+				if (statusCode == 404) // lobby destroyed, just leave
+				{
+					m_bPendingHostHasLeft = true;
+					// error msg
+
+
+					LeaveCurrentLobby();
+					return;
+				}
+
 				nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody);
 
 				auto lobbyEntryJSON = jsonObjectRoot["lobby"];
@@ -676,6 +686,22 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 			});
 	}
 	*/
+}
+
+void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
+{
+	// kill mesh
+	if (m_pLobbyMesh != nullptr)
+	{
+		m_pLobbyMesh->Disconnect();
+		delete m_pLobbyMesh;
+		m_pLobbyMesh = nullptr;
+	}
+	
+	// leave on service
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", nullptr);
 }
 
 LobbyEntry NGMP_OnlineServices_LobbyInterface::GetLobbyFromIndex(int index)

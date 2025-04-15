@@ -743,6 +743,11 @@ void NGMP_WOLLobbyMenu_JoinLobbyCallback(bool bSuccess)
 //-------------------------------------------------------------------------------------------------
 void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 {
+	// TODO_NGMP: impl this again
+	GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("WOLCustomLobby.wnd:ButtonBuddy"));
+	if (buttonBuddy)
+		buttonBuddy->winEnable(FALSE);
+
 	nextScreen = NULL;
 	buttonPushed = false;
 	isShuttingDown = false;
@@ -1750,7 +1755,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 						break;
 
 					// Leave any group room, then pop off the screen
-					TheGameSpyInfo->leaveGroupRoom();
+					NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->LeaveRoom();
 
 					SetLobbyAttemptHostJoin( TRUE ); // pretend, since we don't want to queue up another action
 					buttonPushed = true;

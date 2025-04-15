@@ -776,39 +776,39 @@ void GameEngine::update( void )
 		{
 			
 			// VERIFY CRC needs to be in this code block.  Please to not pull TheGameLogic->update() inside this block.
-			VERIFY_CRC
+VERIFY_CRC
 
-			TheRadar->UPDATE();
+TheRadar->UPDATE();
 
-			/// @todo Move audio init, update, etc, into GameClient update
-			
-			TheAudio->UPDATE();
-			TheGameClient->UPDATE();
-			TheMessageStream->propagateMessages();
+/// @todo Move audio init, update, etc, into GameClient update
 
-			if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
-			{
-				g_bTearDownGeneralsOnlineRequested = false;
+TheAudio->UPDATE();
+TheGameClient->UPDATE();
+TheMessageStream->propagateMessages();
 
-				if (g_pOnlineServicesMgr != nullptr)
-				{
-					g_pOnlineServicesMgr->Shutdown();
-					delete g_pOnlineServicesMgr;
-					g_pOnlineServicesMgr = nullptr;
-				}
+if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
+{
+	g_bTearDownGeneralsOnlineRequested = false;
 
-			}
-			if (g_pOnlineServicesMgr != nullptr)
-			{
-				g_pOnlineServicesMgr->Tick();
-			}
+	if (g_pOnlineServicesMgr != nullptr)
+	{
+		g_pOnlineServicesMgr->Shutdown();
+		delete g_pOnlineServicesMgr;
+		g_pOnlineServicesMgr = nullptr;
+	}
 
-			if (TheNetwork != NULL)
-			{
-				TheNetwork->UPDATE();
-			}
-			 
-			TheCDManager->UPDATE();
+}
+if (g_pOnlineServicesMgr != nullptr)
+{
+	g_pOnlineServicesMgr->Tick();
+}
+
+if (TheNetwork != NULL)
+{
+	TheNetwork->UPDATE();
+}
+
+TheCDManager->UPDATE();
 		}
 
 
@@ -817,7 +817,7 @@ void GameEngine::update( void )
 			TheGameLogic->UPDATE();
 		}
 
-		
+
 
 	}	// end perfGather
 
@@ -828,18 +828,18 @@ extern bool DX8Wrapper_IsWindowed;
 extern HWND ApplicationHWnd;
 
 /** -----------------------------------------------------------------------------------------------
- * The "main loop" of the game engine. It will not return until the game exits. 
+ * The "main loop" of the game engine. It will not return until the game exits.
  */
-void GameEngine::execute( void )
+void GameEngine::execute(void)
 {
-	
+
 	DWORD prevTime = timeGetTime();
 #if defined(_DEBUG) || defined(_INTERNAL)
 	DWORD startTime = timeGetTime() / 1000;
 #endif
 
 	// pretty basic for now
-	while( !m_quitting )
+	while (!m_quitting)
 	{
 
 		//if (TheGlobalData->m_vTune)
@@ -872,34 +872,46 @@ void GameEngine::execute( void )
 				}
 			}
 #endif
-			
+
 			{
-				try 
+				if (IsDebuggerPresent())
 				{
 					// compute a frame
 					update();
 				}
-				catch (INIException e)
+				else
 				{
-					// Release CRASH doesn't return, so don't worry about executing additional code.
-					if (e.mFailureMessage)
-						RELEASE_CRASH((e.mFailureMessage));
-					else
-						RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
-				}
-				catch (...)
-				{
-					// try to save info off
-					try 
+					try
 					{
-						if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_RECORD && TheRecorder->isMultiplayer())
-							TheRecorder->cleanUpReplayFile();
+						// compute a frame
+						update();
+					}
+					catch (INIException e)
+					{
+						// Release CRASH doesn't return, so don't worry about executing additional code.
+						if (e.mFailureMessage)
+							RELEASE_CRASH((e.mFailureMessage));
+						else
+							RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
 					}
 					catch (...)
 					{
-					}
-					RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
-				}	// catch
+						// try to save info off
+						try
+						{
+							if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_RECORD && TheRecorder->isMultiplayer())
+								TheRecorder->cleanUpReplayFile();
+						}
+						catch (const std::exception& e) // caught by reference to base
+						{
+							NetworkLog("A standard exception was caught, with message: %s", e.what());
+						}
+						catch (...)
+						{
+						}
+						RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
+					}	// catch
+				}
 			}	// perf
 
 			{

@@ -433,11 +433,11 @@ CustomMatchPreferences::CustomMatchPreferences()
 {
 	AsciiString userPrefFilename;
 
-	// TODO_NGMP: Impl again
+	// NGMP: Just return 0 - the gamespy profile ID is only ever set to 0 anyway
 #if defined(GENERALS_ONLINE)
-	Int localProfile = TheGameSpyInfo->getLocalProfileID();
-#else
 	Int localProfile = 0;
+#else
+	Int localProfile = TheGameSpyInfo->getLocalProfileID();
 #endif
 	userPrefFilename.format("GeneralsOnline\\CustomPref%d.ini", localProfile);
 	load(userPrefFilename);
