@@ -151,9 +151,10 @@ public:
 class WebSocketMessage_NetworkRoomMemberListUpdate : public WebSocketMessageBase
 {
 public:
-	std::vector<std::string> users;
+	std::vector<std::string> names;
+	std::vector<int64_t> ids;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkRoomMemberListUpdate, users)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkRoomMemberListUpdate, names, ids)
 };
 
 void WebSocket::Tick()
@@ -211,7 +212,7 @@ void WebSocket::Tick()
 						case EWebSocketMessageID::NETWORK_ROOM_MEMBER_LIST_UPDATE:
 						{
 							WebSocketMessage_NetworkRoomMemberListUpdate memberList = jsonObject.get<WebSocketMessage_NetworkRoomMemberListUpdate>();
-							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->OnRosterUpdated(memberList.users);
+							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->OnRosterUpdated(memberList.names, memberList.ids);
 						}
 						break;
 
@@ -576,17 +577,21 @@ void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeStr
 	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(strChatMsg.str());
 }
 
-void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string> vecUsers)
+void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string> vecNames, std::vector<int64_t> vecIDs)
 {
 	m_mapMembers.clear();
 
-	Int64 i = 0;
-	for (std::string strDisplayName : vecUsers)
+	int index = 0;
+	for (std::string strDisplayName : vecNames)
 	{
+		int64_t id = vecIDs.at(index);
+
 		NetworkRoomMember newMember;
-		newMember.m_strName = AsciiString(strDisplayName.c_str());
-		m_mapMembers.emplace(i, newMember);
-			++i;
+		newMember.display_name = strDisplayName;
+		newMember.user_id = id;
+		m_mapMembers.emplace(id, newMember);
+		
+		++index;
 	}
 
 	if (m_RosterNeedsRefreshCallback != nullptr)

@@ -10,6 +10,7 @@
 #include <windows.h>
 #include <wincred.h>
 #include "GameNetwork/GameSpyOverlay.h"
+#include "../json.hpp"
 
 
 #include "GameNetwork/GeneralsOnline/vendor/libcurl/curl.h"
@@ -294,6 +295,13 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 	}
 }
 
+struct MOTDResponse
+{
+	std::string MOTD;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(MOTDResponse, MOTD)
+};
+
 void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const char* szWSAddr, const char* szWSToken)
 {
 	if (bSuccess)
@@ -307,14 +315,49 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 		// NOTE: This is partially blocking and partially async...
 		NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().DetermineLocalNetworkCapabilities([this]()
 			{
-				ClearGSMessageBoxes();
+				// GET MOTD
 
-				for (auto cb : m_vecLogin_PendingCallbacks)
-				{
-					// TODO_NGMP: Support failure
-					cb(true);
-				}
-				m_vecLogin_PendingCallbacks.clear();
+				std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("MOTD", true);
+				std::map<std::string, std::string> mapHeaders;
+				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody)
+					{
+						try
+						{
+							nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+							MOTDResponse motdResp = jsonObject.get<MOTDResponse>();
+							
+
+							NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD(motdResp.MOTD.c_str());
+
+							// go to next screen
+							ClearGSMessageBoxes();
+
+							for (auto cb : m_vecLogin_PendingCallbacks)
+							{
+								// TODO_NGMP: Support failure
+								cb(true);
+							}
+							m_vecLogin_PendingCallbacks.clear();
+
+						}
+						catch (...)
+						{
+							NetworkLog("VERSION CHECK: Failed to parse response");
+
+							// if MOTD was bad, still proceed, its a soft error
+							NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD("Error retrieving MOTD");
+
+							// go to next screen
+							ClearGSMessageBoxes();
+
+							for (auto cb : m_vecLogin_PendingCallbacks)
+							{
+								// TODO_NGMP: Support failure
+								cb(true);
+							}
+							m_vecLogin_PendingCallbacks.clear();
+						}
+					});
 			});
 	}
 	else

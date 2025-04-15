@@ -234,8 +234,6 @@ static void playerTooltip(GameWindow *window,
 													UnsignedInt mouse)
 {
 	// TODO_NGMP: Support all of this again
-	TheMouse->setCursorTooltip(UnicodeString(L"TODO_NGMP"), -1, NULL, 1.5f); // the text and width are the only params used.  the others are the default values.
-	return;
 
 	Int x, y, row, col;
 	x = LOLONGTOSHORT(mouse);
@@ -245,13 +243,39 @@ static void playerTooltip(GameWindow *window,
 
 	if (row == -1 || col == -1)
 	{
-		TheMouse->setCursorTooltip( UnicodeString::TheEmptyString);//TheGameText->fetch("TOOLTIP:PlayersInLobby") );
+		TheMouse->setCursorTooltip(UnicodeString::TheEmptyString);//TheGameText->fetch("TOOLTIP:PlayersInLobby") );
 		return;
 	}
 
 	UnicodeString uName = GadgetListBoxGetText(window, row, COLUMN_PLAYERNAME);
 	AsciiString aName;
 	aName.translate(uName);
+
+	NetworkRoomMember* pRoomMember = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetRoomMemberFromIndex(row);
+
+	if (col > 0)
+	{
+		if (pRoomMember != nullptr)
+		{
+			std::string strTooltip = std::format("Display Name: {}\nUser ID: {}", pRoomMember->display_name.c_str(), pRoomMember->user_id);
+
+			UnicodeString ucTooltip;
+			ucTooltip.translate(strTooltip.c_str());
+
+			TheMouse->setCursorTooltip(ucTooltip, -1, NULL, 1.5f); // the text and width are the only params used.  the others are the default values.
+		}
+		else
+		{
+			TheMouse->setCursorTooltip(UnicodeString(L"Error: 1"), -1, NULL, 1.5f); // the text and width are the only params used.  the others are the default values.
+		}
+		
+
+
+	}
+
+
+	return;
+
 
 	PlayerInfoMap::iterator it = TheGameSpyInfo->getPlayerInfoMap()->find(aName);
 	PlayerInfo *info = &(it->second);
@@ -524,7 +548,7 @@ void PopulateLobbyPlayerListbox(void)
 
 		// TODO_NGMP: fill out more
 		PlayerInfo pi;
-		pi.m_name = netRoomMember.m_strName;
+		pi.m_name = AsciiString(netRoomMember.display_name.c_str());
 
 		// NGMP: Color by connection state
 

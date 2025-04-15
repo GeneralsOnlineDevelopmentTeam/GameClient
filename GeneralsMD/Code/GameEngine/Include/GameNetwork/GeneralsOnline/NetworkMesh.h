@@ -92,6 +92,16 @@ public:
 		return m_mapConnections;
 	}
 
+	PlayerConnection* GetConnectionForUser(int64_t user_id)
+	{
+		if (m_mapConnections.contains(user_id))
+		{
+			return &m_mapConnections[user_id];
+		}
+
+		return nullptr;
+	}
+
 private:
 	PlayerConnection* GetConnectionForPeer(ENetPeer* peer)
 	{

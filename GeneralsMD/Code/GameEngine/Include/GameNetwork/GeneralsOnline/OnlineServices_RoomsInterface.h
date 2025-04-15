@@ -41,7 +41,19 @@ public:
 		m_RosterNeedsRefreshCallback = cb;
 	}
 
-	NetworkRoomMember* GetRoomMemberFromID(uint64_t puid)
+	NetworkRoomMember* GetRoomMemberFromIndex(int index)
+	{
+		if (m_mapMembers.size() > index)
+		{
+			auto it = m_mapMembers.begin();
+			std::advance(it, index);
+			return &it->second;
+		}
+
+		return nullptr;
+	}
+
+	NetworkRoomMember* GetRoomMemberFromID(int64_t puid)
 	{
 		if (m_mapMembers.contains(puid))
 		{
@@ -78,7 +90,7 @@ public:
 		}
 	}
 
-	void OnRosterUpdated(std::vector<std::string> vecUsers);
+	void OnRosterUpdated(std::vector<std::string> vecUsers, std::vector<int64_t> vecIDs);
 
 	int GetCurrentRoomID() const { return m_CurrentRoomID; }
 

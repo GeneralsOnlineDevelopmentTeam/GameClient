@@ -165,6 +165,11 @@ public:
 		return m_vecRooms;
 	}
 
+	void ProcessMOTD(const char* szMOTD)
+	{
+		m_strMOTD = std::string(szMOTD);
+	}
+
 	std::function<void(NGMP_ENATType previousNATType, NGMP_ENATType newNATType)> m_cbNATTypeChanged = nullptr;
 	void RegisterForNATTypeChanges(std::function<void(NGMP_ENATType previousNATType, NGMP_ENATType newNATType)> cbNATTypeChanged) { m_cbNATTypeChanged = cbNATTypeChanged; }
 
@@ -201,6 +206,8 @@ public:
 		return AsciiString("Undetermined");
 	}
 
+	std::string& GetMOTD() { return m_strMOTD; }
+
 private:
 	//EOS_HPlatform m_EOSPlatformHandle = nullptr;
 
@@ -225,4 +232,6 @@ private:
 	int64_t m_timeBetweenUserPuts = 60000;
 
 	WebSocket* m_pWebSocket = nullptr;
+
+	std::string m_strMOTD;
 };

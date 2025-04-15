@@ -17,7 +17,9 @@ enum ENetworkMeshType : uint8_t
 class NetworkMemberBase
 {
 public:
-	AsciiString m_strName = "NO_NAME";
+	int64_t user_id = -1;
+	std::string display_name;
+
 	ENetworkConnectionState m_connectionState = ENetworkConnectionState::NOT_CONNECTED;
 	bool m_bIsHost = false;
 

@@ -67,6 +67,7 @@
 
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include <ws2ipdef.h>
+#include <format>
 NGMPGame* TheNGMPGame = NULL;
 
 void WOLDisplaySlotList( void );
@@ -1109,9 +1110,26 @@ void WOLDisplaySlotList( void )
 		{
 			if (i == game->getLocalSlotNum())
 			{
-				// set up my own ping...
-				slot->setPingString("TODO_NGMP");
-				//slot->setPingString(TheGameSpyInfo->getPingString());
+				LobbyMemberEntry member = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromID(slot->m_userID);
+				PlayerConnection* pConnection = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetConnectionForUser(slot->m_userID);
+
+				std::string strPingString = "";
+				std::string strConnectionState = "Not Connected";
+				int latency = -1;
+				if (pConnection != nullptr)
+				{
+					strConnectionState = "Connected";
+					latency = pConnection->latency;
+					
+				}
+				
+				strPingString = std::format("Display Name: {}\nUser ID: {}\nConnection Type: {}\nLatency: {}",
+					member.display_name.c_str(),
+					member.user_id,
+					strConnectionState.c_str(),
+					latency);
+
+				slot->setPingString(strPingString.c_str());
 			}
 
 			if (genericPingWindow[i])

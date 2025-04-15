@@ -252,7 +252,7 @@ static void updateNumPlayersOnline(void)
 		UnicodeString line;
 
 #if defined(GENERALS_ONLINE)
-		AsciiString aMotd = "TODO MOTD GOES HERE";
+		AsciiString aMotd = AsciiString(NGMP_OnlineServicesManager::GetInstance()->GetMOTD().c_str());
 #else
 		AsciiString aMotd = TheGameSpyInfo->getMOTD();
 #endif

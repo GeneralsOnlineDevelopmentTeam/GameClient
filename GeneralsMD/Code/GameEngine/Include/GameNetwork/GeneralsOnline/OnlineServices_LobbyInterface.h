@@ -7,8 +7,6 @@
 
 struct LobbyMemberEntry : public NetworkMemberBase
 {
-	int64_t user_id = -1;
-	std::string display_name;
 
 	std::string strIPAddress;
 	uint16_t preferredPort;
