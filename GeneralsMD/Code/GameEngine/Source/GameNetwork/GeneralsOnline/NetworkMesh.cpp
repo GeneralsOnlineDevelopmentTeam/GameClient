@@ -422,6 +422,9 @@ void NetworkMesh::Tick()
 						// TODO_NGMP: Support longer msgs
 						NetworkLog("[NGMP]: Received chat message of len %d: %s from %d", chatPacket.GetMsg().length(), chatPacket.GetMsg().c_str(), event.peer->incomingPeerID);
 
+						// get host ID
+						int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+
 						// find user
 						for (auto& connectionData : m_mapConnections)
 						{
@@ -433,9 +436,24 @@ void NetworkMesh::Tick()
 								{
 									if (lobbyUser.user_id == connectionData.first)
 									{
-										UnicodeString str;
-										str.format(L"%hs: %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
-										NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
+										// if its an announce, dont show it to the sender, they did something locally instead
+										if (chatPacket.IsAnnouncement())
+										{
+											// if its not us, show the message
+											if (chatPacket.ShowAnnouncementToHost() || lobbyUser.user_id != localID)
+											{
+												UnicodeString str;
+												str.format(L"%hs", chatPacket.GetMsg().c_str());
+												NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
+											}
+										}
+										else
+										{
+											UnicodeString str;
+											str.format(L"%hs: %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
+											NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
+										}
+										
 
 										break;
 									}

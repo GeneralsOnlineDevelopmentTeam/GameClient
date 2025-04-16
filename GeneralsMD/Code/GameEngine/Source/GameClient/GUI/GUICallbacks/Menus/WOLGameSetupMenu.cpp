@@ -890,6 +890,9 @@ static void StartPressed(void)
 
 	if(isReady)
 	{
+		// reset autostart just incase
+		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ClearAutoReadyCountdown();
+
 		//PeerRequest req;
 		//req.peerRequestType = PeerRequest::PEERREQUEST_STARTGAME;
 		//TheGameSpyPeerMessageQueue->addRequest(req);
@@ -913,17 +916,34 @@ static void StartPressed(void)
 	}
 	else if (allHaveMap)
 	{
-		// TODO_NGMP: today
-		GadgetListBoxAddEntryText(listboxGameSetupChat, TheGameText->fetch("GUI:NotifiedStartIntent"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-		PeerRequest req;
-		req.peerRequestType = PeerRequest::PEERREQUEST_UTMROOM;
-		req.UTM.isStagingRoom = TRUE;
-		req.id = "HWS/";
-		req.options = "true";
-		TheGameSpyPeerMessageQueue->addRequest(req);
+		// send HWS chat message
+		
+		if (!NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->HasAutoReadyCountdown())
+		{
+			// local msg
+			GadgetListBoxAddEntryText(listboxGameSetupChat, TheGameText->fetch("GUI:NotifiedStartIntent"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+			// remote msg
+			UnicodeString strInform = TheGameText->fetch("GUI:HostWantsToStart");
+			UnicodeString strInform2 = UnicodeString(L"All players will be forced to ready up in 30 seconds");
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform, false);
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform2, true);
+
+			// TODO_NGMP: Add the reverse too, if everyone is ready but the host wont start... just start it in X seconds
+
+			// start a countdown to auto start
+			// TODO_NGMP: Don't have this client driven...
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->StartAutoReadyCountdown();
+		}
+		else
+		{
+			UnicodeString strInform = UnicodeString(L"You have already informed players you want to start. A countdown has begun after which they will be marked as ready.");
+			GadgetListBoxAddEntryText(listboxGameSetupChat, strInform, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+		}
 	}
 
 }//void StartPressed(void)
+
 
 //-------------------------------------------------------------------------------------------------
 /** Update options on screen */

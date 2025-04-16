@@ -52,11 +52,15 @@ enum class ELobbyUpdateField
 	MY_START_POS = 3,
 	MY_TEAM = 4,
 	LOBBY_STARTING_CASH = 5,
-	LOBBY_LIMIT_SUPERWEAPONS = 6 
+	LOBBY_LIMIT_SUPERWEAPONS = 6,
+	HOST_ACTION_FORCE_START = 7
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, int newMaxPlayers)
 {
+	// reset autostart if host changes anything (because ready flag will reset too)
+	ClearAutoReadyCountdown();
+
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
@@ -76,6 +80,9 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strM
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons)
 {
+	// reset autostart if host changes anything (because ready flag will reset too)
+	ClearAutoReadyCountdown();
+
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
@@ -93,6 +100,9 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_LimitSuperweapons(bo
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue)
 {
+	// reset autostart if host changes anything (because ready flag will reset too)
+	ClearAutoReadyCountdown();
+
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
@@ -110,6 +120,9 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MySide(int side, int updatedStartPos)
 {
+	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
+	ClearAutoReadyCountdown();
+
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
@@ -128,6 +141,9 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MySide(int side, int
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyColor(int color)
 {
+	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
+	ClearAutoReadyCountdown();
+
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
@@ -145,6 +161,9 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyColor(int color)
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyStartPos(int startpos)
 {
+	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
+	ClearAutoReadyCountdown();
+
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
@@ -162,6 +181,9 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyStartPos(int start
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyTeam(int team)
 {
+	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
+	ClearAutoReadyCountdown();
+
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
@@ -177,6 +199,23 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyTeam(int team)
 		});
 }
 
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::HOST_ACTION_FORCE_START;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+			UnicodeString msg = UnicodeString(L"All players have been forced to ready up.");
+			SendAnnouncementMessageToCurrentLobby(msg, true);
+		});
+}
+
 void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode)
 {
 	// TODO_NGMP: Custom
@@ -184,7 +223,7 @@ void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeSt
 	AsciiString strChatMsg;
 	strChatMsg.translate(strChatMsgUnicode);
 
-	NetRoom_ChatMessagePacket chatPacket(strChatMsg);
+	NetRoom_ChatMessagePacket chatPacket(strChatMsg, false, false);
 
 	// TODO_NGMP: Move to uint64 for user id
 	std::vector<int64_t> vecUsersToSend;
@@ -193,6 +232,21 @@ void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeSt
 		vecUsersToSend.push_back(kvPair.user_id);
 	}
 	
+	if (m_pLobbyMesh != nullptr)
+	{
+		m_pLobbyMesh->SendToMesh(chatPacket, vecUsersToSend);
+	}
+}
+
+// TODO_NGMP: Just send a separate packet for each announce, more efficient and less hacky
+void NGMP_OnlineServices_LobbyInterface::SendAnnouncementMessageToCurrentLobby(UnicodeString& strAnnouncementMsgUnicode, bool bShowToHost)
+{
+	AsciiString strChatMsg;
+	strChatMsg.translate(strAnnouncementMsgUnicode);
+
+	NetRoom_ChatMessagePacket chatPacket(strChatMsg, true, bShowToHost);
+
+	std::vector<int64_t> vecUsersToSend;
 	if (m_pLobbyMesh != nullptr)
 	{
 		m_pLobbyMesh->SendToMesh(chatPacket, vecUsersToSend);
@@ -825,6 +879,8 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 
 void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 {
+	m_timeStartAutoReadyCountdown = -1;
+
 	// kill mesh
 	if (m_pLobbyMesh != nullptr)
 	{
@@ -1180,6 +1236,9 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails)
 {
+	// reset timer
+	m_timeStartAutoReadyCountdown = -1;
+
 	// TODO_NGMP: We need this on create, but this is a double call on join because we already got this info
 	// must be done in a callback, this is an async function
 	if (!bAlreadyUpdatedDetails)

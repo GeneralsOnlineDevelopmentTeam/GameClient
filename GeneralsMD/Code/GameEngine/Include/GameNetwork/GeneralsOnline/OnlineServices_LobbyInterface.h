@@ -76,6 +76,8 @@ public:
 	void UpdateCurrentLobby_MyStartPos(int side);
 	void UpdateCurrentLobby_MyTeam(int side);
 
+	void UpdateCurrentLobby_ForceReady();
+
 	void SetLobbyListDirty()
 	{
 		m_bLobbyListDirty = true;
@@ -110,6 +112,7 @@ public:
 	AsciiString GetCurrentLobbyMapPath();
 
 	void SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode);
+	void SendAnnouncementMessageToCurrentLobby(UnicodeString& strAnnouncementMsgUnicode, bool bShowToHost);
 
 	void InvokeCreateLobbyCallback(bool bSuccess)
 	{
@@ -163,6 +166,20 @@ public:
 			{
 				//UpdateRoomDataCache();
 				m_lastForceRefresh = currTime;
+			}
+
+			// do we have a pending start?
+			if (IsHost())
+			{
+				if (m_timeStartAutoReadyCountdown > 0)
+				{
+					if ((currTime - m_timeStartAutoReadyCountdown) > 30000)
+					{
+						// TODO_NGMP: Don't do this clientside...
+						UpdateCurrentLobby_ForceReady();
+						ClearAutoReadyCountdown();
+					}
+				}
 			}
 		}
 	}
@@ -277,6 +294,21 @@ public:
 	bool m_bHostMigrated = false;
 	bool m_bPendingHostHasLeft = false;
 
+	void StartAutoReadyCountdown()
+	{
+		m_timeStartAutoReadyCountdown = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	}
+
+	void ClearAutoReadyCountdown()
+	{
+		m_timeStartAutoReadyCountdown = -1;
+	}
+
+	bool HasAutoReadyCountdown()
+	{
+		return m_timeStartAutoReadyCountdown != -1;
+	}
+
 private:
 	std::vector<std::function<void(bool)>> m_vecCreateLobby_PendingCallbacks = std::vector<std::function<void(bool)>>();
 
@@ -290,4 +322,6 @@ private:
 	NGMPGame* m_pGameInst = nullptr;
 
 	bool m_bLobbyListDirty = false;
+
+	int64_t m_timeStartAutoReadyCountdown = -1;
 };

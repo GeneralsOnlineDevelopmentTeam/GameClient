@@ -208,6 +208,7 @@ public:
 
 	std::string& GetMOTD() { return m_strMOTD; }
 
+
 private:
 	//EOS_HPlatform m_EOSPlatformHandle = nullptr;
 
