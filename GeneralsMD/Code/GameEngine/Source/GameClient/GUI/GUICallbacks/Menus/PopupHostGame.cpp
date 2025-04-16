@@ -579,15 +579,24 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 // PRIVATE FUNCTIONS //////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
 
+extern GlobalData* TheWritableGlobalData;
 void createGame( void )
 {
+	// TODO_NGMP: exe and ini crc, verison etc
+	// TODO_NGMP: passworded lobbies
+
 #if defined(GENERALS_ONLINE)
 	// TODO_NGMP: Support 'favorite map' again
 	AsciiString defaultMap = getDefaultMap(true);
 	const MapMetaData* md = TheMapCache->findMap(defaultMap);
 
+	Bool limitArmies = GadgetCheckBoxIsChecked(checkBoxLimitArmies);
+	Bool useStats = GadgetCheckBoxIsChecked(checkBoxUseStats);
+
 	UnicodeString gameName = GadgetTextEntryGetText(textEntryGameName);
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->CreateLobby(gameName, md->m_displayName, md->m_fileName, md->m_numPlayers);
+
+	// NGMP:NOTE: We count money here because mods etc sometimes change the starting money, so we dont want to hard code it, just create with whatever the client is telling us is a sensible amount
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->CreateLobby(gameName, md->m_displayName, md->m_fileName, md->m_numPlayers, limitArmies, useStats, TheGlobalData->m_defaultStartingCash.countMoney());
 
 	GSMessageBoxCancel(UnicodeString(L"Creating Lobby"), UnicodeString(L"Lobby Creation is in progress..."), nullptr);
 

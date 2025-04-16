@@ -30,6 +30,11 @@ struct LobbyEntry
 	std::string map_path;
 	int current_players;
 	int max_players;
+	bool vanilla_teams;
+	uint32_t starting_cash;
+	bool limit_superweapons;
+	bool track_stats;
+
 	std::vector<BYTE> EncKey;
 	std::vector<BYTE> EncIV;
 	std::vector<LobbyMemberEntry> members;
@@ -63,6 +68,8 @@ public:
 
 	// updates
 	void UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, int newMaxPlayers);
+	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons);
+	void UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue);
 
 	void UpdateCurrentLobby_MySide(int side, int updatedStartPos);
 	void UpdateCurrentLobby_MyColor(int side);
@@ -94,7 +101,7 @@ public:
 	UnicodeString m_PendingCreation_LobbyName;
 	UnicodeString m_PendingCreation_InitialMapDisplayName;
 	AsciiString m_PendingCreation_InitialMapPath;
-	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize);
+	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash);
 
 	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails = false);
 

@@ -748,57 +748,23 @@ static void handleTeamSelection(int index)
 }
 
 static void handleStartingCashSelection()
-{// TODO_NGMP
-	return;
+{
+	// update it on the service
+	Int selIndex;
+	GadgetComboBoxGetSelectedPos(comboBoxStartingCash, &selIndex);
 
-  GameInfo *myGame = TheGameSpyInfo->getCurrentStagingRoom();
-  
-  if (myGame)
-  {
-    Int selIndex;
-    GadgetComboBoxGetSelectedPos(comboBoxStartingCash, &selIndex);
-    
-    Money startingCash;
-    startingCash.deposit( (UnsignedInt)GadgetComboBoxGetItemData( comboBoxStartingCash, selIndex ), FALSE );
-    myGame->setStartingCash( startingCash );
-    myGame->resetAccepted();
-    
-    if (myGame->amIHost())
-    {
-      // send around the new data
-      TheGameSpyInfo->setGameOptions();
-      WOLDisplaySlotList();// Update the accepted button UI
-    }
-  }
+	UnsignedInt startingCashValue = (UnsignedInt)GadgetComboBoxGetItemData(comboBoxStartingCash, selIndex);
+
+	Money startingCash;
+	startingCash.deposit(startingCashValue, FALSE);
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_StartingCash(startingCashValue);
 }
 
 static void handleLimitSuperweaponsClick()
 {
-	// TODO_NGMP
-	return;
-  GameInfo *myGame = TheGameSpyInfo->getCurrentStagingRoom();
-  
-  if (myGame)
-  {
-    // At the moment, 1 and 0 are the only choices supported in the GUI, though the system could
-    // support more.
-    if ( GadgetCheckBoxIsChecked( checkBoxLimitSuperweapons ) )
-    {
-      myGame->setSuperweaponRestriction( 1 );
-    }
-    else
-    {
-      myGame->setSuperweaponRestriction( 0 );
-    }
-    myGame->resetAccepted();
-    
-    if (myGame->amIHost())
-    {
-      // send around a new slotlist
-      TheGameSpyInfo->setGameOptions();
-      WOLDisplaySlotList();// Update the accepted button UI
-    }
-  }
+	// update it on the service
+	bool bLimitSuperweapons = GadgetCheckBoxIsChecked(checkBoxLimitSuperweapons);
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_LimitSuperweapons(bLimitSuperweapons);
 }
 
 
@@ -995,9 +961,8 @@ void WOLDisplayGameOptions( void )
 	WOLPositionStartSpots();
 	updateMapStartSpots(theGame, buttonMapStartPosition);
 
-	// TODO_NGMP: Support these options again
 #if defined(GENERALS_ONLINE)
-	Bool isUsingStats = false;
+	Bool isUsingStats = TheNGMPGame->getUseStats();
 #else
   //If our display does not match the current state of game settings, update the checkbox.
   Bool isUsingStats = TheGameSpyInfo->getCurrentStagingRoom()->getUseStats() ? TRUE : FALSE;
@@ -2924,14 +2889,21 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 			}//case GWM_INPUT_FOCUS:
 		//-------------------------------------------------------------------------------------------------
 		case GCM_SELECTED:
+		{
+			if (!initDone)
+				break;
+			if (buttonPushed)
+				break;
+			GameWindow* control = (GameWindow*)mData1;
+			Int controlID = control->winGetWindowId();
+			NGMPGame* myGame = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
+
+			if (controlID == comboBoxStartingCashID)
 			{
-				if (!initDone)
-					break;
-				if (buttonPushed)
-					break;
-				GameWindow *control = (GameWindow *)mData1;
-				Int controlID = control->winGetWindowId();
-				NGMPGame* myGame = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
+				handleStartingCashSelection();
+			}
+			else
+			{
 				for (Int i = 0; i < MAX_SLOTS; i++)
 				{
 					if (controlID == comboBoxColorID[i])
@@ -2946,17 +2918,17 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 					{
 						handleTeamSelection(i);
 					}
-					else if( controlID == comboBoxPlayerID[i] && NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost())
+					else if (controlID == comboBoxPlayerID[i] && NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost())
 					{
 						// We don't have anything that'll happen if we click on ourselves
-						if(i == myGame->getLocalSlotNum())
-						 break;
+						if (i == myGame->getLocalSlotNum())
+							break;
 						// Get
 						Int pos = -1;
 						GadgetComboBoxGetSelectedPos(comboBoxPlayer[i], &pos);
-						if( pos != SLOT_PLAYER && pos >= 0)
+						if (pos != SLOT_PLAYER && pos >= 0)
 						{
-							if( myGame->getSlot(i)->getState() == SLOT_PLAYER )
+							if (myGame->getSlot(i)->getState() == SLOT_PLAYER)
 							{
 								// TODO_NGMP: Support kick again
 								/*
@@ -2980,7 +2952,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 								WOLDisplaySlotList();
 								//TheLAN->OnPlayerLeave(name);
 							}
-							else if( myGame->getSlot(i)->getState() != pos )
+							else if (myGame->getSlot(i)->getState() != pos)
 							{
 								Bool wasAI = (myGame->getSlot(i)->isAI());
 								myGame->getSlot(i)->setState(SlotState(pos));
@@ -2997,6 +2969,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 						break;
 					}
 				}
+			}
 			}// case GCM_SELECTED:
 		//-------------------------------------------------------------------------------------------------
 		case GBM_SELECTED:

@@ -352,6 +352,13 @@ void PopulateStartingCashComboBox(GameWindow *comboBox, GameInfo *myGame)
     }
   }
 
+  // NGMP: safety
+  // TODO_NGMP: Why can we get in here with no data during lobby creation? async?
+  if (myGame->getStartingCash().countMoney() == 0)
+  {
+	  currentSelectionIndex = 0;
+  }
+
   if ( currentSelectionIndex == -1 )
   {
     DEBUG_CRASH( ("Current selection for starting cash not found in list") );

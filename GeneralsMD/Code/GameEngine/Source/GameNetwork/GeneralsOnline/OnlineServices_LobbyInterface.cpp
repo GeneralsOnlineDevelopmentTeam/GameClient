@@ -47,14 +47,12 @@ AsciiString NGMP_OnlineServices_LobbyInterface::GetCurrentLobbyMapPath()
 enum class ELobbyUpdateField
 {
 	LOBBY_MAP = 0,
-	MY_SIDE = 1, // TODO_NGMP: IMPL
-	MY_COLOR = 2, // TODO_NGMP: IMPL
-	MY_START_POS = 3, // TODO_NGMP: IMPL
-	MY_TEAM = 4, // TODO_NGMP: IMPL
-	LOBBY_VANILLA_TEAMS = 5, // TODO_NGMP: IMPL
-	LOBBY_STARTING_CASH = 6, // TODO_NGMP: IMPL
-	LOBBY_RECORD_STATES = 7, // TODO_NGMP: IMPL
-	LOBBY_LIMIT_SUPERWEAPONS = 8 // TODO_NGMP: IMPL
+	MY_SIDE = 1,
+	MY_COLOR = 2,
+	MY_START_POS = 3,
+	MY_TEAM = 4,
+	LOBBY_STARTING_CASH = 5,
+	LOBBY_LIMIT_SUPERWEAPONS = 6 
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, int newMaxPlayers)
@@ -73,6 +71,40 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strM
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
 		{
 			
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons)
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::LOBBY_LIMIT_SUPERWEAPONS;
+	j["limit_superweapons"] = bLimitSuperweapons;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue)
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::LOBBY_STARTING_CASH;
+	j["startingcash"] = startingCashValue;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+
 		});
 }
 
@@ -436,16 +468,20 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 				lobbyEntryJSON["map_path"].get_to(lobbyEntry.map_path);
 				lobbyEntryJSON["current_players"].get_to(lobbyEntry.current_players);
 				lobbyEntryJSON["max_players"].get_to(lobbyEntry.max_players);
+				lobbyEntryJSON["vanilla_teams"].get_to(lobbyEntry.vanilla_teams);
+				lobbyEntryJSON["starting_cash"].get_to(lobbyEntry.starting_cash);
+				lobbyEntryJSON["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
+				lobbyEntryJSON["track_stats"].get_to(lobbyEntry.track_stats);
 
 				std::string strEncKey;
 				std::string strEncIV;
 				lobbyEntryJSON["enc_key"].get_to(strEncKey);
 				lobbyEntryJSON["enc_nonce"].get_to(strEncIV);
-
 				lobbyEntry.EncKey.resize(32);
 				lobbyEntry.EncIV.resize(32);
 				lobbyEntry.EncKey.clear();
 				lobbyEntry.EncIV.clear();
+
 
 				for (char c : strEncKey)
 				{
@@ -613,6 +649,9 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 
 					// set in game, this actually means in lobby... not in game play, and is necessary to start the game
 					TheNGMPGame->setInGame();
+
+					// set some initial dummy data so the game doesnt balk, we'll do UpdateRoomDataCache immediately below before invoking callback and doing the UI transition, user will never see it
+					TheNGMPGame->setStartingCash(TheGlobalData->m_defaultStartingCash);
 
 					// dont need to do these here, updateroomdatacache does it for us
 					//TheNGMPGame->SyncWithLobby(m_CurrentLobby);
@@ -820,7 +859,7 @@ struct CreateLobbyResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateLobbyResponse, result, lobby_id)
 };
 
-void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize)
+void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash)
 {
 	m_CurrentLobby = LobbyEntry();	
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies", true);
@@ -839,6 +878,9 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 	j["map_path"] = strInitialMapPath.str();
 	j["max_players"] = initialMaxSize;
 	j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+	j["vanilla_teams"] = bVanillaTeamsOnly;
+	j["track_stats"] = bTrackStats;
+	j["starting_cash"] = startingCash;
 	std::string strPostData = j.dump();
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)

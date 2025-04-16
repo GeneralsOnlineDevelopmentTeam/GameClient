@@ -54,8 +54,23 @@ NGMPGame::NGMPGame()
 
 void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 {
-	// TODO_NGMP: More here
+	// map
 	setMap(lobby.map_path.c_str());
+
+	// superweapon
+	setSuperweaponRestriction(lobby.limit_superweapons);
+
+	// vanilla teams
+	setOldFactionsOnly(lobby.vanilla_teams);
+
+	// stats
+	setUseStats(lobby.track_stats);
+
+	// starting cash
+	Money startingCash;
+	startingCash.deposit(lobby.starting_cash, FALSE);
+	setStartingCash(startingCash);
+
 }
 
 void NGMPGame::UpdateSlotsFromCurrentLobby()
