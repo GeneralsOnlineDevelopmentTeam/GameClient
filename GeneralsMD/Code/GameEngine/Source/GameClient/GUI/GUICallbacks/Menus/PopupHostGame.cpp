@@ -595,8 +595,11 @@ void createGame( void )
 
 	UnicodeString gameName = GadgetTextEntryGetText(textEntryGameName);
 
+	AsciiString passwd;
+	passwd.translate(GadgetTextEntryGetText(textEntryGamePassword));
+
 	// NGMP:NOTE: We count money here because mods etc sometimes change the starting money, so we dont want to hard code it, just create with whatever the client is telling us is a sensible amount
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->CreateLobby(gameName, md->m_displayName, md->m_fileName, md->m_numPlayers, limitArmies, useStats, TheGlobalData->m_defaultStartingCash.countMoney());
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->CreateLobby(gameName, md->m_displayName, md->m_fileName, md->m_numPlayers, limitArmies, useStats, TheGlobalData->m_defaultStartingCash.countMoney(), passwd.isNotEmpty(), passwd.str());
 
 	GSMessageBoxCancel(UnicodeString(L"Creating Lobby"), UnicodeString(L"Lobby Creation is in progress..."), nullptr);
 

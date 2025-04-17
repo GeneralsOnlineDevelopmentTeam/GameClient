@@ -665,10 +665,15 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 	*/
 }
 
-void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
+void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index, const char* szPassword)
+{
+	LobbyEntry lobbyInfo = GetLobbyFromIndex(index);
+	JoinLobby(lobbyInfo, szPassword);
+}
+
+void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const char* szPassword)
 {
 	m_CurrentLobby = LobbyEntry();
-	LobbyEntry lobbyInfo = GetLobbyFromIndex(index);
 
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), lobbyInfo.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
@@ -677,16 +682,35 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 
 	nlohmann::json j;
 	j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+
+	if (szPassword != nullptr && strlen(szPassword) > 0)
+	{
+		j["password"] = szPassword;
+	}
+
 	std::string strPostData = j.dump();
 
 	// convert
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
 		{
+			// reset trying to join
+			ResetLobbyTryingToJoin();
+
 			// TODO_NGMP: Dont do extra get here, just return it in the put...
-			bool bJoinSuccess = statusCode == 200;
+			EJoinLobbyResult JoinResult = EJoinLobbyResult::JoinLobbyResult_JoinFailed;
+
+			if (statusCode == 200)
+			{
+				JoinResult = EJoinLobbyResult::JoinLobbyResult_Success;
+			}
+			else if (statusCode == 401)
+			{
+				JoinResult = EJoinLobbyResult::JoinLobbyResult_BadPassword;
+			}
+			// TODO_NGMP: Handle room full error (JoinLobbyResult_FullRoom, can we even get that?
 
 			// no response body from this, just http codes
-			if (statusCode == 200)
+			if (JoinResult == EJoinLobbyResult::JoinLobbyResult_Success)
 			{
 				NetworkLog("[NGMP] Joined lobby");
 
@@ -729,7 +753,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 			}
 			else if (statusCode == 401)
 			{
-				NetworkLog("[NGMP] Couldn't join lobby");
+				NetworkLog("[NGMP] Couldn't join lobby, unauthorized, probably the wrong password");
 			}
 			else if (statusCode == 404)
 			{
@@ -742,7 +766,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index)
 
 			if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby != nullptr)
 			{
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(bJoinSuccess);
+				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(JoinResult);
 			}
 		});
 
@@ -915,7 +939,7 @@ struct CreateLobbyResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateLobbyResponse, result, lobby_id)
 };
 
-void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash)
+void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword)
 {
 	m_CurrentLobby = LobbyEntry();	
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies", true);
@@ -937,6 +961,8 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 	j["vanilla_teams"] = bVanillaTeamsOnly;
 	j["track_stats"] = bTrackStats;
 	j["starting_cash"] = startingCash;
+	j["passworded"] = bPassworded;
+	j["password"] = szPassword;
 	std::string strPostData = j.dump();
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
@@ -962,6 +988,8 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					m_CurrentLobby.map_path = std::string(strInitialMapPath.str());
 					m_CurrentLobby.current_players = 1;
 					m_CurrentLobby.max_players = initialMaxSize;
+					m_CurrentLobby.passworded = bPassworded;
+					m_CurrentLobby.password = std::string(szPassword);
 
 					LobbyMemberEntry me;
 

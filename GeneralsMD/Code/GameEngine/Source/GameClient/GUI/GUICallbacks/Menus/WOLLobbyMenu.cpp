@@ -704,12 +704,12 @@ void NGMP_WOLLobbyMenu_CreateLobbyCallback(bool bSuccess)
 	//TheGameSpyInfo->setGameOptions();
 }
 
-void NGMP_WOLLobbyMenu_JoinLobbyCallback(bool bSuccess)
+void NGMP_WOLLobbyMenu_JoinLobbyCallback(EJoinLobbyResult result)
 {
 	// TODO_NGMP: Show accurate errors again
 
 	SetLobbyAttemptHostJoin(FALSE);
-	if (bSuccess)
+	if (result == EJoinLobbyResult::JoinLobbyResult_Success)
 	{
 		// Woohoo!  On to our next screen!
 		buttonPushed = true;
@@ -718,35 +718,43 @@ void NGMP_WOLLobbyMenu_JoinLobbyCallback(bool bSuccess)
 	}
 	else
 	{
-		GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"), UnicodeString(L"TODO_NGMP"));
-		/*
 		UnicodeString s;
 
-		switch (resp.joinStagingRoom.result)
+		switch (result)
 		{
-		case PEERFullRoom:        // The room is full.
+		case EJoinLobbyResult::JoinLobbyResult_FullRoom:        // The room is full.
 			s = TheGameText->fetch("GUI:JoinFailedRoomFull");
 			break;
+
+		// NOTE: Commented out ones are no longer supported. Seems like these we GS concepts but not part of the game
+		/*
 		case PEERInviteOnlyRoom:  // The room is invite only.
 			s = TheGameText->fetch("GUI:JoinFailedInviteOnly");
 			break;
 		case PEERBannedFromRoom:  // The local user is banned from the room.
 			s = TheGameText->fetch("GUI:JoinFailedBannedFromRoom");
 			break;
-		case PEERBadPassword:     // An incorrect password (or none) was given for a passworded room.
+			*/
+		case EJoinLobbyResult::JoinLobbyResult_BadPassword:     // An incorrect password (or none) was given for a passworded room.
 			s = TheGameText->fetch("GUI:JoinFailedBadPassword");
 			break;
+		/*
 		case PEERAlreadyInRoom:   // The local user is already in or entering a room of the same type.
 			s = TheGameText->fetch("GUI:JoinFailedAlreadyInRoom");
 			break;
 		case PEERNoConnection:    // Can't join a room if there's no chat connection.
 			s = TheGameText->fetch("GUI:JoinFailedNoConnection");
 			break;
+			*/
 		default:
 			s = TheGameText->fetch("GUI:JoinFailedDefault");
 			break;
 		}
+
 		GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"), s);
+
+		// NGMP: We don't need to do this anymore, the service does it for us
+		/*
 		if (groupRoomToJoin)
 		{
 			DEBUG_LOG(("WOLLobbyMenuUpdate() - rejoining group room %d\n", groupRoomToJoin));
@@ -1814,10 +1822,26 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 						//Int selectedID = (Int)GadgetListBoxGetItemData(GetGameListBox(), selected);
 						//if (selectedID > 0)
 						{
-							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->JoinLobby(selected);
+							// TODO_NGMP: Enforce this on the host too, vanilla game did not...
 
-							SetLobbyAttemptHostJoin(TRUE);
+							auto Lobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyFromIndex(selected);
+							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SetLobbyTryingToJoin(Lobby);
+
+							if (Lobby.passworded)
+							{
+								GameSpyOpenOverlay(GSOVERLAY_GAMEPASSWORD);
+							}
+							else
+							{
+								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->JoinLobby(selected, nullptr);
+
+								SetLobbyAttemptHostJoin(TRUE);
+							}
 						}
+					}
+					else
+					{
+						GSMessageBoxOk(TheGameText->fetch("GUI:Error"), TheGameText->fetch("GUI:NoGameSelected"), NULL);
 					}
 					// TODO_NGMP: Start using StagingRoomInfo again, it'll make this easier and cleaner
 					/*

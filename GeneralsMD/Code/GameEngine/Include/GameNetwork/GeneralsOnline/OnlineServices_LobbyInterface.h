@@ -35,9 +35,20 @@ struct LobbyEntry
 	bool limit_superweapons;
 	bool track_stats;
 
+	bool passworded;
+	std::string password;
+
 	std::vector<BYTE> EncKey;
 	std::vector<BYTE> EncIV;
 	std::vector<LobbyMemberEntry> members;
+};
+
+enum class EJoinLobbyResult
+{
+	JoinLobbyResult_Success, // The room was joined.
+	JoinLobbyResult_FullRoom,       // The room is full.
+	JoinLobbyResult_BadPassword,    // An incorrect password (or none) was given for a passworded room.
+	JoinLobbyResult_JoinFailed // Generic failure.
 };
 
 struct LobbyMemberEntry;
@@ -103,7 +114,7 @@ public:
 	UnicodeString m_PendingCreation_LobbyName;
 	UnicodeString m_PendingCreation_InitialMapDisplayName;
 	AsciiString m_PendingCreation_InitialMapPath;
-	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash);
+	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword);
 
 	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails = false);
 
@@ -241,7 +252,7 @@ public:
 		m_OnChatCallback = cb;
 	}
 
-	void RegisterForJoinLobbyCallback(std::function<void(bool)> cb)
+	void RegisterForJoinLobbyCallback(std::function<void(EJoinLobbyResult)> cb)
 	{
 		m_callbackJoinedLobby = cb;
 	}
@@ -283,7 +294,8 @@ public:
 
 	NetworkMesh* GetNetworkMesh() { return m_pLobbyMesh; }
 
-	void JoinLobby(int index);
+	void JoinLobby(int index, const char* szPassword);
+	void JoinLobby(LobbyEntry lobby, const char* szPassword);
 
 	void LeaveCurrentLobby();
 
@@ -309,10 +321,25 @@ public:
 		return m_timeStartAutoReadyCountdown != -1;
 	}
 
+	void SetLobbyTryingToJoin(LobbyEntry lobby)
+	{
+		m_LobbyTryingToJoin = lobby;
+	}
+
+	void ResetLobbyTryingToJoin()
+	{
+		m_LobbyTryingToJoin = LobbyEntry();
+	}
+
+	LobbyEntry GetLobbyTryingToJoin()
+	{
+		return m_LobbyTryingToJoin;
+	}
+
 private:
 	std::vector<std::function<void(bool)>> m_vecCreateLobby_PendingCallbacks = std::vector<std::function<void(bool)>>();
 
-	std::function<void(bool)> m_callbackJoinedLobby = nullptr;
+	std::function<void(EJoinLobbyResult)> m_callbackJoinedLobby = nullptr;
 
 	LobbyEntry m_CurrentLobby;
 
@@ -324,4 +351,6 @@ private:
 	bool m_bLobbyListDirty = false;
 
 	int64_t m_timeStartAutoReadyCountdown = -1;
+
+	LobbyEntry m_LobbyTryingToJoin;
 };

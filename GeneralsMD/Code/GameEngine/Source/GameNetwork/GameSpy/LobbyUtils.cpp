@@ -573,7 +573,9 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	USHORT ladderPort = 1;
 	int gameID = 0;
 
-	bool bHasPassword = false;
+	bool bHasPassword = lobbyInfo.passworded;
+
+	// TODO_NGMP
 	bool bAllowSpectators = true;
 	int latency = 5;
 
