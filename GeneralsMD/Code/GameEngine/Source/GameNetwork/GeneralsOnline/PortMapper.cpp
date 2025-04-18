@@ -23,6 +23,8 @@ void PortMapper::Tick()
 	// do we have work to do on main thread?
 	if (m_bPortMapperWorkComplete.load())
 	{
+		NetworkLog("[NAT Check]: Port mapper is complete, starting NAT flow");
+
 		m_bPortMapperWorkComplete.store(false);
 
 		// start nat checker
@@ -100,6 +102,7 @@ void PortMapper::Tick()
 
 void PortMapper::StartNATCheck()
 {
+	NetworkLog("[NAT Checker]: Starting");
 	for (int i = 0; i < m_probesExpected; ++i)
 	{
 		m_probesReceived[i] = false;
@@ -159,7 +162,7 @@ void PortMapper::StartNATCheck()
 		return;
 	}
 
-
+	NetworkLog("[NAT Check]: Really starting");
 	// do NAT check
 	m_bNATCheckInProgress = true;
 	m_probeStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
@@ -190,6 +193,8 @@ void PortMapper::StartNATCheck()
 
 void PortMapper::BackgroundThreadRun()
 {
+	NetworkLog("[PortMapper]: BackgroundThreadRun");
+
 	// reset state
 	m_directConnect = ECapabilityState::UNDETERMINED;
 	m_capUPnP = ECapabilityState::UNDETERMINED;
@@ -208,6 +213,8 @@ void PortMapper::BackgroundThreadRun()
 	int IGDStatus = UPNP_GetValidIGD(m_pCachedUPnPDevice, &upnp_urls, &upnp_data, lan_address, sizeof(lan_address), wan_address, sizeof(wan_address));
 
 	m_capUPnP = (IGDStatus == 1) ? ECapabilityState::SUPPORTED : ECapabilityState::UNSUPPORTED;
+
+	NetworkLog("[PortMapper]: UPnP result: %d", m_capUPnP);
 
 	// NAT-PMP
 	int res;
@@ -230,6 +237,7 @@ void PortMapper::BackgroundThreadRun()
 	closenatpmp(&natpmp);
 
 	m_capNATPMP = (res == NATPMP_RESPTYPE_PUBLICADDRESS) ? ECapabilityState::SUPPORTED : ECapabilityState::UNSUPPORTED;;
+	NetworkLog("[PortMapper]: NAT-PMP result: %d", m_capNATPMP);
 
 	// open ports
 	TryForwardPreferredPorts();
@@ -240,11 +248,14 @@ void PortMapper::BackgroundThreadRun()
 
 void PortMapper::DetermineLocalNetworkCapabilities(std::function<void(void)> callbackDeterminedCaps)
 {
+	NetworkLog("[PortMapper] Start DetermineLocalNetworkCapabilities");
 	// store callback
 	m_callbackDeterminedCaps = callbackDeterminedCaps;
 
 	// reset status
 	m_bPortMapperWorkComplete.store(false);
+
+	NetworkLog("[PortMapper] DetermineLocalNetworkCapabilities - starting background thread");
 
 	// background thread, network ops are blocking
 	m_backgroundThread = new std::thread(&PortMapper::BackgroundThreadRun, this);
@@ -253,6 +264,7 @@ void PortMapper::DetermineLocalNetworkCapabilities(std::function<void(void)> cal
 
 void PortMapper::TryForwardPreferredPorts()
 {
+	NetworkLog("[PortMapper]: TryForwardPreferredPorts");
 	// clean up anything we had, might be a re-enter
 	CleanupPorts();
 

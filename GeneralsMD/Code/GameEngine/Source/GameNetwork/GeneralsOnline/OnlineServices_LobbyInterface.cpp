@@ -585,7 +585,11 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 				}
 				else
 				{
-					lobbyEntry.map_path = std::format("{}\\{}", TheMapCache->getUserMapDir(true).str(), lobbyEntry.map_path.c_str());
+					// TODO_NGMP: This needs to match identically, but why did it change from the base game?
+					AsciiString strUserMapDIr = TheMapCache->getUserMapDir(true);
+					strUserMapDIr.toLower();
+
+					lobbyEntry.map_path = std::format("{}\\{}", strUserMapDIr.str(), lobbyEntry.map_path.c_str());
 				}
 
 				// did the map change? cache that we need to reset and transmit our ready state

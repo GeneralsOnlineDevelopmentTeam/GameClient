@@ -1923,7 +1923,7 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 	// TODO_NGMP: Better way of doing this
 #if defined(GENERALS_ONLINE)
 	TheWritableGlobalData->m_minCameraHeight = 100.f;
-	TheWritableGlobalData->m_maxCameraHeight = 800.f;
+	TheWritableGlobalData->m_maxCameraHeight = 650.f;
 	m_minHeightAboveGround = 100.f;
 	m_maxHeightAboveGround = 600.f;
 	
