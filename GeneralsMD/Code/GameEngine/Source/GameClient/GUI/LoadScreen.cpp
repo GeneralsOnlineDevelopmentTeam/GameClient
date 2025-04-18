@@ -2064,6 +2064,12 @@ void MapTransferLoadScreen::update( Int percent )
 		TheNetwork->liteupdate();
 	}
 
+	// GENERALS ONLINE: this is ticked in game engine, but game engine doesnt tick for MP loads and map transfers are while(true)... when the host is complete and remotes arent... do a liteupdate like TheNetwork does
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+	{
+		NGMP_OnlineServicesManager::GetInstance()->Tick();
+	}
+
 	TheMouse->setCursorTooltip(UnicodeString::TheEmptyString);
 
 	// Do this last!

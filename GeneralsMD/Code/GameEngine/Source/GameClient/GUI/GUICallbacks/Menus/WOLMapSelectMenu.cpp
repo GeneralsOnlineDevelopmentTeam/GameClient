@@ -150,11 +150,11 @@ void WOLMapSelectMenuInit( WindowLayout *layout, void *userData )
 		usesSystemMapDir = mmd->m_isOfficial;
 	}
 
+	// TODO_NGMP: Perhaps we should enforce this on the service too for extra security? base game didnt though.
 	//if stats are enabled, only official maps can be used
-	// TODO_NGMP: Reimpl this
-	bool bUseStats = true;
-	//if( TheGameSpyInfo->getCurrentStagingRoom()->getUseStats() )
-	//	usesSystemMapDir = true;
+	bool bUseStats = TheNGMPGame->getUseStats();
+	if(bUseStats)
+		usesSystemMapDir = true;
 
 	buttonBack = TheNameKeyGenerator->nameToKey( AsciiString("WOLMapSelectMenu.wnd:ButtonBack") );
 	buttonOK = TheNameKeyGenerator->nameToKey( AsciiString("WOLMapSelectMenu.wnd:ButtonOK") );
@@ -454,6 +454,7 @@ WindowMsgHandledType WOLMapSelectMenuSystem( GameWindow *window, UnsignedInt msg
 
 					int newMaxPlayers = -1;
 					AsciiString strMapName;
+					bool bOfficialMap = false;
 
 					TheNGMPGame->setMap(asciiMap);
 					asciiMap.toLower();
@@ -466,6 +467,8 @@ WindowMsgHandledType WOLMapSelectMenuSystem( GameWindow *window, UnsignedInt msg
 
 						newMaxPlayers = it->second.m_numPlayers;
 						strMapName.translate(it->second.m_displayName);
+
+						bOfficialMap = it->second.m_isOfficial;
 					}
 
 					TheNGMPGame->adjustSlotsForMap(); // BGC- adjust the slots for the new map.
@@ -479,7 +482,7 @@ WindowMsgHandledType WOLMapSelectMenuSystem( GameWindow *window, UnsignedInt msg
 					WOLDisplayGameOptions();
 
 					// NGMP: Update lobby
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_Map(strMapName, TheNGMPGame->getMap(), newMaxPlayers);
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_Map(strMapName, TheNGMPGame->getMap(), bOfficialMap, newMaxPlayers);
 
 					WOLMapSelectLayout->destroyWindows();
 					WOLMapSelectLayout->deleteInstance();

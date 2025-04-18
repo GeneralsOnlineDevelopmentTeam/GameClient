@@ -32,3 +32,5 @@
 
 // annoying game assertions, we'll catch real things in the debugger
 #define DISABLE_DEBUG_CRASHING 1
+
+#define GENERALS_ONLINE_TEST_MAP_TRANSFER 1

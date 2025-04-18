@@ -98,8 +98,8 @@ public:
 	MapCache() {}
 	void updateCache( void );
 
-	AsciiString getMapDir() const;
-	AsciiString getUserMapDir() const;
+	AsciiString getMapDir(bool bCustomMapDebug = false) const;
+	AsciiString getUserMapDir(bool bCustomMapDebug = false) const;
 	AsciiString getMapExtension() const;
 
 	const MapMetaData *findMap(AsciiString mapName);

@@ -5,6 +5,7 @@
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
+#include "GameClient/MapUtil.h"
 
 extern NGMPGame* TheNGMPGame;
 
@@ -53,10 +54,11 @@ enum class ELobbyUpdateField
 	MY_TEAM = 4,
 	LOBBY_STARTING_CASH = 5,
 	LOBBY_LIMIT_SUPERWEAPONS = 6,
-	HOST_ACTION_FORCE_START = 7
+	HOST_ACTION_FORCE_START = 7,
+	LOCAL_PLAYER_HAS_MAP = 8
 };
 
-void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, int newMaxPlayers)
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
 {
 	// reset autostart if host changes anything (because ready flag will reset too)
 	ClearAutoReadyCountdown();
@@ -64,10 +66,20 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strM
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
+	// sanitize map path
+	// we need to parse out the map name for custom maps... its an absolute path
+	// it's safe to just get the file name, dir name and file name MUST be the same. Game enforces this
+	AsciiString sanitizedMapPath = strMapPath;
+	if (sanitizedMapPath.reverseFind('\\'))
+	{
+		sanitizedMapPath = sanitizedMapPath.reverseFind('\\') + 1;
+	}
+
 	nlohmann::json j;
 	j["field"] = ELobbyUpdateField::LOBBY_MAP;
 	j["map"] = strMap.str();
-	j["map_path"] = strMapPath.str();
+	j["map_path"] = sanitizedMapPath.str();
+	j["map_official"] = bIsOfficial;
 	j["max_players"] = newMaxPlayers;
 	std::string strPostData = j.dump();
 
@@ -109,6 +121,26 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 	nlohmann::json j;
 	j["field"] = ELobbyUpdateField::LOBBY_STARTING_CASH;
 	j["startingcash"] = startingCashValue;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_HasMap()
+{
+	// do we have the map?
+	bool bHasMap = TheMapCache->findMap(AsciiString(m_CurrentLobby.map_path.c_str()));
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::LOCAL_PLAYER_HAS_MAP;
+	j["has_map"] = bHasMap;
 	std::string strPostData = j.dump();
 
 	// convert
@@ -304,8 +336,24 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				lobbyEntryIter["name"].get_to(lobbyEntry.name);
 				lobbyEntryIter["map_name"].get_to(lobbyEntry.map_name);
 				lobbyEntryIter["map_path"].get_to(lobbyEntry.map_path);
+				lobbyEntryIter["map_official"].get_to(lobbyEntry.map_official);
 				lobbyEntryIter["current_players"].get_to(lobbyEntry.current_players);
 				lobbyEntryIter["max_players"].get_to(lobbyEntry.max_players);
+				lobbyEntryIter["vanilla_teams"].get_to(lobbyEntry.vanilla_teams);
+				lobbyEntryIter["starting_cash"].get_to(lobbyEntry.starting_cash);
+				lobbyEntryIter["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
+				lobbyEntryIter["track_stats"].get_to(lobbyEntry.track_stats);
+				lobbyEntryIter["passworded"].get_to(lobbyEntry.passworded);
+
+				// correct map path
+				if (lobbyEntry.map_official)
+				{
+					lobbyEntry.map_path = std::format("Maps\\{}", lobbyEntry.map_path.c_str());
+				}
+				else
+				{
+					lobbyEntry.map_path = std::format("{}\\{}", TheMapCache->getUserMapDir(true).str(), lobbyEntry.map_path.c_str());
+				}
 
 				// NOTE: These fields won't be present becauase they're private properties
 				//memberEntryIter["enc_key"].get_to(strEncKey);
@@ -331,6 +379,7 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 					//memberEntryIter["color"].get_to(memberEntry.color);
 					//memberEntryIter["team"].get_to(memberEntry.team);
 					//memberEntryIter["startpos"].get_to(memberEntry.startpos);
+					//memberEntryIter["has_map"].get_to(memberEntry.has_map);
 
 
 					lobbyEntry.members.push_back(memberEntry);
@@ -520,12 +569,31 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 				lobbyEntryJSON["name"].get_to(lobbyEntry.name);
 				lobbyEntryJSON["map_name"].get_to(lobbyEntry.map_name);
 				lobbyEntryJSON["map_path"].get_to(lobbyEntry.map_path);
+				lobbyEntryJSON["map_official"].get_to(lobbyEntry.map_official);
 				lobbyEntryJSON["current_players"].get_to(lobbyEntry.current_players);
 				lobbyEntryJSON["max_players"].get_to(lobbyEntry.max_players);
 				lobbyEntryJSON["vanilla_teams"].get_to(lobbyEntry.vanilla_teams);
 				lobbyEntryJSON["starting_cash"].get_to(lobbyEntry.starting_cash);
 				lobbyEntryJSON["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
 				lobbyEntryJSON["track_stats"].get_to(lobbyEntry.track_stats);
+				lobbyEntryJSON["passworded"].get_to(lobbyEntry.passworded);
+
+				// correct map path
+				if (lobbyEntry.map_official)
+				{
+					lobbyEntry.map_path = std::format("Maps\\{}", lobbyEntry.map_path.c_str());
+				}
+				else
+				{
+					lobbyEntry.map_path = std::format("{}\\{}", TheMapCache->getUserMapDir(true).str(), lobbyEntry.map_path.c_str());
+				}
+
+				// did the map change? cache that we need to reset and transmit our ready state
+				bool bNeedsHasMapUpdate = false;
+				if (strcmp(lobbyEntry.map_path.c_str(), TheNGMPGame->getMap().str()) != 0)
+				{
+					bNeedsHasMapUpdate = true;
+				}
 
 				std::string strEncKey;
 				std::string strEncIV;
@@ -560,6 +628,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					memberEntryIter["color"].get_to(memberEntry.color);
 					memberEntryIter["team"].get_to(memberEntry.team);
 					memberEntryIter["startpos"].get_to(memberEntry.startpos);
+					memberEntryIter["has_map"].get_to(memberEntry.has_map);
 
 					lobbyEntry.members.push_back(memberEntry);
 
@@ -567,12 +636,20 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					// TODO_NGMP: If we lose connection to someone in the mesh, who is STILL in otehrs mesh, we need to disconnect or retry
 					// TODO_NGMP: handle failure to connect to some users
 					
+					bool bMapOwnershipStateChanged = true;
+
 					// is it a new member? connect
 					bool bIsNew = true;
 					for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
 					{
 						if (currentMember.user_id == memberEntry.user_id)
 						{
+							// check if the map state changes
+							if (currentMember.has_map == memberEntry.has_map)
+							{
+								bMapOwnershipStateChanged = false;
+							}
+
 							bIsNew = false;
 							break;
 						}
@@ -584,6 +661,18 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						if (m_pLobbyMesh != nullptr)
 						{
 							m_pLobbyMesh->ConnectToSingleUser(memberEntry);
+						}
+					}
+
+					if (bMapOwnershipStateChanged)
+					{
+						// changed and the person no longer has the map
+						if (!memberEntry.has_map)
+						{
+							if (m_cbPlayerDoesntHaveMap != nullptr)
+							{
+								m_cbPlayerDoesntHaveMap(memberEntry);
+							}
 						}
 					}
 				}
@@ -604,6 +693,11 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 				{
 					TheNGMPGame->SyncWithLobby(m_CurrentLobby);
 					TheNGMPGame->UpdateSlotsFromCurrentLobby();
+
+					if (bNeedsHasMapUpdate)
+					{
+						UpdateCurrentLobby_HasMap();
+					}
 
 					if (m_RosterNeedsRefreshCallback != nullptr)
 					{
@@ -680,8 +774,11 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 
 	NetworkLog("[NGMP] Joining lobby with id %d", lobbyInfo.lobbyID);
 
+	bool bHasMap = TheMapCache->findMap(AsciiString(lobbyInfo.map_path.c_str()));
+
 	nlohmann::json j;
 	j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+	j["has_map"] = bHasMap;
 
 	if (szPassword != nullptr && strlen(szPassword) > 0)
 	{
@@ -939,7 +1036,7 @@ struct CreateLobbyResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateLobbyResponse, result, lobby_id)
 };
 
-void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword)
+void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword)
 {
 	m_CurrentLobby = LobbyEntry();	
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies", true);
@@ -952,10 +1049,20 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 	AsciiString strMapName = AsciiString();
 	strMapName.translate(strInitialMapName);
 
+	// sanitize map path
+	// we need to parse out the map name for custom maps... its an absolute path
+	// it's safe to just get the file name, dir name and file name MUST be the same. Game enforces this
+	AsciiString sanitizedMapPath = strInitialMapPath;
+	if (sanitizedMapPath.reverseFind('\\'))
+	{
+		sanitizedMapPath = sanitizedMapPath.reverseFind('\\') + 1;
+	}
+
 	nlohmann::json j;
 	j["name"] = strName.str();
 	j["map_name"] = strMapName.str();
-	j["map_path"] = strInitialMapPath.str();
+	j["map_path"] = sanitizedMapPath.str();
+	j["map_official"] = bIsOfficial;
 	j["max_players"] = initialMaxSize;
 	j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 	j["vanilla_teams"] = bVanillaTeamsOnly;
@@ -985,7 +1092,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 					m_CurrentLobby.name = std::string(strName.str());
 					m_CurrentLobby.map_name = std::string(strMapName.str());
-					m_CurrentLobby.map_path = std::string(strInitialMapPath.str());
+					m_CurrentLobby.map_path = std::string(sanitizedMapPath.str());
 					m_CurrentLobby.current_players = 1;
 					m_CurrentLobby.max_players = initialMaxSize;
 					m_CurrentLobby.passworded = bPassworded;

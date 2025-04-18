@@ -61,6 +61,9 @@
 #include "GameNetwork/GameInfo.h"
 #include "GameNetwork/NetworkDefs.h"
 
+#include "../NextGenMP_defines.h"
+#include "../NGMP_interfaces.h"
+
 #ifdef _INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -352,15 +355,34 @@ void WaypointMap::update( void )
 
 const char * MapCache::m_mapCacheName = "MapCache.ini";
 
-AsciiString MapCache::getMapDir() const 
+AsciiString MapCache::getMapDir(bool bCustomMapDebug) const
 { 
+#if defined(GENERALS_ONLINE_TEST_MAP_TRANSFER)
+	
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID() == -2) // dev account 1 doesnt have custom maps, always transfer
+	{
+		if (bCustomMapDebug)
+		{
+			return AsciiString("MapsEmpty");
+		}
+		else
+		{
+			return AsciiString("Maps");
+		}
+	}
+	else
+	{
+		return AsciiString("Maps");
+	}
+#else
 	return AsciiString("Maps"); 
+#endif
 }
 
-AsciiString MapCache::getUserMapDir() const
+AsciiString MapCache::getUserMapDir(bool bCustomMapDebug) const
 {
 	AsciiString tmp = TheGlobalData->getPath_UserData();
-	tmp.concat(getMapDir());
+	tmp.concat(getMapDir(bCustomMapDebug));
 	return tmp;
 }
 

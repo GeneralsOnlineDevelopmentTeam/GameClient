@@ -16,6 +16,7 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	int color = -1;
 	int team = -1;
 	int startpos = -1;
+	bool has_map = false;
 
 	bool IsValid() const { return user_id != -1; }
 };
@@ -28,6 +29,7 @@ struct LobbyEntry
 	std::string name;
 	std::string map_name;
 	std::string map_path;
+	bool map_official;
 	int current_players;
 	int max_players;
 	bool vanilla_teams;
@@ -78,9 +80,11 @@ public:
 	}
 
 	// updates
-	void UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, int newMaxPlayers);
+	void UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers);
 	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons);
 	void UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue);
+
+	void UpdateCurrentLobby_HasMap();
 
 	void UpdateCurrentLobby_MySide(int side, int updatedStartPos);
 	void UpdateCurrentLobby_MyColor(int side);
@@ -114,7 +118,7 @@ public:
 	UnicodeString m_PendingCreation_LobbyName;
 	UnicodeString m_PendingCreation_InitialMapDisplayName;
 	AsciiString m_PendingCreation_InitialMapPath;
-	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword);
+	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword);
 
 	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails = false);
 
@@ -245,6 +249,12 @@ public:
 	bool IsHost();
 
 	void UpdateRoomDataCache(std::function<void(void)> fnCallback = nullptr);
+
+	std::function<void(LobbyMemberEntry)> m_cbPlayerDoesntHaveMap = nullptr;
+	void RegisterForPlayerDoesntHaveMapCallback(std::function<void(LobbyMemberEntry)> cb)
+	{
+		m_cbPlayerDoesntHaveMap = cb;
+	}
 
 	std::function<void(UnicodeString strMessage)> m_OnChatCallback = nullptr;
 	void RegisterForChatCallback(std::function<void(UnicodeString strMessage)> cb)

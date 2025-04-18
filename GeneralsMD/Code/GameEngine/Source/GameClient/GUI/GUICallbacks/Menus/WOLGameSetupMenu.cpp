@@ -1398,6 +1398,37 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			GadgetListBoxAddEntryText(listboxGameSetupChat, strMessage, GameMakeColor(255, 255, 255, 255), -1, -1);
 		});
 
+	// player doesnt have map events
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForPlayerDoesntHaveMapCallback([](LobbyMemberEntry lobbyMember)
+		{
+			// tell the host the user doesn't have the map
+			UnicodeString mapDisplayName;
+			const MapMetaData* mapData = TheMapCache->findMap(TheNGMPGame->getMap());
+			Bool willTransfer = TRUE;
+			if (mapData)
+			{
+				mapDisplayName.format(L"%ls", mapData->m_displayName.str());
+				willTransfer = !mapData->m_isOfficial;
+			}
+			else
+			{
+				mapDisplayName.format(L"%hs", TheNGMPGame->getMap().str());
+				willTransfer = WouldMapTransfer(TheNGMPGame->getMap());
+			}
+
+			UnicodeString strDisplayName;
+			strDisplayName.format(L"%hs", lobbyMember.display_name.c_str());
+
+			UnicodeString text;
+			if (willTransfer)
+				text.format(TheGameText->fetch("GUI:PlayerNoMapWillTransfer"), strDisplayName.str(), mapDisplayName.str());
+			else
+				text.format(TheGameText->fetch("GUI:PlayerNoMap"), strDisplayName.str(), mapDisplayName.str());
+			GadgetListBoxAddEntryText(listboxGameSetupChat, text, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+		});
+
+	
+
 	// register for roster events
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForRosterNeedsRefreshCallback([]()
 		{
@@ -1550,7 +1581,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		}
 
 		// TODO_NGMP: preferred map support
-		AsciiString lowerMap = getDefaultMap(true);
+		AsciiString lowerMap = getDefaultOfficialMap();
 		//AsciiString lowerMap = customPref.getPreferredMap();
 		lowerMap.toLower();
 		std::map<AsciiString, MapMetaData>::iterator it = TheMapCache->find(lowerMap);
