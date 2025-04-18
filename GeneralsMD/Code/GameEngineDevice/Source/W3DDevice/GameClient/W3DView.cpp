@@ -93,6 +93,9 @@
 
 #include "W3DDevice/GameClient/camerashakesystem.h"
 
+#include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
+
+
 #include "WinMain.h"  /** @todo Remove this, it's only here because we
 													are using timeGetTime, but we can remove that
 													when we have our own timer */
@@ -1916,9 +1919,20 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 	// MDC - we no longer want to rotate maps (design made all of them right to begin with)
 	//	m_defaultAngle = angle * M_PI/180.0f;
 	m_defaultPitchAngle = pitch;
-	m_maxHeightAboveGround = TheGlobalData->m_maxCameraHeight*maxHeight;
+
+	// TODO_NGMP: Better way of doing this
+#if defined(GENERALS_ONLINE)
+	TheWritableGlobalData->m_minCameraHeight = 100.f;
+	TheWritableGlobalData->m_maxCameraHeight = 800.f;
+	m_minHeightAboveGround = 100.f;
+	m_maxHeightAboveGround = 600.f;
+	
+#endif
+
+	m_maxHeightAboveGround = TheGlobalData->m_maxCameraHeight * maxHeight;
 	if (m_minHeightAboveGround > m_maxHeightAboveGround)
 		m_maxHeightAboveGround = m_minHeightAboveGround;
+
 }
 
 //-------------------------------------------------------------------------------------------------
