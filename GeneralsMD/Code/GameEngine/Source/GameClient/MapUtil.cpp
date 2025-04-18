@@ -361,6 +361,8 @@ AsciiString MapCache::getMapDir(bool bCustomMapDebug) const
 	
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID() == -2) // dev account 1 doesnt have custom maps, always transfer
 	{
+		return AsciiString("MapsEmpty");
+
 		if (bCustomMapDebug)
 		{
 			return AsciiString("MapsEmpty");
