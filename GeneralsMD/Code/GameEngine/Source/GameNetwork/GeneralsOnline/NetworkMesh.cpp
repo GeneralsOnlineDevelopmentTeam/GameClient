@@ -84,13 +84,16 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 		{
 			int ret = enet_peer_send(peer, 0, pENetPacket);
 
+			char ip[INET_ADDRSTRLEN + 1] = { 0 };
+			enet_address_get_host_ip(&peer->address, ip, sizeof(ip));
+
 			if (ret == 0)
 			{
-				NetworkLog("Packet Sent!");
+				NetworkLog("Packet Sent! %s:%d", ip, peer->address.port);
 			}
 			else
 			{
-				NetworkLog("Packet Failed To Send!");
+				NetworkLog("Packet Failed To Send! %s:%d", ip, peer->address.port);
 			}
 		}
 	}
@@ -136,15 +139,26 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 	char ip[INET_ADDRSTRLEN + 1] = { 0 };
 	enet_address_get_host_ip(&addr, ip, sizeof(ip));
 
-	NetworkLog("Connecting to %s:%d.", ip, addr.port);
+	NetworkLog("Connecting to %s:%d. (pref port was actually %d)", ip, addr.port, lobbyMember.preferredPort);
 
 	ConnectToSingleUser(addr, lobbyMember.user_id, bIsReconnect);
 }
 
 void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect /*= false*/)
 {
+	// is it already connected?
+	if (m_mapConnections.contains(user_id))
+	{
+		NetworkLog("NetworkMesh::ConnectToSingleUser - Duplicate connection for user %lld, not making new connection and returning.", user_id);
+		return;
+	}
 
-	// TODO_NGMP: Connect to correct IP + the remote preferred port
+	// is it local?
+	if (user_id == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
+	{
+		// TODO_NGMP: Is this really necessary
+		enet_address_set_host(&addr, "127.0.0.1");
+	}
 
 	/* Initiate the connection, allocating the two channels 0 and 1. */
 	ENetPeer* peer = enet_host_connect(enetInstance, &addr, 2, 0);
@@ -201,7 +215,7 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 	{
 		server_address.host = ENET_HOST_ANY;
 		server_address.port = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-
+		NetworkLog("Network Listening on port %d!", server_address.port);
 		// TODO_NGMP: Correct values here
 		enetInstance = enet_host_create(&server_address,
 			32,  // max game size is 8 and we are p2p and fake a connection to ourselves // TODO_NGMP: Do we need to support more, e.g. spectators?
@@ -304,6 +318,27 @@ void NetworkMesh::Tick()
 
 						// TODO_NGMP: Add a timeout for connections
 						pConnection->m_State = EConnectionState::CONNECTED_DIRECT;
+
+						// did the endpoint change? we should just use that, thats what the other side is talking to us on
+						if (pConnection->m_address.host != event.peer->address.host
+							|| pConnection->m_address.port != event.peer->address.port)
+						{
+							char oldIp[INET_ADDRSTRLEN + 1] = { 0 };
+							enet_address_get_host_ip(&pConnection->m_address, oldIp, sizeof(oldIp));
+							char newIp[INET_ADDRSTRLEN + 1] = { 0 };
+							enet_address_get_host_ip(&event.peer->address, newIp, sizeof(newIp));
+
+
+							NetworkLog("Endpoint for user %lld changed. Before: %s:%d, now %s:%d", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
+							pConnection->m_address = event.peer->address;
+							pConnection->m_peer->address = event.peer->address;
+// 
+// 							ENetAddress addr;
+// 							enet_address_set_host(&addr, newIp);
+// 							addr.port = event.peer->address.port;
+// 
+// 							UpdatePeerConnection(event.peer, addr);
+						}
 					}
 
 				break;
@@ -345,8 +380,17 @@ void NetworkMesh::Tick()
 				// process
 				// TODO_NGMP: Reject any packets from members not in the room? or mesh
 
+
+				int64_t connUserID = -1;
+				PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
+
+				if (pConnection != nullptr)
+				{
+					connUserID = pConnection->m_userID;
+				}
+
 				CBitStream bitstream(event.packet->data, event.packet->dataLength, (EPacketID)event.packet->data[0]);
-				NetworkLog("[NGMP]: Received %d bytes from user %d", event.packet->dataLength, event.peer->incomingPeerID);
+				NetworkLog("[NGMP]: Received %d bytes from peer %d (user id is %lld)", event.packet->dataLength, event.peer->incomingPeerID, connUserID);
 
 				
 				bitstream.Decrypt(currentLobby.EncKey, currentLobby.EncIV);
@@ -425,42 +469,36 @@ void NetworkMesh::Tick()
 						// get host ID
 						int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 
-						// find user
-						for (auto& connectionData : m_mapConnections)
+						PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
+
+						if (pConnection != nullptr)
 						{
-							if (connectionData.second.m_peer->address.host == event.peer->address.host
-								&& connectionData.second.m_peer->address.port == event.peer->address.port)
+							auto lobbyUsers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
+							for (const auto& lobbyUser : lobbyUsers)
 							{
-								auto lobbyUsers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
-								for (const auto& lobbyUser : lobbyUsers)
+								if (lobbyUser.user_id == pConnection->m_userID)
 								{
-									if (lobbyUser.user_id == connectionData.first)
+									// if its an announce, dont show it to the sender, they did something locally instead
+									if (chatPacket.IsAnnouncement())
 									{
-										// if its an announce, dont show it to the sender, they did something locally instead
-										if (chatPacket.IsAnnouncement())
-										{
-											// if its not us, show the message
-											if (chatPacket.ShowAnnouncementToHost() || lobbyUser.user_id != localID)
-											{
-												UnicodeString str;
-												str.format(L"%hs", chatPacket.GetMsg().c_str());
-												NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
-											}
-										}
-										else
+										// if its not us, show the message
+										if (chatPacket.ShowAnnouncementToHost() || lobbyUser.user_id != localID)
 										{
 											UnicodeString str;
-											str.format(L"%hs: %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
+											str.format(L"%hs", chatPacket.GetMsg().c_str());
 											NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
 										}
-										
-
-										break;
 									}
-								}
+									else
+									{
+										UnicodeString str;
+										str.format(L"%hs: %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
+										NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
+									}
 
-								break;
-								//NetworkLog("Found connection for user %d", connectionData.first);
+
+									break;
+								}
 							}
 						}
 

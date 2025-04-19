@@ -107,8 +107,7 @@ private:
 	{
 		for (auto& connection : m_mapConnections)
 		{
-			if (connection.second.m_peer->address.host == peer->address.host
-				&& connection.second.m_peer->address.port == peer->address.port)
+			if (connection.second.m_peer->address.host == peer->address.host)
 			{
 				return &connection.second;
 			}
