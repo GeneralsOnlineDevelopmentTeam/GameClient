@@ -32,7 +32,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 
 		if (g_Environment == EEnvironment::DEV)
 		{
-			return std::format("http://localhost:8444/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
+			return std::format("http://localhost:9000/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
 		}
 		else // PROD
 		{
@@ -44,7 +44,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 	{
 		if (g_Environment == EEnvironment::DEV)
 		{
-			return std::format("http://localhost:8444/cloud/env:dev/{}", szEndpoint);
+			return std::format("http://localhost:9000/cloud/env:dev/{}", szEndpoint);
 		}
 		else // PROD
 		{
