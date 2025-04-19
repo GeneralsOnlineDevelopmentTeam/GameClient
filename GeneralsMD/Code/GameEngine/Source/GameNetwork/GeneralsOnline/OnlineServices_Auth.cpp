@@ -57,9 +57,11 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 {
 	std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginWithToken", false);
 
+#if defined(DEBUG)
 	static HANDLE MPMutex = NULL;
 	MPMutex = CreateMutex(NULL, FALSE, "685EAFF2-3216-4265-FFFF-251C5F4B82F3");
-	if (true)
+
+	if (NGMP_OnlineServicesManager::g_Environment == NGMP_OnlineServicesManager::EEnvironment::DEV)
 	{
 		// use dev account
 		NetworkLog("[NGMP] Secondary instance detected... using dev account for testing purposes");
@@ -106,58 +108,8 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 			}, nullptr);
 	}
 	else
+#endif
 	{
-		if (NGMP_OnlineServicesManager::g_Environment == NGMP_OnlineServicesManager::EEnvironment::DEV)
-		{
-			// use dev account
-			NetworkLog("[NGMP] Secondary instance detected... using dev account for testing purposes");
-			// login
-			std::string strToken = "ILOVECODE2";
-			
-			
-			std::map<std::string, std::string> mapHeaders;
-
-			nlohmann::json j;
-			j["token"] = strToken.c_str();
-			std::string strPostData = j.dump();
-
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
-				{
-					try
-					{
-						nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-						AuthResponse authResp = jsonObject.get<AuthResponse>();
-
-						if (authResp.result == EAuthResponseResult::SUCCEEDED)
-						{
-							NetworkLog("LOGIN: Logged in");
-							m_bWaitingLogin = false;
-
-							SaveCredentials(authResp.al_token.c_str());
-
-							// store data locally
-							m_strToken = authResp.ss_token;
-							m_userID = authResp.user_id;
-							m_strDisplayName = authResp.display_name;
-
-							// trigger callback
-							OnLoginComplete(true, authResp.ws_uri.c_str(), authResp.ws_token.c_str());
-						}
-						else if (authResp.result == EAuthResponseResult::FAILED)
-						{
-							NetworkLog("LOGIN: Login failed, dev account cannot reauth");
-						}
-					}
-					catch (...)
-					{
-
-					}
-					
-
-				}, nullptr);
-		}
-		else
-		{
 			if (DoCredentialsExist())
 			{
 				std::string strToken = GetCredentials();
@@ -222,7 +174,6 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 				ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
 			}
-		}
 	}
 }
 
@@ -329,13 +280,22 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 
 							NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD(motdResp.MOTD.c_str());
 
+							bool bResult = true;
+
+							// WS should be connected by this point
+							bool bWSConnected = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->IsConnected();
+							if (!bWSConnected)
+							{
+								bResult = bWSConnected;
+							}
+
 							// go to next screen
 							ClearGSMessageBoxes();
 
 							for (auto cb : m_vecLogin_PendingCallbacks)
 							{
 								// TODO_NGMP: Support failure
-								cb(true);
+								cb(bResult);
 							}
 							m_vecLogin_PendingCallbacks.clear();
 

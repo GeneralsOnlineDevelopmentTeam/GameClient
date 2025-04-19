@@ -164,6 +164,14 @@ void WebSocket::Tick()
 		return;
 	}
 
+	// ping?
+	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	if ((currTime - m_lastPing) > m_timeBetweenUserPings)
+	{
+		m_lastPing = currTime;
+		Ping();
+	};
+
 	// do recv
 	size_t rlen = 0;
 	const struct curl_ws_frame* meta = nullptr;
@@ -172,7 +180,7 @@ void WebSocket::Tick()
 	CURLcode ret = CURL_LAST;
 	ret = curl_ws_recv(m_pCurl, buffer, sizeof(buffer), &rlen, &meta);
 
-	if (ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
+	if (ret != CURLE_RECV_ERROR && ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
 	{
 		NetworkLog("Got websocket msg: %s", buffer);
 
@@ -183,7 +191,7 @@ void WebSocket::Tick()
 			{
 				NetworkLog("Got websocket pong");
 			}
-			else if (meta->flags & CURLWS_TEXT) // PONG
+			else if (meta->flags & CURLWS_TEXT)
 			{
 				try
 				{
@@ -240,17 +248,20 @@ void WebSocket::Tick()
 
 				}
 			}
-			else if (meta->flags & CURLWS_BINARY) // PONG
+			else if (meta->flags & CURLWS_BINARY)
 			{
 				NetworkLog("Got websocket binary");
 				// noop
 			}
-			else if (meta->flags & CURLWS_CONT) // PONG
+			else if (meta->flags & CURLWS_CONT)
 			{
+				NetworkLog("Got websocket cont");
 				// noop
 			}
 			else if (meta->flags & CURLWS_CLOSE)
 			{
+				NetworkLog("Got websocket close");
+				m_bConnected = false;
 				// TODO_NGMP: Handle this
 			}
 			else if (meta->flags & CURLWS_PING)
@@ -260,6 +271,7 @@ void WebSocket::Tick()
 			}
 			else if (meta->flags & CURLWS_OFFSET)
 			{
+				NetworkLog("Got websocket offset");
 				// noop
 			}
 		}

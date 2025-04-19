@@ -34,6 +34,11 @@ public:
 	void Connect(const char* url);
 	void Disconnect();
 
+	bool IsConnected()
+	{
+		return m_bConnected;
+	}
+
 	void Shutdown();
 
 	void SendData_RoomChatMessage(const char* szMessage);
@@ -50,6 +55,9 @@ public:
 private:
 	CURL* m_pCurl = nullptr;
 	bool m_bConnected = false;
+
+	int64_t m_lastPing = -1;
+	int64_t m_timeBetweenUserPings = 5000;
 };
 
 class NetworkRoom
