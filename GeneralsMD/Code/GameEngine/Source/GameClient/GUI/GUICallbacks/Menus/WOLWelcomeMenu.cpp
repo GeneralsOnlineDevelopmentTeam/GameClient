@@ -291,18 +291,56 @@ static void updateNumPlayersOnline(void)
 
 
 		//<hexcol>%hs for colors
-		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
 		ECapabilityState capUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP();
 		ECapabilityState capNATPMP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP();
+
+		std::string strUPnPState;
+		if (capUPnP == ECapabilityState::UNDETERMINED)
+		{
+			strUPnPState = "Still Determining...";
+		}
+		else if (capUPnP == ECapabilityState::SUPPORTED)
+		{
+			strUPnPState = "Supported";
+		}
+		else if (capUPnP == ECapabilityState::UNSUPPORTED)
+		{
+			strUPnPState = "Unsupported";
+		}
+		else
+		{
+			strUPnPState = "User Overridden";
+		}
+
+		std::string strNATPMPState;
+		if (capNATPMP == ECapabilityState::UNDETERMINED)
+		{
+			strNATPMPState = "Still Determining...";
+		}
+		else if (capNATPMP == ECapabilityState::SUPPORTED)
+		{
+			strNATPMPState = "Supported";
+		}
+		else if (capNATPMP == ECapabilityState::UNSUPPORTED)
+		{
+			strNATPMPState = "Unsupported";
+		}
+		else
+		{
+			strNATPMPState = "User Overridden";
+		}
+
+		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
 		bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
 		bool bHasPortMappedUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenUPnP();
 		int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-		headingStr.format(L"Welcome to Generals Online for Zero Hour.\n \nNetwork Capabilities:\n\tUPnP: %hs\n\tNAT-PMP: %hs\n\tPort Mapped: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs",
-			capUPnP == ECapabilityState::UNDETERMINED ? "Still Determining..." : capUPnP == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
-			capNATPMP == ECapabilityState::UNDETERMINED ? "Still Determining..." : capNATPMP == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+		headingStr.format(L"Welcome to Generals Online for Zero Hour.\n \nNetwork Capabilities:\n\tUPnP: %hs\n\tNAT-PMP: %hs\n\tPort Mapped: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs",
+			strUPnPState.c_str(),
+			strNATPMPState.c_str(),
 			bHasPortMapped ? (bHasPortMappedUPnP ? "Yes (UPnP)" : "Yes (NAT-PMP)") : "No",
 			preferredPort,
-			NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported"
+			NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+			capUPnP == ECapabilityState::OVERRIDDEN ? "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work." : ""
 		);
 
 		while (headingStr.nextToken(&line, UnicodeString(L"\n")))

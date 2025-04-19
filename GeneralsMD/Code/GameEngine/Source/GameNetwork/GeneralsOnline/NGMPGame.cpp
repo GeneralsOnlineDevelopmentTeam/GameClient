@@ -342,9 +342,11 @@ AsciiString NGMPGame::generateLadderGameResultsPacket(void)
 void NGMPGame::launchGame(void)
 {
 	// TODO_NGMP: Better way of doing this, plus maybe load from file?
-	//TheWritableGlobalData->m_benchmarkTimer = 999999999;
-	//TheWritableGlobalData->m_debugShowGraphicalFramerate = true;
+#if defined(_DEBUG)
+	TheWritableGlobalData->m_benchmarkTimer = 999999999;
+	TheWritableGlobalData->m_debugShowGraphicalFramerate = true;
 	TheWritableGlobalData->m_showMetrics = true;
+#endif
 
 	setGameInProgress(TRUE);
 

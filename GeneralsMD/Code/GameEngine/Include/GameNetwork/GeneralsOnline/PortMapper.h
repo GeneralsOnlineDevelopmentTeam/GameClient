@@ -15,7 +15,8 @@ enum ECapabilityState : uint8_t
 {
 	UNDETERMINED,
 	UNSUPPORTED,
-	SUPPORTED
+	SUPPORTED,
+	OVERRIDDEN
 };
 
 class PortMapper

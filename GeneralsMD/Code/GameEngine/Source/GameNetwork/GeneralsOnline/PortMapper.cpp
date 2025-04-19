@@ -248,9 +248,24 @@ void PortMapper::BackgroundThreadRun()
 
 void PortMapper::DetermineLocalNetworkCapabilities(std::function<void(void)> callbackDeterminedCaps)
 {
-	NetworkLog("[PortMapper] Start DetermineLocalNetworkCapabilities");
 	// store callback
 	m_callbackDeterminedCaps = callbackDeterminedCaps;
+
+	if (TheGlobalData->m_firewallPortOverride != 0)
+	{
+		m_capUPnP = ECapabilityState::OVERRIDDEN;
+		m_capNATPMP = ECapabilityState::OVERRIDDEN;
+		m_PreferredPort = TheGlobalData->m_firewallPortOverride;
+
+		NetworkLog("[PortMapper] Firewall port override is set (%d), skipping port mapping and going straight to connection check", m_PreferredPort);
+		m_bPortMapperWorkComplete.store(true);
+
+		// dont trigger callbakc, just say we did the mapping, so we'll continue with direct connect check - this is still valid
+		
+		return;
+	}
+	NetworkLog("[PortMapper] Start DetermineLocalNetworkCapabilities");
+	
 
 	// reset status
 	m_bPortMapperWorkComplete.store(false);
