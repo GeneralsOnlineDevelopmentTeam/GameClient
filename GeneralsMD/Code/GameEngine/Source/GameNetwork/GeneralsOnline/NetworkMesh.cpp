@@ -160,8 +160,8 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 		enet_address_set_host(&addr, "127.0.0.1");
 	}
 
-	/* Initiate the connection, allocating the two channels 0 and 1. */
-	ENetPeer* peer = enet_host_connect(enetInstance, &addr, 2, 0);
+	/* Initiate the connection, allocating the 3 channels. */
+	ENetPeer* peer = enet_host_connect(enetInstance, &addr, 3, 0);
 
 	if (peer == nullptr)
 	{
@@ -219,7 +219,7 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 		// TODO_NGMP: Correct values here
 		enetInstance = enet_host_create(&server_address,
 			32,  // max game size is 8 and we are p2p and fake a connection to ourselves // TODO_NGMP: Do we need to support more, e.g. spectators?
-			2,  // 2 channels, 0 is lobby, 1 is gameplay
+			3,  // 3 channels, 0 is lobby, 1 is gameplay, 2 is handshake
 			0,
 			0);
 
@@ -301,18 +301,33 @@ void NetworkMesh::Tick()
 			{
 			case ENET_EVENT_TYPE_CONNECT:
 			{
+				// TODO_NGMP: Set a timeout where we remove it, and only accept hello if not connected
 				char ip[INET_ADDRSTRLEN + 1] = { 0 };
 				if (enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip)) == 0)
 				{
-					NetworkLog("[SERVER] A new client connected from %s:%u.\n",
+					NetworkLog("[SERVER] A new client connected from %s:%u. Starting wait for hello\n",
 						ip,
 						event.peer->address.port);
 				}
 
+				// send challenge
+				Net_ChallengePacket challengePacket;
+				CBitStream* pBitStream = challengePacket.Serialize();
+				pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+				ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
+					ENET_PACKET_FLAG_RELIABLE);
+
+				enet_peer_send(event.peer, 2, pENetPacket);
+
+
+				/*
 				// find user
 				// TODO_NGMP: What if it isnt found? could be an unauthorized user but could also be someone connecting before we know they're in the lobby
 				PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
 				if (pConnection != nullptr)
+					{
+					if (pConnection->m_State != EConnectionState::CONNECTED_DIRECT)
 					{
 						NetworkLog("Found connection for user %d", pConnection->m_userID);
 
@@ -332,14 +347,16 @@ void NetworkMesh::Tick()
 							NetworkLog("Endpoint for user %lld changed. Before: %s:%d, now %s:%d", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
 							pConnection->m_address = event.peer->address;
 							pConnection->m_peer->address = event.peer->address;
-// 
-// 							ENetAddress addr;
-// 							enet_address_set_host(&addr, newIp);
-// 							addr.port = event.peer->address.port;
-// 
-// 							UpdatePeerConnection(event.peer, addr);
+							// 
+							// 							ENetAddress addr;
+							// 							enet_address_set_host(&addr, newIp);
+							// 							addr.port = event.peer->address.port;
+							// 
+							// 							UpdatePeerConnection(event.peer, addr);
 						}
 					}
+					}
+					*/
 
 				break;
 			}
@@ -376,6 +393,107 @@ void NetworkMesh::Tick()
 					}
 					continue;
 				}
+				else if (event.channelID == 2) // handshake channel
+				{
+					CBitStream bitstream(event.packet->data, event.packet->dataLength, (EPacketID)event.packet->data[0]);
+					NetworkLog("[NGMP]: Received %d bytes from peer %d on handshake channel", event.packet->dataLength, event.peer->incomingPeerID);
+
+
+					bitstream.Decrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+					EPacketID packetID = bitstream.Read<EPacketID>();
+
+					if (packetID == EPacketID::PACKET_ID_CHALLENGE) // remote host is challenging us
+					{
+						// server sends hello ack in response to hello
+						char ip[INET_ADDRSTRLEN + 1] = { 0 };
+						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
+
+						Net_ChallengePacket challengePacket(bitstream);
+
+						NetworkLog("[NGMP]: Got challenge req from %s:%d, sending challenge resp", ip, event.peer->address.port);
+
+						// just send manually to that one user, dont broadcast
+						Net_ChallengeRespPacket challengeRespPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
+						CBitStream* pBitStream = challengeRespPacket.Serialize();
+
+						pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
+							ENET_PACKET_FLAG_RELIABLE);
+
+						int ret = enet_peer_send(event.peer, 2, pENetPacket);
+
+						if (ret == 0)
+						{
+							NetworkLog("Packet Sent!");
+
+							// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
+							// store the connection
+							//m_mapConnections[helloPacket.GetUserID()] = PlayerConnection(helloPacket.GetUserID(), event.peer->address, event.peer);
+
+							//NetworkLog("[NGMP]: Registered connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, helloPacket.GetUserID());
+						}
+						else
+						{
+							NetworkLog("Packet Failed To Send!");
+						}
+					}
+					else if (packetID == EPacketID::PACKET_ID_CHALLENGE_RESP)
+					{
+						Net_ChallengeRespPacket challengeRespPacket(bitstream);
+
+						char ip[INET_ADDRSTRLEN + 1] = { 0 };
+						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
+						NetworkLog("[NGMP]: Received ack from %s (user ID: %d), we're now connected", ip, challengeRespPacket.GetUserID());
+
+						// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
+						// store the connection
+						m_mapConnections[challengeRespPacket.GetUserID()] = PlayerConnection(challengeRespPacket.GetUserID(), event.peer->address, event.peer);
+						m_mapConnections[challengeRespPacket.GetUserID()].m_State = EConnectionState::CONNECTED_DIRECT;
+
+						NetworkLog("[NGMP]: Registered client connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, challengeRespPacket.GetUserID());
+
+						/*
+				// find user
+				// TODO_NGMP: What if it isnt found? could be an unauthorized user but could also be someone connecting before we know they're in the lobby
+				PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
+				if (pConnection != nullptr)
+					{
+					if (pConnection->m_State != EConnectionState::CONNECTED_DIRECT)
+					{
+						NetworkLog("Found connection for user %d", pConnection->m_userID);
+
+						// TODO_NGMP: Add a timeout for connections
+						pConnection->m_State = EConnectionState::CONNECTED_DIRECT;
+
+						// did the endpoint change? we should just use that, thats what the other side is talking to us on
+						if (pConnection->m_address.host != event.peer->address.host
+							|| pConnection->m_address.port != event.peer->address.port)
+						{
+							char oldIp[INET_ADDRSTRLEN + 1] = { 0 };
+							enet_address_get_host_ip(&pConnection->m_address, oldIp, sizeof(oldIp));
+							char newIp[INET_ADDRSTRLEN + 1] = { 0 };
+							enet_address_get_host_ip(&event.peer->address, newIp, sizeof(newIp));
+
+
+							NetworkLog("Endpoint for user %lld changed. Before: %s:%d, now %s:%d", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
+							pConnection->m_address = event.peer->address;
+							pConnection->m_peer->address = event.peer->address;
+							//
+							// 							ENetAddress addr;
+							// 							enet_address_set_host(&addr, newIp);
+							// 							addr.port = event.peer->address.port;
+							//
+							// 							UpdatePeerConnection(event.peer, addr);
+						}
+					}
+					}
+					*/
+					}
+
+					continue;
+				}
 
 				// process
 				// TODO_NGMP: Reject any packets from members not in the room? or mesh
@@ -401,58 +519,7 @@ void NetworkMesh::Tick()
 				if (m_meshType == ENetworkMeshType::GAME_LOBBY)
 				{
 					// TODO_NGMP: Determine this all on connect instead of with a handshake, or keep the handshake for hole punching...
-					if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO)
-					{
-
-						// server sends hello ack in response to hello
-						char ip[INET_ADDRSTRLEN + 1] = { 0 };
-						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
-
-						NetRoom_HelloPacket helloPacket(bitstream);
-
-						NetworkLog("[NGMP]: Got hello from %s:%d (user ID: %d), sending ack", ip, event.peer->address.port, helloPacket.GetUserID());
-
-						// just send manually to that one user, dont broadcast
-						NetRoom_HelloAckPacket ackPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
-						CBitStream* pBitStream = ackPacket.Serialize();
-
-						pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
-
-						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
-							ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
-
-						int ret = enet_peer_send(event.peer, 0, pENetPacket);
-						if (ret == 0)
-						{
-							NetworkLog("Packet Sent!");
-
-							// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
-							// store the connection
-							m_mapConnections[helloPacket.GetUserID()] = PlayerConnection(helloPacket.GetUserID(), event.peer->address, event.peer);
-
-							NetworkLog("[NGMP]: Registered connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, helloPacket.GetUserID());
-						}
-						else
-						{
-							NetworkLog("Packet Failed To Send!");
-						}
-					}
-					else if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO_ACK)
-					{
-						NetRoom_HelloAckPacket helloAckPacket(bitstream);
-
-						char ip[INET_ADDRSTRLEN + 1] = { 0 };
-						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
-						NetworkLog("[NGMP]: Received ack from %s (user ID: %d), we're now connected", ip, helloAckPacket.GetUserID());
-
-						// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
-						// store the connection
-						m_mapConnections[helloAckPacket.GetUserID()] = PlayerConnection(helloAckPacket.GetUserID(), event.peer->address, event.peer);
-
-						NetworkLog("[NGMP]: Registered client connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, helloAckPacket.GetUserID());
-					}
-					
-					else if (packetID == EPacketID::PACKET_ID_LOBBY_START_GAME)
+					if (packetID == EPacketID::PACKET_ID_LOBBY_START_GAME)
 					{
 						// TODO_NGMP: Ignore if not host sending
 						NetworkLog("[NGMP]: Got start game packet from %d", event.peer->incomingPeerID);

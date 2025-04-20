@@ -849,7 +849,13 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 				// we need to get more lobby info before triggering the game callback...
 				UpdateRoomDataCache([=]()
 					{
-						OnJoinedOrCreatedLobby();
+						OnJoinedOrCreatedLobby(false, [=]()
+							{
+								if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby != nullptr)
+								{
+									NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(JoinResult);
+								}
+							});
 					});
 			}
 			else if (statusCode == 401)
@@ -860,15 +866,17 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 			{
 				NetworkLog("[NGMP] Failed to join lobby: Lobby not found");
 			}
-			else
-			{
+			
 
+			if (JoinResult != EJoinLobbyResult::JoinLobbyResult_Success)
+			{
+				if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby != nullptr)
+				{
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(JoinResult);
+				}
 			}
 
-			if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby != nullptr)
-			{
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(JoinResult);
-			}
+			
 		});
 
 	// TODO_NGMP:
@@ -1141,18 +1149,28 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					TheNGMPGame->SyncWithLobby(m_CurrentLobby);
 					TheNGMPGame->UpdateSlotsFromCurrentLobby();
 
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->OnJoinedOrCreatedLobby();
+					// we always need to get the enc key etc
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->OnJoinedOrCreatedLobby(false, [=]()
+						{
+							// TODO_NGMP: Impl
+							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
+
+							// Set our properties
+							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ApplyLocalUserPropertiesToCurrentNetworkRoom();
+						});
 				}
 				else
 				{
 					NetworkLog("[NGMP] Failed to create lobby!\n");
+
+					// TODO_NGMP: Impl
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
+
+					// Set our properties
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ApplyLocalUserPropertiesToCurrentNetworkRoom();
 				}
 
-				// TODO_NGMP: Impl
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
-
-				// Set our properties
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ApplyLocalUserPropertiesToCurrentNetworkRoom();
+				
 			}
 			catch (...)
 			{
@@ -1373,7 +1391,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 		*/
 }
 
-void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails)
+void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(void)> fnCallback)
 {
 	// reset timer
 	m_timeStartAutoReadyCountdown = -1;
@@ -1382,13 +1400,18 @@ void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpd
 	// must be done in a callback, this is an async function
 	if (!bAlreadyUpdatedDetails)
 	{
-		UpdateRoomDataCache();
+		UpdateRoomDataCache([=]()
+			{
+				// join the network mesh too
+				if (m_pLobbyMesh == nullptr)
+				{
+					m_pLobbyMesh = new NetworkMesh(ENetworkMeshType::GAME_LOBBY);
+					m_pLobbyMesh->ConnectToMesh(m_CurrentLobby);
+				}
+
+				fnCallback();
+			});
 	}
 
-	// join the network mesh too
-	if (m_pLobbyMesh == nullptr)
-	{
-		m_pLobbyMesh = new NetworkMesh(ENetworkMeshType::GAME_LOBBY);
-		m_pLobbyMesh->ConnectToMesh(m_CurrentLobby);
-	}
+	
 }

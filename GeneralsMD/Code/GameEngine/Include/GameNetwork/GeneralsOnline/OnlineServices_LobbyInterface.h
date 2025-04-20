@@ -120,7 +120,7 @@ public:
 	AsciiString m_PendingCreation_InitialMapPath;
 	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword);
 
-	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails = false);
+	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(void)> fnCallback);
 
 	UnicodeString GetCurrentLobbyDisplayName();
 	UnicodeString GetCurrentLobbyMapDisplayName();
