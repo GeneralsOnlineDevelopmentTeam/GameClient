@@ -29,6 +29,8 @@ void NetworkLog(const char* fmt, ...)
 		overwriteFile << std::put_time(std::localtime(&in_time_t), "Log Started at %Y/%m/%d %H:%M") << std::endl;
 	}
 
+	auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
+
 	char buffer[1024];
 	va_list args;
 	va_start(args, fmt);
@@ -36,10 +38,12 @@ void NetworkLog(const char* fmt, ...)
 	buffer[1024 - 1] = 0;
 	va_end(args);
 
+	std::string strLogBuffer = std::format("[{:%Y-%m-%d %T}] {}", time, buffer);
+
 	// TODO_NGMP: Keep open and flush regularly
 	std::ofstream logFile;
 	logFile.open(m_strNetworkLogFileName, std::ios_base::app);
-	logFile << buffer << std::endl;
+	logFile << strLogBuffer.c_str() << std::endl;
 	logFile.close();
 
 #if defined(GENERALS_ONLINE_BRANCH_JMARSHALL)
