@@ -47,9 +47,9 @@ void NetworkLog(const char* fmt, ...)
 	logFile.close();
 
 #if defined(GENERALS_ONLINE_BRANCH_JMARSHALL)
-	DevConsole.AddLog(buffer);
+	DevConsole.AddLog(strLogBuffer.c_str());
 #endif
 
-	OutputDebugString(buffer);
+	OutputDebugString(strLogBuffer.c_str());
 	OutputDebugString("\n");
 }

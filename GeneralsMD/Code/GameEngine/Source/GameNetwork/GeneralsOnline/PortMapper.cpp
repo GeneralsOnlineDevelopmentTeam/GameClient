@@ -202,9 +202,13 @@ void PortMapper::BackgroundThreadRun()
 	
 	// TODO_NGMP: Do this on a background thread?
 
+	int64_t startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
 	// UPnP
 	int errorCode = 0;
-	m_pCachedUPnPDevice = upnpDiscover(2000, nullptr, nullptr, 0, 0, 2, &errorCode);
+	m_pCachedUPnPDevice = upnpDiscover(0, nullptr, nullptr, 0, 0, 2, &errorCode);
+
+	NetworkLog("[PortMapper]: UPnP device result: %d (errcode: %d)", m_pCachedUPnPDevice, errorCode);
 
 	char lan_address[64];
 	char wan_address[64];
@@ -214,9 +218,25 @@ void PortMapper::BackgroundThreadRun()
 
 	m_capUPnP = (IGDStatus == 1) ? ECapabilityState::SUPPORTED : ECapabilityState::UNSUPPORTED;
 
-	NetworkLog("[PortMapper]: UPnP result: %d", m_capUPnP);
+	NetworkLog("[PortMapper]: UPnP result: %s (LAN: %s, WAN: %s, Control URI)", m_capUPnP == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported", lan_address, wan_address);
+	NetworkLog("[PortMapper]: UPnP controlURL URI: %s", upnp_urls.controlURL);
+	NetworkLog("[PortMapper]: UPnP ipcondescURL URI: %s", upnp_urls.ipcondescURL);
+	NetworkLog("[PortMapper]: UPnP controlURL_CIF URI: %s", upnp_urls.controlURL_CIF);
+	NetworkLog("[PortMapper]: UPnP controlURL_6FC URI: %s", upnp_urls.controlURL_6FC);
+	NetworkLog("[PortMapper]: UPnP rootdescURL URI: %s", upnp_urls.rootdescURL);
+	NetworkLog("[PortMapper]: UPnP cureltname URI: %s", upnp_data.cureltname);
+	NetworkLog("[PortMapper]: UPnP urlbase URI: %s", upnp_data.urlbase);
+	NetworkLog("[PortMapper]: UPnP presentationurl URI: %s", upnp_data.presentationurl);
+	NetworkLog("[PortMapper]: UPnP cureltname URI: %s", upnp_data.cureltname);
+	NetworkLog("[PortMapper]: UPnP cureltname URI: %s", upnp_data.cureltname);
+	NetworkLog("[PortMapper]: UPnP cureltname URI: %s", upnp_data.cureltname);
+
+	int64_t endTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	NetworkLog("[PortMapper]: UPnP took: %lld ms", endTime- startTime);
 
 	// NAT-PMP
+	startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
 	int res;
 	natpmp_t natpmp;
 	natpmpresp_t response;
@@ -229,18 +249,41 @@ void PortMapper::BackgroundThreadRun()
 		struct timeval timeout;
 		FD_ZERO(&fds);
 		FD_SET(natpmp.s, &fds);
+
 		getnatpmprequesttimeout(&natpmp, &timeout);
 		select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
 		res = readnatpmpresponseorretry(&natpmp, &response);
-	} while (res == NATPMP_TRYAGAIN);
+
+		if (res == NATPMP_TRYAGAIN)
+		{
+			NetworkLog("[PortMapper]: NAT-PMP asked for try again");
+		}
+
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		int64_t timeSpentInNATPMP = currTime - startTime;
+
+		const int natpmpTimeout = 2000;
+		if (timeSpentInNATPMP >= natpmpTimeout)
+		{
+			NetworkLog("[PortMapper]: NAT-PMP timeout reached, bailing");
+			break;
+		}
+	}
+	while (res == NATPMP_TRYAGAIN);
 
 	closenatpmp(&natpmp);
 
+	endTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	NetworkLog("[PortMapper]: NAT-PMP took: %lld ms", endTime - startTime);
+
 	m_capNATPMP = (res == NATPMP_RESPTYPE_PUBLICADDRESS) ? ECapabilityState::SUPPORTED : ECapabilityState::UNSUPPORTED;;
-	NetworkLog("[PortMapper]: NAT-PMP result: %d", m_capNATPMP);
+	NetworkLog("[PortMapper]: NAT-PMP result: %s (%d)", m_capNATPMP == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported", m_capNATPMP);
 
 	// open ports
+	startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 	TryForwardPreferredPorts();
+	endTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	NetworkLog("[PortMapper]: TryForwardPreferredPorts took: %lld ms", endTime - startTime);
 
 	m_bPortMapperWorkComplete.store(true);
 	NetworkLog("[PortMapper] Background thread work is done");
@@ -291,6 +334,12 @@ void PortMapper::TryForwardPreferredPorts()
 	m_PreferredPort = dis(gen);
 
 	NetworkLog("PortMapper: Attempting to open ext port %d and forward to local port %d", m_PreferredPort, m_PreferredPort);
+
+	if (m_capUPnP != ECapabilityState::SUPPORTED && m_capNATPMP != ECapabilityState::SUPPORTED)
+	{
+		NetworkLog("PortMapper: No port mappers are supported.");
+		return;
+	}
 
 	// TODO_NGMP: If everything fails, try a new port?
 	
@@ -442,7 +491,7 @@ bool PortMapper::ForwardPreferredPort_UPnP()
 	}
 
 	// NOTE: dont hard fail here. not finding an exact match might be OK, some routers mangle data etc
-	NetworkLog("PortMapper: UPnP Mapping was not validated on router");
+	NetworkLog("PortMapper: UPnP Mapping was not validated on router, this is likely OK");
 	m_bHasPortOpenedViaUPNP = true;
 
 	return true;
