@@ -8,6 +8,7 @@ class HTTPManager;
 class NGMP_OnlineServices_AuthInterface;
 class NGMP_OnlineServices_LobbyInterface;
 class NGMP_OnlineServices_RoomsInterface;
+class NGMP_OnlineServices_StatsInterface;
 
 #pragma comment(lib, "libcurl/libcurl.lib")
 
@@ -108,7 +109,11 @@ public:
 		PROD
 	};
 
+#if defined(_DEBUG)
 	const static EEnvironment g_Environment = EEnvironment::DEV;
+#else
+	const static EEnvironment g_Environment = EEnvironment::PROD;
+#endif
 	static std::string GetAPIEndpoint(const char* szEndpoint, bool bAttachToken);
 
 	static NGMP_OnlineServicesManager* GetInstance()
@@ -124,6 +129,12 @@ public:
 		{
 			delete m_pAuthInterface;
 			m_pAuthInterface = nullptr;
+		}
+
+		if (m_pStatsInterface != nullptr)
+		{
+			delete m_pStatsInterface;
+			m_pStatsInterface = nullptr;
 		}
 
 		if (m_pLobbyInterface != nullptr)
@@ -159,6 +170,7 @@ public:
 	NGMP_OnlineServices_AuthInterface* GetAuthInterface() const { return m_pAuthInterface; }
 	NGMP_OnlineServices_LobbyInterface* GetLobbyInterface() const { return m_pLobbyInterface; }
 	NGMP_OnlineServices_RoomsInterface* GetRoomsInterface() const { return m_pRoomInterface; }
+	NGMP_OnlineServices_StatsInterface* GetStatsInterface() const { return m_pStatsInterface; }
 
 	void OnLogin(bool bSuccess, const char* szWSAddr, const char* szWSToken);
 	
@@ -233,6 +245,7 @@ private:
 	NGMP_OnlineServices_AuthInterface* m_pAuthInterface = nullptr;
 	NGMP_OnlineServices_LobbyInterface* m_pLobbyInterface = nullptr;
 	NGMP_OnlineServices_RoomsInterface* m_pRoomInterface = nullptr;
+	NGMP_OnlineServices_StatsInterface* m_pStatsInterface = nullptr;
 	PortMapper m_PortMapper;
 
 	HTTPManager* m_pHTTPManager = nullptr;

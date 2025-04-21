@@ -273,6 +273,7 @@ void NGMP_OnlineServicesManager::Init()
 	m_pAuthInterface = new NGMP_OnlineServices_AuthInterface();
 	m_pLobbyInterface = new NGMP_OnlineServices_LobbyInterface();
 	m_pRoomInterface = new NGMP_OnlineServices_RoomsInterface();
+	m_pStatsInterface = new NGMP_OnlineServices_StatsInterface();
 
 	m_pHTTPManager = new HTTPManager();
 	

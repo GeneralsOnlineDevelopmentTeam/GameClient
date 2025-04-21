@@ -659,7 +659,7 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 
 	// TODO_NGMP: disable things we havent implemented yet
 	buttonQuickMatch->winEnable(false);
-	buttonMyInfo->winEnable(false);
+	//buttonMyInfo->winEnable(false);
 	buttonBuddies->winEnable(false);
 	//buttonbuttonOptions->winEnable(false);
 #else
@@ -959,7 +959,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 				}// else if
 				else if (controlID == buttonMyInfoID )
 				{
-					SetLookAtPlayer(TheGameSpyInfo->getLocalProfileID(), TheGameSpyInfo->getLocalName());
+					SetLookAtPlayer(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID(), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName());
 					GameSpyToggleOverlay(GSOVERLAY_PLAYERINFO);
 				}
 				else if (controlID == buttonLobbyID)

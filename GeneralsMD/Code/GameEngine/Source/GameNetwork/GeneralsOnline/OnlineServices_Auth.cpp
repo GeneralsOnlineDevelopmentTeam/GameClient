@@ -289,15 +289,20 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 								bResult = bWSConnected;
 							}
 
-							// go to next screen
-							ClearGSMessageBoxes();
+							// cache our local stats 
+							NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->GetLocalPlayerStats([=]()
+								{
+									// go to next screen
+									ClearGSMessageBoxes();
 
-							for (auto cb : m_vecLogin_PendingCallbacks)
-							{
-								// TODO_NGMP: Support failure
-								cb(bResult);
-							}
-							m_vecLogin_PendingCallbacks.clear();
+									for (auto cb : m_vecLogin_PendingCallbacks)
+									{
+										// TODO_NGMP: Support failure
+										cb(bResult);
+									}
+									m_vecLogin_PendingCallbacks.clear();
+								});
+							
 
 						}
 						catch (...)

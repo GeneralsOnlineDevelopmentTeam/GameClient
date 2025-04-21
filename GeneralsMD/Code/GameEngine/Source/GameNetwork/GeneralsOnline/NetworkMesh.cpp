@@ -364,11 +364,11 @@ void NetworkMesh::Tick()
 
 			case ENET_EVENT_TYPE_RECEIVE:
 			{
-				NetworkLog("[SERVER] A packet of length %u containing %s was received from %s on channel %u.\n",
-					event.packet->dataLength,
-					event.packet->data,
-					event.peer->data,
-					event.channelID);
+// 				NetworkLog("[SERVER] A packet of length %u containing %s was received from %s on channel %u.\n",
+// 					event.packet->dataLength,
+// 					event.packet->data,
+// 					event.peer->data,
+// 					event.channelID);
 
 				// was it on the game channel? just queue it for generals and bail
 				if (event.channelID == 1)

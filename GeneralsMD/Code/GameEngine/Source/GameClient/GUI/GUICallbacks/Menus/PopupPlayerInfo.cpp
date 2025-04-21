@@ -60,6 +60,9 @@
 
 #include "WWDownload/Registry.h"
 
+#include "../ngmp_interfaces.h"
+#include "../ngmp_include.h"
+
 #ifdef _INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -91,7 +94,7 @@ static GameWindow *checkBoxNonAsianFont = NULL;
 
 static Bool isOverlayActive = false;
 static Bool raiseMessageBox = false;
-static Int lookAtPlayerID = 0;
+static int64_t lookAtPlayerID = 0;
 static std::string lookAtPlayerName;
 
 
@@ -182,6 +185,8 @@ Int GetAdditionalDisconnectsFromUserFile(Int playerID)
 		return 0;
 	}
 
+	// TODO_NGMP_STATS:
+	/*
 	if (TheGameSpyInfo->getAdditionalDisconnects() > 0 && !retval)
 	{
 		DEBUG_LOG(("Clearing additional disconnects\n"));
@@ -192,6 +197,7 @@ Int GetAdditionalDisconnectsFromUserFile(Int playerID)
 	{
 		return TheGameSpyInfo->getAdditionalDisconnects();
 	}
+	*/
 
 	return retval;
 }
@@ -243,16 +249,18 @@ void GetAdditionalDisconnectsFromUserFile(PSPlayerStats *stats)
 // default values
 RankPoints::RankPoints(void)
 {
+	auto statsInterface = NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface();
+
 	m_ranks[RANK_PRIVATE]							= 0;
-	m_ranks[RANK_CORPORAL]						= TheGameSpyConfig->getPointsForRank(RANK_CORPORAL); // 5
-	m_ranks[RANK_SERGEANT]						= TheGameSpyConfig->getPointsForRank(RANK_SERGEANT); // 10
-	m_ranks[RANK_LIEUTENANT]					= TheGameSpyConfig->getPointsForRank(RANK_LIEUTENANT); // 20
-	m_ranks[RANK_CAPTAIN]							= TheGameSpyConfig->getPointsForRank(RANK_CAPTAIN); // 50
-	m_ranks[RANK_MAJOR]								= TheGameSpyConfig->getPointsForRank(RANK_MAJOR); // 100
-	m_ranks[RANK_COLONEL]							= TheGameSpyConfig->getPointsForRank(RANK_COLONEL); // 200
-	m_ranks[RANK_BRIGADIER_GENERAL]		= TheGameSpyConfig->getPointsForRank(RANK_BRIGADIER_GENERAL); // 500
-	m_ranks[RANK_GENERAL]							= TheGameSpyConfig->getPointsForRank(RANK_GENERAL); // 1000
-	m_ranks[RANK_COMMANDER_IN_CHIEF]	= TheGameSpyConfig->getPointsForRank(RANK_COMMANDER_IN_CHIEF); // 2000
+	m_ranks[RANK_CORPORAL]						= statsInterface->getPointsForRank(RANK_CORPORAL); // 5
+	m_ranks[RANK_SERGEANT]						= statsInterface->getPointsForRank(RANK_SERGEANT); // 10
+	m_ranks[RANK_LIEUTENANT]					= statsInterface->getPointsForRank(RANK_LIEUTENANT); // 20
+	m_ranks[RANK_CAPTAIN]							= statsInterface->getPointsForRank(RANK_CAPTAIN); // 50
+	m_ranks[RANK_MAJOR]								= statsInterface->getPointsForRank(RANK_MAJOR); // 100
+	m_ranks[RANK_COLONEL]							= statsInterface->getPointsForRank(RANK_COLONEL); // 200
+	m_ranks[RANK_BRIGADIER_GENERAL]		= statsInterface->getPointsForRank(RANK_BRIGADIER_GENERAL); // 500
+	m_ranks[RANK_GENERAL]							= statsInterface->getPointsForRank(RANK_GENERAL); // 1000
+	m_ranks[RANK_COMMANDER_IN_CHIEF]	= statsInterface->getPointsForRank(RANK_COMMANDER_IN_CHIEF); // 2000
 
 	m_winMultiplier = 3.0f;
 	m_lostMultiplier = 0.0f;
@@ -263,7 +271,7 @@ RankPoints::RankPoints(void)
 
 RankPoints *TheRankPointValues = NULL;
 
-void SetLookAtPlayer( Int id, AsciiString nick)
+void SetLookAtPlayer(int64_t id, AsciiString nick)
 {
 	lookAtPlayerID = id;
 	lookAtPlayerName = nick.str();
@@ -721,7 +729,10 @@ static void populateBattleHonors(const PSPlayerStats& stats, Int battleHonors, I
 	}
 	*/
 
-	if (TheGameSpyInfo->didPlayerPreorder(stats.id))
+	// TODO_NGMP_STATS
+	bool bPreordered = true;
+	//if (TheGameSpyInfo->didPlayerPreorder(stats.id))
+	if (bPreordered)
 	{
 		InsertBattleHonor(list, TheMappedImageCollection->findImageByName("OfficersClub"), TRUE,
 			BATTLE_HONOR_OFFICERSCLUB, row, column);
@@ -749,6 +760,7 @@ Int GetFavoriteSide( const PSPlayerStats& stats )
 	return favorite;
 }
 
+// TODO_NGMP: We should calculate this and store it on server side too so we can display on website
 Int CalculateRank( const PSPlayerStats& stats )
 {
 	if(stats.id == 0 || !TheRankPointValues)	
@@ -811,22 +823,23 @@ static GameWindow* findWindow(GameWindow *parent, AsciiString baseWindow, AsciiS
 
 void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 {
-	Int lookupID = TheGameSpyInfo->getLocalProfileID();
+	int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	int64_t lookupID = localID;
 	if(parentWindowName == "PopupPlayerInfo.wnd")
 	{
 		lookupID = lookAtPlayerID;
-		if (lookAtPlayerID <= 0 || !parent)
+		if (lookAtPlayerID == -1 || !parent)
 			return;
 	}
 
-	PSPlayerStats stats = TheGameSpyPSMessageQueue->findPlayerStatsByID(lookupID);
+	PSPlayerStats stats = NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(lookupID);
 
 	Bool weHaveStats = (stats.id != 0);
 
 	// if we don't have the stats from the server, see if we have cached stats
-	if( !weHaveStats && lookupID == TheGameSpyInfo->getLocalProfileID() )
+	if( !weHaveStats && lookupID == localID)
 	{
-		stats = TheGameSpyInfo->getCachedLocalPlayerStats();
+		stats = NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->getCachedLocalPlayerStats();
 
 		weHaveStats = TRUE;
 	}
@@ -1303,7 +1316,7 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 	PopulatePlayerInfoWindows("PopupPlayerInfo.wnd");
 
 	// we're on the myinfo screen
-	if(lookAtPlayerID == TheGameSpyInfo->getLocalProfileID())
+	if(lookAtPlayerID == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
 	{
 		//buttonbuttonOptions->winHide(FALSE);
 		buttonSetLocale->winHide(FALSE);

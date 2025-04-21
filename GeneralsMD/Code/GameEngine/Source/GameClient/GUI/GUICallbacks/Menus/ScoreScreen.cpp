@@ -100,6 +100,7 @@
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 #include "GameClient/InGameUI.h"
 #include "GameClient/ChallengeGenerals.h"
+#include "../NGMPGame.h"
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -147,6 +148,7 @@ GameWindow *listboxAcademyWindowScoreScreen = NULL;
 NameKeyType staticTextAcademyTitleID = NAMEKEY_INVALID;
 GameWindow *staticTextAcademyTitle = NULL;
 
+extern NGMPGame* TheNGMPGame;
 
 std::string LastReplayFileName;
 static Bool canSaveReplay = FALSE;
@@ -1636,17 +1638,17 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 	if ( screenType == SCORESCREEN_INTERNET )
 	{
 		DEBUG_LOG(("populatePlayerInfo() - SCORESCREEN_INTERNET\n"));
-		if (TheGameSpyGame && !TheGameSpyGame->getUseStats()
-		 && !TheGameSpyGame->isQMGame() )  //QuickMatch games always record stats
+		if (TheNGMPGame && !TheNGMPGame->getUseStats()
+		 && !TheNGMPGame->isQMGame() )  //QuickMatch games always record stats
 			return;	//the host has requested not to record stats for this game.
 
-		Int localID = TheGameSpyInfo->getLocalProfileID();
-		if (localID)
+		//Int localID = TheNGMPGame->getLocalProfileID();
+		//if (localID)
 		{
-			Int localSlotNum = TheGameSpyGame->getLocalSlotNum();
+			Int localSlotNum = TheNGMPGame->getLocalSlotNum();
 			if (player->isLocalPlayer())
 			{
-				GameSpyGameSlot *localSlot = TheGameSpyGame->getGameSpySlot(localSlotNum);
+				NGMPGameSlot *localSlot = TheNGMPGame->getGameSpySlot(localSlotNum);
 				if (localSlot)
 				{
 					if (TheVictoryConditions->amIObserver())
@@ -1656,7 +1658,9 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 						return;
 					}
 
-					PSPlayerStats stats = TheGameSpyPSMessageQueue->findPlayerStatsByID(localID);
+					// TODO_NGMP_STATS: Get stats for real
+					//PSPlayerStats stats = TheNGMPGame->findPlayerStatsByID(localID);
+					PSPlayerStats stats = PSPlayerStats();
 
 					UnsignedInt latestHumanInGame = 0;
 					UnsignedInt lastFrameOfGame = 0;
@@ -1749,8 +1753,10 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 
  					//Remove the extra disconnection we add to all games when they start.
 					DEBUG_LOG(("populatePlayerInfo() - removing extra disconnect\n"));
- 					if (TheGameSpyInfo)
-						TheGameSpyInfo->updateAdditionalGameSpyDisconnections(-1);
+
+					// TODO_NGMP_STATS
+ 					//if (TheGameSpyInfo)
+						//TheGameSpyInfo->updateAdditionalGameSpyDisconnections(-1);
 
 					Bool sawEndOfGame = FALSE;
 					if (TheVictoryConditions->isLocalAlliedDefeat() || TheVictoryConditions->isLocalAlliedVictory())
@@ -1771,7 +1777,9 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 						return;
 					}
 
+					// TODO_NGMP_STATS: Impl ladders again, how did these work in the base game?
 					// send ladder results (even if we end the game in the first N seconds)
+					/*
 					if (TheGameSpyGame->getLadderPort() && TheGameSpyGame->getLadderIP().isNotEmpty())
 					{
 						GameResultsRequest gameResReq;
@@ -1784,17 +1792,22 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 							TheGameResultsQueue->addRequest(gameResReq);
 						}
 					}
+					*/
 					if (TheVictoryConditions->getEndFrame() < LOGICFRAMES_PER_SECOND * 25 && TheVictoryConditions->getEndFrame())
 					{
  						return;
 					}
+
+					// TODO_NGMP_STATS
 					// generate and send a gameres packet
+					/*
 					AsciiString resultsPacket = TheGameSpyGame->generateGameSpyGameResultsPacket();
 					DEBUG_LOG(("About to send results packet: %s\n", resultsPacket.str()));
 					PSRequest grReq;
 					grReq.requestType = PSRequest::PSREQUEST_SENDGAMERESTOGAMESPY;
 					grReq.results = resultsPacket.str();
 					TheGameSpyPSMessageQueue->addRequest(grReq);
+					*/
 
 					Int ptIdx;
 					const PlayerTemplate *myTemplate = player->getPlayerTemplate();
@@ -1827,7 +1840,9 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 							SetUnsignedIntInRegistry("", "se", syncs);
 							*/
 							DEBUG_LOG(("populatePlayerInfo() - need to save off info for disconnect games!\n"));
+							// TODO_NGMP_STATS
 
+							/*
 							PSRequest req;
 							req.requestType = PSRequest::PSREQUEST_UPDATEPLAYERSTATS;
 							req.email = TheGameSpyInfo->getLocalEmail().str();
@@ -1838,6 +1853,7 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
  							req.addDiscon = gameEndedInDisconnect;
 							req.lastHouse = ptIdx;
 							TheGameSpyPSMessageQueue->addRequest(req);
+							*/
 						}
 						DEBUG_CRASH(("populatePlayerInfo() - not tracking stats - we haven't gotten the original stuff yet\n"));
 						return;
@@ -1865,7 +1881,7 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 					stats.buildingsKilled[ptIdx] += s->getTotalBuildingsDestroyed();
 					stats.buildingsLost[ptIdx] += s->getTotalBuildingsLost();
 
-					if (TheGameSpyGame->isQMGame())
+					if (TheNGMPGame->isQMGame())
 					{
 						stats.QMGames[ptIdx]++;
 					}
@@ -1927,7 +1943,7 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 					Int gameSize = 0;
 					for (i=0; i<MAX_SLOTS; ++i)
 					{
-						if (TheGameSpyGame->getConstSlot(i)->isOccupied() && TheGameSpyGame->getConstSlot(i)->getPlayerTemplate() != PLAYERTEMPLATE_OBSERVER)
+						if (TheNGMPGame->getConstSlot(i)->isOccupied() && TheNGMPGame->getConstSlot(i)->getPlayerTemplate() != PLAYERTEMPLATE_OBSERVER)
 							++gameSize;
 					}
 					switch (gameSize)
@@ -1986,11 +2002,14 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 					stats.builtNuke += CheckForApocalypse( s, "Tank_ChinaNuclearMissileLauncher" );
 					DEBUG_LOG(("After game built scud:%d, cannon:%d, nuke:%d\n", stats.builtSCUD, stats.builtParticleCannon, stats.builtNuke ));
 
-					if (TheGameSpyGame->getLadderPort() && TheGameSpyGame->getLadderIP().isNotEmpty())
+					// TODO_NGMP_STATS: ladders
+					/*
+					if (TheNGMPGame->getLadderPort() && TheNGMPGame->getLadderIP().isNotEmpty())
 					{
 						stats.lastLadderPort = TheGameSpyGame->getLadderPort();
 						stats.lastLadderHost = TheGameSpyGame->getLadderIP().str();
 					}
+					*/
 
 					if (!TheNetwork->sawCRCMismatch() && !gameEndedInDisconnect && !TheVictoryConditions->isLocalAlliedDefeat() && TheVictoryConditions->getEndFrame())
 					{
@@ -1998,8 +2017,10 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 						updateChallengeMedals(stats.challengeMedals);
 					}
 
-					DEBUG_LOG(("populatePlayerInfo() - tracking stats for %s/%s/%s\n", TheGameSpyInfo->getLocalBaseName().str(), TheGameSpyInfo->getLocalEmail().str(), TheGameSpyInfo->getLocalPassword().str()));
+					//DEBUG_LOG(("populatePlayerInfo() - tracking stats for %s/%s/%s\n", TheNGMPGame->getLocalBaseName().str(), TheNGMPGame->getLocalEmail().str(), TheNGMPGame->getLocalPassword().str()));
 
+					// TODO_NGMP_STATS
+					/*
 					PSRequest req;
 					req.requestType = PSRequest::PSREQUEST_UPDATEPLAYERSTATS;
 					req.email = TheGameSpyInfo->getLocalEmail().str();
@@ -2022,6 +2043,7 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 					GameSpyMiscPreferences mPref;
 					mPref.setCachedStats(GameSpyPSMessageQueueInterface::formatPlayerKVPairs(stats).c_str());
 					mPref.write();
+					*/
 				}
 			}
 		}
