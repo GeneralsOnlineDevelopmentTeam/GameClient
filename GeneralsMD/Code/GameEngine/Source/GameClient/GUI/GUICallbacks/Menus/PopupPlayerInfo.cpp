@@ -1492,7 +1492,11 @@ WindowMsgHandledType GameSpyPlayerInfoOverlaySystem( GameWindow *window, Unsigne
 				{
 					RefreshGameListBoxes();
 					GameSpyCloseOverlay( GSOVERLAY_PLAYERINFO );
-					MessageBoxYesNo(TheGameText->fetch("GUI:DeleteAccount"), TheGameText->fetch("GUI:AreYouSureDeleteAccount"),messageBoxYes, NULL);
+
+					MessageBoxOk(TheGameText->fetch("GUI:DeleteAccount"), UnicodeString(L"NOTE: This will only delete your in-game data. It will not delete your account on our website, forums or bugtracker. Please contact us if you wish to fully delete all of your data."), []()
+						{
+							MessageBoxYesNo(TheGameText->fetch("GUI:DeleteAccount"), TheGameText->fetch("GUI:AreYouSureDeleteAccount"), messageBoxYes, NULL);
+						});
 				}
 				else if (controlID == checkBoxAsianFontID)
 				{
