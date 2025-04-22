@@ -3,6 +3,7 @@
 #include "NGMP_include.h"
 #include "NetworkMesh.h"
 #include "../RankPointValue.h"
+#include "../GameSpy/PersistentStorageThread.h"
 
 class PSPlayerStats;
 
@@ -39,5 +40,8 @@ public:
 	}
 
 	PSPlayerStats findPlayerStatsByID(int64_t userID);
-	PSPlayerStats getCachedLocalPlayerStats();
+	PSPlayerStats& getCachedLocalPlayerStats();
+
+private:
+	PSPlayerStats m_CachedLocalPlayerStats;
 };
