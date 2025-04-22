@@ -12,10 +12,32 @@ NGMP_OnlineServices_StatsInterface::NGMP_OnlineServices_StatsInterface()
 	TheRankPointValues = NEW RankPoints;
 }
 
+void NGMP_OnlineServices_StatsInterface::GetGlobalStats(std::function<void(GlobalStats)> cb)
+{
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("GlobalStats", true);
+
+	std::map<std::string, std::string> mapHeaders;
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody)
+		{
+			GlobalStats stats;
+
+			nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody)["globalstats"];
+
+			int i = 0;
+
+			#define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : jsonObjectRoot[#name]) { iter.get_to(stats.##name[i++]); }
+			PROCESS_JSON_PER_GENERAL_RESULT(wins);
+			PROCESS_JSON_PER_GENERAL_RESULT(matches);
+
+			cb(stats);
+		});
+}
+
 void NGMP_OnlineServices_StatsInterface::GetLocalPlayerStats(std::function<void(void)> cb)
 {
 	int64_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Stats", true), localUserID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("PlayerStats", true), localUserID);
 
 	std::map<std::string, std::string> mapHeaders;
 

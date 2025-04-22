@@ -7,11 +7,18 @@
 
 class PSPlayerStats;
 
+struct GlobalStats
+{
+	PerGeneralMap wins;
+	PerGeneralMap matches;
+};
+
 class NGMP_OnlineServices_StatsInterface
 {
 public:
 	NGMP_OnlineServices_StatsInterface();
 
+	void GetGlobalStats(std::function<void(GlobalStats)> cb);
 	void GetLocalPlayerStats(std::function<void(void)> cb);
 	void GetPlayerStats(int64_t userID, std::function<void(void)> cb);
 

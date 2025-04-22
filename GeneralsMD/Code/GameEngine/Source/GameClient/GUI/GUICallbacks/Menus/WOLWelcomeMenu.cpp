@@ -470,6 +470,45 @@ void HandleOverallStats( const char* szHTTPStats, unsigned len )
 //called only from WOLWelcomeMenuInit to set %win stats
 static void updateOverallStats(void)
 {
+	NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->GetGlobalStats([=](GlobalStats stats)
+		{
+			UnicodeString percStr;
+			AsciiString wndName;
+			GameWindow* pWin;
+
+			// calculate total win percent
+			s_totalWinPercent = 0.f;
+			int totalWins = 0;
+			int totalGames = 0;
+
+			for (int i = 0; i < stats.matches.size(); ++i)
+			{
+				totalWins += stats.wins[i];
+				totalGames += stats.matches[i];
+			}
+
+			// store percent
+			s_totalWinPercent = ((float)totalWins / (float)totalGames);
+
+			if (s_totalWinPercent <= 0)
+				s_totalWinPercent = 1;  //prevent divide by zero
+
+			//std::map<AsciiString, float>::iterator it;
+			//for (it = s_winStats.begin(); it != s_winStats.end(); ++it)
+			for (int i = 0; i < stats.matches.size(); ++i)
+			{
+				float fThisPercent = ((float)stats.wins[i] / (float)stats.matches[i]);
+
+				int percent = (int)(100.0f * (fThisPercent / s_totalWinPercent));
+				percStr.format(TheGameText->fetch("GUI:WinPercent"), percent);
+				wndName.format("WOLWelcomeMenu.wnd:Percent%s", "TODO");
+				pWin = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY(wndName));
+				GadgetCheckBoxSetText(pWin, percStr);
+				//x		DEBUG_LOG(("Initialized win percent: %s -> %s %f=%s\n", wndName.str(), it->first.str(), it->second, percStr.str() ));
+			} //for
+		});
+
+	return;
 	UnicodeString percStr;
 	AsciiString wndName;
 	GameWindow* pWin;
@@ -496,6 +535,23 @@ static void updateOverallStats(void)
 
 void UpdateLocalPlayerStats(void)
 {
+	/*
+	int a = 0;
+	for (int i = 0; i < ThePlayerTemplateStore->getPlayerTemplateCount(); i++)
+	{
+		const PlayerTemplate* pTemplate = ThePlayerTemplateStore->getNthPlayerTemplate(i);
+		if (!pTemplate->isPlayableSide() || pTemplate->getSide().compare("Boss") == 0)
+		{
+			NetworkLog("Player Template %d is fake", i); 
+			continue;  //skip non-players
+		}
+
+		NetworkLog("Player Template %d (%d) is real", i, a);
+		++a;
+
+		
+	}
+	*/
 
 	GameWindow *welcomeParent = TheWindowManager->winGetWindowFromId( NULL, NAMEKEY("WOLWelcomeMenu.wnd:WOLWelcomeMenuParent") );
 
@@ -670,9 +726,6 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 
 	updateNumPlayersOnline();
 	updateOverallStats();
-
-	// TODO_NGMP
-
 	UpdateLocalPlayerStats();
 
 	// NGMP: We removed locales, it was pointless
