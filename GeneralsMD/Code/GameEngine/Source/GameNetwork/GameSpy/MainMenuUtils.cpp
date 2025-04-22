@@ -801,7 +801,8 @@ void StartPatchCheck( void )
 					onlineCancelWindow = NULL;
 				}
 
-				TearDownGeneralsOnline();
+				// TODO_NGMP: do this everywhere teardowngamespy was called
+				TearDownGeneralsOnline(false);
 
 				MessageBoxOk(TheGameText->fetch("GUI:CannotConnectToServservTitle"),
 					TheGameText->fetch("GUI:CannotConnectToServserv"),

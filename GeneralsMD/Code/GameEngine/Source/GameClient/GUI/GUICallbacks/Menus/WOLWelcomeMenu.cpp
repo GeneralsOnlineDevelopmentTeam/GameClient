@@ -740,9 +740,7 @@ void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 		NGMP_OnlineServicesManager::GetInstance()->ConsumePendingFullTeardown();
 
 		// NGMP: Don't need to logout here, just kill the WS connection, that triggers a log out
-		TearDownGeneralsOnline();
-
-		DEBUG_LOG(("Tearing down GeneralsOnline from WOLWelcomeMenuSystem(GBM_SELECTED)\n"));
+		TearDownGeneralsOnline(true);
 
 		buttonPushed = TRUE;
 
@@ -933,7 +931,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 					//TheGameSpyChat->disconnectFromChat();
 					
 					// NGMP: Don't need to logout here, just kill the WS connection, that triggers a log out
-					TearDownGeneralsOnline();
+					TearDownGeneralsOnline(false);
 
 					DEBUG_LOG(("Tearing down GeneralsOnline from WOLWelcomeMenuSystem(GBM_SELECTED)\n"));
 

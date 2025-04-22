@@ -1140,12 +1140,40 @@ static void refreshPlayerList( Bool forceRefresh )
 				playerListRefreshTime = timeGetTime();
 		}
 }
+
+void ExitState()
+{
+	if (s_tryingToHostOrJoin)
+		return;
+
+	// Leave any group room, then pop off the screen
+	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->LeaveRoom();
+
+	SetLobbyAttemptHostJoin(TRUE); // pretend, since we don't want to queue up another action
+	buttonPushed = true;
+	nextScreen = "Menus/WOLWelcomeMenu.wnd";
+	TheShell->pop();
+}
+
 //-------------------------------------------------------------------------------------------------
 /** WOL Lobby Menu update method */
 //-------------------------------------------------------------------------------------------------
 void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 {
-		if(justEntered)
+	// need to exit?
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->IsPendingFullTeardown())
+	{
+		if (!s_tryingToHostOrJoin)
+		{
+			s_tryingToHostOrJoin = false;
+			ExitState();
+			TearDownGeneralsOnline(true);
+		}		
+
+		return;
+	}
+
+	if(justEntered)
 	{
 		if(initialGadgetDelay == 1)
 		{
@@ -1783,16 +1811,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 				// If we back out, just bail - we haven't gotten far enough to need to log out
 				if ( controlID == buttonBackID )
 				{
-					if (s_tryingToHostOrJoin)
-						break;
-
-					// Leave any group room, then pop off the screen
-					NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->LeaveRoom();
-
-					SetLobbyAttemptHostJoin( TRUE ); // pretend, since we don't want to queue up another action
-					buttonPushed = true;
-					nextScreen = "Menus/WOLWelcomeMenu.wnd";
-					TheShell->pop();
+					ExitState();
 
 				} //if ( controlID == buttonBack )
 				else if ( controlID == buttonRefreshID )

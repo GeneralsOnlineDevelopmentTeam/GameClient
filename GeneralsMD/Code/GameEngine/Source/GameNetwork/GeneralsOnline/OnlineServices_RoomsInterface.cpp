@@ -260,7 +260,10 @@ void WebSocket::Tick()
 			}
 			else if (meta->flags & CURLWS_CLOSE)
 			{
+				// TODO_NGMP: Dont do this during gameplay, they can play without the WS, just 'queue' it for when they get back to the front end
+
 				NetworkLog("Got websocket close");
+				NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown();
 				m_bConnected = false;
 				// TODO_NGMP: Handle this
 			}
@@ -279,6 +282,14 @@ void WebSocket::Tick()
 		{
 			NetworkLog("websocket meta was null");
 		}
+	}
+	else if (ret == CURLE_RECV_ERROR)
+	{
+		// TODO_NGMP: Dont do this during gameplay, they can play without the WS, just 'queue' it for when they get back to the front end
+
+		NetworkLog("Got websocket disconnect");
+		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown();
+		m_bConnected = false;
 	}
 
 }

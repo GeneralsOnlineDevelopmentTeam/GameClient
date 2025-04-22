@@ -110,11 +110,21 @@
 
 // GENERALS ONLINE
 #include "../OnlineServices_Init.h"
+#include "../../GameSpyOverlay.h"
 
 static bool g_bTearDownGeneralsOnlineRequested = false;
-void TearDownGeneralsOnline()
+void TearDownGeneralsOnline(bool bWasDisconnectionError)
 {
 	g_bTearDownGeneralsOnlineRequested = true;
+
+	if (bWasDisconnectionError)
+	{
+		UnicodeString title, body;
+		title = TheGameText->fetch("GUI:GSErrorTitle");
+		body = L"Your connection to the Generals Online servers was lost.";
+		GameSpyCloseAllOverlays();
+		GSMessageBoxOk(title, body);
+	}
 }
 
 #ifdef _INTERNAL
