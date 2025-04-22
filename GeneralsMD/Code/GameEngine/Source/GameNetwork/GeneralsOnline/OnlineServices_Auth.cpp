@@ -336,6 +336,14 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 	}
 }
 
+void NGMP_OnlineServices_AuthInterface::DeleteMyAccount()
+{
+	// delete on service
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("User", true), m_userID);
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", nullptr);
+}
+
 void NGMP_OnlineServices_AuthInterface::LoginAsSecondaryDevAccount()
 {
 

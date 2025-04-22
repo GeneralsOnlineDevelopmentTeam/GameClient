@@ -110,17 +110,8 @@
 
 // GENERALS ONLINE
 #include "../OnlineServices_Init.h"
-static NGMP_OnlineServicesManager* g_pOnlineServicesMgr = nullptr;
-static bool g_bTearDownGeneralsOnlineRequested = false;
-void InitGeneralsOnline()
-{
-	// GENERALS ONLINE
-	if (g_pOnlineServicesMgr == nullptr)
-	{
-		g_pOnlineServicesMgr = new NGMP_OnlineServicesManager();
-	}
-}
 
+static bool g_bTearDownGeneralsOnlineRequested = false;
 void TearDownGeneralsOnline()
 {
 	g_bTearDownGeneralsOnlineRequested = true;
@@ -242,11 +233,7 @@ GameEngine::~GameEngine()
 	TheFileSystem = NULL;
 
 	// GENERALS ONLINE
-	if (g_pOnlineServicesMgr != nullptr)
-	{
-		delete g_pOnlineServicesMgr;
-		g_pOnlineServicesMgr = nullptr;
-	}
+	NGMP_OnlineServicesManager::DestroyInstance();
 
 	if (TheGameLODManager)
 		delete TheGameLODManager;
@@ -790,17 +777,12 @@ if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
 {
 	g_bTearDownGeneralsOnlineRequested = false;
 
-	if (g_pOnlineServicesMgr != nullptr)
-	{
-		g_pOnlineServicesMgr->Shutdown();
-		delete g_pOnlineServicesMgr;
-		g_pOnlineServicesMgr = nullptr;
-	}
+	NGMP_OnlineServicesManager::DestroyInstance();
 
 }
-if (g_pOnlineServicesMgr != nullptr)
+if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 {
-	g_pOnlineServicesMgr->Tick();
+	NGMP_OnlineServicesManager::GetInstance()->Tick();
 }
 
 if (TheNetwork != NULL)

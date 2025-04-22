@@ -116,6 +116,25 @@ public:
 #endif
 	static std::string GetAPIEndpoint(const char* szEndpoint, bool bAttachToken);
 
+	static void CreateInstance()
+	{
+		if (m_pOnlineServicesManager == nullptr)
+		{
+			m_pOnlineServicesManager = new NGMP_OnlineServicesManager();
+		}
+	}
+
+	static void DestroyInstance()
+	{
+		if (m_pOnlineServicesManager != nullptr)
+		{
+			m_pOnlineServicesManager->Shutdown();
+
+			delete m_pOnlineServicesManager;
+			m_pOnlineServicesManager = nullptr;
+		}
+	}
+
 	static NGMP_OnlineServicesManager* GetInstance()
 	{
 		return m_pOnlineServicesManager;
@@ -228,6 +247,9 @@ public:
 
 	std::string& GetMOTD() { return m_strMOTD; }
 
+	void SetPendingFullTeardown() { m_bPendingFullTeardown = true; }
+	bool IsPendingFullTeardown() const { return m_bPendingFullTeardown; }
+	void ConsumePendingFullTeardown() { m_bPendingFullTeardown = false; }
 
 private:
 	//EOS_HPlatform m_EOSPlatformHandle = nullptr;
@@ -256,4 +278,6 @@ private:
 	WebSocket* m_pWebSocket = nullptr;
 
 	std::string m_strMOTD;
+
+	bool m_bPendingFullTeardown = false;
 };

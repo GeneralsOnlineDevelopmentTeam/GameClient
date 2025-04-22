@@ -774,7 +774,7 @@ void StopAsyncDNSCheck( void )
 void StartPatchCheck( void )
 {
 	// GENERALS ONLINE
-	InitGeneralsOnline();
+	NGMP_OnlineServicesManager::CreateInstance();
 
 	checkingForPatchBeforeGameSpy = TRUE;
 	cantConnectBeforeOnline = FALSE;

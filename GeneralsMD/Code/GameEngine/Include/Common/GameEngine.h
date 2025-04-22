@@ -55,7 +55,6 @@ class Radar;
 class WebBrowser;
 class ParticleSystemManager;
 
-void InitGeneralsOnline();
 void TearDownGeneralsOnline();
 
 /**

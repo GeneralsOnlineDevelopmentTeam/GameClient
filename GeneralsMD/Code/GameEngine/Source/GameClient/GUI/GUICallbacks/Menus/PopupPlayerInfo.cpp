@@ -62,6 +62,7 @@
 
 #include "../ngmp_interfaces.h"
 #include "../ngmp_include.h"
+#include "../OnlineServices_Init.h"
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -1319,10 +1320,10 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 	if(lookAtPlayerID == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
 	{
 		//buttonbuttonOptions->winHide(FALSE);
-		buttonSetLocale->winHide(FALSE);
-		buttonDeleteAccount->winHide(TRUE); // set back to false when we have this worked out.
-		checkBoxAsianFont->winHide(FALSE);
-		checkBoxNonAsianFont->winHide(FALSE);
+		buttonSetLocale->winHide(TRUE);
+		buttonDeleteAccount->winHide(FALSE); // set back to false when we have this worked out.
+		checkBoxAsianFont->winHide(TRUE);
+		checkBoxNonAsianFont->winHide(TRUE);
 	}
 	else
 	{
@@ -1544,9 +1545,13 @@ WindowMsgHandledType GameSpyPlayerInfoOverlaySystem( GameWindow *window, Unsigne
 
 static void messageBoxYes( void )
 {
-	BuddyRequest breq;
-	breq.buddyRequestType = BuddyRequest::BUDDYREQUEST_DELETEACCT;
-	TheGameSpyBuddyMessageQueue->addRequest( breq );
-	TheGameSpyInfo->setLocalProfileID(0);
+	// delete account
+	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->DeleteMyAccount();
+
+	NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown();
+
+	// and go back
+	RefreshGameListBoxes();
+	GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
 	
 }
