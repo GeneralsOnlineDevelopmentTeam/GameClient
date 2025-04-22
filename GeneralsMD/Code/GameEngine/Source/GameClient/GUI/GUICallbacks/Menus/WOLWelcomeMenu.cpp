@@ -672,9 +672,11 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	updateOverallStats();
 
 	// TODO_NGMP
-#if !defined(GENERALS_ONLINE)
+
 	UpdateLocalPlayerStats();
 
+	// NGMP: We removed locales, it was pointless
+#if !defined(GENERALS_ONLINE)
 	GameSpyMiscPreferences cPref;
 	if (cPref.getLocale() < LOC_MIN || cPref.getLocale() > LOC_MAX)
 	{
