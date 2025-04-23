@@ -477,9 +477,9 @@ static void updateOverallStats(void)
 			GameWindow* pWin;
 
 			// calculate total win percent
-			s_totalWinPercent = 0.f;
 			int totalWins = 0;
 			int totalGames = 0;
+			s_totalWinPercent = 0.f;
 
 			for (int i = 0; i < stats.matches.size(); ++i)
 			{
@@ -487,7 +487,9 @@ static void updateOverallStats(void)
 				totalGames += stats.matches[i];
 			}
 
-			// store percent
+			if (totalGames <= 0)
+				totalGames = 1;  //prevent divide by zero
+
 			s_totalWinPercent = ((float)totalWins / (float)totalGames);
 
 			if (s_totalWinPercent <= 0)
@@ -499,9 +501,15 @@ static void updateOverallStats(void)
 			{
 				float fThisPercent = ((float)stats.wins[i] / (float)stats.matches[i]);
 
-				int percent = (int)(100.0f * (fThisPercent / s_totalWinPercent));
-				percStr.format(TheGameText->fetch("GUI:WinPercent"), percent);
-				wndName.format("WOLWelcomeMenu.wnd:Percent%s", "TODO");
+				std::string teamName = g_mapServiceIndexToPlayerTemplateString[i]; 
+
+				//int percent = (int)(100.0f * (fThisPercent / s_totalWinPercent));
+				//percStr.format(TheGameText->fetch("GUI:WinPercent"), percent);
+
+				NetworkLog(teamName.c_str());
+
+				percStr.format(L"%d%% (%d of %d)", (int)(100.f*fThisPercent), stats.wins[i], stats.matches[i]);
+				wndName.format("WOLWelcomeMenu.wnd:Percent%s", teamName.c_str());
 				pWin = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY(wndName));
 				GadgetCheckBoxSetText(pWin, percStr);
 				//x		DEBUG_LOG(("Initialized win percent: %s -> %s %f=%s\n", wndName.str(), it->first.str(), it->second, percStr.str() ));
@@ -540,19 +548,22 @@ void UpdateLocalPlayerStats(void)
 	for (int i = 0; i < ThePlayerTemplateStore->getPlayerTemplateCount(); i++)
 	{
 		const PlayerTemplate* pTemplate = ThePlayerTemplateStore->getNthPlayerTemplate(i);
+		AsciiString side = pTemplate->getSide();
+
 		if (!pTemplate->isPlayableSide() || pTemplate->getSide().compare("Boss") == 0)
 		{
-			NetworkLog("Player Template %d is fake", i); 
+			NetworkLog("Player Template %d (%s) is fake", i, side.str());
 			continue;  //skip non-players
 		}
 
-		NetworkLog("Player Template %d (%d) is real", i, a);
+		
+
+		NetworkLog("Player Template %d (%d - %s) is real", i, a, side.str());
 		++a;
 
 		
 	}
 	*/
-
 	GameWindow *welcomeParent = TheWindowManager->winGetWindowFromId( NULL, NAMEKEY("WOLWelcomeMenu.wnd:WOLWelcomeMenuParent") );
 
 	if (welcomeParent)
