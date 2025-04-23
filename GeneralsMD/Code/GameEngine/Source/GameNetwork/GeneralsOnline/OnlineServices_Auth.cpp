@@ -290,7 +290,8 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 							}
 
 							// cache our local stats 
-							NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->GetLocalPlayerStats([=]()
+							int64_t localUser = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+							NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(localUser, [=](bool bSuccess, PSPlayerStats stats)
 								{
 									// go to next screen
 									ClearGSMessageBoxes();
@@ -301,7 +302,7 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 										cb(bResult);
 									}
 									m_vecLogin_PendingCallbacks.clear();
-								});
+								}, EStatsRequestPolicy::BYPASS_CACHE_FORCE_REQUEST);
 							
 
 						}
