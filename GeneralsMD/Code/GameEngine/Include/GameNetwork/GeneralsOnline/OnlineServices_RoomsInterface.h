@@ -19,6 +19,8 @@ class NGMP_OnlineServices_RoomsInterface
 public:
 	NGMP_OnlineServices_RoomsInterface();
 
+	void GetRoomList(std::function<void(void)> cb);
+
 	void UpdateRoomDataCache();
 	
 	std::function<void()> m_PendingRoomJoinCompleteCallback = nullptr;
@@ -90,6 +92,11 @@ public:
 		}
 	}
 
+	std::vector<NetworkRoom> GetGroupRooms()
+	{
+		return m_vecRooms;
+	}
+
 	void OnRosterUpdated(std::vector<std::string> vecUsers, std::vector<int64_t> vecIDs);
 
 	int GetCurrentRoomID() const { return m_CurrentRoomID; }
@@ -102,6 +109,8 @@ private:
 	
 	// TODO_NGMP: cleanup
 	NetworkMesh* m_pNetRoomMesh = nullptr;
+
+	std::vector<NetworkRoom> m_vecRooms;
 
 	std::map<uint64_t, NetworkRoomMember> m_mapMembers = std::map<uint64_t, NetworkRoomMember>();
 };

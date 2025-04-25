@@ -400,8 +400,7 @@ static void populateGroupRoomListbox(GameWindow *lb)
 	}
 	*/
 
-	NGMP_OnlineServicesManager* pOnlineServicesManager = NGMP_OnlineServicesManager::GetInstance();
-	for (NetworkRoom netRoom : pOnlineServicesManager->GetGroupRooms())
+	for (NetworkRoom netRoom : NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms())
 	{
 		// TODO_NGMP: Support current group color highlighting again
 		int roomID = netRoom.GetRoomID();
@@ -889,24 +888,30 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 			refreshPlayerList(true);
 		});
 
-	// attempt to join the first room
-	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->JoinRoom(0, []()
+	// upon entry, retrieve room list
+
+	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetRoomList([=]()
 		{
-			//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
-		},
-		[]()
-		{
-			UnicodeString msg;
-			msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetGroupRooms().at(0).GetRoomDisplayName().str());
-			GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+			// attempt to join the first room
+			NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->JoinRoom(0, []()
+				{
+					//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
+				},
+				[]()
+				{
+					UnicodeString msg;
+					msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomDisplayName().str());
+					GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 
-			// refresh on join
-			refreshPlayerList(TRUE);
+					// refresh on join
+					refreshPlayerList(TRUE);
 
-			RefreshGameListBoxes();
+					RefreshGameListBoxes();
 
-			populateGroupRoomListbox(comboLobbyGroupRooms);
+					populateGroupRoomListbox(comboLobbyGroupRooms);
+				});
 		});
+	
 
 	GrabWindowInfo();
 
@@ -2005,7 +2010,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 								[=]()
 								{
 									UnicodeString msg;
-									msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetGroupRooms().at(groupID).GetRoomDisplayName().str());
+									msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(groupID).GetRoomDisplayName().str());
 									GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 
 									// refresh on join

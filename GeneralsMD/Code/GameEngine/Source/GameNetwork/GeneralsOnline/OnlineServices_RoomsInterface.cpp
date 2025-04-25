@@ -1,10 +1,13 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_Hello.h"
 #include "GameNetwork/GeneralsOnline/NetworkPacket.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h"
 #include "GameNetwork/GeneralsOnline/NetworkBitstream.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
+#include "../OnlineServices_Init.h"
+#include "../HTTP/HTTPManager.h"
 
 WebSocket::WebSocket()
 {
@@ -322,6 +325,44 @@ NGMP_OnlineServices_RoomsInterface::NGMP_OnlineServices_RoomsInterface()
 	*/
 }
 
+void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> cb)
+{
+	m_vecRooms.clear();
+
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Rooms", true);
+	std::map<std::string, std::string> mapHeaders;
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			try
+			{
+				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+
+				for (const auto& roomEntryIter : jsonObject["rooms"])
+				{
+					int id = 0;
+					std::string strName;
+
+					
+					roomEntryIter["id"].get_to(id);
+					roomEntryIter["name"].get_to(strName);
+					NetworkRoom roomEntry(id, strName);
+
+					m_vecRooms.push_back(roomEntry);
+				}
+
+				cb();
+			}
+			catch (...)
+			{
+
+			}
+
+			// TODO_NGMP: Error handling
+			cb();
+		});
+}
+
 void NGMP_OnlineServices_RoomsInterface::UpdateRoomDataCache()
 {
 	/*
@@ -410,7 +451,7 @@ void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<v
 	// TODO_NGMP: Remove this, its no longer a call really, or make a call
 	onStartCallback();
 	m_CurrentRoomID = roomIndex;
-	NetworkRoom targetNetworkRoom = NGMP_OnlineServicesManager::GetInstance()->GetGroupRooms().at(roomIndex);
+	NetworkRoom targetNetworkRoom = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(roomIndex);
 	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_JoinNetworkRoom(targetNetworkRoom.GetRoomID());
 
 	onCompleteCallback();

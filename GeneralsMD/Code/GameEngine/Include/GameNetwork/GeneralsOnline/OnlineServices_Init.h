@@ -64,11 +64,10 @@ private:
 class NetworkRoom
 {
 public:
-	NetworkRoom(int roomID, const wchar_t* strRoomName, const char* szRoomInternalName)
+	NetworkRoom(int roomID, std::string strRoomName)
 	{
 		m_RoomID = roomID;
-		m_strRoomDisplayName = UnicodeString(strRoomName);
-		m_strRoomInternalName = AsciiString(szRoomInternalName);
+		m_strRoomDisplayName.translate(AsciiString(strRoomName.c_str()));
 	}
 
 	~NetworkRoom()
@@ -78,12 +77,10 @@ public:
 
 	int GetRoomID() const { return m_RoomID; }
 	UnicodeString GetRoomDisplayName() const { return m_strRoomDisplayName; }
-	AsciiString GetRoomInternalName() const { return m_strRoomInternalName; }
 
 private:
 	int m_RoomID;
 	UnicodeString m_strRoomDisplayName;
-	AsciiString m_strRoomInternalName;
 };
 
 enum NGMP_ENATType : uint8_t
@@ -204,11 +201,6 @@ public:
 
 	PortMapper& GetPortMapper() { return m_PortMapper; }
 
-	std::vector<NetworkRoom> GetGroupRooms()
-	{
-		return m_vecRooms;
-	}
-
 	void ProcessMOTD(const char* szMOTD)
 	{
 		m_strMOTD = std::string(szMOTD);
@@ -259,12 +251,6 @@ public:
 private:
 	//EOS_HPlatform m_EOSPlatformHandle = nullptr;
 
-	// TODO_NGMP: Get this from title storage or session query instead
-	std::vector<NetworkRoom> m_vecRooms =
-	{
-		NetworkRoom(0, L"Room 1", "NETWORK_ROOM_0"),
-		NetworkRoom(1, L"Room 2", "NETWORK_ROOM_1")
-	};
 
 	NGMP_ENATType m_NATType = NGMP_ENATType::NAT_TYPE_UNDETERMINED;
 
