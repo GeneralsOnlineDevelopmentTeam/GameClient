@@ -499,7 +499,17 @@ static void updateOverallStats(void)
 			//for (it = s_winStats.begin(); it != s_winStats.end(); ++it)
 			for (int i = 0; i < stats.matches.size(); ++i)
 			{
-				float fThisPercent = ((float)stats.wins[i] / (float)stats.matches[i]);
+				int wins = stats.wins[i];
+				int matches = stats.matches[i];
+
+				// div by 0 fix
+				if (matches == 0)
+				{
+					matches = 1;
+				}
+
+
+				float fThisPercent = ((float)wins / (float)matches);
 
 				std::string teamName = g_mapServiceIndexToPlayerTemplateString[i]; 
 
