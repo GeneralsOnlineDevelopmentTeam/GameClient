@@ -1012,6 +1012,11 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 
 void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 {
+	if (!IsInLobby())
+	{
+		return;
+	}
+
 	m_timeStartAutoReadyCountdown = -1;
 
 	// kill mesh

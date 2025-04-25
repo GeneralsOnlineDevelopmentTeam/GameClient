@@ -775,6 +775,9 @@ void NGMP_WOLLobbyMenu_JoinLobbyCallback(EJoinLobbyResult result)
 //-------------------------------------------------------------------------------------------------
 void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 {
+	// for safety (and sanity)
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->LeaveCurrentLobby();
+
 	// TODO_NGMP: impl this again
 	GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("WOLCustomLobby.wnd:ButtonBuddy"));
 	if (buttonBuddy)

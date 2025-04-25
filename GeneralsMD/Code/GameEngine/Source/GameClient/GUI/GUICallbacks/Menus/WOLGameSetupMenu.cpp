@@ -1466,13 +1466,16 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			TheNGMPGame->startGame(0);
 		});
 
-	// TODO_NGMP
-	/*
+
 	if (TheNGMPGame && TheNGMPGame->isGameInProgress())
 	{
+		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->LeaveCurrentLobby();
 		TheNGMPGame->setGameInProgress(FALSE);
 
 		// check if we were disconnected
+
+		// TODO_NGMP: Handle disconnected
+		/*
 		Int disconReason;
 		if (TheGameSpyInfo->isDisconnectedAfterGameStart(&disconReason))
 		{
@@ -1488,19 +1491,23 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			TheShell->popImmediate();
 			return;
 		}
+		*/
 
 		// If we init while the game is in progress, we are really returning to the menu
 		// after the game.  So, we pop the menu and go back to the lobby.  Whee!
 		DEBUG_LOG(("WOLGameSetupMenuInit() - game was in progress, so pop immediate back to lobby\n"));
 		TheShell->popImmediate();
-		if (TheGameSpyPeerMessageQueue && TheGameSpyPeerMessageQueue->isConnected())
+
+		// TODO_NGMP: Only do this if still connected to service
+		//if (TheGameSpyPeerMessageQueue && TheGameSpyPeerMessageQueue->isConnected())
 		{
 			DEBUG_LOG(("We're still connected, so pushing back on the lobby\n"));
 			TheShell->push("Menus/WOLCustomLobby.wnd", TRUE);
 		}
+
+		
 		return;
 	}
-	*/
 
 	// TODO_NGMP
 	//TheGameSpyInfo->setCurrentGroupRoom(0);
@@ -1709,7 +1716,9 @@ static void shutdownComplete( WindowLayout *layout )
 
 	if (nextScreen != NULL)
 	{
-		if (!TheGameSpyPeerMessageQueue || !TheGameSpyPeerMessageQueue->isConnected())
+		// TODO_NGMP: Handle disconnect again
+		if (false)
+		//if (!TheGameSpyPeerMessageQueue || !TheGameSpyPeerMessageQueue->isConnected())
 		{
 			DEBUG_LOG(("GameSetup shutdownComplete() - skipping push because we're disconnected\n"));
 		}
