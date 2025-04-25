@@ -1213,7 +1213,7 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
 	if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty())
 	{
-		const bool bShouldAutoRefresh = false;
+		const bool bShouldAutoRefresh = true;
 
 		pLobbyInterface->ConsumeLobbyListDirtyFlag();
 		

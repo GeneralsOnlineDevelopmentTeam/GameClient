@@ -352,6 +352,7 @@ void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> c
 				}
 
 				cb();
+				return;
 			}
 			catch (...)
 			{
@@ -360,6 +361,7 @@ void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> c
 
 			// TODO_NGMP: Error handling
 			cb();
+			return;
 		});
 }
 
