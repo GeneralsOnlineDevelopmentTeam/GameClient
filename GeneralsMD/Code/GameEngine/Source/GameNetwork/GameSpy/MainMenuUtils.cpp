@@ -150,7 +150,7 @@ static void noPatchBeforeOnlineCallback( void )
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-static Bool hasWriteAccess()
+static Bool hasWriteAccess(bool bFileAccessOnly = false)
 {
 	const char* filename = "PatchAccessTest.txt";	
 
@@ -165,15 +165,19 @@ static Bool hasWriteAccess()
 	_close(handle);
 	remove(filename);
 	
-	unsigned int val;
-	if (!GetUnsignedIntFromRegistry("", "Version", val))
+	// NGMP: We don't care about registry anymore... just disk access
+	if (!bFileAccessOnly)
 	{
-		return false;
-	}
+		unsigned int val;
+		if (!GetUnsignedIntFromRegistry("", "Version", val))
+		{
+			return false;
+		}
 
-	if (!SetUnsignedIntInRegistry("", "Version", val))
-	{
-		return false;
+		if (!SetUnsignedIntInRegistry("", "Version", val))
+		{
+			return false;
+		}
 	}
 
 	return true;
@@ -824,17 +828,28 @@ void StartPatchCheck( void )
 						onlineCancelWindow = NULL;
 					}
 
-					// NOTE: we treat all patches as mandatory currently
-					onlineCancelWindow = MessageBoxOkCancel(TheGameText->fetch("GUI:PatchAvailable"),
-					UnicodeString(L"An update is required.\n\nPlease visit www.playgenerals.online to download the latest update"), []()
+					if (!hasWriteAccess(true))
 					{
-							NGMP_OnlineServicesManager::GetInstance()->DownloadUpdate([]()
-								{
-									// now try the patch check again
-									MessageBoxOk(UnicodeString(L"Update done!"), UnicodeString(L"Please restart"), nullptr);
-								});
+						MessageBoxOk(TheGameText->fetch("GUI:Error"),
+							TheGameText->fetch("GUI:MustHaveAdminRights"),
+							CancelPatchCheckCallbackAndReopenDropdown);
+					}
+					else if (mustDownloadPatch)
+					{
+						// NOTE: we treat all patches as mandatory currently
+						onlineCancelWindow = MessageBoxOkCancel(TheGameText->fetch("GUI:PatchAvailable"),
+							UnicodeString(L"An update is required.\n\n Press OK to begin updating.\n\nOtherwise, you can visit www.playgenerals.online to download the latest update manually"), []()
+							{
+								NGMP_OnlineServicesManager::GetInstance()->StartDownloadUpdate([]()
+									{
+										MessageBoxOk(UnicodeString(L"Update Ready"), UnicodeString(L"Press OK to begin installing the patch"), []()
+											{
+												NGMP_OnlineServicesManager::GetInstance()->LaunchPatcher();
+											});
+									});
 
-					}, CancelPatchCheckCallbackAndReopenDropdown);
+							}, CancelPatchCheckCallbackAndReopenDropdown);
+					}
 				}
 			}
 		});

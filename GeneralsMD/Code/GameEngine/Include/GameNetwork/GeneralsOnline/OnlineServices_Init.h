@@ -186,7 +186,9 @@ public:
 	WebSocket* GetWebSocket() const { return m_pWebSocket; }
 	HTTPManager* GetHTTPManager() const { return m_pHTTPManager; }
 
-	void DownloadUpdate(std::function<void(void)> cb);
+	void LaunchPatcher();
+	void StartDownloadUpdate(std::function<void(void)> cb);
+	void ContinueUpdate();
 
 	NGMP_OnlineServices_AuthInterface* GetAuthInterface() const { return m_pAuthInterface; }
 	NGMP_OnlineServices_LobbyInterface* GetLobbyInterface() const { return m_pLobbyInterface; }
@@ -282,4 +284,14 @@ private:
 	std::string m_strMOTD;
 
 	bool m_bPendingFullTeardown = false;
+
+	std::queue<std::string> m_vecFilesToDownload;
+	std::vector<std::string> m_vecFilesDownloaded;
+	std::function<void(void)> m_updateCompleteCallback = nullptr;
+
+	const std::string strPatchDir = "GeneralsOnlinePatch";
+
+	std::string m_patcher_name;
+	std::string m_patcher_path;
+	std::string m_patchfile_path;
 };
