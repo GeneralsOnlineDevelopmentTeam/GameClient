@@ -181,7 +181,7 @@ public:
 		}
 	}
 
-	void StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback);
+	void StartVersionCheck(UnsignedInt exeCRC, UnsignedInt iniCRC, std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback);
 
 	WebSocket* GetWebSocket() const { return m_pWebSocket; }
 	HTTPManager* GetHTTPManager() const { return m_pHTTPManager; }

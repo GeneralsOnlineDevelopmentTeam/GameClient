@@ -55,6 +55,7 @@
 #include "WWDownload/urlBuilder.h"
 #include "../OnlineServices_Init.h"
 #include "Common/GameEngine.h"
+#include "Common/GlobalData.h"
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -788,7 +789,7 @@ void StartPatchCheck( void )
 	// TODO_NGMP: Uninit this when leaving MP, waste of resources and cycles
 	NGMP_OnlineServicesManager::GetInstance()->Init();
 
-	NGMP_OnlineServicesManager::GetInstance()->StartVersionCheck([](bool bSuccess, bool bNeedsUpdate)
+	NGMP_OnlineServicesManager::GetInstance()->StartVersionCheck(TheGlobalData->m_exeCRC, TheGlobalData->m_iniCRC, [](bool bSuccess, bool bNeedsUpdate)
 		{
 			cantConnectBeforeOnline = !bSuccess;
 			mustDownloadPatch = bNeedsUpdate;

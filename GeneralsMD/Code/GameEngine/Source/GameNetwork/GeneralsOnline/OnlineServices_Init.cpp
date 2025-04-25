@@ -66,11 +66,13 @@ void NGMP_OnlineServicesManager::Shutdown()
 	}
 }
 
-void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback)
+void NGMP_OnlineServicesManager::StartVersionCheck(UnsignedInt exeCRC, UnsignedInt iniCRC, std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback)
 {
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck", false);
 
 	nlohmann::json j;
+	j["execrc"] = exeCRC;
+	j["inicrc"] = iniCRC;
 	j["ver"] = GENERALS_ONLINE_VERSION;
 	j["netver"] = GENERALS_ONLINE_NET_VERSION;
 	j["servicesver"] = GENERALS_ONLINE_SERVICE_VERSION;
