@@ -419,8 +419,6 @@ void NGMPGame::launchGame(void)
 	GameMessage* msg = TheMessageStream->appendMessage(GameMessage::MSG_NEW_GAME);
 	msg->appendIntegerArgument(GAME_INTERNET);
 
-	// TODO_NGMP
-	TheWritableGlobalData->m_framesPerSecondLimit = 60;
 	TheWritableGlobalData->m_useFpsLimit = false;
 
 	// Set the random seed

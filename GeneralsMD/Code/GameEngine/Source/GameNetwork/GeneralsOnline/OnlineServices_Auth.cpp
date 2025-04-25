@@ -289,20 +289,18 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 								bResult = bWSConnected;
 							}
 
+							// NOTE: Don't need to get stats here, PopulatePlayerInfoWindows is called as part of going to MP...
 							// cache our local stats 
-							int64_t localUser = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-							NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(localUser, [=](bool bSuccess, PSPlayerStats stats)
-								{
-									// go to next screen
-									ClearGSMessageBoxes();
+							// 
+							// go to next screen
+							ClearGSMessageBoxes();
 
-									for (auto cb : m_vecLogin_PendingCallbacks)
-									{
-										// TODO_NGMP: Support failure
-										cb(bResult);
-									}
-									m_vecLogin_PendingCallbacks.clear();
-								}, EStatsRequestPolicy::BYPASS_CACHE_FORCE_REQUEST);
+							for (auto cb : m_vecLogin_PendingCallbacks)
+							{
+								// TODO_NGMP: Support failure
+								cb(bResult);
+							}
+							m_vecLogin_PendingCallbacks.clear();
 							
 
 						}
