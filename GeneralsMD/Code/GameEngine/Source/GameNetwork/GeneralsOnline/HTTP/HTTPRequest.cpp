@@ -11,7 +11,7 @@ size_t WriteMemoryCallback(void* contents, size_t sizePerByte, size_t numBytes, 
 	return trueNumBytes;
 }
 
-HTTPRequest::HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const char* szURI, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody)> completionCallback,
+HTTPRequest::HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const char* szURI, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback,
 	std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/) noexcept
 {
 	m_pCURL = curl_easy_init();
@@ -103,7 +103,7 @@ void HTTPRequest::InvokeCallbackIfComplete()
 		// TODO_HTTP: Assert if not game thread
 		if (m_completionCallback != nullptr)
 		{
-			m_completionCallback(true, m_responseCode, m_strResponse);
+			m_completionCallback(true, m_responseCode, m_strResponse, this);
 		}
 	}
 }

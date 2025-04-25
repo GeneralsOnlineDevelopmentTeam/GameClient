@@ -789,7 +789,7 @@ void StartPatchCheck( void )
 	// TODO_NGMP: Uninit this when leaving MP, waste of resources and cycles
 	NGMP_OnlineServicesManager::GetInstance()->Init();
 
-	NGMP_OnlineServicesManager::GetInstance()->StartVersionCheck(TheGlobalData->m_exeCRC, TheGlobalData->m_iniCRC, [](bool bSuccess, bool bNeedsUpdate)
+	NGMP_OnlineServicesManager::GetInstance()->StartVersionCheck(TheGlobalData->m_exeCRC, TheWritableGlobalData->m_iniCRC, [](bool bSuccess, bool bNeedsUpdate)
 		{
 			cantConnectBeforeOnline = !bSuccess;
 			mustDownloadPatch = bNeedsUpdate;
@@ -824,8 +824,17 @@ void StartPatchCheck( void )
 						onlineCancelWindow = NULL;
 					}
 
-					onlineCancelWindow = MessageBoxOk(TheGameText->fetch("GUI:PatchAvailable"),
-						UnicodeString(L"An update is required.\n\nPlease visit www.playgenerals.online to download the latest update"), CancelPatchCheckCallbackAndReopenDropdown);
+					// NOTE: we treat all patches as mandatory currently
+					onlineCancelWindow = MessageBoxOkCancel(TheGameText->fetch("GUI:PatchAvailable"),
+					UnicodeString(L"An update is required.\n\nPlease visit www.playgenerals.online to download the latest update"), []()
+					{
+							NGMP_OnlineServicesManager::GetInstance()->DownloadUpdate([]()
+								{
+									// now try the patch check again
+									MessageBoxOk(UnicodeString(L"Update done!"), UnicodeString(L"Please restart"), nullptr);
+								});
+
+					}, CancelPatchCheckCallbackAndReopenDropdown);
 				}
 			}
 		});

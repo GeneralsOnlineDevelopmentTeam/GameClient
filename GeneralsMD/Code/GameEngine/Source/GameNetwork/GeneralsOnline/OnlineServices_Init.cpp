@@ -79,7 +79,7 @@ void NGMP_OnlineServicesManager::StartVersionCheck(UnsignedInt exeCRC, UnsignedI
 	std::string strPostData = j.dump();
 
 	std::map<std::string, std::string> mapHeaders;
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			try
 			{
@@ -101,6 +101,24 @@ void NGMP_OnlineServicesManager::StartVersionCheck(UnsignedInt exeCRC, UnsignedI
 				NetworkLog("VERSION CHECK: Failed to parse response");
 				fnCallback(false, false);
 			}
+		});
+}
+
+void NGMP_OnlineServicesManager::DownloadUpdate(std::function<void(void)> cb)
+{
+	std::string strDownloadPath = "https://playgenerals.online/updater/generalszh.exe";
+
+	// this isnt a super nice way of doing this, lets make a download manager
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			uint8_t* pBuffer = pReq->GetBuffer();
+			size_t bufSize = pReq->GetBufferSize();
+
+			FILE* pFile = fopen("patch.data", "wb");
+			fwrite(pBuffer, sizeof(uint8_t), bufSize, pFile);
+			fclose(pFile);
+			NetworkLog("DONE!");
 		});
 }
 
@@ -327,7 +345,7 @@ void NGMP_OnlineServicesManager::Tick()
 		if (m_pAuthInterface != nullptr && m_pAuthInterface->IsLoggedIn())
 		{
 			std::map<std::string, std::string> mapHeaders;
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(std::format("https://playgenerals.online/cloud/env:dev:{}/User", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken()).c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody)
+			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(std::format("https://playgenerals.online/cloud/env:dev:{}/User", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken()).c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
 					// TODO_NGMP: Handle 404 (session terminated)
 				});

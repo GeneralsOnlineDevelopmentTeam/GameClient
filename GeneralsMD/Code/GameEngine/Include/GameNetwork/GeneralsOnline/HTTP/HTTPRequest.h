@@ -11,7 +11,7 @@ enum class EIPProtocolVersion;
 class HTTPRequest
 {
 public:
-	HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const char* szURI, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody)> completionCallback, std::function<void(size_t bytesReceived)>
+	HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const char* szURI, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)>
 		progressCallback = nullptr) noexcept;
 	~HTTPRequest();
 
@@ -48,6 +48,10 @@ public:
 
 	void Threaded_SetComplete();
 
+	// mainly used for downloads
+	uint8_t* GetBuffer() { return m_pBuffer; }
+	size_t GetBufferSize() { return m_currentBufSize_Used; }
+
 private:
 	void PlatformStartRequest();
 
@@ -76,7 +80,7 @@ private:
 	bool m_bIsStarted = false;
 	bool m_bIsComplete = false;
 
-	std::function<void(bool bSuccess, int statusCode, std::string strBody)> m_completionCallback = nullptr;
+	std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> m_completionCallback = nullptr;
 
 	std::function<void(size_t bytesReceived)> m_progressCallback = nullptr;
 };
