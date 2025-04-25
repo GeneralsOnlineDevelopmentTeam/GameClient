@@ -5,6 +5,7 @@
 #include "Common/FileSystem.h"
 #include "Common/file.h"
 #include "realcrc.h"
+#include "../../DownloadManager.h"
 
 NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager = nullptr;
 
@@ -21,8 +22,10 @@ struct VersionCheckResponse
 	std::string patcher_name;
 	std::string patcher_path;
 	std::string patchfile_path;
+	int64_t patcher_size;
+	int64_t patchfile_size;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result, patcher_name, patcher_path, patchfile_path)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result, patcher_name, patcher_path, patchfile_path, patcher_size, patchfile_size)
 };
 
 NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
@@ -118,6 +121,8 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 					m_patcher_name = authResp.patcher_name;
 					m_patcher_path = authResp.patcher_path;
 					m_patchfile_path = authResp.patchfile_path;
+					m_patcher_size = authResp.patcher_size;
+					m_patchfile_size = authResp.patchfile_size;
 
 					fnCallback(true, true);
 				}
@@ -142,10 +147,19 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 		std::string strDownloadPath = m_vecFilesToDownload.front();
 		m_vecFilesToDownload.pop();
 
+		uint32_t downloadSize = m_vecFilesSizes.front();
+		m_vecFilesSizes.pop();
+
+		TheDownloadManager->SetFileName(AsciiString(strDownloadPath.c_str()));
+		TheDownloadManager->OnStatusUpdate(DOWNLOADSTATUS_DOWNLOADING);
+
 		// this isnt a super nice way of doing this, lets make a download manager
 		std::map<std::string, std::string> mapHeaders;
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
+				// set done
+				TheDownloadManager->OnProgressUpdate(downloadSize, downloadSize, 0, 0);
+
 				m_vecFilesDownloaded.push_back(strDownloadPath);
 
 				char CurDir[MAX_PATH + 1] = {};
@@ -171,13 +185,28 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 				ContinueUpdate();
 
 				NetworkLog("GOT FILE: %s", strDownloadPath.c_str());
-			});
+			},
+			[=](size_t bytesReceived)
+			{
+				//m_bytesReceivedSoFar += bytesReceived;
+
+				TheDownloadManager->OnProgressUpdate(bytesReceived, downloadSize, -1, -1);
+			}
+			);
 	}
 	else if (m_vecFilesToDownload.size() == 0 && m_vecFilesDownloaded.size() > 0) // nothing left but we did download something
 	{
+		TheDownloadManager->SetFileName("Update is complete!");
+		TheDownloadManager->OnStatusUpdate(DOWNLOADSTATUS_FINISHING);
+
 		m_updateCompleteCallback();
 	}
 	
+}
+
+void NGMP_OnlineServicesManager::CancelUpdate()
+{
+
 }
 
 void NGMP_OnlineServicesManager::LaunchPatcher()
@@ -210,10 +239,19 @@ void NGMP_OnlineServicesManager::LaunchPatcher()
 
 void NGMP_OnlineServicesManager::StartDownloadUpdate(std::function<void(void)> cb)
 {
+	TheDownloadManager->SetFileName("Connecting to update service...");
+	TheDownloadManager->OnStatusUpdate(DOWNLOADSTATUS_CONNECTING);
+
 	m_vecFilesToDownload = std::queue<std::string>();
 	m_vecFilesDownloaded.clear();
-	m_vecFilesToDownload.emplace(m_patcher_path); // patcher
-	m_vecFilesToDownload.emplace(m_patchfile_path); // patch
+
+	// patcher
+	m_vecFilesToDownload.emplace(m_patcher_path);
+	m_vecFilesSizes.emplace(m_patcher_size);
+
+	// patch
+	m_vecFilesToDownload.emplace(m_patchfile_path);
+	m_vecFilesSizes.emplace(m_patchfile_size);
 	
 	m_updateCompleteCallback = cb;
 

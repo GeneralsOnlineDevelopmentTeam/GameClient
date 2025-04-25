@@ -838,8 +838,14 @@ void StartPatchCheck( void )
 					{
 						// NOTE: we treat all patches as mandatory currently
 						onlineCancelWindow = MessageBoxOkCancel(TheGameText->fetch("GUI:PatchAvailable"),
-							UnicodeString(L"An update is required.\n\n Press OK to begin updating.\n\nOtherwise, you can visit www.playgenerals.online to download the latest update manually"), []()
+							UnicodeString(L"An update is required.\n\nPress OK to begin updating.\n\nOtherwise, you can visit www.playgenerals.online to download the latest update manually"), []()
 							{
+								WindowLayout* layout;
+								layout = TheWindowManager->winCreateLayout(AsciiString("Menus/DownloadMenu.wnd"));
+								layout->runInit();
+								layout->hide(FALSE);
+								layout->bringForward();
+
 								NGMP_OnlineServicesManager::GetInstance()->StartDownloadUpdate([]()
 									{
 										MessageBoxOk(UnicodeString(L"Update Ready"), UnicodeString(L"Press OK to begin installing the patch"), []()

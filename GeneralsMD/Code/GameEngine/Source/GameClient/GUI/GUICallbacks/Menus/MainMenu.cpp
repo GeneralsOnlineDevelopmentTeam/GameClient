@@ -77,6 +77,7 @@
 //Added By Saad
 //for accessing the InGameUI
 #include "GameClient/InGameUI.h"
+#include "../OnlineServices_Init.h"
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -226,6 +227,8 @@ extern Bool dispChanged;
 void diffReverseSide( void );
 void HandleCanceledDownload( Bool resetDropDown )
 {
+	NGMP_OnlineServicesManager::GetInstance()->CancelUpdate();
+
 	buttonPushed = FALSE;
 	if (resetDropDown)
 	{

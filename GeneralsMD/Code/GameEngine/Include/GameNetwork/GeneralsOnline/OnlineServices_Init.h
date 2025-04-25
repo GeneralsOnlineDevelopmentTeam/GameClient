@@ -186,6 +186,7 @@ public:
 	WebSocket* GetWebSocket() const { return m_pWebSocket; }
 	HTTPManager* GetHTTPManager() const { return m_pHTTPManager; }
 
+	void CancelUpdate();
 	void LaunchPatcher();
 	void StartDownloadUpdate(std::function<void(void)> cb);
 	void ContinueUpdate();
@@ -286,6 +287,7 @@ private:
 	bool m_bPendingFullTeardown = false;
 
 	std::queue<std::string> m_vecFilesToDownload;
+	std::queue<int64_t> m_vecFilesSizes;
 	std::vector<std::string> m_vecFilesDownloaded;
 	std::function<void(void)> m_updateCompleteCallback = nullptr;
 
@@ -294,4 +296,6 @@ private:
 	std::string m_patcher_name;
 	std::string m_patcher_path;
 	std::string m_patchfile_path;
+	int64_t m_patcher_size;
+	int64_t m_patchfile_size;
 };
