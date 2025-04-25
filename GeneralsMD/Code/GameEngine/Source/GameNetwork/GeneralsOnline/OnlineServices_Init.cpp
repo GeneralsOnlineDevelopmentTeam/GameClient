@@ -2,6 +2,9 @@
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "../json.hpp"
 #include "GameClient/MessageBox.h"
+#include "Common/FileSystem.h"
+#include "Common/file.h"
+#include "realcrc.h"
 
 NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager = nullptr;
 
@@ -71,13 +74,24 @@ void NGMP_OnlineServicesManager::Shutdown()
 	}
 }
 
-void NGMP_OnlineServicesManager::StartVersionCheck(UnsignedInt exeCRC, UnsignedInt iniCRC, std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback)
+void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback)
 {
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck", false);
 
+	// NOTE: Generals 'CRCs' are not true CRC's, its a custom algorithm. This is fine for lobby comparisons, but its not good for patch comparisons.
+
+	// exe crc
+	Char filePath[_MAX_PATH];
+	GetModuleFileName(NULL, filePath, sizeof(filePath));
+	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+	std::streamsize size = file.tellg();
+	file.seekg(0, std::ios::beg);
+	std::vector<uint8_t> buffer(size);
+	file.read((char*)buffer.data(), size);
+	uint32_t realExeCRC = CRC_Memory((unsigned char*)buffer.data(), size);
+
 	nlohmann::json j;
-	j["execrc"] = exeCRC;
-	j["inicrc"] = iniCRC;
+	j["execrc"] = realExeCRC;
 	j["ver"] = GENERALS_ONLINE_VERSION;
 	j["netver"] = GENERALS_ONLINE_NET_VERSION;
 	j["servicesver"] = GENERALS_ONLINE_SERVICE_VERSION;
