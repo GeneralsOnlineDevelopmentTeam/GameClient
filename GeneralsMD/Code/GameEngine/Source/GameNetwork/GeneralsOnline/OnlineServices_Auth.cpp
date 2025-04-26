@@ -14,6 +14,7 @@
 
 
 #include "GameNetwork/GeneralsOnline/vendor/libcurl/curl.h"
+#include "libsodium/sodium/crypto_aead_aes256gcm.h"
 
 enum class EAuthResponseResult : int
 {
@@ -71,6 +72,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 		nlohmann::json j;
 		j["token"] = strToken.c_str();
+		j["challenge"] = PrepareChallenge();
 		std::string strPostData = j.dump();
 
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
@@ -98,6 +100,11 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
 						NetworkLog("LOGIN: Login failed, dev account cannot reauth");
+
+						m_bWaitingLogin = false;
+
+						// trigger callback
+						OnLoginComplete(false, "", "");
 					}
 				}
 				catch (...)
@@ -194,6 +201,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 
 			nlohmann::json j;
 			j["code"] = m_strCode.c_str();
+			j["challenge"] = PrepareChallenge();
 			std::string strPostData = j.dump();
 
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
@@ -332,6 +340,8 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 			cb(false);
 		}
 		m_vecLogin_PendingCallbacks.clear();
+
+		TheShell->pop();
 	}
 }
 

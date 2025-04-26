@@ -506,7 +506,7 @@ void WOLLoginMenuInit( WindowLayout *layout, void *userData )
 	TheTransitionHandler->setGroup("GameSpyLoginProfileFade");
 
 	// NGMP
-	GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Authenticating. You may need to interact with your web browser to complete this step."), true);
+	GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Authenticating.\n\nYou may need to interact with your web browser to complete this step."), true);
 
 } // WOLLoginMenuInit
 

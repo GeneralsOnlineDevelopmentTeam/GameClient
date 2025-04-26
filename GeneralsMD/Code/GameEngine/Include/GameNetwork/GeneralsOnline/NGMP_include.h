@@ -65,3 +65,7 @@ static std::unordered_map<int, std::string> g_mapServiceIndexToPlayerTemplateStr
 #if defined(GENERALS_ONLINE_BRANCH_JMARSHALL)
 #include "../Console/Console.h"
 #endif
+
+std::string Base64Encode(const std::vector<uint8_t>& data);
+std::vector<uint8_t> Base64Decode(const std::string& encodedData);
+std::string PrepareChallenge();

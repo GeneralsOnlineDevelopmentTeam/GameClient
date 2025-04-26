@@ -884,7 +884,13 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 				AsciiString localeID = "WOL:Locale00";
 				if (stats.locale >= LOC_MIN && stats.locale <= LOC_MAX)
 					localeID.format("WOL:Locale%2.2d", stats.locale);
+
+				// NGMP: Dont show the "from <locale> anymore...
+#if defined(GENERALS_ONLINE)
+				uStr.format(L"%hs", lookAtPlayerName.c_str());
+#else
 				uStr.format(TheGameText->fetch("GUI:PlayerStatistics"), lookAtPlayerName.c_str(), TheGameText->fetch(localeID).str());
+#endif
 				GadgetStaticTextSetText(win, uStr);
 			}
 			win = findWindow(NULL, parentWindowName, "StaticTextGamesPlayedValue");

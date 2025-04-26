@@ -604,7 +604,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 				lobbyEntryJSON["enc_key"].get_to(strEncKey);
 				lobbyEntryJSON["enc_nonce"].get_to(strEncIV);
 				lobbyEntry.EncKey.resize(32);
-				lobbyEntry.EncIV.resize(32);
+				lobbyEntry.EncIV.resize(12);
 				lobbyEntry.EncKey.clear();
 				lobbyEntry.EncIV.clear();
 

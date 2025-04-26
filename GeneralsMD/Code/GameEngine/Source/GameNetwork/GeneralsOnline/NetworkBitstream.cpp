@@ -23,7 +23,7 @@ void CBitStream::Decrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 
 	std::vector<unsigned char> vecDecryptedBytes(m_memBuffer.GetAllocatedSize());
 	unsigned long long decrypted_len;
-	if (crypto_aead_aegis256_decrypt(&vecDecryptedBytes.data()[0], &decrypted_len,
+	if (crypto_aead_aes256gcm_decrypt(&vecDecryptedBytes.data()[0], &decrypted_len,
 		NULL,
 		&m_memBuffer.GetData()[0], m_memBuffer.GetAllocatedSize(),
 		ADDITIONAL_DATA,
@@ -56,10 +56,8 @@ void CBitStream::Encrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 	//#define ENCRYPT_TEST_FIXED_DATA
 	
 	// encrypt
-	#define ADDITIONAL_DATA (const unsigned char *) "123456"
-	#define ADDITIONAL_DATA_LEN 6
 
-	std::vector<unsigned char> ciphertext(GetNumBytesUsed() + crypto_aead_aegis256_ABYTES);
+	std::vector<unsigned char> ciphertext(GetNumBytesUsed() + crypto_aead_aes256gcm_ABYTES);
 
 	unsigned long long ciphertext_len;
 
@@ -67,9 +65,9 @@ void CBitStream::Encrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 
 	
 
-	crypto_aead_aegis256_encrypt(&ciphertext.data()[0], &ciphertext_len,
+	crypto_aead_aes256gcm_encrypt(&ciphertext.data()[0], &ciphertext_len,
 		GetRawBuffer(), GetNumBytesUsed(),
-		ADDITIONAL_DATA, ADDITIONAL_DATA_LEN,
+		nullptr, 0,
 		NULL, &vecIV.data()[0], &vecKey.data()[0]);
 
 	// resize buffer and copy back
