@@ -87,15 +87,15 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						NetworkLog("LOGIN: Logged in");
 						m_bWaitingLogin = false;
 
-						SaveCredentials(authResp.al_token.c_str());
+						SaveCredentials(DecryptServiceToken(authResp.al_token).c_str());
 
 						// store data locally
-						m_strToken = authResp.ss_token;
+						m_strToken = DecryptServiceToken(authResp.ss_token);
 						m_userID = authResp.user_id;
 						m_strDisplayName = authResp.display_name;
 
 						// trigger callback
-						OnLoginComplete(true, authResp.ws_uri.c_str(), authResp.ws_token.c_str());
+						OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str(), DecryptServiceToken(authResp.ws_token).c_str());
 					}
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
@@ -140,15 +140,15 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 								NetworkLog("LOGIN: Logged in");
 								m_bWaitingLogin = false;
 
-								SaveCredentials(authResp.al_token.c_str());
+								SaveCredentials(DecryptServiceToken(authResp.al_token).c_str());
 
 								// store data locally
-								m_strToken = authResp.ss_token;
+								m_strToken = DecryptServiceToken(authResp.ss_token);
 								m_userID = authResp.user_id;
 								m_strDisplayName = authResp.display_name;
 
 								// trigger callback
-								OnLoginComplete(true, authResp.ws_uri.c_str(), authResp.ws_token.c_str());
+								OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str(), DecryptServiceToken(authResp.ws_token).c_str());
 							}
 							else if (authResp.result == EAuthResponseResult::FAILED)
 							{
@@ -225,15 +225,15 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						NetworkLog("LOGIN: Logged in");
 						m_bWaitingLogin = false;
 
-						SaveCredentials(authResp.al_token.c_str());
+						SaveCredentials(DecryptServiceToken(authResp.al_token).c_str());
 
 						// store data locally
-						m_strToken = authResp.ss_token;
+						m_strToken = DecryptServiceToken(authResp.ss_token);
 						m_userID = authResp.user_id;
 						m_strDisplayName = authResp.display_name;
 
 						// trigger callback
-						OnLoginComplete(true, authResp.ws_uri.c_str(), authResp.ws_token.c_str());
+						OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str(), DecryptServiceToken(authResp.ws_token).c_str());
 					}
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
@@ -314,7 +314,7 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 						}
 						catch (...)
 						{
-							NetworkLog("VERSION CHECK: Failed to parse response");
+							NetworkLog("LOGIN: Failed to parse response");
 
 							// if MOTD was bad, still proceed, its a soft error
 							NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD("Error retrieving MOTD");
@@ -325,9 +325,11 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 							for (auto cb : m_vecLogin_PendingCallbacks)
 							{
 								// TODO_NGMP: Support failure
-								cb(true);
+								cb(false);
 							}
 							m_vecLogin_PendingCallbacks.clear();
+
+							TheShell->pop();
 						}
 					});
 			});

@@ -47,6 +47,7 @@ void PortMapper::Tick()
 
 			// callback
 			m_callbackDeterminedCaps();
+			m_callbackDeterminedCaps = nullptr;
 
 			closesocket(m_NATSocket);
 			WSACleanup();
@@ -61,6 +62,7 @@ void PortMapper::Tick()
 
 			// callback
 			m_callbackDeterminedCaps();
+			m_callbackDeterminedCaps = nullptr;
 
 			closesocket(m_NATSocket);
 			WSACleanup();
@@ -121,6 +123,7 @@ void PortMapper::StartNATCheck()
 		NetworkLog("[NAT Check]: Failed to initialize Winsock. Error: %d", WSAGetLastError());
 		m_directConnect = ECapabilityState::UNSUPPORTED;
 		m_callbackDeterminedCaps();
+		m_callbackDeterminedCaps = nullptr;
 		return;
 	}
 
@@ -132,6 +135,7 @@ void PortMapper::StartNATCheck()
 		WSACleanup();
 		m_directConnect = ECapabilityState::UNSUPPORTED;
 		m_callbackDeterminedCaps();
+		m_callbackDeterminedCaps = nullptr;
 		return;
 	}
 
@@ -144,6 +148,7 @@ void PortMapper::StartNATCheck()
 		WSACleanup();
 		m_directConnect = ECapabilityState::UNSUPPORTED;
 		m_callbackDeterminedCaps();
+		m_callbackDeterminedCaps = nullptr;
 		return;
 	}
 
@@ -159,6 +164,7 @@ void PortMapper::StartNATCheck()
 		WSACleanup();
 		m_directConnect = ECapabilityState::UNSUPPORTED;
 		m_callbackDeterminedCaps();
+		m_callbackDeterminedCaps = nullptr;
 		return;
 	}
 
@@ -185,6 +191,7 @@ void PortMapper::StartNATCheck()
 				// return immediately, wont work
 				m_directConnect = ECapabilityState::UNSUPPORTED;
 				m_callbackDeterminedCaps();
+				m_callbackDeterminedCaps = nullptr;
 
 				NetworkLog("[NAT Checker]: Error code %d", statusCode);
 			}

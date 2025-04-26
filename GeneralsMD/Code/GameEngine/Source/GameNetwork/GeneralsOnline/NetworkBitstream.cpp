@@ -22,7 +22,7 @@ void CBitStream::Decrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 #define ADDITIONAL_DATA_LEN 6
 
 	std::vector<unsigned char> vecDecryptedBytes(m_memBuffer.GetAllocatedSize());
-	unsigned long long decrypted_len;
+	unsigned long long decrypted_len = 0;
 	if (crypto_aead_aes256gcm_decrypt(&vecDecryptedBytes.data()[0], &decrypted_len,
 		NULL,
 		&m_memBuffer.GetData()[0], m_memBuffer.GetAllocatedSize(),

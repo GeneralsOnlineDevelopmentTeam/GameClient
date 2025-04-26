@@ -2,6 +2,8 @@
 #include <chrono>
 #include "libsodium/sodium/crypto_aead_aes256gcm.h"
 
+//#define USE_ENCRYPTED_SERVICE_TOKENS 1
+
 std::string m_strNetworkLogFileName;
 
 void NetworkLog(const char* fmt, ...)
@@ -152,4 +154,36 @@ std::string PrepareChallenge()
 	ciphertext.resize(ciphertext_len);
 
 	return Base64Encode(ciphertext);
+}
+
+std::string DecryptServiceToken(std::string strServiceToken)
+{
+#if defined(USE_ENCRYPTED_SERVICE_TOKENS)
+	const unsigned char key[32] = { 0, 7, 0, 1, 7, 9, 4, 1, 4, 6, 2, 1, 0, 4, 6, 1, 3, 2, 6, 1, 9, 3, 5, 9, 3, 1, 2, 2, 3, 4, 1, 6 };
+	const unsigned char iv[12] = { 6, 9, 5, 4, 1, 2, 3, 6, 5, 8, 7, 4 };
+
+	std::vector<uint8_t> vecDecodedToken = Base64Decode(strServiceToken);
+
+	std::vector<unsigned char> vecDecryptedBytes;
+	unsigned long long decrypted_len = 0;
+	if (crypto_aead_aes256gcm_decrypt(&vecDecryptedBytes.data()[0], &decrypted_len,
+		NULL,
+		&vecDecodedToken.data()[0], vecDecodedToken.size(),
+		nullptr,
+		0,
+		&iv[0], &key[0]) != 0)
+	{
+		NetworkLog("Token decrypt failed");
+		return "";
+	}
+	else
+	{
+		vecDecryptedBytes.resize(decrypted_len);
+		std::string decryptedTokenString(vecDecryptedBytes.begin(), vecDecryptedBytes.end());
+
+		return decryptedTokenString;
+	}
+#else
+	return strServiceToken;
+#endif
 }
