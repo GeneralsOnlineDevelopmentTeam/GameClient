@@ -84,16 +84,14 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 		{
 			int ret = enet_peer_send(peer, 0, pENetPacket);
 
-			char ip[INET_ADDRSTRLEN + 1] = { 0 };
-			enet_address_get_host_ip(&peer->address, ip, sizeof(ip));
-
+			std::string ip = connection.second.GetIPAddrString();
 			if (ret == 0)
 			{
-				NetworkLog("Packet Sent! %s:%d", ip, peer->address.port);
+				NetworkLog("Packet Sent! %s:%d", ip.c_str(), peer->address.port);
 			}
 			else
 			{
-				NetworkLog("Packet Failed To Send! %s:%d", ip, peer->address.port);
+				NetworkLog("Packet Failed To Send! %s:%d", ip.c_str(), peer->address.port);
 			}
 		}
 	}
@@ -129,6 +127,39 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 	*/
 }
 
+void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEntry> vecLobbyMembers)
+{
+	std::vector<int64_t> vecConnectionsToRemove;
+	for (auto& connectionData : m_mapConnections)
+	{
+		int64_t thisConnectionUserID = connectionData.first;
+
+		// do we have a lobby member for it? otherwise disconnect
+		bool bFoundLobbyMemberForConnection = false;
+		for (LobbyMemberEntry& lobbyMember : vecLobbyMembers)
+		{
+			if (lobbyMember.user_id == thisConnectionUserID)
+			{
+				bFoundLobbyMemberForConnection = true;
+				break;
+			}
+		}
+
+		if (!bFoundLobbyMemberForConnection)
+		{
+			NetworkLog("We have a connection open to user id %d, but no lobby member exists, disconnecting", thisConnectionUserID);
+			vecConnectionsToRemove.push_back(thisConnectionUserID);
+		}
+	}
+
+	// now delete + remove from map
+	for (int64_t userIDToDisconnect : vecConnectionsToRemove)
+	{
+		enet_peer_disconnect_now(m_mapConnections[userIDToDisconnect].m_peer, 0);
+		m_mapConnections.erase(userIDToDisconnect);
+	}
+}
+
 void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsReconnect)
 {
 	ENetAddress addr;
@@ -136,10 +167,11 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 	addr.port = lobbyMember.preferredPort;
 
 	// TODO_NGMP: error handle on get host ip
+#if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 	char ip[INET_ADDRSTRLEN + 1] = { 0 };
 	enet_address_get_host_ip(&addr, ip, sizeof(ip));
-
 	NetworkLog("Connecting to %s:%d. (pref port was actually %d)", ip, addr.port, lobbyMember.preferredPort);
+#endif
 
 	ConnectToSingleUser(addr, lobbyMember.user_id, bIsReconnect);
 }
@@ -302,6 +334,7 @@ void NetworkMesh::Tick()
 			case ENET_EVENT_TYPE_CONNECT:
 			{
 				// TODO_NGMP: Set a timeout where we remove it, and only accept hello if not connected
+#if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 				char ip[INET_ADDRSTRLEN + 1] = { 0 };
 				if (enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip)) == 0)
 				{
@@ -309,6 +342,7 @@ void NetworkMesh::Tick()
 						ip,
 						event.peer->address.port);
 				}
+#endif
 
 				// send challenge
 				Net_ChallengePacket challengePacket;
@@ -319,44 +353,6 @@ void NetworkMesh::Tick()
 					ENET_PACKET_FLAG_RELIABLE);
 
 				enet_peer_send(event.peer, 2, pENetPacket);
-
-
-				/*
-				// find user
-				// TODO_NGMP: What if it isnt found? could be an unauthorized user but could also be someone connecting before we know they're in the lobby
-				PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
-				if (pConnection != nullptr)
-					{
-					if (pConnection->m_State != EConnectionState::CONNECTED_DIRECT)
-					{
-						NetworkLog("Found connection for user %d", pConnection->m_userID);
-
-						// TODO_NGMP: Add a timeout for connections
-						pConnection->m_State = EConnectionState::CONNECTED_DIRECT;
-
-						// did the endpoint change? we should just use that, thats what the other side is talking to us on
-						if (pConnection->m_address.host != event.peer->address.host
-							|| pConnection->m_address.port != event.peer->address.port)
-						{
-							char oldIp[INET_ADDRSTRLEN + 1] = { 0 };
-							enet_address_get_host_ip(&pConnection->m_address, oldIp, sizeof(oldIp));
-							char newIp[INET_ADDRSTRLEN + 1] = { 0 };
-							enet_address_get_host_ip(&event.peer->address, newIp, sizeof(newIp));
-
-
-							NetworkLog("Endpoint for user %lld changed. Before: %s:%d, now %s:%d", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
-							pConnection->m_address = event.peer->address;
-							pConnection->m_peer->address = event.peer->address;
-							// 
-							// 							ENetAddress addr;
-							// 							enet_address_set_host(&addr, newIp);
-							// 							addr.port = event.peer->address.port;
-							// 
-							// 							UpdatePeerConnection(event.peer, addr);
-						}
-					}
-					}
-					*/
 
 				break;
 			}
@@ -406,12 +402,13 @@ void NetworkMesh::Tick()
 					if (packetID == EPacketID::PACKET_ID_CHALLENGE) // remote host is challenging us
 					{
 						// server sends hello ack in response to hello
+#if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 						char ip[INET_ADDRSTRLEN + 1] = { 0 };
 						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
+						NetworkLog("[NGMP]: Got challenge req from %s:%d, sending challenge resp", ip, event.peer->address.port);
+#endif
 
 						Net_ChallengePacket challengePacket(bitstream);
-
-						NetworkLog("[NGMP]: Got challenge req from %s:%d, sending challenge resp", ip, event.peer->address.port);
 
 						// just send manually to that one user, dont broadcast
 						Net_ChallengeRespPacket challengeRespPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
@@ -443,53 +440,20 @@ void NetworkMesh::Tick()
 					{
 						Net_ChallengeRespPacket challengeRespPacket(bitstream);
 
+#if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 						char ip[INET_ADDRSTRLEN + 1] = { 0 };
 						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
 						NetworkLog("[NGMP]: Received ack from %s (user ID: %d), we're now connected", ip, challengeRespPacket.GetUserID());
+#endif
 
 						// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
 						// store the connection
 						m_mapConnections[challengeRespPacket.GetUserID()] = PlayerConnection(challengeRespPacket.GetUserID(), event.peer->address, event.peer);
 						m_mapConnections[challengeRespPacket.GetUserID()].m_State = EConnectionState::CONNECTED_DIRECT;
 
+#if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 						NetworkLog("[NGMP]: Registered client connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, challengeRespPacket.GetUserID());
-
-						/*
-				// find user
-				// TODO_NGMP: What if it isnt found? could be an unauthorized user but could also be someone connecting before we know they're in the lobby
-				PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
-				if (pConnection != nullptr)
-					{
-					if (pConnection->m_State != EConnectionState::CONNECTED_DIRECT)
-					{
-						NetworkLog("Found connection for user %d", pConnection->m_userID);
-
-						// TODO_NGMP: Add a timeout for connections
-						pConnection->m_State = EConnectionState::CONNECTED_DIRECT;
-
-						// did the endpoint change? we should just use that, thats what the other side is talking to us on
-						if (pConnection->m_address.host != event.peer->address.host
-							|| pConnection->m_address.port != event.peer->address.port)
-						{
-							char oldIp[INET_ADDRSTRLEN + 1] = { 0 };
-							enet_address_get_host_ip(&pConnection->m_address, oldIp, sizeof(oldIp));
-							char newIp[INET_ADDRSTRLEN + 1] = { 0 };
-							enet_address_get_host_ip(&event.peer->address, newIp, sizeof(newIp));
-
-
-							NetworkLog("Endpoint for user %lld changed. Before: %s:%d, now %s:%d", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
-							pConnection->m_address = event.peer->address;
-							pConnection->m_peer->address = event.peer->address;
-							//
-							// 							ENetAddress addr;
-							// 							enet_address_set_host(&addr, newIp);
-							// 							addr.port = event.peer->address.port;
-							//
-							// 							UpdatePeerConnection(event.peer, addr);
-						}
-					}
-					}
-					*/
+#endif
 					}
 
 					continue;

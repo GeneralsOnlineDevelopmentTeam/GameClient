@@ -1,6 +1,7 @@
 #pragma once
 
 #include "NGMP_include.h"
+#include <ws2ipdef.h>
 
 enum class EConnectionState
 {
@@ -26,6 +27,17 @@ public:
 		m_userID = userID;
 		m_address = addr;
 		m_peer = peer;
+	}
+
+	std::string GetIPAddrString()
+	{
+#if !defined(_DEBUG)
+		char ip[INET_ADDRSTRLEN + 1] = { 0 };
+		enet_address_get_host_ip(&m_address, ip, sizeof(ip));
+		return std::string(ip);
+#else
+		return std::string("<redacted>");
+#endif
 	}
 
 	
@@ -70,6 +82,8 @@ public:
 	bool SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
 
 	void SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers);
+
+	void SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEntry> vecLobbyMembers);
 
 	void ConnectToSingleUser(LobbyMemberEntry& member, bool bIsReconnect = false);
 	void ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect = false);

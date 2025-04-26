@@ -1113,26 +1113,17 @@ static const char* getMessageString(Int t)
 static void refreshGameList( Bool forceRefresh )
 {
 	// TODO_NGMP: rate limit this like before
-	RefreshGameListBoxes();
+	//RefreshGameListBoxes();
 
-	/*
 	Int refreshInterval = gameListRefreshInterval;
 
 	if (forceRefresh || ((gameListRefreshTime == 0) || ((gameListRefreshTime + refreshInterval) <= timeGetTime())))
 	{
-		if (TheGameSpyInfo->hasStagingRoomListChanged())
-		{
-			//DEBUG_LOG(("################### refreshing game list\n"));
-			//DEBUG_LOG(("gameRefreshTime=%d, refreshInterval=%d, now=%d\n", gameListRefreshTime, refreshInterval, timeGetTime()));
-			RefreshGameListBoxes();
-			gameListRefreshTime = timeGetTime();
-		} else {
-			//DEBUG_LOG(("-"));
-		}
+		RefreshGameListBoxes();
+		gameListRefreshTime = timeGetTime();
 	} else {
 		//DEBUG_LOG(("gameListRefreshTime: %d refreshInterval: %d\n"));
 	}
-	*/
 }
 //-------------------------------------------------------------------------------------------------
 /** refreshPlayerList 

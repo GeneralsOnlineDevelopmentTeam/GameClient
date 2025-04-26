@@ -1061,16 +1061,21 @@ void WOLDisplaySlotList( void )
 			if (i == game->getLocalSlotNum())
 			{
 				LobbyMemberEntry member = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromID(slot->m_userID);
-				PlayerConnection* pConnection = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetConnectionForUser(slot->m_userID);
 
 				std::string strPingString = "";
 				std::string strConnectionState = "Not Connected";
 				int latency = -1;
-				if (pConnection != nullptr)
+
+				if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh() != nullptr)
 				{
-					strConnectionState = "Connected";
-					latency = pConnection->latency;
-					
+					PlayerConnection* pConnection = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetConnectionForUser(slot->m_userID);
+
+					if (pConnection != nullptr)
+					{
+						strConnectionState = "Connected";
+						latency = pConnection->latency;
+
+					}
 				}
 				
 				strPingString = std::format("Display Name: {}\nUser ID: {}\nConnection Type: {}\nLatency: {}",
@@ -2798,8 +2803,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		for (auto& kvPair : connections)
 		{
 			PlayerConnection& conn = kvPair.second;
-			char ip[INET_ADDRSTRLEN + 1] = { 0 };
-			enet_address_get_host_ip(&conn.m_address, ip, sizeof(ip));
+			std::string strIPAddr = conn.GetIPAddrString();
 
 			std::string strState = "Unknown";
 
@@ -2856,7 +2860,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 
 			UnicodeString msg;
 			msg.format(L"        Connection %d (%hs) - user %lld - name %hs - addr %hs:%d - State: %hs - Attempts: %d - Latency: %d",
-				i, strConnectionType.c_str(), kvPair.first, strDisplayName.c_str(), ip, conn.m_address.port, strState.c_str(), conn.m_ConnectionAttempts, conn.latency);
+				i, strConnectionType.c_str(), kvPair.first, strDisplayName.c_str(), strIPAddr.c_str(), conn.m_address.port, strState.c_str(), conn.m_ConnectionAttempts, conn.latency);
 			GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 
 			++i;

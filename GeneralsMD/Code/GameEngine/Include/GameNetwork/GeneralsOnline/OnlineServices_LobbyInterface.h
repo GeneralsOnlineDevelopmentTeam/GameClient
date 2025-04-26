@@ -363,4 +363,6 @@ private:
 	int64_t m_timeStartAutoReadyCountdown = -1;
 
 	LobbyEntry m_LobbyTryingToJoin;
+
+	bool m_bSearchInProgress = false;
 };

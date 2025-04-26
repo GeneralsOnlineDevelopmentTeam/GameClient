@@ -316,6 +316,12 @@ NGMP_OnlineServices_LobbyInterface::NGMP_OnlineServices_LobbyInterface()
 
 void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> onStartCallback, std::function<void(std::vector<LobbyEntry>)> onCompleteCallback)
 {
+	if (m_bSearchInProgress)
+	{
+		return;
+	}
+
+	m_bSearchInProgress = true;
 	m_vecLobbies.clear();
 
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies", true);
@@ -394,6 +400,7 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 		}
 
 		onCompleteCallback(m_vecLobbies);
+		m_bSearchInProgress = false;
 	});
 }
 
@@ -679,6 +686,12 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							}
 						}
 					}
+				}
+
+				// disconnect from anyone who is no longer in the lobby
+				if (m_pLobbyMesh != nullptr)
+				{
+					m_pLobbyMesh->SyncConnectionListToLobbyMemberList(lobbyEntry.members);
 				}
 
 				// did the host change?

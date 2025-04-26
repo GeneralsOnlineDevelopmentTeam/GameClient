@@ -140,6 +140,9 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		}
 		else
 		{
+			// set empty
+			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(i);
+			slot->setState(SLOT_OPEN);
 			// TODO_NGMP: Support AI slots
 			
 			/*
