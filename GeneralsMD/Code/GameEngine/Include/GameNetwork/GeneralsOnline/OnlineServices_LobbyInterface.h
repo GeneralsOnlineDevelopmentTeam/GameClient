@@ -91,6 +91,8 @@ public:
 	void UpdateCurrentLobby_MyStartPos(int side);
 	void UpdateCurrentLobby_MyTeam(int side);
 
+	void UpdateCurrentLobby_KickUser(int64_t userID, UnicodeString name);
+
 	void UpdateCurrentLobby_ForceReady();
 
 	void SetLobbyListDirty()

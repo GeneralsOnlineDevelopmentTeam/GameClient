@@ -107,6 +107,7 @@ void slotListDebugLog(const char *fmt, ...)
 #define SLOTLIST_DEBUG_LOG(x) DEBUG_LOG(x)
 #endif
 
+// TODO_NGMP: Remove this, make others get it from the service
 void SendStatsToOtherPlayers(const GameInfo *game)
 {
 	PeerRequest req;
@@ -3011,6 +3012,12 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 								*/
 
 								UnicodeString name = myGame->getSlot(i)->getName();
+
+								// NOTE: No host check here, service enforces it
+								NGMPGameSlot* pSlot = (NGMPGameSlot*)myGame->getSlot(i);
+								int64_t userBeingKicked = pSlot->m_userID;
+								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_KickUser(userBeingKicked, name);
+
 								myGame->getSlot(i)->setState(SlotState(pos));
 								myGame->resetAccepted();
 
@@ -3249,3 +3256,12 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 }//WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg, 
 
 
+void OnKickedFromLobby()
+{
+	// can't see ourselves
+	buttonPushed = true;
+	TheNGMPGame->reset();
+	GSMessageBoxOk(TheGameText->fetch("GUI:GSErrorTitle"), TheGameText->fetch("GUI:GSKicked"));
+	nextScreen = "Menus/WOLCustomLobby.wnd";
+	TheShell->pop();
+}

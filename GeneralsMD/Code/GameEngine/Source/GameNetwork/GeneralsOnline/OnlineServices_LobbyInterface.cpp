@@ -7,6 +7,8 @@
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
 #include "GameClient/MapUtil.h"
 
+extern void OnKickedFromLobby();
+
 extern NGMPGame* TheNGMPGame;
 
 UnicodeString NGMP_OnlineServices_LobbyInterface::GetCurrentLobbyDisplayName()
@@ -57,7 +59,8 @@ enum class ELobbyUpdateField
 	HOST_ACTION_FORCE_START = 7,
 	LOCAL_PLAYER_HAS_MAP = 8,
 	GAME_STARTED = 9,
-	GAME_FINISHED = 10
+	GAME_FINISHED = 10,
+	HOST_ACTION_KICK_USER = 11
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -270,6 +273,25 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyTeam(int team)
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_KickUser(int64_t userID, UnicodeString name)
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::HOST_ACTION_KICK_USER;
+	j["userid"] = userID;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			UnicodeString msg;
+			msg.format(L"'%s' was kicked by the host.", name.str());;
+			SendAnnouncementMessageToCurrentLobby(msg, true);
 		});
 }
 
@@ -668,6 +690,21 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					lobbyEntry.EncIV.push_back((BYTE)c);
 				}
 
+				bool bFoundSelfInOld = false;
+				bool bFoundSelfInNew = false;
+				int64_t	myUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+
+				// check for user in old lobby data
+				for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
+				{
+					// detect local kick
+					if (currentMember.user_id == myUserID)
+					{
+						bFoundSelfInOld = true;
+						break;
+					}
+				}
+
 				for (const auto& memberEntryIter : lobbyEntryJSON["members"])
 				{
 					LobbyMemberEntry memberEntry;
@@ -695,6 +732,12 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					bool bIsNew = true;
 					for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
 					{
+						// detect local kick
+						if (memberEntry.user_id == myUserID)
+						{
+							bFoundSelfInNew = true;
+						}
+
 						if (currentMember.user_id == memberEntry.user_id)
 						{
 							// check if the map state changes
@@ -707,7 +750,6 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							break;
 						}
 					}
-
 					if (bIsNew)
 					{
 						// if we're joining as a client (not host), lobby mesh will be null here, but it's ok because the initial creation will sync to everyone
@@ -728,6 +770,12 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							}
 						}
 					}
+				}
+
+				if (bFoundSelfInOld && !bFoundSelfInNew)
+				{
+					NetworkLog("We were kicked from the lobby...");
+					OnKickedFromLobby();
 				}
 
 				// disconnect from anyone who is no longer in the lobby
