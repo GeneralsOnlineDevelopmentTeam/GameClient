@@ -55,7 +55,9 @@ enum class ELobbyUpdateField
 	LOBBY_STARTING_CASH = 5,
 	LOBBY_LIMIT_SUPERWEAPONS = 6,
 	HOST_ACTION_FORCE_START = 7,
-	LOCAL_PLAYER_HAS_MAP = 8
+	LOCAL_PLAYER_HAS_MAP = 8,
+	GAME_STARTED = 9,
+	GAME_FINISHED = 10
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -129,6 +131,46 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 
 		});
 }
+
+void NGMP_OnlineServices_LobbyInterface::MarkCurrentGameAsStarted()
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::GAME_STARTED;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::MarkCurrentGameAsFinished()
+{
+	if (m_bMarkedGameAsFinished)
+	{
+		return;
+	}
+
+	m_bMarkedGameAsFinished = true;
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::GAME_FINISHED;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+
+		});
+}
+
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_HasMap()
 {
@@ -1411,6 +1453,8 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(void)> fnCallback)
 {
+	m_bMarkedGameAsFinished = false;
+
 	// reset timer
 	m_timeStartAutoReadyCountdown = -1;
 
@@ -1431,5 +1475,5 @@ void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpd
 			});
 	}
 
-	
+
 }

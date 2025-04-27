@@ -122,6 +122,9 @@ public:
 
 	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(void)> fnCallback);
 
+	void MarkCurrentGameAsStarted();
+	void MarkCurrentGameAsFinished();
+
 	UnicodeString GetCurrentLobbyDisplayName();
 	UnicodeString GetCurrentLobbyMapDisplayName();
 	AsciiString GetCurrentLobbyMapPath();
@@ -365,4 +368,6 @@ private:
 	LobbyEntry m_LobbyTryingToJoin;
 
 	bool m_bSearchInProgress = false;
+
+	bool m_bMarkedGameAsFinished = false;
 };

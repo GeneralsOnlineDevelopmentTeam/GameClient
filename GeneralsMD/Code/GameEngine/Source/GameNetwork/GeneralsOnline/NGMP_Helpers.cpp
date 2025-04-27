@@ -139,8 +139,14 @@ std::string PrepareChallenge()
 {
 	// prepare challenge
 	const char* szChallenge = "Can we have some shoes?";
+
+#if defined(_DEBUG)
 	const unsigned char key[32] = { 1, 4, 2, 6, 1, 9, 3, 5, 6, 2, 1, 0, 0, 7, 0, 1, 7, 9, 4, 4, 6, 1, 3, 9, 3, 1, 2, 2, 3, 4, 1, 6 };
 	const unsigned char iv[12] = { 0, 5, 2, 3, 4, 1, 9, 0, 6, 2, 4, 3 };
+#else
+	const unsigned char key[32] = { 1, 4, 2, 6, 1, 9, 3, 5, 6, 2, 1, 0, 0, 7, 0, 1, 7, 9, 4, 4, 6, 1, 3, 9, 3, 1, 2, 2, 3, 4, 1, 6 };
+	const unsigned char iv[12] = { 0, 5, 2, 3, 4, 1, 9, 0, 6, 2, 4, 3 };
+#endif
 
 	// encrypt
 	std::vector<unsigned char> ciphertext((strlen(szChallenge) * sizeof(char)) + crypto_aead_aes256gcm_ABYTES);

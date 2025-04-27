@@ -893,6 +893,9 @@ static void StartPressed(void)
 		// reset autostart just incase
 		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ClearAutoReadyCountdown();
 
+		// host mark as ready on backend
+		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->MarkCurrentGameAsStarted();
+
 		//PeerRequest req;
 		//req.peerRequestType = PeerRequest::PEERREQUEST_STARTGAME;
 		//TheGameSpyPeerMessageQueue->addRequest(req);

@@ -126,6 +126,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 				nlohmann::json j;
 				j["token"] = strToken.c_str();
+				j["challenge"] = PrepareChallenge();
 				std::string strPostData = j.dump();
 
 				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)

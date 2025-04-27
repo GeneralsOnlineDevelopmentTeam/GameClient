@@ -1780,6 +1780,10 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 								return;
 							}
 
+							// if we saw end of game, mark game as finished
+							// NGMP: mark the game done, everyone makes this call for safety (host can have left)
+							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->MarkCurrentGameAsFinished();
+
 							// TODO_NGMP_STATS: Impl ladders again, how did these work in the base game?
 							// send ladder results (even if we end the game in the first N seconds)
 							/*
