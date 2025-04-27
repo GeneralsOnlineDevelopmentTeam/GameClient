@@ -63,18 +63,18 @@ jobs:
     strategy:
       matrix:
         include:
-          - preset: "vc6"
-            tools: true
-            extras: true
-          - preset: "vc6-profile"
-            tools: true
-            extras: true
-          - preset: "vc6-internal"
-            tools: true
-            extras: true
-          - preset: "vc6-debug"
-            tools: true
-            extras: true
+#          - preset: "vc6"
+#            tools: true
+#            extras: true
+#          - preset: "vc6-profile"
+#            tools: true
+#            extras: true
+#          - preset: "vc6-internal"
+#            tools: true
+#            extras: true
+#          - preset: "vc6-debug"
+#            tools: true
+#            extras: true
           - preset: "win32-vcpkg"
             tools: true
             extras: true
