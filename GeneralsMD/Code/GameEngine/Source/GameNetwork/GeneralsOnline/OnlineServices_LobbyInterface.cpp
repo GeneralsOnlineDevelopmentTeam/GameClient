@@ -920,11 +920,18 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 
 				m_CurrentLobby = lobbyInfo;
 
-				// TODO_NGMP: Cleanup game + dont store 2 ptrs
-				if (m_pGameInst == nullptr)
+				// for safety
+				if (TheNGMPGame != nullptr)
 				{
-					m_pGameInst = new NGMPGame();
-					TheNGMPGame = m_pGameInst;
+					NetworkLog("NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
+					delete TheNGMPGame;
+					TheNGMPGame = nullptr;
+				}
+
+				// TODO_NGMP: Cleanup game + dont store 2 ptrs
+				if (TheNGMPGame == nullptr)
+				{
+					TheNGMPGame = new NGMPGame();
 
 					AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
 					TheNGMPGame->setLocalName(localName);
@@ -1120,6 +1127,12 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 		return;
 	}
 
+	if (TheNGMPGame != nullptr)
+	{
+		delete TheNGMPGame;
+		TheNGMPGame = nullptr;
+	}
+
 	m_timeStartAutoReadyCountdown = -1;
 
 	// kill mesh
@@ -1228,12 +1241,19 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 					m_CurrentLobby.members.push_back(me);
 
+					// for safety
+					if (TheNGMPGame != nullptr)
+					{
+						NetworkLog("NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
+						delete TheNGMPGame;
+						TheNGMPGame = nullptr;
+					}
+
 	
 					// TODO_NGMP: Cleanup game + dont store 2 ptrs
-					if (m_pGameInst == nullptr)
+					if (TheNGMPGame == nullptr)
 					{
-						m_pGameInst = new NGMPGame();
-						TheNGMPGame = m_pGameInst;
+						TheNGMPGame = new NGMPGame();
 
 
 						// TODO_NGMP: Rest of these

@@ -5,6 +5,8 @@
 #include "../GameInfo.h"
 #include <chrono>
 
+extern NGMPGame* TheNGMPGame;
+
 struct LobbyMemberEntry : public NetworkMemberBase
 {
 
@@ -152,7 +154,7 @@ public:
 
 	NGMPGame* GetCurrentGame()
 	{
-		return m_pGameInst;
+		return TheNGMPGame;
 	}
 
 	// lobby roster
@@ -360,8 +362,6 @@ private:
 
 	// TODO_NGMP: cleanup
 	NetworkMesh* m_pLobbyMesh = nullptr;
-
-	NGMPGame* m_pGameInst = nullptr;
 
 	bool m_bLobbyListDirty = false;
 
