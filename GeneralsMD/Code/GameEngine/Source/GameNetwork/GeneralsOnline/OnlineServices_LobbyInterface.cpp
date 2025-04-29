@@ -60,7 +60,8 @@ enum class ELobbyUpdateField
 	LOCAL_PLAYER_HAS_MAP = 8,
 	GAME_STARTED = 9,
 	GAME_FINISHED = 10,
-	HOST_ACTION_KICK_USER = 11
+	HOST_ACTION_KICK_USER = 11,
+	HOST_ACTION_SET_SLOT_STATE = 12
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -267,6 +268,24 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyTeam(int team)
 	nlohmann::json j;
 	j["field"] = ELobbyUpdateField::MY_TEAM;
 	j["team"] = team;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_SetSlotState(uint16_t slotIndex, uint16_t slotState)
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::HOST_ACTION_SET_SLOT_STATE;
+	j["slot_index"] = slotIndex;
+	j["slot_state"] = slotState;
 	std::string strPostData = j.dump();
 
 	// convert

@@ -97,6 +97,7 @@ public:
 	void UpdateCurrentLobby_MyTeam(int side);
 
 	void UpdateCurrentLobby_KickUser(int64_t userID, UnicodeString name);
+	void UpdateCurrentLobby_SetSlotState(uint16_t slotIndex, uint16_t slotState);
 
 	void UpdateCurrentLobby_ForceReady();
 

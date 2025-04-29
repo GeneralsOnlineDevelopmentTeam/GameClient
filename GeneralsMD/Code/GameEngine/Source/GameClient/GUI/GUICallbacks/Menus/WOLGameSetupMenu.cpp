@@ -3035,8 +3035,9 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 								if (wasAI ^ isAI)
 									PopulatePlayerTemplateComboBox(i, comboBoxPlayerTemplate, myGame, wasAI && myGame->getAllowObservers());
 
-								// // TODO_NGMP
-								//TheGameSpyInfo->setGameOptions();
+								// inform service
+								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_SetSlotState(i, pos);
+
 								WOLDisplaySlotList();
 							}
 						}
