@@ -1419,6 +1419,18 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			GadgetListBoxAddEntryText(listboxGameSetupChat, strMessage, GameMakeColor(255, 255, 255, 255), -1, -1);
 		});
 
+	// cannot connect to the lobby we joined
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForCannotConnectToLobbyCallback([](void)
+		{
+			if (TheNetwork != NULL) {
+				delete TheNetwork;
+				TheNetwork = NULL;
+			}
+			GSMessageBoxOk(TheGameText->fetch("GUI:Error"), UnicodeString(L"Could not connect to all players in the lobby"));
+
+			PopBackToLobby();
+		});
+
 	// player doesnt have map events
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForPlayerDoesntHaveMapCallback([](LobbyMemberEntry lobbyMember)
 		{

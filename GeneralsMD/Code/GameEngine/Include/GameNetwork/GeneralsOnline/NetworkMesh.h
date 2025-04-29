@@ -27,11 +27,13 @@ public:
 		m_userID = userID;
 		m_address = addr;
 		m_peer = peer;
+
+		enet_peer_timeout(m_peer, 5, 1000, 1000);
 	}
 
 	std::string GetIPAddrString()
 	{
-#if !defined(_DEBUG)
+#if defined(_DEBUG)
 		char ip[INET_ADDRSTRLEN + 1] = { 0 };
 		enet_address_get_host_ip(&m_address, ip, sizeof(ip));
 		return std::string(ip);
@@ -92,6 +94,9 @@ public:
 	void Disconnect();
 
 	void Tick();
+
+	const int64_t m_thresoldToCheckConnected = 2000;
+	int64_t m_connectionCheckGracePeriodStart = -1;
 
 	int64_t m_lastPing = -1;
 	void SendPing();

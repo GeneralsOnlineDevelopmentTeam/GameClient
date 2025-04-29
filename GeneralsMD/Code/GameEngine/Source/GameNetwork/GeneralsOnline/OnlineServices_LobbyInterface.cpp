@@ -787,11 +787,14 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 				// check for user in old lobby data
 				for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
 				{
-					// detect local kick
-					if (currentMember.user_id == myUserID)
+					if (currentMember.IsHuman())
 					{
-						bFoundSelfInOld = true;
-						break;
+						// detect local kick
+						if (currentMember.user_id == myUserID)
+						{
+							bFoundSelfInOld = true;
+							break;
+						}
 					}
 				}
 
@@ -824,22 +827,25 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					bool bIsNew = true;
 					for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
 					{
-						// detect local kick
-						if (memberEntry.user_id == myUserID)
+						if (memberEntry.IsHuman())
 						{
-							bFoundSelfInNew = true;
-						}
-
-						if (currentMember.user_id == memberEntry.user_id)
-						{
-							// check if the map state changes
-							if (currentMember.has_map == memberEntry.has_map)
+							// detect local kick
+							if (memberEntry.user_id == myUserID)
 							{
-								bMapOwnershipStateChanged = false;
+								bFoundSelfInNew = true;
 							}
 
-							bIsNew = false;
-							break;
+							if (currentMember.user_id == memberEntry.user_id)
+							{
+								// check if the map state changes
+								if (currentMember.has_map == memberEntry.has_map)
+								{
+									bMapOwnershipStateChanged = false;
+								}
+
+								bIsNew = false;
+								break;
+							}
 						}
 					}
 					if (bIsNew)
@@ -847,7 +853,10 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						// if we're joining as a client (not host), lobby mesh will be null here, but it's ok because the initial creation will sync to everyone
 						if (m_pLobbyMesh != nullptr)
 						{
-							m_pLobbyMesh->ConnectToSingleUser(memberEntry);
+							if (memberEntry.IsHuman())
+							{
+								m_pLobbyMesh->ConnectToSingleUser(memberEntry);
+							}
 						}
 					}
 

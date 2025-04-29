@@ -23,7 +23,11 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	uint16_t m_SlotIndex = 999999;
 	uint16_t m_SlotState = SlotState::SLOT_OPEN;
 
-	//bool IsValid() const { return user_id != -1; }
+
+	bool IsHuman() const
+	{
+		return user_id != -1 && m_SlotState == SlotState::SLOT_PLAYER;
+	}
 };
 
 struct LobbyEntry
@@ -270,6 +274,12 @@ public:
 	void RegisterForPlayerDoesntHaveMapCallback(std::function<void(LobbyMemberEntry)> cb)
 	{
 		m_cbPlayerDoesntHaveMap = cb;
+	}
+
+	std::function<void(void)> m_OnCannotConnectToLobbyCallback = nullptr;
+	void RegisterForCannotConnectToLobbyCallback(std::function<void(void)> cb)
+	{
+			m_OnCannotConnectToLobbyCallback = cb;
 	}
 
 	std::function<void(UnicodeString strMessage)> m_OnChatCallback = nullptr;

@@ -138,10 +138,13 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 		bool bFoundLobbyMemberForConnection = false;
 		for (LobbyMemberEntry& lobbyMember : vecLobbyMembers)
 		{
-			if (lobbyMember.user_id == thisConnectionUserID)
+			if (lobbyMember.IsHuman())
 			{
-				bFoundLobbyMemberForConnection = true;
-				break;
+				if (lobbyMember.user_id == thisConnectionUserID)
+				{
+					bFoundLobbyMemberForConnection = true;
+					break;
+				}
 			}
 		}
 
@@ -179,7 +182,7 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect /*= false*/)
 {
 	// is it already connected?
-	if (m_mapConnections.contains(user_id))
+	if (m_mapConnections.contains(user_id) && !bIsReconnect)
 	{
 		NetworkLog("NetworkMesh::ConnectToSingleUser - Duplicate connection for user %lld, not making new connection and returning.", user_id);
 		return;
@@ -195,6 +198,11 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	/* Initiate the connection, allocating the 3 channels. */
 	ENetPeer* peer = enet_host_connect(enetInstance, &addr, 3, 0);
 
+	m_connectionCheckGracePeriodStart = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+	// TODO_NGMP: do one last connectivity check before moving to start game
+	// TODO_NGMP: do one last lobby data check before moving to start game
+
 	if (peer == nullptr)
 	{
 		// TODO_NGMP: Better handling
@@ -202,8 +210,14 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 		return;
 	}
 
+	NetworkLog("[SERVER] Connecting to user %lld.\n", user_id);
+
 	// store it
-	m_mapConnections[user_id] = PlayerConnection(user_id, addr, peer);
+	if (!bIsReconnect)
+	{
+		m_mapConnections[user_id] = PlayerConnection(user_id, addr, peer);
+	}
+
 	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING;
 
 	if (bIsReconnect)
@@ -267,7 +281,10 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 	// now connect to everyone in the lobby
 	for (LobbyMemberEntry& lobbyMember : lobby.members)
 	{
-		ConnectToSingleUser(lobbyMember);
+		if (lobbyMember.IsHuman())
+		{
+			ConnectToSingleUser(lobbyMember);
+		}
 	}
 }
 
@@ -298,6 +315,44 @@ void NetworkMesh::Tick()
 		SendPing();
 	}
 
+	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+
+	// are we missing players 5s after attempting to connect?
+	if (m_connectionCheckGracePeriodStart != -1)
+	{
+		if (currTime - m_connectionCheckGracePeriodStart >= m_thresoldToCheckConnected)
+		{
+			// NOTE: Host shouldn't do this, why would we leave our own game? let the joining client leave instead
+			if (!NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost())
+			{
+				int expectedConnections = 0;
+
+				for (const auto& lobbyMember : currentLobby.members)
+				{
+					if (lobbyMember.IsHuman())
+					{
+						++expectedConnections; // we should also have a local 'connection'
+					}
+				}
+
+				int numConnectedConnections = 0;
+				for (const auto& connectionData : m_mapConnections)
+				{
+					if (connectionData.second.m_State == EConnectionState::CONNECTED_DIRECT || connectionData.second.m_State == EConnectionState::CONNECTED_RELAY_1 || connectionData.second.m_State == EConnectionState::CONNECTED_RELAY_2)
+					{
+						++numConnectedConnections;
+					}
+				}
+
+				if (numConnectedConnections != expectedConnections)
+				{
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback();
+					return;
+				}
+			}
+		}
+	}
+
 	// service connection attempts
 	/*
 		m_mapConnections[lobbyMember.user_id].m_State = EConnectionState::CONNECTING;
@@ -322,7 +377,7 @@ void NetworkMesh::Tick()
 
 	// tick
 	{
-		auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+		
 
 		ENetEvent event;
 		// TODO_NGMP: If we cant connect to someone, log it and leave the lobby
@@ -589,21 +644,29 @@ void NetworkMesh::Tick()
 					{
 						NetworkLog("[SERVER] %d timed out while connecting.\n", pConnection->m_userID);
 
+						// remove it, they disconnected
+						m_mapConnections.erase(pConnection->m_userID);
+
+						/*
 						// should we retry?
 						if (pConnection->m_ConnectionAttempts < 5)
 						{
 							NetworkLog("[SERVER] Attemping to connect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts+1);
-							ConnectToSingleUser(pConnection->m_address, pConnection->m_userID, true);
+							//ConnectToSingleUser(pConnection->m_address, pConnection->m_userID, true);
 						}
 						else
 						{
 							// TODO_NGMP: Leave lobby etc
 							NetworkLog("[SERVER] Exhausted retry attempts connecting to %d.\n", pConnection->m_userID);
 						}
+						*/
 					}
 					else
 					{
 						NetworkLog("[SERVER] %d disconnected.\n", pConnection->m_userID);
+
+						// remove it, they disconnected
+						m_mapConnections.erase(pConnection->m_userID);
 					}
 
 				}

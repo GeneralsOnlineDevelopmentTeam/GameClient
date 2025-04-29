@@ -1,3 +1,5 @@
+#define DISABLE_PORT_MAPPING 0
+
 #include "GameNetwork/GeneralsOnline/PortMapper.h"
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
@@ -327,6 +329,8 @@ void PortMapper::DetermineLocalNetworkCapabilities(std::function<void(void)> cal
 	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread->native_handle()), L"PortMapper Background Thread");
 }
 
+
+
 void PortMapper::TryForwardPreferredPorts()
 {
 	NetworkLog("[PortMapper]: TryForwardPreferredPorts");
@@ -339,6 +343,12 @@ void PortMapper::TryForwardPreferredPorts()
 	std::uniform_int_distribution<> dis(5000, 25000);
 
 	m_PreferredPort = dis(gen);
+
+#if defined (DISABLE_PORT_MAPPING)
+	m_capUPnP = ECapabilityState::UNSUPPORTED;
+	m_capNATPMP = ECapabilityState::UNSUPPORTED;
+	return;
+#endif
 
 	NetworkLog("PortMapper: Attempting to open ext port %d and forward to local port %d", m_PreferredPort, m_PreferredPort);
 
