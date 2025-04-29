@@ -1,4 +1,6 @@
-#define DISABLE_PORT_MAPPING 0
+#if defined(_DEBUG)
+//#define DISABLE_PORT_MAPPING 1
+#endif
 
 #include "GameNetwork/GeneralsOnline/PortMapper.h"
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
