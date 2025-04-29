@@ -436,6 +436,8 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 					memberEntryIter["user_id"].get_to(memberEntry.user_id);
 					memberEntryIter["display_name"].get_to(memberEntry.display_name);
 					memberEntryIter["ready"].get_to(memberEntry.m_bIsReady);
+					memberEntryIter["slot_index"].get_to(memberEntry.m_SlotIndex);
+					memberEntryIter["slot_state"].get_to(memberEntry.m_SlotState);
 
 					// NOTE: These fields won't be present becauase they're private properties
 					//memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
@@ -719,6 +721,8 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					memberEntryIter["team"].get_to(memberEntry.team);
 					memberEntryIter["startpos"].get_to(memberEntry.startpos);
 					memberEntryIter["has_map"].get_to(memberEntry.has_map);
+					memberEntryIter["slot_index"].get_to(memberEntry.m_SlotIndex);
+					memberEntryIter["slot_state"].get_to(memberEntry.m_SlotState);
 
 					lobbyEntry.members.push_back(memberEntry);
 

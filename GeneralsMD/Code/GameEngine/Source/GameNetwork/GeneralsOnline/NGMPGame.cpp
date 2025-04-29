@@ -81,8 +81,22 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
+		// this list is provided by the service, ordered by slot index, so we dont need to look up / use the slot index from the member
 		LobbyMemberEntry pLobbyMember = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromIndex(i);
-		if (pLobbyMember.IsValid())
+
+		// TODO_NGMP: Support spectators
+		int playerTemplate = -1;
+		if (pLobbyMember.team == -1)
+		{
+			playerTemplate = PLAYERTEMPLATE_RANDOM;
+		}
+		else
+		{
+			playerTemplate = pLobbyMember.team;
+		}
+
+		// human or AI player
+		if (pLobbyMember.m_SlotState != SlotState::SLOT_OPEN && pLobbyMember.m_SlotState != SlotState::SLOT_CLOSED)
 		{
 			UnicodeString str;
 			str.translate(pLobbyMember.display_name.c_str());
@@ -94,27 +108,27 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 			{
 				slot = (NGMPGameSlot*)getSlot(0);
 				// NOTE: Internally generals uses 'local ip' to detect which user is local... we dont have an IP, so just use player index for ip
-				slot->setState(SLOT_PLAYER, str, 0);
+				slot->setState((SlotState)pLobbyMember.m_SlotState, str, 0);
 
 				// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
 				slot->setColor(pLobbyMember.color);
 				slot->setTeamNumber(pLobbyMember.team);
 				slot->setStartPos(pLobbyMember.startpos);
-				slot->setPlayerTemplate(pLobbyMember.side);
+				slot->setPlayerTemplate(playerTemplate);
 			}
 			else
 			{
 				slot = (NGMPGameSlot*)getSlot(realInsertPos);
 
 				// NOTE: Internally generals uses 'local ip' to detect which user is local... we dont have an IP, so just use player index for ip
-				slot->setState(SLOT_PLAYER, str, realInsertPos);
+				slot->setState((SlotState)pLobbyMember.m_SlotState, str, realInsertPos);
 
 
 				// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
 				slot->setColor(pLobbyMember.color);
 				slot->setTeamNumber(pLobbyMember.team);
 				slot->setStartPos(pLobbyMember.startpos);
-				slot->setPlayerTemplate(pLobbyMember.side);
+				slot->setPlayerTemplate(playerTemplate);
 				++realInsertPos;
 				// TODO_NGMP: Check player lists are synced across game with > 2 clients
 			}
@@ -140,35 +154,18 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		}
 		else
 		{
-			// set empty
-			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(i);
-			slot->setState(SLOT_OPEN);
-			// TODO_NGMP: Support AI slots
-			
-			/*
-			// set empty
-			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(i);
-
-			if (slot != nullptr)
+			// is it empty or closed?
+			if (pLobbyMember.m_SlotState != SlotState::SLOT_OPEN)
 			{
-				//bAddedFirstAI = true;
-				if (!bAddedFirstAI)
-				{
-					bAddedFirstAI = true;
-					slot->setState(SLOT_EASY_AI);
-
-					// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
-					slot->setColor(4);
-					slot->setTeamNumber(2);
-					slot->setStartPos(i);
-					slot->setPlayerTemplate(PLAYERTEMPLATE_RANDOM);
-				}
-				else
-				{
-					slot->setState(SLOT_OPEN);
-				}
+				// set empty
+				NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(i);
+				slot->setState(SLOT_OPEN);
 			}
-			*/
+			else if (pLobbyMember.m_SlotState != SlotState::SLOT_CLOSED)
+			{
+				NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(i);
+				slot->setState(SLOT_CLOSED);
+			}
 		}
 
 		// dont need to handle else here, we set it up upon lobby creation

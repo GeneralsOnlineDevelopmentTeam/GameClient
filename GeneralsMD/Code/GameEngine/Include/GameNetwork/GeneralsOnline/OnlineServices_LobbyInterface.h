@@ -20,7 +20,10 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	int startpos = -1;
 	bool has_map = false;
 
-	bool IsValid() const { return user_id != -1; }
+	uint16_t m_SlotIndex = 999999;
+	uint16_t m_SlotState = SlotState::SLOT_OPEN;
+
+	//bool IsValid() const { return user_id != -1; }
 };
 
 struct LobbyEntry
