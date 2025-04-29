@@ -545,6 +545,12 @@ void NetworkMesh::Tick()
 						NetworkLog("[NGMP]: Got start game packet from %d", event.peer->incomingPeerID);
 
 						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
+
+						// increase our timeout, Generals has its own timeout code and allows reconnecting, so just set an extremely long value and let the game handle it.
+						for (auto& connectionInfo : m_mapConnections)
+						{
+							enet_peer_timeout(connectionInfo.second.m_peer, 0, 0, 0);
+						}
 					}
 					else if (packetID == EPacketID::PACKET_ID_NET_ROOM_CHAT_MSG)
 					{
