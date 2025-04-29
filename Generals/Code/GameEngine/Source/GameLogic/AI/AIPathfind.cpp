@@ -743,7 +743,7 @@ void Path::computePointOnPath(
 	ClosestPointOnPathInfo& out
 )
 {
-	CRCDEBUG_LOG(("Path::computePointOnPath() fzor %s\n", DescribeObject(obj).str()));
+	CRCDEBUG_LOG(("Path::computePointOnPath() for %s\n", DebugDescribeObject(obj).str()));
 
 	out.layer = LAYER_GROUND;
 	out.posOnPath.zero();
@@ -6649,7 +6649,7 @@ Path *Pathfinder::findGroundPath( const Coord3D *from,
 		const Int adjacent[5] = {0, 1, 2, 3, 0};
 		Bool neighborFlags[8] = {false, false, false, false, false, false, false};
 
-		UnsignedInt newCostSoFar;
+		UnsignedInt newCostSoFar = 0;
 
 		for( int i=0; i<numNeighbors; i++ )
 		{

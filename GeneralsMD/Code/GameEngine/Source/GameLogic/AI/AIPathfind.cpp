@@ -760,7 +760,7 @@ void Path::computePointOnPath(
 	ClosestPointOnPathInfo& out
 )
 {
-	CRCDEBUG_LOG(("Path::computePointOnPath() fzor %s\n", DescribeObject(obj).str()));
+	CRCDEBUG_LOG(("Path::computePointOnPath() for %s\n", DebugDescribeObject(obj).str()));
 
 	out.layer = LAYER_GROUND;
 	out.posOnPath.zero();
@@ -4031,6 +4031,8 @@ void Pathfinder::classifyFence( Object *obj, Bool insert )
 	IRegion2D cellBounds;
 	cellBounds.lo.x = REAL_TO_INT_FLOOR((pos->x + 0.5f)/PATHFIND_CELL_SIZE_F);
 	cellBounds.lo.y = REAL_TO_INT_FLOOR((pos->y + 0.5f)/PATHFIND_CELL_SIZE_F);
+	cellBounds.hi.x = REAL_TO_INT_CEIL((pos->x + 0.5f)/PATHFIND_CELL_SIZE_F);
+	cellBounds.hi.y = REAL_TO_INT_CEIL((pos->y + 0.5f)/PATHFIND_CELL_SIZE_F);
 	Bool didAnything = false;
 
 	// NGMP_CHANGE: Safety
