@@ -138,18 +138,9 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		}
 		else
 		{
-			// is it empty or closed?
-			if (pLobbyMember.m_SlotState != SlotState::SLOT_OPEN)
-			{
-				// set empty
-				NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(i);
-				slot->setState(SLOT_OPEN);
-			}
-			else if (pLobbyMember.m_SlotState != SlotState::SLOT_CLOSED)
-			{
-				NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(i);
-				slot->setState(SLOT_CLOSED);
-			}
+			// handle open/closed
+			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(i);
+			slot->setState((SlotState)pLobbyMember.m_SlotState);
 		}
 
 		// dont need to handle else here, we set it up upon lobby creation

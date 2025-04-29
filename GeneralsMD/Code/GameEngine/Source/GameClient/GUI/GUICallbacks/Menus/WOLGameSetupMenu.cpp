@@ -595,6 +595,10 @@ static void handleColorSelection(int index)
 		{
 			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_MyColor(color);
 		}
+		else if (slot->getState() == SLOT_EASY_AI || slot->getState() == SLOT_MED_AI || slot->getState() == SLOT_BRUTAL_AI)
+		{
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_AIColor(index, color);
+		}
 	}
 }
 
@@ -638,6 +642,10 @@ static void handlePlayerTemplateSelection(int index)
 		if (index == myGame->getLocalSlotNum())
 		{
 			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_MySide(playerTemplate, updatedStartPos);
+		}
+		else if (slot->getState() == SLOT_EASY_AI || slot->getState() == SLOT_MED_AI || slot->getState() == SLOT_BRUTAL_AI)
+		{
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_AISide(index, playerTemplate, updatedStartPos);
 		}
 
 		// NGMP: Dont set it locally / directly anymore, rely on the lobby service instead
@@ -744,6 +752,10 @@ static void handleTeamSelection(int index)
 		if (index == myGame->getLocalSlotNum())
 		{
 			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_MyTeam(team);
+		}
+		else if (slot->getState() == SLOT_EASY_AI || slot->getState() == SLOT_MED_AI || slot->getState() == SLOT_BRUTAL_AI)
+		{
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_AITeam(index, team);
 		}
 	}
 }

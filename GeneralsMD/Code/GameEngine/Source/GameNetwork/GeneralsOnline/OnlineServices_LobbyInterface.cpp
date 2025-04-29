@@ -61,7 +61,10 @@ enum class ELobbyUpdateField
 	GAME_STARTED = 9,
 	GAME_FINISHED = 10,
 	HOST_ACTION_KICK_USER = 11,
-	HOST_ACTION_SET_SLOT_STATE = 12
+	HOST_ACTION_SET_SLOT_STATE = 12,
+	AI_SIDE = 13,
+	AI_COLOR = 14,
+	AI_TEAM = 15
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -195,6 +198,72 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_HasMap()
 
 		});
 }
+
+// start AI
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AISide(int slot, int side, int updatedStartPos)
+{
+	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
+	ClearAutoReadyCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::AI_SIDE;
+	j["slot"] = slot;
+	j["side"] = side;
+	j["start_pos"] = updatedStartPos;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AITeam(int slot, int team)
+{
+	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
+	ClearAutoReadyCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::AI_TEAM;
+	j["slot"] = slot;
+	j["team"] = team;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AIColor(int slot, int color)
+{
+	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
+	ClearAutoReadyCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::AI_COLOR;
+	j["slot"] = slot;
+	j["color"] = color;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+
+		});
+}
+// end AI
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MySide(int side, int updatedStartPos)
 {
