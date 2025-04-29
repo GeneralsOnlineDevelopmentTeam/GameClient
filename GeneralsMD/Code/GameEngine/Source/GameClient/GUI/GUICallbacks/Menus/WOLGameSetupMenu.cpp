@@ -1490,8 +1490,8 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 	if (TheNGMPGame && TheNGMPGame->isGameInProgress())
 	{
-		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->LeaveCurrentLobby();
 		TheNGMPGame->setGameInProgress(FALSE);
+		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->LeaveCurrentLobby();
 
 		// check if we were disconnected
 

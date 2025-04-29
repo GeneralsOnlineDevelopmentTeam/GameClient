@@ -75,6 +75,14 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 
 void NGMPGame::UpdateSlotsFromCurrentLobby()
 {
+	// none of this should change while in-game, so ignore
+
+	// NOTE: In progress means game has started, in-game just means in the lobby/fronend...
+	if (m_inProgress)
+	{
+		return;
+	}
+
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
 		// this list is provided by the service, ordered by slot index, so we dont need to look up / use the slot index from the member
