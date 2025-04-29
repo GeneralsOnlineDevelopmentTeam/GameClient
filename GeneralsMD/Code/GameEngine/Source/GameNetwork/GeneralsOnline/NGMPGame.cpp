@@ -75,10 +75,6 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 
 void NGMPGame::UpdateSlotsFromCurrentLobby()
 {
-	// NOTE: Generals expects slot 0 to be host, this is hardcoded in places, EOS always returns the local player in index 0, so we need to correct this...
-	//bool bAddedFirstAI = false;
-	int realInsertPos = 1;
-
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
 		// this list is provided by the service, ordered by slot index, so we dont need to look up / use the slot index from the member
@@ -86,71 +82,59 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 
 		// TODO_NGMP: Support spectators
 		int playerTemplate = -1;
-		if (pLobbyMember.team == -1)
+		if (pLobbyMember.side == -1)
 		{
 			playerTemplate = PLAYERTEMPLATE_RANDOM;
 		}
 		else
 		{
-			playerTemplate = pLobbyMember.team;
+			playerTemplate = pLobbyMember.side;
 		}
 
 		// human or AI player
 		if (pLobbyMember.m_SlotState != SlotState::SLOT_OPEN && pLobbyMember.m_SlotState != SlotState::SLOT_CLOSED)
 		{
+			bool bIsAI = (pLobbyMember.m_SlotState == SlotState::SLOT_EASY_AI || pLobbyMember.m_SlotState == SlotState::SLOT_MED_AI|| pLobbyMember.m_SlotState == SlotState::SLOT_BRUTAL_AI);
+
 			UnicodeString str;
 			str.translate(pLobbyMember.display_name.c_str());
 
-			bool bIsHost = pLobbyMember.user_id == NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobbyOwnerID();
+			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(pLobbyMember.m_SlotIndex);
 
-			NGMPGameSlot* slot = nullptr;
-			if (bIsHost)
+			// NOTE: Internally generals uses 'local ip' to detect which user is local... we dont have an IP, so just use player index for ip
+			slot->setState((SlotState)pLobbyMember.m_SlotState, str, pLobbyMember.m_SlotIndex);
+
+
+			// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
+			slot->setColor(pLobbyMember.color);
+			slot->setTeamNumber(pLobbyMember.team);
+			slot->setStartPos(pLobbyMember.startpos);
+			slot->setPlayerTemplate(playerTemplate);
+
+			if (!bIsAI)
 			{
-				slot = (NGMPGameSlot*)getSlot(0);
-				// NOTE: Internally generals uses 'local ip' to detect which user is local... we dont have an IP, so just use player index for ip
-				slot->setState((SlotState)pLobbyMember.m_SlotState, str, 0);
+				// ready flag
+				if (pLobbyMember.m_bIsReady)
+				{
+					slot->setAccept();
+				}
+				else
+				{
+					slot->unAccept();
+				}
 
-				// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
-				slot->setColor(pLobbyMember.color);
-				slot->setTeamNumber(pLobbyMember.team);
-				slot->setStartPos(pLobbyMember.startpos);
-				slot->setPlayerTemplate(playerTemplate);
+				// has map?
+				slot->setMapAvailability(pLobbyMember.has_map);
+
+				// store EOS ID
+				slot->m_userID = pLobbyMember.user_id;
 			}
 			else
-			{
-				slot = (NGMPGameSlot*)getSlot(realInsertPos);
-
-				// NOTE: Internally generals uses 'local ip' to detect which user is local... we dont have an IP, so just use player index for ip
-				slot->setState((SlotState)pLobbyMember.m_SlotState, str, realInsertPos);
-
-
-				// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
-				slot->setColor(pLobbyMember.color);
-				slot->setTeamNumber(pLobbyMember.team);
-				slot->setStartPos(pLobbyMember.startpos);
-				slot->setPlayerTemplate(playerTemplate);
-				++realInsertPos;
-				// TODO_NGMP: Check player lists are synced across game with > 2 clients
-			}
-
-			// ready flag
-			if (pLobbyMember.m_bIsReady)
 			{
 				slot->setAccept();
+				slot->setMapAvailability(true);
+				slot->m_userID = -1;
 			}
-			else
-			{
-				slot->unAccept();
-			}
-
-			// has map?
-			slot->setMapAvailability(pLobbyMember.has_map);
-
-			// store EOS ID
-			slot->m_userID = pLobbyMember.user_id;
-			
-			
-
 		}
 		else
 		{
