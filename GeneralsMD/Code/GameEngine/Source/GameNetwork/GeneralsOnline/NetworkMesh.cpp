@@ -322,6 +322,7 @@ void NetworkMesh::Tick()
 	{
 		if (currTime - m_connectionCheckGracePeriodStart >= m_thresoldToCheckConnected)
 		{
+			m_connectionCheckGracePeriodStart = -1;
 			// NOTE: Host shouldn't do this, why would we leave our own game? let the joining client leave instead
 			if (!NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost())
 			{
