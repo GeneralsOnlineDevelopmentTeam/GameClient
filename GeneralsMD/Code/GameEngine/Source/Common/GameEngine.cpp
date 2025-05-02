@@ -911,7 +911,7 @@ void GameEngine::update(void)
 				NGMP_OnlineServicesManager::GetInstance()->Tick();
 			}
 
-			//if (elapsedMsServer >= limit)
+			if (elapsedMsServer >= limit)
 			{
 				if (TheNetwork != NULL)
 				{
