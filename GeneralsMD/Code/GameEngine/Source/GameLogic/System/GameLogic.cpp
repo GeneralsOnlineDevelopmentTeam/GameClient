@@ -115,6 +115,8 @@
 #include "../ngmp_include.h"
 #include "../ngmp_interfaces.h"
 
+#include "../NextGenMP_defines.h"
+
 DECLARE_PERF_TIMER(SleepyMaintenance)
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.		 
@@ -3636,10 +3638,12 @@ void GameLogic::update( void )
 	#endif
 	}
 
+#if !defined(GENERALS_ONLINE_RUN_FAST)
 	// send the current time to the GameClient
 	DEBUG_ASSERTCRASH(TheGameLogic == this, ("hmm, TheGameLogic is not right"));
 	UnsignedInt now = TheGameLogic->getFrame();
 	TheGameClient->setFrame(now);
+#endif
 
 	// update (execute) scripts
 	{
@@ -3704,6 +3708,10 @@ void GameLogic::update( void )
 	{
 		TheStatsCollector->update();
 	}
+
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	UnsignedInt now = TheGameLogic->getFrame();
+#endif
 
 	// Update the Recorder
 	{
@@ -3845,7 +3853,9 @@ void GameLogic::update( void )
 	// increment world time
 	if (!m_startNewGame)
 	{
+#if !defined(GENERALS_ONLINE_RUN_FAST)
 		m_frame++;
+#endif
 	}
 }
 

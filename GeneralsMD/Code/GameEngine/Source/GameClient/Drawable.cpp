@@ -77,6 +77,8 @@
 #include "GameClient/Shadow.h"
 #include "GameClient/GameText.h"
 
+#include "../NextGenMP_defines.h"
+
 //#define KRIS_BRUTAL_HACK_FOR_AIRCRAFT_CARRIER_DEBUGGING 
 #ifdef KRIS_BRUTAL_HACK_FOR_AIRCRAFT_CARRIER_DEBUGGING
 	#include "GameLogic/Module/ParkingPlaceBehavior.h"
@@ -1918,6 +1920,11 @@ void Drawable::calcPhysicsXformTreads( const Locomotor *locomotor, PhysicsXformI
 //-------------------------------------------------------------------------------------------------
 void Drawable::calcPhysicsXformWheels( const Locomotor *locomotor, PhysicsXformInfo& info )
 {
+	// TODO_NGMP_HIGHFPS: TODO
+#if defined(GENERALS_ONLINE_RUN_FAST)
+		return;
+#endif
+
 	if (m_locoInfo == NULL)
 		m_locoInfo = newInstance(DrawableLocoInfo);
 
@@ -2672,10 +2679,38 @@ void Drawable::draw( View *view )
 
 	applyPhysicsXform(&transformMtx);
 
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	if (!m_hasPreviousTransform)
+	{
+		m_previousTransform = transformMtx;
+		m_hasPreviousTransform = true;
+	}
+
+	Matrix3D lerpedTransformatrix;
+	Matrix3D currentTransformMatrix = transformMtx;
+
+	Matrix3D::Lerp(m_previousTransform, currentTransformMatrix, 0.5f, lerpedTransformatrix);
+#endif
+
 	for (DrawModule** dm = getDrawModules(); *dm; ++dm)
 	{
+#if defined(GENERALS_ONLINE_RUN_FAST)
+		if (TheTacticalView->getCameraLockDrawable() == this)
+		{
+			(*dm)->doDrawModule(&currentTransformMatrix);
+		}
+		else
+		{
+			(*dm)->doDrawModule(&lerpedTransformatrix);
+		}
+#else
 		(*dm)->doDrawModule(&transformMtx);
+#endif
 	}
+
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	m_previousTransform = lerpedTransformatrix;
+#endif
 }
 
 // ------------------------------------------------------------------------------------------------

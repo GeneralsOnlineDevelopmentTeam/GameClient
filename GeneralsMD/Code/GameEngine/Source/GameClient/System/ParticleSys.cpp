@@ -49,6 +49,8 @@
 #include "GameLogic/Object.h"
 #include "GameLogic/TerrainLogic.h"
 
+#include "../NextGenMP_defines.h"
+
 #ifdef _INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -283,7 +285,12 @@ Particle::Particle( ParticleSystem *system, const ParticleInfo *info )
 
 	m_lifetime = info->m_lifetime;
 	m_lifetimeLeft = info->m_lifetime;
+	
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	m_createTimestamp = TheGameLogic->getFrame();
+#else
 	m_createTimestamp = TheGameClient->getFrame();
+#endif
 	m_personality = 0;
 
 	m_size = info->m_size;
@@ -409,7 +416,11 @@ Bool Particle::update( void )
 
 		if (m_alphaTargetKey < MAX_KEYFRAMES && m_alphaKey[ m_alphaTargetKey ].frame)
 		{
-			if (TheGameClient->getFrame() - m_createTimestamp >= m_alphaKey[ m_alphaTargetKey ].frame)
+#if defined(GENERALS_ONLINE_RUN_FAST)
+			if (TheGameLogic->getFrame() - m_createTimestamp >= m_alphaKey[ m_alphaTargetKey ].frame)
+#else
+			if (TheGameClient->getFrame() - m_createTimestamp >= m_alphaKey[m_alphaTargetKey].frame)
+#endif
 			{
 				m_alpha = m_alphaKey[ m_alphaTargetKey ].value;
 				m_alphaTargetKey++;
@@ -435,7 +446,11 @@ Bool Particle::update( void )
 
 	if (m_colorTargetKey < MAX_KEYFRAMES && m_colorKey[ m_colorTargetKey ].frame)
 	{
-		if (TheGameClient->getFrame() - m_createTimestamp >= m_colorKey[ m_colorTargetKey ].frame)
+#if defined(GENERALS_ONLINE_RUN_FAST)
+		if (TheGameLogic->getFrame() - m_createTimestamp >= m_colorKey[ m_colorTargetKey ].frame)
+#else
+		if (TheGameClient->getFrame() - m_createTimestamp >= m_colorKey[m_colorTargetKey].frame)
+#endif
 		{
 			// can't set, because of colorscale
 			// m_color = m_colorKey[ m_colorTargetKey ].color;
@@ -1109,7 +1124,11 @@ ParticleSystem::ParticleSystem( const ParticleSystemTemplate *sysTemplate,
 
 	m_delayLeft = (UnsignedInt)sysTemplate->m_initialDelay.getValue();
 
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	m_startTimestamp = TheGameLogic->getFrame();
+#else
 	m_startTimestamp = TheGameClient->getFrame();
+#endif
 	m_systemLifetimeLeft = sysTemplate->m_systemLifetime;
 	if (sysTemplate->m_systemLifetime)
 		m_isForever = false;
@@ -1861,7 +1880,11 @@ Bool ParticleSystem::update( Int localPlayerIndex  )
 		// system actually "starts" once initial delay is over
 		/// @todo reset start time when system is stopped/started
 		if (m_delayLeft == 0)
+#if defined(GENERALS_ONLINE_RUN_FAST)
+			m_startTimestamp = TheGameLogic->getFrame();
+#else
 			m_startTimestamp = TheGameClient->getFrame();
+#endif
 
 		return true;
 	}

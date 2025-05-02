@@ -83,6 +83,9 @@
 #include "GameLogic/GhostObject.h"
 #include "GameLogic/Object.h"
 #include "GameLogic/ScriptEngine.h"		// For TheScriptEngine - jkmcd
+
+#include "../NextGenMP_defines.h"
+
 #ifdef _INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -767,6 +770,8 @@ void GameClient::update( void )
 		TheDisplayStringManager->update();
 	}
 
+
+#if !defined(GENERALS_ONLINE_RUN_FAST)
 	{
 		// update the shell
 		TheShell->UPDATE();
@@ -776,6 +781,7 @@ void GameClient::update( void )
 		// update the in game UI 
 		TheInGameUI->UPDATE();
 	}
+#endif
 }  // end update
 
 /** -----------------------------------------------------------------------------------------------

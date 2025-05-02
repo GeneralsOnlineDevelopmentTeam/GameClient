@@ -1,4 +1,4 @@
-/*
+﻿/*
 **	Command & Conquer Generals Zero Hour(tm)
 **	Copyright 2025 Electronic Arts Inc.
 **
@@ -108,9 +108,13 @@
 
 #include "Common/version.h"
 
+#include "../NextGenMP_defines.h"
+
 // GENERALS ONLINE
 #include "../OnlineServices_Init.h"
 #include "../../GameSpyOverlay.h"
+#include <chrono>
+#include "ww3d.h"
 
 static bool g_bTearDownGeneralsOnlineRequested = false;
 void TearDownGeneralsOnline(bool bWasDisconnectionError)
@@ -765,42 +769,43 @@ DECLARE_PERF_TIMER(GameEngine_update)
  * @todo Allow the client to run as fast as possible, but limit the execution
  * of TheNetwork and TheGameLogic to a fixed framerate.
  */
-void GameEngine::update( void )
-{ 
+#if !defined(GENERALS_ONLINE_RUN_FAST)
+void GameEngine::update(void)
+{
 	USE_PERF_TIMER(GameEngine_update)
 	{
 
 		{
-			
+
 			// VERIFY CRC needs to be in this code block.  Please to not pull TheGameLogic->update() inside this block.
-VERIFY_CRC
+			VERIFY_CRC
 
-TheRadar->UPDATE();
+				TheRadar->UPDATE();
 
-/// @todo Move audio init, update, etc, into GameClient update
+			/// @todo Move audio init, update, etc, into GameClient update
 
-TheAudio->UPDATE();
-TheGameClient->UPDATE();
-TheMessageStream->propagateMessages();
+			TheAudio->UPDATE();
+			TheGameClient->UPDATE();
+			TheMessageStream->propagateMessages();
 
-if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
-{
-	g_bTearDownGeneralsOnlineRequested = false;
+			if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
+			{
+				g_bTearDownGeneralsOnlineRequested = false;
 
-	NGMP_OnlineServicesManager::DestroyInstance();
+				NGMP_OnlineServicesManager::DestroyInstance();
 
-}
-if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-{
-	NGMP_OnlineServicesManager::GetInstance()->Tick();
-}
+			}
+			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+			{
+				NGMP_OnlineServicesManager::GetInstance()->Tick();
+			}
 
-if (TheNetwork != NULL)
-{
-	TheNetwork->UPDATE();
-}
+			if (TheNetwork != NULL)
+			{
+				TheNetwork->UPDATE();
+			}
 
-TheCDManager->UPDATE();
+			TheCDManager->UPDATE();
 		}
 
 
@@ -814,6 +819,126 @@ TheCDManager->UPDATE();
 	}	// end perfGather
 
 }
+#else
+void GameEngine::update(void)
+{
+	static int m_serverFrame = 0;
+	static int m_clientFrame = 0;
+
+	//	m_maxFPS = 60;
+	extern INT TheW3DFrameLengthInMsec;
+	DWORD limit = (1000.0f / m_maxFPS) - 1;
+	DWORD clientlimit = 120; // TODO_NGMP
+
+	if (limit < clientlimit)
+		clientlimit = limit;
+
+	// Lock to slower framerate for cinematics. 
+	//bool inCinematic = limit > 33;
+	TheW3DFrameLengthInMsec = clientlimit;
+
+	USE_PERF_TIMER(GameEngine_update)
+	{
+		static auto lastTimeServer = std::chrono::high_resolution_clock::now();
+		static auto lastTimeClient = std::chrono::high_resolution_clock::now();
+
+		// Grab the current time		
+		auto now = std::chrono::high_resolution_clock::now();
+
+		// Compute how many milliseconds have elapsed since last call
+		auto elapsedMsServer = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeServer).count();
+
+		auto elapsedMsClient = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeClient).count();
+
+
+		{
+			{
+				VERIFY_CRC
+
+					TheRadar->UPDATE();
+				TheAudio->UPDATE();
+
+				if (elapsedMsClient >= clientlimit)
+
+				{
+					//StartClientCpuFrameTimer();
+
+					// Get the elapsed duration in milliseconds as a float:
+					float elapsedMs = std::chrono::duration<float, std::milli>(now - lastTimeClient).count();
+
+					// Convert ms → seconds:
+					float clientDeltaTime = (elapsedMs / 1000.0f) * 30.0f;
+
+					if (clientDeltaTime > 1.0f) {
+						clientDeltaTime = 1.0f;
+					}
+
+					WW3D::Set_DeltaTime(clientDeltaTime);
+					lastTimeClient = now;
+
+					TheGameClient->setFrame(m_clientFrame);
+					m_clientFrame++;
+					TheW3DFrameLengthInMsec = clientlimit;
+					TheGameClient->UPDATE();
+
+					TheMessageStream->propagateMessages();
+
+					// update the shell
+					TheShell->UPDATE();
+
+					if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
+					{
+						g_bTearDownGeneralsOnlineRequested = false;
+
+						NGMP_OnlineServicesManager::DestroyInstance();
+
+					}
+					if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+					{
+						NGMP_OnlineServicesManager::GetInstance()->Tick();
+					}
+
+					// update the in game UI 
+					TheInGameUI->UPDATE();
+
+					//EndClientCpuFrameTimer();
+				}
+
+				if (elapsedMsServer >= limit)
+				{
+					if (TheNetwork != NULL)
+					{
+						TheNetwork->UPDATE();
+					}
+				}
+
+				TheCDManager->UPDATE();
+			}
+
+			// If network is absent or we have fresh network data, update the game logic
+			if ((TheNetwork == NULL && !TheGameLogic->isGamePaused())
+				|| (TheNetwork && TheNetwork->isFrameDataReady()))
+			{
+				if (elapsedMsServer >= limit)
+				{
+					//StartServerCpuFrameTimer();
+					TheGameLogic->UPDATE();
+					//EndServerCpuFrameTimer();
+				}
+			}
+
+			if (elapsedMsServer >= limit)
+			{
+				lastTimeServer = now;
+				m_serverFrame++;
+				TheGameLogic->setFrame(m_serverFrame);
+			}
+
+
+		}
+	} // end perfGather
+}
+#endif
 
 // Horrible reference, but we really, really need to know if we are windowed.
 extern bool DX8Wrapper_IsWindowed;
@@ -824,7 +949,14 @@ extern HWND ApplicationHWnd;
  */
 void GameEngine::execute(void)
 {
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	while (!m_quitting)
+	{
+		update();
 
+		Sleep(0);
+	}
+#else
 	DWORD prevTime = timeGetTime();
 #if defined(_DEBUG) || defined(_INTERNAL)
 	DWORD startTime = timeGetTime() / 1000;
@@ -954,7 +1086,7 @@ void GameEngine::execute(void)
 #endif
 
 	}
-
+#endif
 }
 
 /** -----------------------------------------------------------------------------------------------

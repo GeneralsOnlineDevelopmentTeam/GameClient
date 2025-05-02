@@ -44,6 +44,8 @@
 
 #include <rts/profile.h>
 
+#include "../NextGenMP_defines.h"
+
 // PUBLIC DATA ////////////////////////////////////////////////////////////////////////////////////
 Shell *TheShell = NULL;  ///< the shell singleton definition
 
@@ -177,6 +179,7 @@ void Shell::reset( void )
 //-------------------------------------------------------------------------------------------------
 void Shell::update( void )
 {
+#if !defined(GENERALS_ONLINE_RUN_FAST)
 	static Int lastUpdate = timeGetTime();
 	static const Int shellUpdateDelay = 30;  // try to update 30 frames a second
 	Int now = timeGetTime();
@@ -186,8 +189,8 @@ void Shell::update( void )
 	// speeds during the screen update functions
 	//
 	if( now - lastUpdate >= ((1000.0f / shellUpdateDelay ) - 1) )
+#endif
 	{
-
 		// run the updates for every window layout on the stack
 		for( Int i = m_screenCount - 1; i >= 0; i-- )
 		{
@@ -210,8 +213,10 @@ void Shell::update( void )
 
 		m_schemeManager->update();
 
+#if !defined(GENERALS_ONLINE_RUN_FAST)
 		// mark last time we ran the updates
 		lastUpdate = now;
+#endif
 
 	}  // end if
 

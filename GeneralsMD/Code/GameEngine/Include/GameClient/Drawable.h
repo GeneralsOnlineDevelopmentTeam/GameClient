@@ -40,6 +40,8 @@
 #include "WWMath/matrix3d.h"
 #include "GameClient/DrawableInfo.h"
 
+#include "../NextGenMP_defines.h"
+
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class PositionalSound;
 class ThingTemplate;
@@ -658,6 +660,11 @@ private:
 	Real m_decalOpacityFadeTarget;
 	Real m_decalOpacityFadeRate;
 	Real m_decalOpacity;
+
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	Matrix3D m_previousTransform;
+	bool m_hasPreviousTransform = false;
+#endif
 
 	Object *m_object;						///< object (if any) that this drawable represents
 		

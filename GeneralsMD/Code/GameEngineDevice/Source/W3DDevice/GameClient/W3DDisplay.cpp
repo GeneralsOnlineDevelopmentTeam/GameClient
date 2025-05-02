@@ -107,6 +107,8 @@ static void drawFramerateBar(void);
 #include "GameLogic/PartitionManager.h"
 #endif
 
+#include "../NextGenMP_defines.h"
+
 #include "WinMain.h"
 
 #ifdef _INTERNAL
@@ -1828,6 +1830,8 @@ AGAIN:
 	do {
 		
 		{
+
+#if !defined(GENERALS_ONLINE_RUN_FAST)
 			if(TheGlobalData->m_loadScreenRender != TRUE)
 			{
 			
@@ -1838,6 +1842,7 @@ AGAIN:
 				}
 				prevTime = now;
 			}
+#endif
 		}
 
 		// update all views of the world - recomputes data which will affect drawing
