@@ -1319,9 +1319,16 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			if (newMinFps == minFps) {
 				newMinFps = minFps + 1;
 			}
-			if (newMinFps > 30) {
+
+#if defined(GENERALS_ONLINE_RUN_FAST)
+			if (newMinFps > 60) {
+				newMinFps = 60; // Cap FPS to 60.
+			}
+#else
+			if(newMinFps > 30) {
 				newMinFps = 30; // Cap FPS to 30.
 			}
+#endif
 			msg2->setRunAhead(newRunAhead);
 			msg2->setFrameRate(newMinFps);
 

@@ -825,13 +825,13 @@ void GameEngine::update(void)
 	static int m_serverFrame = 0;
 	static int m_clientFrame = 0;
 
-	//	m_maxFPS = 60;
+	m_maxFPS = 60;
 	extern INT TheW3DFrameLengthInMsec;
 	DWORD limit = (1000.0f / m_maxFPS) - 1;
-	DWORD clientlimit = 120; // TODO_NGMP
+	DWORD clientlimit = (1000.0f / m_maxFPS) - 1;
 
-	if (limit < clientlimit)
-		clientlimit = limit;
+	//if (limit < clientlimit)
+	//	clientlimit = limit;
 
 	// Lock to slower framerate for cinematics. 
 	//bool inCinematic = limit > 33;
@@ -886,17 +886,7 @@ void GameEngine::update(void)
 					// update the shell
 					TheShell->UPDATE();
 
-					if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
-					{
-						g_bTearDownGeneralsOnlineRequested = false;
-
-						NGMP_OnlineServicesManager::DestroyInstance();
-
-					}
-					if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-					{
-						NGMP_OnlineServicesManager::GetInstance()->Tick();
-					}
+					
 
 					// update the in game UI 
 					TheInGameUI->UPDATE();
@@ -904,34 +894,69 @@ void GameEngine::update(void)
 					//EndClientCpuFrameTimer();
 				}
 
-				if (elapsedMsServer >= limit)
-				{
-					if (TheNetwork != NULL)
-					{
-						TheNetwork->UPDATE();
-					}
-				}
+				
 
 				TheCDManager->UPDATE();
 			}
 
-			// If network is absent or we have fresh network data, update the game logic
-			if ((TheNetwork == NULL && !TheGameLogic->isGamePaused())
-				|| (TheNetwork && TheNetwork->isFrameDataReady()))
+			if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
 			{
-				if (elapsedMsServer >= limit)
+				g_bTearDownGeneralsOnlineRequested = false;
+
+				NGMP_OnlineServicesManager::DestroyInstance();
+
+			}
+			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+			{
+				NGMP_OnlineServicesManager::GetInstance()->Tick();
+			}
+
+			//if (elapsedMsServer >= limit)
+			{
+				if (TheNetwork != NULL)
 				{
-					//StartServerCpuFrameTimer();
-					TheGameLogic->UPDATE();
-					//EndServerCpuFrameTimer();
+					TheNetwork->UPDATE();
+				}
+
+				if ((TheNetwork == NULL && !TheGameLogic->isGamePaused())
+					|| (TheNetwork && TheNetwork->isFrameDataReady()))
+				{
+					//if (elapsedMsServer >= limit)
+					{
+						//StartServerCpuFrameTimer();
+						TheGameLogic->UPDATE();
+						//EndServerCpuFrameTimer();
+
+						lastTimeServer = now;
+						
+
+						// only increment frame if we actually started
+						if (!TheGameLogic->IsStartNewgame())
+						{
+							m_serverFrame++;
+						}
+						else
+						{
+							m_serverFrame = 0;
+						}
+						TheGameLogic->setFrame(m_serverFrame);
+					}
 				}
 			}
+			
+			// If network is absent or we have fresh network data, update the game logic
+			
+// 			TheNetwork->isPlayerConnected(tHEnET)
+// 
+// 			Network* pCastedNetwork = (Network*)TheNetwork;
+// 			if (pCastedNetwork->GetLocalStatus() != NETLOCALSTATUS_INGAME)
+// 			{
+// 				TheGameLogic->UPDATE();
+// 			}
 
 			if (elapsedMsServer >= limit)
 			{
-				lastTimeServer = now;
-				m_serverFrame++;
-				TheGameLogic->setFrame(m_serverFrame);
+				
 			}
 
 

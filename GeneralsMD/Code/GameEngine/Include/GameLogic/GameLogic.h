@@ -116,6 +116,8 @@ public:
 	virtual void reset( void );															///< Reset the logic system
 	virtual void update( void );														///< update the world
 
+	bool IsStartNewgame() const { return m_startNewGame; }
+
 #if defined(_DEBUG) || defined(_INTERNAL)
 	Int getNumberSleepyUpdates() const {return m_sleepyUpdates.size();} //For profiling, so not in Release.
 #endif

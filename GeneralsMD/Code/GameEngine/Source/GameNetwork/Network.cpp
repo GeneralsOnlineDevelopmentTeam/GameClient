@@ -511,7 +511,11 @@ Bool Network::processCommand(GameMessage *msg)
 		if (m_localStatus == NETLOCALSTATUS_PREGAME) {
 			// a sort-of-hack that prevents extraneous frames from being executed before the game actually starts.
 			// Idealy this shouldn't be necessary, but I don't think its hurting anything by being here.
+#if defined(GENERALS_ONLINE_RUN_FAST)
 			if (TheGameLogic->getFrame() == 1) {
+#else
+			if (TheGameLogic->getFrame() == 1) {
+#endif
 				m_localStatus = NETLOCALSTATUS_INGAME;
 				NetCommandList *netcmdlist = m_conMgr->getFrameCommandList(0); // clear out frame 0 since we skipped it
 				netcmdlist->deleteInstance();
@@ -701,6 +705,11 @@ void Network::update( void )
 	GetCommandsFromCommandList(); // Remove commands from TheCommandList and send them to the connection manager.
 	if (m_conMgr != NULL) {
 		if (m_localStatus == NETLOCALSTATUS_INGAME) {
+#if defined(GENERALS_ONLINE_RUN_FAST)
+			m_frameRate = 60;
+#else
+			m_frameRate = 30;
+#endif
 			m_conMgr->updateRunAhead(m_runAhead, m_frameRate, m_didSelfSlug, getExecutionFrame());
 			m_didSelfSlug = FALSE;
 		}
