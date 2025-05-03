@@ -402,6 +402,9 @@ void NGMPGame::launchGame(void)
 	GameMessage* msg = TheMessageStream->appendMessage(GameMessage::MSG_NEW_GAME);
 	msg->appendIntegerArgument(GAME_INTERNET);
 
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	TheWritableGlobalData->m_framesPerSecondLimit = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+#endif
 	TheWritableGlobalData->m_useFpsLimit = false;
 
 	// Set the random seed

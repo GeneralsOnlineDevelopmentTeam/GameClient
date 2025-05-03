@@ -774,12 +774,15 @@ void GameEngine::update(void)
 {
 	USE_PERF_TIMER(GameEngine_update)
 	{
-
+		
 		{
 
 			// VERIFY CRC needs to be in this code block.  Please to not pull TheGameLogic->update() inside this block.
 			VERIFY_CRC
 
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+				m_maxFPS = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+#endif
 				TheRadar->UPDATE();
 
 			/// @todo Move audio init, update, etc, into GameClient update

@@ -1324,6 +1324,11 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			if (newMinFps > 60) {
 				newMinFps = 60; // Cap FPS to 60.
 			}
+#elif defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			if (newMinFps > GENERALS_ONLINE_HIGH_FPS_LIMIT) {
+				newMinFps = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+			}
+
 #else
 			if(newMinFps > 30) {
 				newMinFps = 30; // Cap FPS to 30.

@@ -58,6 +58,7 @@
 
 // ----------------------------------------------------------------------------------------------
 #include "Lib/BaseType.h"
+#include "../NextGenMP_defines.h"
 
 // ----------------------------------------------------------------------------------------------
 #if defined(_INTERNAL) || defined(_DEBUG)
@@ -69,7 +70,11 @@
 // ----------------------------------------------------------------------------------------------
 enum
 {
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	LOGICFRAMES_PER_SECOND = GENERALS_ONLINE_HIGH_FPS_LIMIT,
+#else
 	LOGICFRAMES_PER_SECOND = 30,
+#endif
 	MSEC_PER_SECOND = 1000
 };
 const Real LOGICFRAMES_PER_MSEC_REAL = (((Real)LOGICFRAMES_PER_SECOND) / ((Real)MSEC_PER_SECOND));

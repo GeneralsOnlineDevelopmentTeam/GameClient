@@ -707,6 +707,8 @@ void Network::update( void )
 		if (m_localStatus == NETLOCALSTATUS_INGAME) {
 #if defined(GENERALS_ONLINE_RUN_FAST)
 			m_frameRate = 60;
+#elif defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			m_frameRate = GENERALS_ONLINE_HIGH_FPS_LIMIT;
 #else
 			m_frameRate = 30;
 #endif
