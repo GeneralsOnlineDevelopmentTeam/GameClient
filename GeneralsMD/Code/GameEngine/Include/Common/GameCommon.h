@@ -58,7 +58,7 @@
 
 // ----------------------------------------------------------------------------------------------
 #include "Lib/BaseType.h"
-#include "../NextGenMP_defines.h"
+#include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
 
 // ----------------------------------------------------------------------------------------------
 #if defined(_INTERNAL) || defined(_DEBUG)
