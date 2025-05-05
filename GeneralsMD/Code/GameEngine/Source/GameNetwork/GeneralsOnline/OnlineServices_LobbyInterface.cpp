@@ -1315,6 +1315,32 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 				if (resp.result == ECreateLobbyResponseResult::SUCCEEDED)
 				{
+					// for safety
+					if (TheNGMPGame != nullptr)
+					{
+						NetworkLog("NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
+						delete TheNGMPGame;
+						TheNGMPGame = nullptr;
+					}
+
+
+					// TODO_NGMP: Cleanup game + dont store 2 ptrs
+					if (TheNGMPGame == nullptr)
+					{
+						TheNGMPGame = new NGMPGame();
+
+
+						// TODO_NGMP: Rest of these
+						/*
+						TheNGMPGame.setLocalName(m_localName);
+						TheNGMPGame.setExeCRC(info->getExeCRC());
+						TheNGMPGame.setIniCRC(info->getIniCRC());
+						TheNGMPGame.setAllowObservers(info->getAllowObservers());
+						TheNGMPGame.setHasPassword(info->getHasPassword());
+						TheNGMPGame.setGameName(info->getGameName());
+						*/
+					}
+
 					// reset before copy
 					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ResetCachedRoomData();
 					 
@@ -1342,31 +1368,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 					m_CurrentLobby.members.push_back(me);
 
-					// for safety
-					if (TheNGMPGame != nullptr)
-					{
-						NetworkLog("NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
-						delete TheNGMPGame;
-						TheNGMPGame = nullptr;
-					}
-
-	
-					// TODO_NGMP: Cleanup game + dont store 2 ptrs
-					if (TheNGMPGame == nullptr)
-					{
-						TheNGMPGame = new NGMPGame();
-
-
-						// TODO_NGMP: Rest of these
-						/*
-						TheNGMPGame.setLocalName(m_localName);
-						TheNGMPGame.setExeCRC(info->getExeCRC());
-						TheNGMPGame.setIniCRC(info->getIniCRC());
-						TheNGMPGame.setAllowObservers(info->getAllowObservers());
-						TheNGMPGame.setHasPassword(info->getHasPassword());
-						TheNGMPGame.setGameName(info->getGameName());
-						*/
-					}
+					
 
 
 					AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
