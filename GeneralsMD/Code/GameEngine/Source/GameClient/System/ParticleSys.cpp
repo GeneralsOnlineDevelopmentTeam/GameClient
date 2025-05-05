@@ -51,7 +51,7 @@
 
 #include "../NextGenMP_defines.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -416,6 +416,7 @@ Bool Particle::update( void )
 
 		if (m_alphaTargetKey < MAX_KEYFRAMES && m_alphaKey[ m_alphaTargetKey ].frame)
 		{
+
 #if defined(GENERALS_ONLINE_RUN_FAST)
 			if (TheGameLogic->getFrame() - m_createTimestamp >= m_alphaKey[ m_alphaTargetKey ].frame)
 #else
@@ -446,6 +447,7 @@ Bool Particle::update( void )
 
 	if (m_colorTargetKey < MAX_KEYFRAMES && m_colorKey[ m_colorTargetKey ].frame)
 	{
+
 #if defined(GENERALS_ONLINE_RUN_FAST)
 		if (TheGameLogic->getFrame() - m_createTimestamp >= m_colorKey[ m_colorTargetKey ].frame)
 #else

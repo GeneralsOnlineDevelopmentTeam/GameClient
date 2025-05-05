@@ -72,7 +72,7 @@ NGMPGame* TheNGMPGame = NULL;
 
 void WOLDisplaySlotList( void );
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -82,7 +82,7 @@ extern std::list<PeerResponse> TheLobbyQueuedUTMs;
 extern void MapSelectorTooltip(GameWindow *window, WinInstanceData *instData,	UnsignedInt mouse);
 
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 extern Bool g_debugSlots;
 void slotListDebugLog(const char *fmt, ...)
 {
@@ -1592,9 +1592,11 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 	// Recorded stats games can never limit superweapons, limit armies, or have inflated starting cash.
 		// This should probably be enforced at the gamespy level as well, to prevent expoits.
-		// TODO_NGMP: reimpl
-		//Int isUsingStats = TheGameSpyGame->getUseStats();
-		bool isUsingStats = true;
+#if !defined(GENERALS_ONLINE)
+		Int isUsingStats = TheGameSpyGame->getUseStats();
+#else
+		Int isUsingStats = game->getUseStats();
+#endif
 
 		game->setStartingCash( isUsingStats? TheMultiplayerSettings->getDefaultStartingMoney() : customPref.getStartingCash() );
 		game->setSuperweaponRestriction( isUsingStats? 0 : customPref.getSuperweaponRestricted() ? 1 : 0 );
@@ -2241,7 +2243,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 			case PeerResponse::PEERRESPONSE_ROOMUTM:
 				{
 					sawImportantMessage = TRUE;
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 					if (g_debugSlots)
 					{
 						DEBUG_LOG(("About to process a room UTM.  Command is '%s', command options is '%s'\n",
@@ -2798,7 +2800,10 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	{
 		UnicodeString s;
 		s.format(L"Hosting qr2:%d thread:%d", getQR2HostingStatus(), isThreadHosting);
+#if !defined(GENERALS_ONLINE)
+#else
 		GadgetListBoxAddEntryText(listboxGameSetupChat, s, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+#endif
 		return TRUE; // was a slash command
 	}
 	else if (token == "me" && uText.getLength()>4)
@@ -2806,101 +2811,15 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		TheGameSpyInfo->sendChat(UnicodeString(uText.str()+4), TRUE, NULL);
 		return TRUE; // was a slash command
 	}
-	else if (token == "leave")
-	{
-		PopBackToLobby();
-	}
-	else if (token == "quit")
-	{
-		exit(0);
-	}
-	else if (token == "connections" || token == "conns" || token == "c")
-	{
-		// TODO_NGMP: Disable this on retail builds
-		std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
 
-		UnicodeString msg;
-		msg.format(L"Dumping %d network connection(s) to this lobby:", connections.size());
-		GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-
-		int64_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-
-		auto lobbyMembers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
-
-		int i = 0;
-		for (auto& kvPair : connections)
-		{
-			PlayerConnection& conn = kvPair.second;
-			std::string strIPAddr = conn.GetIPAddrString();
-
-			std::string strState = "Unknown";
-
-			switch (conn.m_State)
-			{
-			case EConnectionState::NOT_CONNECTED:
-				strState = "Not Connected";
-				break;
-
-			case EConnectionState::CONNECTING:
-				strState = "Connecting";
-				break;
-
-			case EConnectionState::CONNECTED_DIRECT:
-				strState = "Connected Direct";
-				break;
-
-			case EConnectionState::CONNECTED_RELAY_1:
-				strState = "Connected Relay 1";
-				break;
-
-			case EConnectionState::CONNECTED_RELAY_2:
-				strState = "Connected Relay 2";
-				break;
-
-			case EConnectionState::CONNECTION_FAILED:
-				strState = "Connection Failed";
-				break;
-
-			default:
-				strState = "Unknown";
-				break;
-			}
-
-			std::string strDisplayName = "Unknown";
-			for (auto& member : lobbyMembers)
-			{
-				if (member.user_id == kvPair.first)
-				{
-					strDisplayName = member.display_name;
-					break;
-				}
-			}
-
-			std::string strConnectionType = "Unknown";
-			if (localUserID == kvPair.first)
-			{
-				strConnectionType = "Local";
-			}
-			else
-			{
-				strConnectionType = "Remote";
-			}
-
-			UnicodeString msg;
-			msg.format(L"        Connection %d (%hs) - user %lld - name %hs - addr %hs:%d - State: %hs - Attempts: %d - Latency: %d",
-				i, strConnectionType.c_str(), kvPair.first, strDisplayName.c_str(), strIPAddr.c_str(), conn.m_address.port, strState.c_str(), conn.m_ConnectionAttempts, conn.latency);
-			GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-
-			++i;
-		}
-
-		return TRUE; // was a slash command
-	}
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	else if (token == "slots")
 	{
 		g_debugSlots = !g_debugSlots;
+#if !defined(GENERALS_ONLINE)
+#else
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Toggled SlotList debug"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+#endif
 		return TRUE; // was a slash command
 	}
 	else if (token == "discon")
@@ -2910,19 +2829,27 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		TheGameSpyPeerMessageQueue->addRequest( req );
 		return TRUE;
 	}
-#endif // defined(_DEBUG) || defined(_INTERNAL)
+
+#endif // defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 
 	return FALSE; // not a slash command
 }
 
 static Int getNextSelectablePlayer(Int start)
 {
+#if !defined(GENERALS_ONLINE)
+#else
 	NGMPGame* game = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
+#endif
 	if (!game->amIHost())
 		return -1;
 	for (Int j=start; j<MAX_SLOTS; ++j)
 	{
+#if !defined(GENERALS_ONLINE)
+#else
 		NGMPGameSlot *slot = game->getGameSpySlot(j);
+#endif
+
 		if (slot && slot->getStartPos() == -1 &&
 			( (j==game->getLocalSlotNum() && game->getConstSlot(j)->getPlayerTemplate()!=PLAYERTEMPLATE_OBSERVER)
 			|| slot->isAI()))
@@ -2956,6 +2883,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 														 WindowMsgData mData1, WindowMsgData mData2 )
 {
 	UnicodeString txtInput;
+
 	static int buttonCommunicatorID = NAMEKEY_INVALID;
 	switch( msg )
 	{

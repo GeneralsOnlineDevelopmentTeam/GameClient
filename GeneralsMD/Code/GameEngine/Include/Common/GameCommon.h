@@ -61,7 +61,7 @@
 #include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
 
 // ----------------------------------------------------------------------------------------------
-#if defined(_INTERNAL) || defined(_DEBUG)
+#if defined(RTS_INTERNAL) || defined(RTS_DEBUG)
 	#define DUMP_PERF_STATS
 #else
 	#define NO_DUMP_PERF_STATS

@@ -40,7 +40,7 @@
 
 #include "../NextGenMP_defines.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -69,7 +69,8 @@ void Win32BIGFileSystem::init() {
 #if !defined(GENERALS_ONLINE)
 
     //@todo this will need to be ramped up to a crash for release
-#ifndef _INTERNAL
+
+#ifndef RTS_INTERNAL
     // had to make this non-internal only, otherwise we can't autobuild
     // GeneralsZH...
     DEBUG_ASSERTCRASH(installPath != "", ("Be 1337! Go install Generals!"));

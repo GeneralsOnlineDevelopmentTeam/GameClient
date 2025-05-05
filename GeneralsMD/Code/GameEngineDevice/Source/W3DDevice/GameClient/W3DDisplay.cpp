@@ -111,7 +111,7 @@ static void drawFramerateBar(void);
 
 #include "WinMain.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -324,7 +324,7 @@ void StatDumpClass::dumpStats( Bool brief, Bool flagSpikes )
 
 	fprintf( m_fp, "\n" );
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
   if ( ! beBrief )
   {
     TheAudio->audioDebugDisplay( NULL, NULL, m_fp );
@@ -403,7 +403,7 @@ W3DDisplay::W3DDisplay()
 	m_2DScene = NULL;
 	m_3DInterfaceScene = NULL;
 	m_averageFPS = TheGlobalData->m_framesPerSecondLimit;
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	m_timerAtCumuFPSStart = 0;
 #endif
 	for (i=0; i<LightEnvironmentClass::MAX_LIGHTS; i++)
@@ -687,7 +687,7 @@ void W3DDisplay::init( void )
 
 	// create our 3D scene
 	m_3DScene =NEW_REF( RTS3DScene, () );
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if( TheGlobalData->m_wireframe )
 		m_3DScene->Set_Polygon_Mode( SceneClass::LINE );
 #endif
@@ -886,7 +886,7 @@ void W3DDisplay::updateAverageFPS(void)
 	Int64 freq64 = getPerformanceCounterFrequency();
 	Int64 time64 = getPerformanceCounter();
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheGameLogic->getFrame() == START_CUMU_FRAME)
 	{
 		m_timerAtCumuFPSStart = time64;
@@ -928,7 +928,7 @@ void W3DDisplay::updateAverageFPS(void)
 	lastUpdateTime64 = time64;
 }
 
-#if defined(_DEBUG) || defined(_INTERNAL)	//debug hack to view object under mouse stats
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)	//debug hack to view object under mouse stats
 ICoord2D TheMousePos;
 #endif
 
@@ -1022,7 +1022,7 @@ void W3DDisplay::gatherDebugStats( void )
 		double ms = 1000.0f/fps;
 
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 		double cumuTime = ((double)(time64 - m_timerAtCumuFPSStart) / (double)(freq64));
 		if (cumuTime < 0.0) cumuTime = 0.0;
 		Int numFrames = (Int)TheGameLogic->getFrame() - (Int)START_CUMU_FRAME;
@@ -1193,7 +1193,7 @@ void W3DDisplay::gatherDebugStats( void )
 		if (debugD3D) {
 			unibuffer.concat(L", DEBUG D3D");
 		}
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 		unibuffer.concat(L", DEBUG app");
 #endif
 
@@ -1320,7 +1320,7 @@ void W3DDisplay::gatherDebugStats( void )
 		}
 
 		Object *object = NULL;
-#if defined(_DEBUG) || defined(_INTERNAL)	//debug hack to view object under mouse stats
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)	//debug hack to view object under mouse stats
 		Drawable *draw = 	TheTacticalView->pickDrawable(&TheMousePos, FALSE, (PickType)0xffffffff );
 #else
 		Drawable *draw = TheGameClient->findDrawableByID( TheInGameUI->getMousedOverDrawableID() );
@@ -1448,7 +1448,7 @@ void W3DDisplay::gatherDebugStats( void )
 			
 
 			// (gth) compute some stats about the rendering cost of this drawable
-#if defined(_DEBUG) || defined(_INTERNAL)	
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)	
 			RenderCost rcost;
 			for (DrawModule** dm = draw->getDrawModules(); *dm; ++dm)
 			{
@@ -1580,7 +1580,7 @@ void W3DDisplay::calculateTerrainLOD( void )
 	TerrainLOD goodLOD = TERRAIN_LOD_MIN;
 	TerrainLOD curLOD = TERRAIN_LOD_AUTOMATIC;
 	Int count = 0;
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 	// just go to TERRAIN_LOD_NO_WATER, mirror off.
 	TheWritableGlobalData->m_terrainLOD = TERRAIN_LOD_NO_WATER;
 	m_3DScene->drawTerrainOnly(false);
@@ -1640,7 +1640,7 @@ void W3DDisplay::calculateTerrainLOD( void )
 	TheWritableGlobalData->m_terrainLOD = goodLOD;
 	m_3DScene->drawTerrainOnly(false);
 	TheTerrainRenderObject->adjustTerrainLOD(0);
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 	DEBUG_ASSERTCRASH(count<10, ("calculateTerrainLOD") );
 #endif
 
@@ -1717,7 +1717,7 @@ AGAIN:
 
 	// compute debug statistics for display later
 	if ( m_debugDisplayCallback == StatDebugDisplay 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 				|| TheGlobalData->m_benchmarkTimer > 0
 #endif
 			)
@@ -1963,7 +1963,7 @@ AGAIN:
 					drawCurrentDebugDisplay();
 				}
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 				if (TheGlobalData->m_benchmarkTimer > 0)
 				{
 					drawFPSStats();
@@ -1971,7 +1971,7 @@ AGAIN:
 #endif
 
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 				if (TheGlobalData->m_debugShowGraphicalFramerate)
 				{
 					drawFramerateBar();
@@ -3131,7 +3131,7 @@ void W3DDisplay::toggleMovieCapture(void)
 }
 
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 
 static FILE *AssetDumpFile=NULL;
 
@@ -3284,7 +3284,7 @@ void W3DDisplay::doSmartAssetPurgeAndPreload(const char* usageFileName)
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 void W3DDisplay::dumpAssetUsage(const char* mapname)
 {
 	if (!m_assetManager || !mapname || !*mapname)

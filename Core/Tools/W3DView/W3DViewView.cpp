@@ -25,7 +25,7 @@
 #include "W3DViewDoc.h"
 #include "W3DViewView.h"
 
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
 static char THIS_FILE[] = __FILE__;
@@ -76,7 +76,7 @@ void CW3DViewView::OnDraw(CDC* pDC)
 /////////////////////////////////////////////////////////////////////////////
 // CW3DViewView diagnostics
 
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 void CW3DViewView::AssertValid() const
 {
 	CView::AssertValid();
@@ -92,7 +92,7 @@ CW3DViewDoc* CW3DViewView::GetDocument() // non-debug version is inline
 	ASSERT(m_pDocument->IsKindOf(RUNTIME_CLASS(CW3DViewDoc)));
 	return (CW3DViewDoc*)m_pDocument;
 }
-#endif //_DEBUG
+#endif //RTS_DEBUG
 
 /////////////////////////////////////////////////////////////////////////////
 // CW3DViewView message handlers

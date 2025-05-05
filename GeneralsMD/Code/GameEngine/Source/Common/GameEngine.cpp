@@ -1,4 +1,4 @@
-﻿/*
+/*
 **	Command & Conquer Generals Zero Hour(tm)
 **	Copyright 2025 Electronic Arts Inc.
 **
@@ -131,7 +131,8 @@ void TearDownGeneralsOnline(bool bWasDisconnectionError)
 	}
 }
 
-#ifdef _INTERNAL
+
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -284,9 +285,9 @@ void GameEngine::init( int argc, char *argv[] )
 		if (TheVersion)
 		{
 			DEBUG_LOG(("================================================================================\n"));
-	#if defined _DEBUG
+	#if defined RTS_DEBUG
 			const char *buildType = "Debug";
-	#elif defined _INTERNAL
+	#elif defined RTS_INTERNAL
 			const char *buildType = "Internal";
 	#else
 			const char *buildType = "Release";
@@ -398,7 +399,7 @@ void GameEngine::init( int argc, char *argv[] )
 
 
 
-	#if defined(_DEBUG) || defined(_INTERNAL)
+	#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 		// If we're in Debug or Internal, load the Debug info as well.
 		ini.load( AsciiString( "Data\\INI\\GameDataDebug.ini" ), INI_LOAD_OVERWRITE, NULL );
 	#endif
@@ -550,7 +551,7 @@ void GameEngine::init( int argc, char *argv[] )
 		fname.format("Data\\%s\\CommandMap.ini", GetRegistryLanguage().str());
 		initSubsystem(TheMetaMap,"TheMetaMap", MSGNEW("GameEngineSubsystem") MetaMap(), NULL, fname.str(), "Data\\INI\\CommandMap.ini");
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 		ini.load("Data\\INI\\CommandMapDebug.ini", INI_LOAD_MULTIFILE, NULL);
 #endif
 
@@ -600,33 +601,6 @@ void GameEngine::init( int argc, char *argv[] )
 		// If this really needs to take place, please make sure that pressing cancel on the audio 
 		// load music dialog will still cause the game to quit.
 		// m_quitting = FALSE;
-
-		// for fingerprinting, we need to ensure the presence of these files
-
-
-#if !defined(_INTERNAL) && !defined(_DEBUG)
-		AsciiString dirName;
-    dirName = TheArchiveFileSystem->getArchiveFilenameForFile("generalsbzh.sec");
-
-    if (dirName.compareNoCase("genseczh.big") != 0)
-		{
-			DEBUG_LOG(("generalsbzh.sec was not found in genseczh.big - it was in '%s'\n", dirName.str()));
-			m_quitting = TRUE;
-		}
-		
-		dirName = TheArchiveFileSystem->getArchiveFilenameForFile("generalsazh.sec");
-		const char *noPath = dirName.reverseFind('\\');
-		if (noPath) {
-			dirName = noPath + 1;
-		}
-
-		if (dirName.compareNoCase("musiczh.big") != 0)
-		{
-			DEBUG_LOG(("generalsazh.sec was not found in musiczh.big - it was in '%s'\n", dirName.str()));
-			m_quitting = TRUE;
-		}
-#endif
-
 
 		// initialize the MapCache
 		TheMapCache = MSGNEW("GameEngineSubsystem") MapCache;
@@ -869,7 +843,7 @@ void GameEngine::update(void)
 					// Get the elapsed duration in milliseconds as a float:
 					float elapsedMs = std::chrono::duration<float, std::milli>(now - lastTimeClient).count();
 
-					// Convert ms → seconds:
+					// Convert ms ? seconds:
 					float clientDeltaTime = (elapsedMs / 1000.0f) * 30.0f;
 
 					if (clientDeltaTime > 1.0f) {
@@ -986,7 +960,7 @@ void GameEngine::execute(void)
 	}
 #else
 	DWORD prevTime = timeGetTime();
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	DWORD startTime = timeGetTime() / 1000;
 #endif
 
@@ -1003,7 +977,7 @@ void GameEngine::execute(void)
 
 		{
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 			{
 				// enter only if in benchmark mode
 				if (TheGlobalData->m_benchmarkTimer > 0)
@@ -1073,7 +1047,7 @@ void GameEngine::execute(void)
 
 		// I'm disabling this in internal because many people need alt-tab capability.  If you happen to be
 		// doing performance tuning, please just change this on your local system. -MDC
-		#if defined(_DEBUG) || defined(_INTERNAL)
+		#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 					::Sleep(1); // give everyone else a tiny time slice.
 		#endif
 

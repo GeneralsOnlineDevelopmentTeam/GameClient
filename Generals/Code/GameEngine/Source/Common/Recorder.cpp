@@ -30,6 +30,7 @@
 #include "Common/Player.h"
 #include "Common/GlobalData.h"
 #include "Common/GameEngine.h"
+#include "GameClient/ClientInstance.h"
 #include "GameClient/GameWindow.h"
 #include "GameClient/GameWindowManager.h"
 #include "GameClient/InGameUI.h"
@@ -45,7 +46,7 @@
 #include "Common/CRCDebug.h"
 #include "Common/version.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -92,7 +93,7 @@ void RecorderClass::logGameStart(AsciiString options)
 		fseek(m_file, fileSize, SEEK_SET);
 	DEBUG_ASSERTCRASH(res == 0, ("Could not seek to end of file!"));
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheNetwork && TheGlobalData->m_saveStats)
 	{
 		//if (TheLAN)
@@ -153,7 +154,7 @@ void RecorderClass::logPlayerDisconnect(UnicodeString player, Int slot)
 		fseek(m_file, fileSize, SEEK_SET);
 	DEBUG_ASSERTCRASH(res == 0, ("Could not seek to end of file!"));
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheGlobalData->m_saveStats)
 	{
 		unsigned long bufSize = MAX_COMPUTERNAME_LENGTH + 1;
@@ -198,7 +199,7 @@ void RecorderClass::logCRCMismatch( void )
 		fseek(m_file, fileSize, SEEK_SET);
 	DEBUG_ASSERTCRASH(res == 0, ("Could not seek to end of file!"));
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheGlobalData->m_saveStats)
 	{
 		m_wasDesync = TRUE;
@@ -253,7 +254,7 @@ void RecorderClass::logGameEnd( void )
 		fseek(m_file, fileSize, SEEK_SET);
 	DEBUG_ASSERTCRASH(res == 0, ("Could not seek to end of file!"));
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheNetwork && TheGlobalData->m_saveStats)
 	{
 		//if (TheLAN)
@@ -282,22 +283,9 @@ void RecorderClass::logGameEnd( void )
 #endif
 }
 
-#ifdef DEBUG_LOGGING
-	#if defined(_INTERNAL)
-		#define DEBUG_FILE_NAME				"DebugLogFileI.txt"
-		#define DEBUG_FILE_NAME_PREV	"DebugLogFilePrevI.txt"
-	#elif defined(_DEBUG)
-		#define DEBUG_FILE_NAME				"DebugLogFileD.txt"
-		#define DEBUG_FILE_NAME_PREV	"DebugLogFilePrevD.txt"
-	#else
-		#define DEBUG_FILE_NAME				"DebugLogFile.txt"
-		#define DEBUG_FILE_NAME_PREV	"DebugLogFilePrev.txt"
-	#endif
-#endif
-
 void RecorderClass::cleanUpReplayFile( void )
 {
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheGlobalData->m_saveStats)
 	{
 		char fname[_MAX_PATH+1];
@@ -307,14 +295,18 @@ void RecorderClass::cleanUpReplayFile( void )
 		AsciiString oldFname;
 		oldFname.format("%s%s", getReplayDir().str(), m_fileName.str());
 		CopyFile(oldFname.str(), fname, TRUE);
-#ifdef DEBUG_FILE_NAME
+
+		const char* logFileName = DebugGetLogFileName();
+		if (logFileName[0] == '\0')
+			return;
+
 		AsciiString debugFname = fname;
 		debugFname.removeLastChar();
 		debugFname.removeLastChar();
 		debugFname.removeLastChar();
 		debugFname.concat("txt");
 		UnsignedInt fileSize = 0;
-		FILE *fp = fopen(DEBUG_FILE_NAME, "rb");
+		FILE *fp = fopen(logFileName, "rb");
 		if (fp)
 		{
 			fseek(fp, 0, SEEK_END);
@@ -327,13 +319,13 @@ void RecorderClass::cleanUpReplayFile( void )
 		const int MAX_DEBUG_SIZE = 65536;
 		if (fileSize <= MAX_DEBUG_SIZE || TheGlobalData->m_saveAllStats)
 		{
-			DEBUG_LOG(("Using CopyFile to copy %s\n", DEBUG_FILE_NAME));
-			CopyFile(DEBUG_FILE_NAME, debugFname.str(), TRUE);
+			DEBUG_LOG(("Using CopyFile to copy %s\n", logFileName));
+			CopyFile(logFileName, debugFname.str(), TRUE);
 		}
 		else
 		{
-			DEBUG_LOG(("manual copy of %s\n", DEBUG_FILE_NAME));
-			FILE *ifp = fopen(DEBUG_FILE_NAME, "rb");
+			DEBUG_LOG(("manual copy of %s\n", logFileName));
+			FILE *ifp = fopen(logFileName, "rb");
 			FILE *ofp = fopen(debugFname.str(), "wb");
 			if (ifp && ofp)
 			{
@@ -357,7 +349,6 @@ void RecorderClass::cleanUpReplayFile( void )
 				ofp = NULL;
 			}
 		}
-#endif // DEBUG_FILE_NAME
 	}
 #endif
 }
@@ -912,7 +903,7 @@ Bool RecorderClass::readReplayHeader(ReplayHeader& header)
 	return TRUE;
 }
 
-#if defined _DEBUG || defined _INTERNAL
+#if defined RTS_DEBUG || defined RTS_INTERNAL
 Bool RecorderClass::analyzeReplay( AsciiString filename )
 {
 	m_doingAnalysis = TRUE;
@@ -1544,7 +1535,7 @@ AsciiString RecorderClass::getReplayExtention() {
  */
 AsciiString RecorderClass::getLastReplayFileName() 
 {
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheNetwork && TheGlobalData->m_saveStats)
 	{
 		GameInfo *game = NULL;
@@ -1605,7 +1596,17 @@ AsciiString RecorderClass::getLastReplayFileName()
 		}
 	}
 #endif
-	return AsciiString(lastReplayFileName);
+
+	AsciiString filename;
+	if (rts::ClientInstance::getInstanceId() > 1u)
+	{
+		filename.format("%s_Instance%.2u", lastReplayFileName, rts::ClientInstance::getInstanceId());
+	}
+	else
+	{
+		filename = lastReplayFileName;
+	}
+	return filename;
 }
 
 /**

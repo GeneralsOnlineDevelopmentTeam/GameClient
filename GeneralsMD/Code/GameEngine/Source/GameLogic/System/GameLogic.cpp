@@ -136,7 +136,7 @@ extern void externalAddTree(Coord3D location, Real scale, Real angle, AsciiStrin
 
 
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -1208,7 +1208,6 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 			// NGMP_CHANGE
 			NGMPGame* NextGenMPGame = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
 			TheGameInfo = game = NextGenMPGame;	/// @todo: MDC add back in after demo
-			//TheGameInfo = game = TheGameSpyGame;	/// @todo: MDC add back in after demo
 		}
 	}
 	else
@@ -2567,7 +2566,8 @@ void GameLogic::processCommandList( CommandList *list )
 
 	for( msg = list->getFirstMessage(); msg; msg = msg->next() )
 	{
-#ifdef _DEBUG
+
+#ifdef RTS_DEBUG
 		DEBUG_ASSERTCRASH(msg != NULL && msg != (GameMessage*)0xdeadbeef, ("bad msg"));
 #endif
 		logicMessageDispatcher( msg, NULL );
@@ -2851,6 +2851,7 @@ Int GameLogic::rebalanceChildSleepyUpdate(Int i)
 // balance down, not up), so this one is hand-unrolled for
 // max efficiency. I have left the pristine non-unrolled
 // version present for clarity. (Yes, this is worth doing.) (srj) 
+
 
 	// NGMP_CHANGE: REvert...
 	// TODO_NGMP: Fix this and re-enable
@@ -3614,11 +3615,13 @@ void GameLogic::update( void )
 		Total_Load_3D_Assets=0;
 	#endif
 
-#ifdef _PROFILE
+
+#ifdef RTS_PROFILE
     Profile::StartRange("map_load");
 #endif
 		startNewGame( FALSE );
-#ifdef _PROFILE
+
+#ifdef RTS_PROFILE
     Profile::StopRange("map_load");
 #endif
 		m_startNewGame = FALSE;
@@ -3715,6 +3718,7 @@ void GameLogic::update( void )
 
 	// Update the Recorder
 	{
+
 		// TODO_NGMP: Re-enable this
 		//TheRecorder->UPDATE();
 	}
@@ -4291,7 +4295,6 @@ void GameLogic::setGamePaused( Bool paused, Bool pauseMusic )
 		while( drawable )
 		{
 			drawable->startAmbientSound();
-			TheAudio->stopAllAmbientsBy( drawable );
 			drawable = drawable->getNextDrawable();
 		}
 #endif

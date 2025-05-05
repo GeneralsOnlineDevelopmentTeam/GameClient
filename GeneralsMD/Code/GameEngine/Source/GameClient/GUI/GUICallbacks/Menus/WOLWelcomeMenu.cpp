@@ -70,7 +70,7 @@
 #include "GameNetwork/WOLBrowser/WebBrowser.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
