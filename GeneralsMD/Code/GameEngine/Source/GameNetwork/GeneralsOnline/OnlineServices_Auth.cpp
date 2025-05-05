@@ -364,6 +364,7 @@ void NGMP_OnlineServices_AuthInterface::LoginAsSecondaryDevAccount()
 void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szToken)
 {
 	// store in credmgr
+#if !defined(GENERALS_ONLINE_DONT_SAVE_CREDENTIALS)
 	DWORD blobsize = strlen(szToken);
 
 	CREDENTIALA cred = { 0 };
@@ -379,6 +380,7 @@ void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szToken)
 	{
 		NetworkLog("ERROR STORING CREDENTIALS: %d\n", GetLastError());
 	}
+#endif
 }
 
 bool NGMP_OnlineServices_AuthInterface::DoCredentialsExist()

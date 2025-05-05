@@ -39,3 +39,6 @@
 
 #define GENERALS_ONLINE_HIGH_FPS_SERVER 1
 #define GENERALS_ONLINE_HIGH_FPS_LIMIT 60
+
+// useful for testing release builds with multiple logins
+//#define GENERALS_ONLINE_DONT_SAVE_CREDENTIALS 1
