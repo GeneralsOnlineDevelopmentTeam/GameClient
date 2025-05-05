@@ -2812,6 +2812,99 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		return TRUE; // was a slash command
 	}
 
+#if defined(GENERALS_ONLINE)
+	else if (token == "leave")
+	{
+		PopBackToLobby();
+	}
+	else if (token == "quit")
+	{
+		exit(0);
+	}
+	else if (token == "connections" || token == "conns" || token == "c")
+	{
+		// TODO_NGMP: Disable this on retail builds
+		std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+
+		UnicodeString msg;
+		msg.format(L"Dumping %d network connection(s) to this lobby:", connections.size());
+		GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+		int64_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+
+		auto lobbyMembers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
+
+		int i = 0;
+		for (auto& kvPair : connections)
+		{
+			PlayerConnection& conn = kvPair.second;
+			std::string strIPAddr = conn.GetIPAddrString();
+
+			std::string strState = "Unknown";
+
+			switch (conn.m_State)
+			{
+			case EConnectionState::NOT_CONNECTED:
+				strState = "Not Connected";
+				break;
+
+			case EConnectionState::CONNECTING:
+				strState = "Connecting";
+				break;
+
+			case EConnectionState::CONNECTED_DIRECT:
+				strState = "Connected Direct";
+				break;
+
+			case EConnectionState::CONNECTED_RELAY_1:
+				strState = "Connected Relay 1";
+				break;
+
+			case EConnectionState::CONNECTED_RELAY_2:
+				strState = "Connected Relay 2";
+				break;
+
+			case EConnectionState::CONNECTION_FAILED:
+				strState = "Connection Failed";
+				break;
+
+			default:
+				strState = "Unknown";
+				break;
+			}
+
+			std::string strDisplayName = "Unknown";
+			for (auto& member : lobbyMembers)
+			{
+				if (member.user_id == kvPair.first)
+				{
+					strDisplayName = member.display_name;
+					break;
+				}
+			}
+
+			std::string strConnectionType = "Unknown";
+			if (localUserID == kvPair.first)
+			{
+				strConnectionType = "Local";
+			}
+			else
+			{
+				strConnectionType = "Remote";
+			}
+
+			UnicodeString msg;
+			msg.format(L"        Connection %d (%hs) - user %lld - name %hs - addr %hs:%d - State: %hs - Attempts: %d - Latency: %d",
+				i, strConnectionType.c_str(), kvPair.first, strDisplayName.c_str(), strIPAddr.c_str(), conn.m_address.port, strState.c_str(), conn.m_ConnectionAttempts, conn.latency);
+			GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+			++i;
+		}
+
+		return TRUE; // was a slash command
+	}
+#endif
+
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	else if (token == "slots")
 	{

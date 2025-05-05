@@ -1209,7 +1209,7 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 	
 	// do we need to update?
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
-	if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty())
+	if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty() && !isShuttingDown && !buttonPushed && !pLobbyInterface->IsInLobby())
 	{
 		const bool bShouldAutoRefresh = true;
 
