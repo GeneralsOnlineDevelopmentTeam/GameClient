@@ -1537,12 +1537,12 @@ DECLARE_PERF_TIMER(Tree_Render)
 //=============================================================================
 /** Draws the trees.  Uses camera to cull. */
 //=============================================================================
-void W3DTreeBuffer::drawTrees(CameraClass * camera, RefRenderObjListIterator *pDynamicLightsIterator)
+void W3DTreeBuffer::drawTrees(CameraClass* camera, RefRenderObjListIterator* pDynamicLightsIterator)
 {
 	USE_PERF_TIMER(Tree_Render)
-	if (!m_isTerrainPass) {
-		return;
-	}
+		if (!m_isTerrainPass) {
+			return;
+		}
 
 	// if breeze changes, always process the full update, even if not visible, 
 	// so that things offscreen won't 'pop' when first viewed
@@ -1561,9 +1561,20 @@ void W3DTreeBuffer::drawTrees(CameraClass * camera, RefRenderObjListIterator *pD
 	Vector3 swayFactor[MAX_SWAY_TYPES];
 	for (i=0; i<MAX_SWAY_TYPES; i++) {
 		if (!pause) {
-			m_curSwayOffset[i] += m_curSwayStep[i];
-			if (m_curSwayOffset[i] > NUM_SWAY_ENTRIES-1) {
-				m_curSwayOffset[i] -= NUM_SWAY_ENTRIES-1;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			UnsignedInt currLogicFrame = 0;
+
+			if (TheGameLogic)
+				currLogicFrame = TheGameLogic->getFrame();
+
+			if (currLogicFrame % 2 != 0)
+#endif
+			{
+				m_curSwayOffset[i] += m_curSwayStep[i];
+				if (m_curSwayOffset[i] > NUM_SWAY_ENTRIES - 1)
+				{
+					m_curSwayOffset[i] -= NUM_SWAY_ENTRIES - 1;
+				}
 			}
 		}
 		Int minOffset = REAL_TO_INT_FLOOR(m_curSwayOffset[i]);

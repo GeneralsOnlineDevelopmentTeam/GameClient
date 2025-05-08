@@ -1222,6 +1222,14 @@ void WaterRenderObjClass::update( void )
 	if( TheGameLogic )
 		currLogicFrame = TheGameLogic->getFrame();
 
+	// 60fps... only update the water at the original game speed
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (lastLogicFrame != currLogicFrame && currLogicFrame % 2 != 0)
+	{
+		return;
+	}
+#endif
+
 	m_riverVOrigin += 0.002f;
 	m_riverXOffset += (Real)(0.0125*33/5000);
 	m_riverYOffset += (Real)(2*0.0125*33/5000);
@@ -1234,10 +1242,8 @@ void WaterRenderObjClass::update( void )
 		m_iBumpFrame = 0;
 	}
 
-
-
 	// we only process some things if the logic frame has changed
-	if( lastLogicFrame != currLogicFrame )
+	if (lastLogicFrame != currLogicFrame)
 	{
 
 		// for vertex animated water we need to update the vector field
