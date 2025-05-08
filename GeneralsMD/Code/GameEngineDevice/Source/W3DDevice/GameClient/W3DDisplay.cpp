@@ -476,12 +476,15 @@ W3DDisplay::~W3DDisplay()
 
 Bool IS_FOUR_BY_THREE_ASPECT( Real x, Real y )
 {
+#if defined(GENERALS_ONLINE)
+	return TRUE;
+#else
   if ( y == 0 )
     return FALSE;
   
   Real aspectRatio = fabs( x / y ); 
   return (( aspectRatio > 1.332f) && ( aspectRatio < 1.334f));
-  
+#endif
 }
 
 
