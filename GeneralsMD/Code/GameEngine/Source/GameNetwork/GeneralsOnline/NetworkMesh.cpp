@@ -12,6 +12,7 @@
 #include <ws2ipdef.h>
 #include "../../NetworkDefs.h"
 #include "../../NetworkInterface.h"
+#include "GameLogic/GameLogic.h"
 
 
 bool NetworkMesh::HasGamePacket()
@@ -198,7 +199,15 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	/* Initiate the connection, allocating the 3 channels. */
 	ENetPeer* peer = enet_host_connect(enetInstance, &addr, 3, 0);
 
-	m_connectionCheckGracePeriodStart = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	// don't care about in-game
+	if (!TheGameLogic->isInGame())
+	{
+		m_connectionCheckGracePeriodStart = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	}
+	else
+	{
+		m_connectionCheckGracePeriodStart = -1;
+	}
 
 	// TODO_NGMP: do one last connectivity check before moving to start game
 	// TODO_NGMP: do one last lobby data check before moving to start game
@@ -302,6 +311,8 @@ void NetworkMesh::Disconnect()
 			}
 		}
 
+		m_mapConnections.clear();
+
 		enet_host_destroy(enetInstance);
 	}
 }
@@ -317,39 +328,48 @@ void NetworkMesh::Tick()
 
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
 
-	// are we missing players 5s after attempting to connect?
+	// are we missing players starting 5s after attempting to connect and every 5s afterwards (except for in-game)?
 	if (m_connectionCheckGracePeriodStart != -1)
 	{
 		if (currTime - m_connectionCheckGracePeriodStart >= m_thresoldToCheckConnected)
 		{
-			m_connectionCheckGracePeriodStart = -1;
-			// NOTE: Host shouldn't do this, why would we leave our own game? let the joining client leave instead
-			if (!NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost())
+			// we only care about this in the lobby stage, once in-game, the game handles the connection
+			if (!TheGameLogic->isInGame())
 			{
-				int expectedConnections = 0;
+				m_connectionCheckGracePeriodStart = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();;
 
-				for (const auto& lobbyMember : currentLobby.members)
+				// NOTE: Host shouldn't do this, why would we leave our own game? let the joining client leave instead
+				if (!NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost())
 				{
-					if (lobbyMember.IsHuman())
+					int expectedConnections = 0;
+
+					for (const auto& lobbyMember : currentLobby.members)
 					{
-						++expectedConnections; // we should also have a local 'connection'
+						if (lobbyMember.IsHuman())
+						{
+							++expectedConnections; // we should also have a local 'connection'
+						}
+					}
+
+					int numConnectedConnections = 0;
+					for (const auto& connectionData : m_mapConnections)
+					{
+						if (connectionData.second.m_State == EConnectionState::CONNECTED_DIRECT || connectionData.second.m_State == EConnectionState::CONNECTED_RELAY_1 || connectionData.second.m_State == EConnectionState::CONNECTED_RELAY_2)
+						{
+							++numConnectedConnections;
+						}
+					}
+
+					if (numConnectedConnections != expectedConnections)
+					{
+						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback();
+						return;
 					}
 				}
-
-				int numConnectedConnections = 0;
-				for (const auto& connectionData : m_mapConnections)
-				{
-					if (connectionData.second.m_State == EConnectionState::CONNECTED_DIRECT || connectionData.second.m_State == EConnectionState::CONNECTED_RELAY_1 || connectionData.second.m_State == EConnectionState::CONNECTED_RELAY_2)
-					{
-						++numConnectedConnections;
-					}
-				}
-
-				if (numConnectedConnections != expectedConnections)
-				{
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback();
-					return;
-				}
+			}
+			else
+			{
+				m_connectionCheckGracePeriodStart = -1;
 			}
 		}
 	}
@@ -670,10 +690,27 @@ void NetworkMesh::Tick()
 					}
 					else
 					{
+						// if the local user requested the disconnect, the connection wont be in the connection map anymore, so we can only hit this code if we disconnected forcefully, or via remote client disconnecting us
+						
+						// TODO_NGMP: What if the remote client disconnected us, we should have them reject any re-connects
 						NetworkLog("[SERVER] %d disconnected.\n", pConnection->m_userID);
 
-						// remove it, they disconnected
-						m_mapConnections.erase(pConnection->m_userID);
+						const int numReconnectAttempts = 10;
+						if (pConnection->m_ConnectionAttempts < numReconnectAttempts)
+						{
+							NetworkLog("[SERVER] Attempting to reconnect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts + 1);
+
+							// if connected, and user is still in lobby, lets try to reconnect
+							ConnectToSingleUser(pConnection->m_address, pConnection->m_userID, true);
+						}
+						else
+						{
+							// TODO_NGMP: Leave lobby etc
+							NetworkLog("[SERVER] Exhausted retry attempts connecting to %d.\n", pConnection->m_userID);
+
+							// remove it, they disconnected
+							m_mapConnections.erase(pConnection->m_userID);
+						}
 					}
 
 				}
