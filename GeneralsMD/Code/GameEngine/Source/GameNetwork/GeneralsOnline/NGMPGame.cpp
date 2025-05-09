@@ -364,9 +364,7 @@ void NGMPGame::launchGame(void)
 	// TODO_NGMP: Do we really care about these values anymore
 	TheNetwork->setLocalAddress(getLocalIP(), 8888);
 
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InitGameTransport();
-	NextGenTransport* pTransport = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetGameTransport();
-	TheNetwork->attachTransport(pTransport);
+	TheNetwork->initTransport();
 
 	TheNetwork->parseUserList(this);
 

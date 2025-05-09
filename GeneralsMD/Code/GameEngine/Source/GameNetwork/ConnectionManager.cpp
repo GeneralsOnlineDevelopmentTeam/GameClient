@@ -52,6 +52,7 @@
 #include "GameLogic/VictoryConditions.h"
 #include "GameClient/DisconnectMenu.h"
 #include "GameClient/InGameUI.h"
+#include "../Packets/NextGenTransport.h"
 
 #ifdef RTS_INTERNAL
 // for occasional debugging...
@@ -1457,8 +1458,19 @@ void ConnectionManager::initTransport() {
 		m_transport = NULL;
 	}
 
-	// Generals Online
+#if defined(GENERALS_ONLINE)
+	// support lan + our new transport
+	if (TheLAN == nullptr)
+	{
+		m_transport = new NextGenTransport;
+	}
+	else
+	{
+		m_transport = new UDPTransport;
+	}
+#else
 	m_transport = new UDPTransport;
+#endif
 	m_transport->reset();
 	m_transport->init(m_localAddr, m_localPort);
 }

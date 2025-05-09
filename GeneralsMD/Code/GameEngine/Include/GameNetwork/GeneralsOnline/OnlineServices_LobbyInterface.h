@@ -72,22 +72,6 @@ public:
 
 	void SearchForLobbies(std::function<void()> onStartCallback, std::function<void(std::vector<LobbyEntry>)> onCompleteCallback);
 
-	NextGenTransport* m_transport = nullptr;
-	void InitGameTransport()
-	{
-		if (m_transport != nullptr)
-		{
-			delete m_transport;
-			m_transport = nullptr;
-		}
-		m_transport = new NextGenTransport;
-		m_transport->reset();
-		m_transport->init(0, 0); // we dont care about ip/port anymore
-
-		// reuse our socket from here, it already has all the connections formed, its safer + quicker
-		//m_transport->SetSocket(m_pLobbyMesh->GetSocketID());
-	}
-
 	// updates
 	void UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers);
 	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons);
@@ -123,11 +107,6 @@ public:
 	bool IsLobbyListDirty()
 	{
 		return m_bLobbyListDirty;
-	}
-
-	NextGenTransport* GetGameTransport()
-	{
-		return m_transport;
 	}
 
 	// TODO_NGMP: We dont join right now (other than host)

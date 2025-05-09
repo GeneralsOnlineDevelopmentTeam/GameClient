@@ -700,228 +700,232 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(void)> fnCallback)
 {
 	// refresh lobby
-	if (m_CurrentLobby.lobbyID != -1)
+	if (m_CurrentLobby.lobbyID != -1 && TheNGMPGame != nullptr)
 	{
 		std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 		std::map<std::string, std::string> mapHeaders;
 
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
-			// TODO_NGMP: Error handling
-			try
-			{
-				if (statusCode == 404) // lobby destroyed, just leave
+			// safety, lobby could've been torn down by the time we get our response
+				if (m_CurrentLobby.lobbyID != -1 && TheNGMPGame != nullptr)
 				{
-					m_bPendingHostHasLeft = true;
-					// error msg
-
-
-					LeaveCurrentLobby();
-					return;
-				}
-
-				nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody);
-
-				auto lobbyEntryJSON = jsonObjectRoot["lobby"];
-
-				LobbyEntry lobbyEntry;
-				lobbyEntryJSON["id"].get_to(lobbyEntry.lobbyID);
-				lobbyEntryJSON["owner"].get_to(lobbyEntry.owner);
-				lobbyEntryJSON["name"].get_to(lobbyEntry.name);
-				lobbyEntryJSON["map_name"].get_to(lobbyEntry.map_name);
-				lobbyEntryJSON["map_path"].get_to(lobbyEntry.map_path);
-				lobbyEntryJSON["map_official"].get_to(lobbyEntry.map_official);
-				lobbyEntryJSON["current_players"].get_to(lobbyEntry.current_players);
-				lobbyEntryJSON["max_players"].get_to(lobbyEntry.max_players);
-				lobbyEntryJSON["vanilla_teams"].get_to(lobbyEntry.vanilla_teams);
-				lobbyEntryJSON["starting_cash"].get_to(lobbyEntry.starting_cash);
-				lobbyEntryJSON["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
-				lobbyEntryJSON["track_stats"].get_to(lobbyEntry.track_stats);
-				lobbyEntryJSON["passworded"].get_to(lobbyEntry.passworded);
-
-				// correct map path
-				if (lobbyEntry.map_official)
-				{
-					lobbyEntry.map_path = std::format("Maps\\{}", lobbyEntry.map_path.c_str());
-				}
-				else
-				{
-					// TODO_NGMP: This needs to match identically, but why did it change from the base game?
-					AsciiString strUserMapDIr = TheMapCache->getUserMapDir(true);
-					strUserMapDIr.toLower();
-
-					lobbyEntry.map_path = std::format("{}\\{}", strUserMapDIr.str(), lobbyEntry.map_path.c_str());
-				}
-
-				// did the map change? cache that we need to reset and transmit our ready state
-				bool bNeedsHasMapUpdate = false;
-				if (strcmp(lobbyEntry.map_path.c_str(), TheNGMPGame->getMap().str()) != 0)
-				{
-					bNeedsHasMapUpdate = true;
-				}
-
-				std::string strEncKey;
-				std::string strEncIV;
-				lobbyEntryJSON["enc_key"].get_to(strEncKey);
-				lobbyEntryJSON["enc_nonce"].get_to(strEncIV);
-				lobbyEntry.EncKey.resize(32);
-				lobbyEntry.EncIV.resize(12);
-				lobbyEntry.EncKey.clear();
-				lobbyEntry.EncIV.clear();
-
-
-				for (char c : strEncKey)
-				{
-					lobbyEntry.EncKey.push_back((BYTE)c);
-				}
-
-				for (char c : strEncIV)
-				{
-					lobbyEntry.EncIV.push_back((BYTE)c);
-				}
-
-				bool bFoundSelfInOld = false;
-				bool bFoundSelfInNew = false;
-				int64_t	myUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-
-				// check for user in old lobby data
-				for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
-				{
-					if (currentMember.IsHuman())
+					// TODO_NGMP: Error handling
+					try
 					{
-						// detect local kick
-						if (currentMember.user_id == myUserID)
+						if (statusCode == 404) // lobby destroyed, just leave
 						{
-							bFoundSelfInOld = true;
-							break;
+							m_bPendingHostHasLeft = true;
+							// error msg
+
+
+							LeaveCurrentLobby();
+							return;
 						}
-					}
-				}
 
-				for (const auto& memberEntryIter : lobbyEntryJSON["members"])
-				{
-					LobbyMemberEntry memberEntry;
+						nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody);
 
-					memberEntryIter["user_id"].get_to(memberEntry.user_id);
-					memberEntryIter["display_name"].get_to(memberEntry.display_name);
-					memberEntryIter["ready"].get_to(memberEntry.m_bIsReady);
-					memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
-					memberEntryIter["port"].get_to(memberEntry.preferredPort);
-					memberEntryIter["side"].get_to(memberEntry.side);
-					memberEntryIter["color"].get_to(memberEntry.color);
-					memberEntryIter["team"].get_to(memberEntry.team);
-					memberEntryIter["startpos"].get_to(memberEntry.startpos);
-					memberEntryIter["has_map"].get_to(memberEntry.has_map);
-					memberEntryIter["slot_index"].get_to(memberEntry.m_SlotIndex);
-					memberEntryIter["slot_state"].get_to(memberEntry.m_SlotState);
+						auto lobbyEntryJSON = jsonObjectRoot["lobby"];
 
-					lobbyEntry.members.push_back(memberEntry);
+						LobbyEntry lobbyEntry;
+						lobbyEntryJSON["id"].get_to(lobbyEntry.lobbyID);
+						lobbyEntryJSON["owner"].get_to(lobbyEntry.owner);
+						lobbyEntryJSON["name"].get_to(lobbyEntry.name);
+						lobbyEntryJSON["map_name"].get_to(lobbyEntry.map_name);
+						lobbyEntryJSON["map_path"].get_to(lobbyEntry.map_path);
+						lobbyEntryJSON["map_official"].get_to(lobbyEntry.map_official);
+						lobbyEntryJSON["current_players"].get_to(lobbyEntry.current_players);
+						lobbyEntryJSON["max_players"].get_to(lobbyEntry.max_players);
+						lobbyEntryJSON["vanilla_teams"].get_to(lobbyEntry.vanilla_teams);
+						lobbyEntryJSON["starting_cash"].get_to(lobbyEntry.starting_cash);
+						lobbyEntryJSON["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
+						lobbyEntryJSON["track_stats"].get_to(lobbyEntry.track_stats);
+						lobbyEntryJSON["passworded"].get_to(lobbyEntry.passworded);
 
-					// TODO_NGMP: Much more robust system here
-					// TODO_NGMP: If we lose connection to someone in the mesh, who is STILL in otehrs mesh, we need to disconnect or retry
-					// TODO_NGMP: handle failure to connect to some users
-					
-					bool bMapOwnershipStateChanged = true;
-
-					// is it a new member? connect
-					bool bIsNew = true;
-					for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
-					{
-						if (memberEntry.IsHuman())
+						// correct map path
+						if (lobbyEntry.map_official)
 						{
-							// detect local kick
-							if (memberEntry.user_id == myUserID)
-							{
-								bFoundSelfInNew = true;
-							}
+							lobbyEntry.map_path = std::format("Maps\\{}", lobbyEntry.map_path.c_str());
+						}
+						else
+						{
+							// TODO_NGMP: This needs to match identically, but why did it change from the base game?
+							AsciiString strUserMapDIr = TheMapCache->getUserMapDir(true);
+							strUserMapDIr.toLower();
 
-							if (currentMember.user_id == memberEntry.user_id)
+							lobbyEntry.map_path = std::format("{}\\{}", strUserMapDIr.str(), lobbyEntry.map_path.c_str());
+						}
+
+						// did the map change? cache that we need to reset and transmit our ready state
+						bool bNeedsHasMapUpdate = false;
+						if (strcmp(lobbyEntry.map_path.c_str(), TheNGMPGame->getMap().str()) != 0)
+						{
+							bNeedsHasMapUpdate = true;
+						}
+
+						std::string strEncKey;
+						std::string strEncIV;
+						lobbyEntryJSON["enc_key"].get_to(strEncKey);
+						lobbyEntryJSON["enc_nonce"].get_to(strEncIV);
+						lobbyEntry.EncKey.resize(32);
+						lobbyEntry.EncIV.resize(12);
+						lobbyEntry.EncKey.clear();
+						lobbyEntry.EncIV.clear();
+
+
+						for (char c : strEncKey)
+						{
+							lobbyEntry.EncKey.push_back((BYTE)c);
+						}
+
+						for (char c : strEncIV)
+						{
+							lobbyEntry.EncIV.push_back((BYTE)c);
+						}
+
+						bool bFoundSelfInOld = false;
+						bool bFoundSelfInNew = false;
+						int64_t	myUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+
+						// check for user in old lobby data
+						for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
+						{
+							if (currentMember.IsHuman())
 							{
-								// check if the map state changes
-								if (currentMember.has_map == memberEntry.has_map)
+								// detect local kick
+								if (currentMember.user_id == myUserID)
 								{
-									bMapOwnershipStateChanged = false;
+									bFoundSelfInOld = true;
+									break;
 								}
-
-								bIsNew = false;
-								break;
 							}
 						}
-					}
-					if (bIsNew)
-					{
-						// if we're joining as a client (not host), lobby mesh will be null here, but it's ok because the initial creation will sync to everyone
+
+						for (const auto& memberEntryIter : lobbyEntryJSON["members"])
+						{
+							LobbyMemberEntry memberEntry;
+
+							memberEntryIter["user_id"].get_to(memberEntry.user_id);
+							memberEntryIter["display_name"].get_to(memberEntry.display_name);
+							memberEntryIter["ready"].get_to(memberEntry.m_bIsReady);
+							memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
+							memberEntryIter["port"].get_to(memberEntry.preferredPort);
+							memberEntryIter["side"].get_to(memberEntry.side);
+							memberEntryIter["color"].get_to(memberEntry.color);
+							memberEntryIter["team"].get_to(memberEntry.team);
+							memberEntryIter["startpos"].get_to(memberEntry.startpos);
+							memberEntryIter["has_map"].get_to(memberEntry.has_map);
+							memberEntryIter["slot_index"].get_to(memberEntry.m_SlotIndex);
+							memberEntryIter["slot_state"].get_to(memberEntry.m_SlotState);
+
+							lobbyEntry.members.push_back(memberEntry);
+
+							// TODO_NGMP: Much more robust system here
+							// TODO_NGMP: If we lose connection to someone in the mesh, who is STILL in otehrs mesh, we need to disconnect or retry
+							// TODO_NGMP: handle failure to connect to some users
+
+							bool bMapOwnershipStateChanged = true;
+
+							// is it a new member? connect
+							bool bIsNew = true;
+							for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
+							{
+								if (memberEntry.IsHuman())
+								{
+									// detect local kick
+									if (memberEntry.user_id == myUserID)
+									{
+										bFoundSelfInNew = true;
+									}
+
+									if (currentMember.user_id == memberEntry.user_id)
+									{
+										// check if the map state changes
+										if (currentMember.has_map == memberEntry.has_map)
+										{
+											bMapOwnershipStateChanged = false;
+										}
+
+										bIsNew = false;
+										break;
+									}
+								}
+							}
+							if (bIsNew)
+							{
+								// if we're joining as a client (not host), lobby mesh will be null here, but it's ok because the initial creation will sync to everyone
+								if (m_pLobbyMesh != nullptr)
+								{
+									if (memberEntry.IsHuman())
+									{
+										m_pLobbyMesh->ConnectToSingleUser(memberEntry);
+									}
+								}
+							}
+
+							if (bMapOwnershipStateChanged)
+							{
+								// changed and the person no longer has the map
+								if (!memberEntry.has_map)
+								{
+									if (m_cbPlayerDoesntHaveMap != nullptr)
+									{
+										m_cbPlayerDoesntHaveMap(memberEntry);
+									}
+								}
+							}
+						}
+
+						if (bFoundSelfInOld && !bFoundSelfInNew)
+						{
+							NetworkLog("We were kicked from the lobby...");
+							OnKickedFromLobby();
+						}
+
+						// disconnect from anyone who is no longer in the lobby
 						if (m_pLobbyMesh != nullptr)
 						{
-							if (memberEntry.IsHuman())
-							{
-								m_pLobbyMesh->ConnectToSingleUser(memberEntry);
-							}
+							m_pLobbyMesh->SyncConnectionListToLobbyMemberList(lobbyEntry.members);
 						}
-					}
 
-					if (bMapOwnershipStateChanged)
-					{
-						// changed and the person no longer has the map
-						if (!memberEntry.has_map)
+						// did the host change?
+						if (lobbyEntry.owner != m_CurrentLobby.owner)
 						{
-							if (m_cbPlayerDoesntHaveMap != nullptr)
+							m_bHostMigrated = true;
+						}
+
+						// store
+						m_CurrentLobby = lobbyEntry;
+
+						// update NGMP Game if it exists
+
+						// inform game instance too
+						if (TheNGMPGame != nullptr)
+						{
+							TheNGMPGame->SyncWithLobby(m_CurrentLobby);
+							TheNGMPGame->UpdateSlotsFromCurrentLobby();
+
+							if (bNeedsHasMapUpdate)
 							{
-								m_cbPlayerDoesntHaveMap(memberEntry);
+								UpdateCurrentLobby_HasMap();
+							}
+
+							if (m_RosterNeedsRefreshCallback != nullptr)
+							{
+								m_RosterNeedsRefreshCallback();
 							}
 						}
+
+						if (fnCallback != nullptr)
+						{
+							fnCallback();
+						}
 					}
-				}
-
-				if (bFoundSelfInOld && !bFoundSelfInNew)
-				{
-					NetworkLog("We were kicked from the lobby...");
-					OnKickedFromLobby();
-				}
-
-				// disconnect from anyone who is no longer in the lobby
-				if (m_pLobbyMesh != nullptr)
-				{
-					m_pLobbyMesh->SyncConnectionListToLobbyMemberList(lobbyEntry.members);
-				}
-
-				// did the host change?
-				if (lobbyEntry.owner != m_CurrentLobby.owner)
-				{
-					m_bHostMigrated = true;
-				}
-
-				// store
-				m_CurrentLobby = lobbyEntry;
-
-				// update NGMP Game if it exists
-
-				// inform game instance too
-				if (TheNGMPGame != nullptr)
-				{
-					TheNGMPGame->SyncWithLobby(m_CurrentLobby);
-					TheNGMPGame->UpdateSlotsFromCurrentLobby();
-
-					if (bNeedsHasMapUpdate)
+					catch (...)
 					{
-						UpdateCurrentLobby_HasMap();
-					}
 
-					if (m_RosterNeedsRefreshCallback != nullptr)
-					{
-						m_RosterNeedsRefreshCallback();
 					}
 				}
-
-				if (fnCallback != nullptr)
-				{
-					fnCallback();
-				}
-			}
-			catch (...)
-			{
-
-			}
 		});
 	}
 
