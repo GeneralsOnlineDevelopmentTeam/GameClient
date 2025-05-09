@@ -2955,6 +2955,12 @@ void ParticleSystemManager::reset( void )
 //DECLARE_PERF_TIMER(ParticleSystemManager)
 void ParticleSystemManager::update( void )
 {
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (TheGameLogic->getFrame() % 2 != 0)
+	{
+		return;
+	}
+#endif
 	if (m_lastLogicFrameUpdate == TheGameLogic->getFrame()) {
 		return;
 	}
