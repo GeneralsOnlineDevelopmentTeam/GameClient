@@ -102,7 +102,7 @@ Bool NextGenTransport::doRecv(void)
 			*/
 
 		// generals logic
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 // Packet loss simulation
 		if (m_usePacketLoss)
 		{
