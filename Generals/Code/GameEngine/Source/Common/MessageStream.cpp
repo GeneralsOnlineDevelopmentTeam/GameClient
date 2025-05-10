@@ -41,6 +41,15 @@ MessageStream *TheMessageStream = NULL;
 CommandList *TheCommandList = NULL;
 
 
+
+#ifdef RTS_INTERNAL
+// for occasional debugging...
+//#pragma optimize("", off)
+//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
+#endif
+
+
+
 //------------------------------------------------------------------------------------------------
 // GameMessage
 //
@@ -364,6 +373,11 @@ AsciiString GameMessage::getCommandTypeAsAsciiString(GameMessage::Type t)
 	CHECK_IF(MSG_META_BEGIN_CAMERA_ZOOM_OUT)
 	CHECK_IF(MSG_META_END_CAMERA_ZOOM_OUT)
 	CHECK_IF(MSG_META_CAMERA_RESET)
+
+
+    CHECK_IF(MSG_META_TOGGLE_FAST_FORWARD_REPLAY)
+    
+    
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	CHECK_IF(MSG_META_DEMO_TOGGLE_BEHIND_BUILDINGS)
 	CHECK_IF(MSG_META_DEMO_TOGGLE_LETTERBOX)

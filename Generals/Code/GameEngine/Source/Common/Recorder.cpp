@@ -296,6 +296,7 @@ void RecorderClass::cleanUpReplayFile( void )
 		oldFname.format("%s%s", getReplayDir().str(), m_fileName.str());
 		CopyFile(oldFname.str(), fname, TRUE);
 
+#ifdef DEBUG_LOGGING
 		const char* logFileName = DebugGetLogFileName();
 		if (logFileName[0] == '\0')
 			return;
@@ -349,6 +350,7 @@ void RecorderClass::cleanUpReplayFile( void )
 				ofp = NULL;
 			}
 		}
+#endif // DEBUG_LOGGING
 	}
 #endif
 }
@@ -1099,8 +1101,8 @@ Bool RecorderClass::playbackFile(AsciiString filename)
 	{
 		return FALSE;
 	}
-#ifdef DEBUG_LOGGING
 
+#ifdef DEBUG_CRASHING
 	Bool versionStringDiff = header.versionString != TheVersion->getUnicodeVersion();
 	Bool versionTimeStringDiff = header.versionTimeString != TheVersion->getUnicodeBuildTime();
 	Bool versionNumberDiff = header.versionNumber != TheVersion->getVersionNumber();
@@ -1112,15 +1114,20 @@ Bool RecorderClass::playbackFile(AsciiString filename)
 	AsciiString tempStr;
 	if (exeDifferent)
 	{
+		// TheSuperHackers @fix helmutbuhler 05/05/2025 No longer attempts to print unicode as ascii
+		// via a call to AsciiString::format with %ls format. It does not work with non-ascii characters.
+		UnicodeString tempStrWide;
 		debugString = "EXE is different:\n";
 		if (versionStringDiff)
 		{
-			tempStr.format("   Version [%ls] vs [%ls]\n", TheVersion->getUnicodeVersion().str(), header.versionString.str());
+			tempStrWide.format(L"   Version [%s] vs [%s]\n", TheVersion->getUnicodeVersion().str(), header.versionString.str());
+			tempStr.translate(tempStrWide);
 			debugString.concat(tempStr);
 		}
 		if (versionTimeStringDiff)
 		{
-			tempStr.format("   Build Time [%ls] vs [%ls]\n", TheVersion->getUnicodeBuildTime().str(), header.versionTimeString.str());
+			tempStrWide.format(L"   Build Time [%s] vs [%s]\n", TheVersion->getUnicodeBuildTime().str(), header.versionTimeString.str());
+			tempStr.translate(tempStrWide);
 			debugString.concat(tempStr);
 		}
 		if (versionNumberDiff)
