@@ -33,6 +33,8 @@ NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
 	NetworkLog("[NGMP] Init");
 
 	m_pOnlineServicesManager = this;
+
+	InitSentry();
 }
 
 std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, bool bAttachToken)
@@ -47,7 +49,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 		}
 		else // PROD
 		{
-			return std::format("https://cloud.playgenerals.online:9000/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
+			return std::format("https://cloud.playgenerals.online:9000/cloud/env:prod:token:{}/{}", strToken, szEndpoint);
 		}
 
 	}
@@ -59,7 +61,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 		}
 		else // PROD
 		{
-			return std::format("https://cloud.playgenerals.online:9000/cloud/env:dev/{}", szEndpoint);
+			return std::format("https://cloud.playgenerals.online:9000/cloud/env:prod/{}", szEndpoint);
 		}
 	}
 }
@@ -75,6 +77,8 @@ void NGMP_OnlineServicesManager::Shutdown()
 	{
 		m_pWebSocket->Shutdown();
 	}
+
+	ShutdownSentry();
 }
 
 void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback)
@@ -492,13 +496,47 @@ void NGMP_OnlineServicesManager::Tick()
 
 		if (m_pAuthInterface != nullptr && m_pAuthInterface->IsLoggedIn())
 		{
+			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("User", true);
+
 			std::map<std::string, std::string> mapHeaders;
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(std::format("https://playgenerals.online/cloud/env:dev:{}/User", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken()).c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
 					// TODO_NGMP: Handle 404 (session terminated)
 				});
 		}
 	};
+}
+
+void NGMP_OnlineServicesManager::InitSentry()
+{
+	sentry_options_t* options = sentry_options_new();
+	sentry_options_set_dsn(options, "https://72fe078b1eadeac568044a8677663a80@o4509316925554688.ingest.us.sentry.io/4509316927586304");
+	sentry_options_set_database_path(options, ".sentry-native");
+	sentry_options_set_release(options, "generalsonline-client@0.1");
+	sentry_options_set_debug(options, 1);
+
+#if _DEBUG
+	sentry_options_set_logger_level(options, SENTRY_LEVEL_DEBUG);
+
+	sentry_options_set_logger(options,	[](sentry_level_t level, const char* message, va_list args, void* userdata)
+	{
+			char buffer[1024];
+			va_start(args, message);
+			vsnprintf(buffer, 1024, message, args);
+			buffer[1024 - 1] = 0;
+			va_end(args);
+
+			NetworkLog("Sentry: %s", buffer);
+	}, nullptr);
+#endif
+
+	int i = sentry_init(options);
+	NetworkLog("Sentry init: %d", i);
+}
+
+void NGMP_OnlineServicesManager::ShutdownSentry()
+{
+	sentry_close();
 }
 
 void WebSocket::Shutdown()

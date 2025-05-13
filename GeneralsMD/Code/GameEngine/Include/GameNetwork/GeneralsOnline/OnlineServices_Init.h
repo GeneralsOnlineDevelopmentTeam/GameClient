@@ -11,9 +11,11 @@ class NGMP_OnlineServices_RoomsInterface;
 class NGMP_OnlineServices_StatsInterface;
 
 #pragma comment(lib, "libcurl/libcurl.lib")
+#pragma comment(lib, "sentry/sentry.lib")
 
 
 #include "GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h"
+#include "GameNetwork/GeneralsOnline/Vendor/sentry/sentry.h"
 
 enum EWebSocketMessageID
 {
@@ -247,6 +249,10 @@ public:
 	void SetPendingFullTeardown() { m_bPendingFullTeardown = true; }
 	bool IsPendingFullTeardown() const { return m_bPendingFullTeardown; }
 	void ConsumePendingFullTeardown() { m_bPendingFullTeardown = false; }
+
+	private:
+		void InitSentry();
+		void ShutdownSentry();
 
 private:
 	//EOS_HPlatform m_EOSPlatformHandle = nullptr;

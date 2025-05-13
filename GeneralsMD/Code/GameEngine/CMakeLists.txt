@@ -1244,7 +1244,7 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/mutex.h
     Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/softaes.h
     Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/sse2_64_32.h
-
+    Include/GameNetwork/GeneralsOnline/Vendor/sentry/sentry.h
     Include/GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h
     Include/GameNetwork/GeneralsOnline/Vendor/libcurl/curlver.h
     Include/GameNetwork/GeneralsOnline/Vendor/libcurl/easy.h
