@@ -21,8 +21,6 @@ public:
 
 	void GetRoomList(std::function<void(void)> cb);
 
-	void UpdateRoomDataCache();
-	
 	std::function<void()> m_PendingRoomJoinCompleteCallback = nullptr;
 	void JoinRoom(int roomIndex, std::function<void()> onStartCallback, std::function<void()> onCompleteCallback);
 
@@ -65,8 +63,6 @@ public:
 		return nullptr;
 	}
 
-	void CreateRoom(int roomIndex);
-
 	std::map<uint64_t, NetworkRoomMember>& GetMembersListForCurrentRoom();
 
 	// Chat
@@ -99,8 +95,6 @@ public:
 
 	int GetCurrentRoomID() const { return m_CurrentRoomID; }
 
-private:
-	void ApplyLocalUserPropertiesToCurrentNetworkRoom();
 
 private:
 	int m_CurrentRoomID = -1;

@@ -342,11 +342,6 @@ void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> c
 		});
 }
 
-void NGMP_OnlineServices_RoomsInterface::UpdateRoomDataCache()
-{
-	
-}
-
 void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<void()> onStartCallback, std::function<void()> onCompleteCallback)
 {
 	// TODO_NGMP: Safety
@@ -358,11 +353,6 @@ void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<v
 	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_JoinNetworkRoom(targetNetworkRoom.GetRoomID());
 
 	onCompleteCallback();
-}
-
-void NGMP_OnlineServices_RoomsInterface::CreateRoom(int roomIndex)
-{
-	
 }
 
 std::map<uint64_t, NetworkRoomMember>& NGMP_OnlineServices_RoomsInterface::GetMembersListForCurrentRoom()
@@ -401,9 +391,4 @@ void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string
 	{
 		m_RosterNeedsRefreshCallback();
 	}
-}
-
-void NGMP_OnlineServices_RoomsInterface::ApplyLocalUserPropertiesToCurrentNetworkRoom()
-{
-	
 }
