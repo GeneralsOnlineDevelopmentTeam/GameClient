@@ -129,7 +129,7 @@ jobs:
         with:
           files: 'GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/OnlineServices_Init.cpp'
           search-text: '{REPLACE_SENTRY_DSN}'
-          replacement-text: 'SENTRY DSN GOES HERE'
+          replacement-text: ${{ secrets.TEST_SECRET }}
 
       - name: Build ${{ inputs.game }} with CMake Using ${{ inputs.preset }}${{ inputs.tools && '+t' || '' }}${{ inputs.extras && '+e' || '' }} Preset
         shell: pwsh
