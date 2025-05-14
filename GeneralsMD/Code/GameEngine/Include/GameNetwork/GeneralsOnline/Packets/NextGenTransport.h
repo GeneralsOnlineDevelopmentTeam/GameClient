@@ -32,16 +32,6 @@ public:
 
 	inline Bool allowBroadcasts(Bool val) override { return false; }
 
-	/*
-	void SetSocket(EOS_P2P_SocketId sock)
-	{
-		m_bHasSocket = true;
-		m_SockID = sock;
-	}
-	*/
-
 private:
-	//EOS_P2P_SocketId m_SockID;
-	bool m_bHasSocket = false;
 	
 };

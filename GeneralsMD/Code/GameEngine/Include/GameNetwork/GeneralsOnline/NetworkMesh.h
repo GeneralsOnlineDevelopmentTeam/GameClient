@@ -103,9 +103,6 @@ public:
 
 	ENetworkMeshType GetMeshType() const { return m_meshType; }
 
-	//EOS_P2P_SocketId GetSocketID() const { return m_SockID; }
-
-
 	std::map<int64_t, PlayerConnection>& GetAllConnections()
 	{
 		return m_mapConnections;
@@ -135,8 +132,6 @@ private:
 		return nullptr;
 	}
 private:
-	//EOS_P2P_SocketId m_SockID;
-
 	ENetworkMeshType m_meshType;
 
 	ENetAddress server_address;

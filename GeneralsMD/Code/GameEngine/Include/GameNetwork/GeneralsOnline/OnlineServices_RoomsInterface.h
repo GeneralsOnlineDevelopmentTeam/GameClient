@@ -69,8 +69,6 @@ public:
 
 	std::map<uint64_t, NetworkRoomMember>& GetMembersListForCurrentRoom();
 
-	//EOS_HLobbyDetails m_currentRoomDetailsHandle = nullptr;
-
 	// Chat
 	void SendChatMessageToCurrentRoom(UnicodeString& strChatMsg);
 

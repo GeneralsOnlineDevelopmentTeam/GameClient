@@ -25,23 +25,11 @@ NextGenTransport::~NextGenTransport()
 
 Bool NextGenTransport::init(AsciiString ip, UnsignedShort port)
 {
-	if (!m_bHasSocket)
-	{
-		//m_SockID.ApiVersion = EOS_P2P_SOCKETID_API_LATEST;
-		//strcpy(m_SockID.SocketName, std::format("GAME_TRANSPORT_SOCKET", port).c_str());
-	}
-
 	return true;
 }
 
 Bool NextGenTransport::init(UnsignedInt ip, UnsignedShort port)
 {
-	if (!m_bHasSocket)
-	{
-		//m_SockID.ApiVersion = EOS_P2P_SOCKETID_API_LATEST;
-		//strcpy(m_SockID.SocketName, std::format("GAME_TRANSPORT_SOCKET", port).c_str());
-	}
-
 	return true;
 }
 
@@ -93,13 +81,6 @@ Bool NextGenTransport::doRecv(void)
 		// delete the bitstream
 		delete gamePacket.m_bs;
 
-			/*
-			TransportMessageHeader header;
-	UnsignedByte data[MAX_MESSAGE_LEN];
-	Int length;
-	UnsignedInt addr;
-	UnsignedShort port;
-			*/
 
 		// generals logic
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
@@ -155,116 +136,11 @@ Bool NextGenTransport::doRecv(void)
 		}
 	}
 
-	/*
-	TransportMessage incomingMessage;
-	unsigned char* buf = (unsigned char*)&incomingMessage;
-
-	auto P2PHandle = EOS_Platform_GetP2PInterface(NGMP_OnlineServicesManager::GetInstance()->GetEOSPlatformHandle());
-
-	uint8_t channelToUse = (uint8_t)ENetworkMeshType::GAME_TRANSPORT;
-
-	// recv
-	EOS_P2P_GetNextReceivedPacketSizeOptions sizeOptions;
-	sizeOptions.ApiVersion = EOS_P2P_GETNEXTRECEIVEDPACKETSIZE_API_LATEST;
-	sizeOptions.LocalUserId = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetEOSUser();
-	sizeOptions.RequestedChannel = &channelToUse; // room mesh channels
-
-	bool bRet = false;
-
-	uint32_t numBytes = 0;
-
-	EOS_EResult sizeResult = EOS_P2P_GetNextReceivedPacketSize(P2PHandle, &sizeOptions, &numBytes);
-	while (sizeResult == EOS_EResult::EOS_Success)
-	{
-		EOS_P2P_ReceivePacketOptions options;
-		options.ApiVersion = EOS_P2P_RECEIVEPACKET_API_LATEST;
-		options.LocalUserId = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetEOSUser();
-		options.MaxDataSizeBytes = numBytes;
-		options.RequestedChannel = &channelToUse; // room mesh channels
-
-		EOS_ProductUserId outRemotePeerID = nullptr;
-		EOS_P2P_SocketId outSocketID;
-		uint8_t outChannel = 0;
-		EOS_EResult result = EOS_P2P_ReceivePacket(P2PHandle, &options, &outRemotePeerID, &outSocketID, &outChannel, (void*)buf, &numBytes);
-
-		if (result == EOS_EResult::EOS_Success)
-		{
-			bRet = true;
-
-			// TODO_NGMP: Reject any packets from members not in the room? or mesh
-			char szEOSUserID[EOS_PRODUCTUSERID_MAX_LENGTH + 1] = { 0 };
-			int32_t outLenLocal = sizeof(szEOSUserID);
-			EOS_ProductUserId_ToString(outRemotePeerID, szEOSUserID, &outLenLocal);
-			NetworkLog("[NGMP]: Received %d bytes from user %s", numBytes, szEOSUserID);
-
-			if (outRemotePeerID == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetEOSUser())
-			{
-				NetworkLog("Received from self...");
-			}
-
-			// generals logic
-#if defined(_DEBUG) || defined(_INTERNAL)
-// Packet loss simulation
-			if (m_usePacketLoss)
-			{
-				if (TheGlobalData->m_packetLoss >= GameClientRandomValue(0, 100))
-				{
-					continue;
-				}
-			}
-#endif
-
-			//		DEBUG_LOG(("UDPTransport::doRecv - Got something! len = %d\n", len));
-					// Decrypt the packet
-			//		DEBUG_LOG(("buffer = "));
-			//		for (Int munkee = 0; munkee < len; ++munkee) {
-			//			DEBUG_LOG(("%02x", *(buf + munkee)));
-			//		}
-			//		DEBUG_LOG(("\n"));
-			decryptBuf(buf, numBytes);
-
-			incomingMessage.length = numBytes - sizeof(TransportMessageHeader);
-
-			if (numBytes <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
-			{
-				m_unknownPackets[m_statisticsSlot]++;
-				m_unknownBytes[m_statisticsSlot] += numBytes;
-				continue;
-			}
-
-			// Something there; stick it somewhere
-	//		DEBUG_LOG(("Saw %d bytes from %d:%d\n", len, ntohl(from.sin_addr.S_un.S_addr), ntohs(from.sin_port)));
-			m_incomingPackets[m_statisticsSlot]++;
-			m_incomingBytes[m_statisticsSlot] += numBytes;
-
-			for (int i = 0; i < MAX_MESSAGES; ++i)
-			{
-				if (m_inBuffer[i].length == 0)
-				{
-					// Empty slot; use it
-					m_inBuffer[i].length = incomingMessage.length;
-					//m_inBuffer[i].addr = ntohl(from.sin_addr.S_un.S_addr);
-					//m_inBuffer[i].port = ntohs(from.sin_port);
-					memcpy(&m_inBuffer[i], buf, numBytes);
-					break;
-				}
-			}
-
-		}
-
-		sizeResult = EOS_P2P_GetNextReceivedPacketSize(P2PHandle, &sizeOptions, &numBytes);
-	}
-
-	return bRet;
-	*/
-
 	return bRet;
 }
 
 Bool NextGenTransport::doSend(void)
 {
-	//auto P2PHandle = EOS_Platform_GetP2PInterface(NGMP_OnlineServicesManager::GetInstance()->GetEOSPlatformHandle());
-	
 	bool retval = true;
 
 	int i;
@@ -314,53 +190,6 @@ Bool NextGenTransport::doSend(void)
 			{
 				retval = FALSE;
 			}
-
-			// TODO_NGMP: Custom
-
-			/*
-			NGMPGameSlot* pSlot = (NGMPGameSlot*)NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame()->getSlot(m_outBuffer[i].addr);
-			EOS_ProductUserId eosUser = pSlot->m_userID;
-
-			EOS_P2P_SendPacketOptions sendPacketOptions;
-			sendPacketOptions.ApiVersion = EOS_P2P_SENDPACKET_API_LATEST;
-			sendPacketOptions.LocalUserId = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetEOSUser();
-			sendPacketOptions.RemoteUserId = eosUser;
-			sendPacketOptions.SocketId = &m_SockID;
-			sendPacketOptions.Channel = (uint8_t)ENetworkMeshType::GAME_TRANSPORT;
-			sendPacketOptions.DataLengthBytes = (uint32_t)m_outBuffer[i].length + sizeof(TransportMessageHeader);
-			sendPacketOptions.Data = (void*)(&m_outBuffer[i]);
-			sendPacketOptions.bAllowDelayedDelivery = true;
-			sendPacketOptions.Reliability = EOS_EPacketReliability::EOS_PR_ReliableOrdered;
-			sendPacketOptions.bDisableAutoAcceptConnection = false;
-
-			if (eosUser == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetEOSUser())
-			{
-				NetworkLog("Sending to self...");
-			}
-
-			EOS_EResult result = EOS_P2P_SendPacket(P2PHandle, &sendPacketOptions);
-
-			//NetworkLog("[NGMP]: Sending Packet with %d bytes to %s with result %d", m_outBuffer->length, m_eosUserID, result);
-
-			// Send this message
-			if (result == EOS_EResult::EOS_Success)
-			{
-				//DEBUG_LOG(("Sending %d bytes to %d:%d\n", m_outBuffer[i].length + sizeof(TransportMessageHeader), m_outBuffer[i].addr, m_outBuffer[i].port));
-				m_outgoingPackets[m_statisticsSlot]++;
-				m_outgoingBytes[m_statisticsSlot] += m_outBuffer[i].length + sizeof(TransportMessageHeader);
-				m_outBuffer[i].length = 0;  // Remove from queue
-				//				DEBUG_LOG(("UDPTransport::doSend - sent %d butes to %d.%d.%d.%d:%d\n", bytesSent,
-				//					(m_outBuffer[i].addr >> 24) & 0xff,
-				//					(m_outBuffer[i].addr >> 16) & 0xff,
-				//					(m_outBuffer[i].addr >> 8) & 0xff,
-				//					m_outBuffer[i].addr & 0xff,
-				//					m_outBuffer[i].port));
-			}
-			else
-			{
-				retval = FALSE;
-			}
-			*/
 		}
 	}
 

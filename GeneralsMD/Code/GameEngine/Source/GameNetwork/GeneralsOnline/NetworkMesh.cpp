@@ -96,36 +96,6 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 			}
 		}
 	}
-
-	/*
-	auto P2PHandle = EOS_Platform_GetP2PInterface(NGMP_OnlineServicesManager::GetInstance()->GetEOSPlatformHandle());
-
-	CBitStream* pBitStream = packet.Serialize();
-
-	for (EOS_ProductUserId targetUser : vecTargetUsers)
-	{
-		EOS_P2P_SendPacketOptions sendPacketOptions;
-		sendPacketOptions.ApiVersion = EOS_P2P_SENDPACKET_API_LATEST;
-		sendPacketOptions.LocalUserId = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetEOSUser();
-		sendPacketOptions.RemoteUserId = targetUser;
-		sendPacketOptions.SocketId = &m_SockID;
-		sendPacketOptions.Channel = (uint8_t)m_meshType;
-		sendPacketOptions.DataLengthBytes = (uint32_t)pBitStream->GetNumBytesUsed();
-		sendPacketOptions.Data = (void*)pBitStream->GetRawBuffer();
-		sendPacketOptions.bAllowDelayedDelivery = true;
-		sendPacketOptions.Reliability = EOS_EPacketReliability::EOS_PR_ReliableOrdered;
-		sendPacketOptions.bDisableAutoAcceptConnection = false;
-
-		// TODO_NGMP: Support more packet types obviously
-
-		EOS_EResult result = EOS_P2P_SendPacket(P2PHandle, &sendPacketOptions);
-
-		char szEOSUserID[EOS_PRODUCTUSERID_MAX_LENGTH + 1] = { 0 };
-		int32_t outLenLocal = sizeof(szEOSUserID);
-		EOS_ProductUserId_ToString(targetUser, szEOSUserID, &outLenLocal);
-		NetworkLog("[NGMP]: Sending Packet with %d bytes to %s with result %d", pBitStream->GetNumBytesUsed(), szEOSUserID, result);
-	}
-	*/
 }
 
 void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEntry> vecLobbyMembers)

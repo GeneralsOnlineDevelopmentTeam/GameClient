@@ -255,9 +255,6 @@ public:
 		void ShutdownSentry();
 
 private:
-	//EOS_HPlatform m_EOSPlatformHandle = nullptr;
-
-
 	NGMP_ENATType m_NATType = NGMP_ENATType::NAT_TYPE_UNDETERMINED;
 
 
