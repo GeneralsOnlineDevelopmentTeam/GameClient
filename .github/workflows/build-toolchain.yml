@@ -129,7 +129,7 @@ jobs:
         with:
           files: 'GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/OnlineServices_Init.cpp'
           search-text: '{REPLACE_SENTRY_DSN}'
-          replacement-text: ${{ secrets.TEST_SECRET }}
+          replacement-text: ${{ secrets.SENTRY_DSN_PROD }}
 
       # Replace challenge encryption key
       - name: Replace Challenge Encryption Key
