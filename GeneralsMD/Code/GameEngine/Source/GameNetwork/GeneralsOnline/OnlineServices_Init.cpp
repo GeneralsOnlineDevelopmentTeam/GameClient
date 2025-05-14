@@ -510,7 +510,7 @@ void NGMP_OnlineServicesManager::Tick()
 void NGMP_OnlineServicesManager::InitSentry()
 {
 	sentry_options_t* options = sentry_options_new();
-	sentry_options_set_dsn(options, "https://72fe078b1eadeac568044a8677663a80@o4509316925554688.ingest.us.sentry.io/4509316927586304");
+	sentry_options_set_dsn(options, "{REPLACE_SENTRY_DSN}");
 	sentry_options_set_database_path(options, ".sentry-native");
 	sentry_options_set_release(options, "generalsonline-client@0.1");
 	sentry_options_set_debug(options, 1);
