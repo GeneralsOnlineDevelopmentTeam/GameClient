@@ -123,6 +123,14 @@ jobs:
 
           cmake --preset ${{ inputs.preset }} $buildFlags
 
+      # Replace sentry DSN (test)
+      - name: Replace Sentry Keys
+        uses: richardrigutins/replace-in-files@v2
+        with:
+          files: 'GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/OnlineServices_Init.cpp'
+          search-text: '{REPLACE_SENTRY_DSN}'
+          replacement-text: 'SENTRY DSN GOES HERE'
+
       - name: Build ${{ inputs.game }} with CMake Using ${{ inputs.preset }}${{ inputs.tools && '+t' || '' }}${{ inputs.extras && '+e' || '' }} Preset
         shell: pwsh
         run: |
