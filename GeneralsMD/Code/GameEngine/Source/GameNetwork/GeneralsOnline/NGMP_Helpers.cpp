@@ -2,8 +2,6 @@
 #include <chrono>
 #include "libsodium/sodium/crypto_aead_aes256gcm.h"
 
-//#define USE_ENCRYPTED_SERVICE_TOKENS 1
-
 std::string m_strNetworkLogFileName;
 
 void NetworkLog(const char* fmt, ...)
