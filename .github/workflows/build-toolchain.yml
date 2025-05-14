@@ -123,13 +123,29 @@ jobs:
 
           cmake --preset ${{ inputs.preset }} $buildFlags
 
-      # Replace sentry DSN (test)
+      # Replace sentry DSN
       - name: Replace Sentry Keys
         uses: richardrigutins/replace-in-files@v2
         with:
           files: 'GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/OnlineServices_Init.cpp'
           search-text: '{REPLACE_SENTRY_DSN}'
           replacement-text: ${{ secrets.TEST_SECRET }}
+
+      # Replace challenge encryption key
+      - name: Replace Challenge Encryption Key
+        uses: richardrigutins/replace-in-files@v2
+        with:
+          files: 'GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/NGMP_Helpers.cpp'
+          search-text: '{REPLACE_CHALLENGE_KEY}'
+          replacement-text: ${{ secrets.HANDSHAKE_CHALLENGE_KEY }}
+
+      # Replace challenge encryption iv
+      - name: Replace Challenge Encryption IV
+        uses: richardrigutins/replace-in-files@v2
+        with:
+          files: 'GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/NGMP_Helpers.cpp'
+          search-text: '{REPLACE_CHALLENGE_IV}'
+          replacement-text: ${{ secrets.HANDSHAKE_CHALLENGE_IV }}
 
       - name: Build ${{ inputs.game }} with CMake Using ${{ inputs.preset }}${{ inputs.tools && '+t' || '' }}${{ inputs.extras && '+e' || '' }} Preset
         shell: pwsh
