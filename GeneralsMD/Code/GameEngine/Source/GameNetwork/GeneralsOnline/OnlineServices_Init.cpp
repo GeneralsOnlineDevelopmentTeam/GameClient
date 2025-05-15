@@ -370,7 +370,7 @@ void NGMP_OnlineServicesManager::InitSentry()
 			buffer[1024 - 1] = 0;
 			va_end(args);
 
-			NetworkLog("Sentry: %s", buffer);
+			NetworkLog("[Sentry] %s", buffer);
 	}, nullptr);
 #endif
 

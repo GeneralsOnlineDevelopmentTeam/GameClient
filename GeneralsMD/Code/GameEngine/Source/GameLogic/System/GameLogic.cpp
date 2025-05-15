@@ -2612,6 +2612,33 @@ void GameLogic::processCommandList( CommandList *list )
 
 		if (sawCRCMismatch)
 		{
+#if defined(GENERALS_ONLINE_USE_SENTRY)
+			if (TheNGMPGame != nullptr)
+			{
+				AsciiString sentryMsg;
+				sentryMsg.format("CRC Mismatch - saw %d CRCs from %d players\nMap was %s\n", m_cachedCRCs.size(), numPlayers, TheNGMPGame->getMap().str());
+
+				for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+				{
+					Player* player = ThePlayerList->getNthPlayer(crcIt->first);
+
+					AsciiString sentryMsgPlayer;
+					sentryMsgPlayer.format("CRC from player %d (%ls) = %X\n", crcIt->first,
+						player ? player->getPlayerDisplayName().str() : L"<NONE>", crcIt->second);
+
+					sentryMsg.concat(sentryMsgPlayer);
+				}
+
+
+				// send event to sentry
+				sentry_capture_event(sentry_value_new_message_event(
+					SENTRY_LEVEL_ERROR,
+					"CRC_MISMATCH",
+					sentryMsg.str()
+				));
+			}
+#endif
+
 #ifdef DEBUG_LOGGING
 			DEBUG_LOG(("CRC Mismatch - saw %d CRCs from %d players\n", m_cachedCRCs.size(), numPlayers));
 			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)

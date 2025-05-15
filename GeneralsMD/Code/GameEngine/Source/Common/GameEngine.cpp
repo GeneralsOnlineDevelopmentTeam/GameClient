@@ -1040,8 +1040,8 @@ void GameEngine::execute(void)
 						}
 						RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
 					}	// catch
-				}
 #endif
+				}
 			}	// perf
 
 			{
