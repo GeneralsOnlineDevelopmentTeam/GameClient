@@ -3718,9 +3718,7 @@ void GameLogic::update( void )
 
 	// Update the Recorder
 	{
-
-		// TODO_NGMP: Re-enable this
-		//TheRecorder->UPDATE();
+		TheRecorder->UPDATE();
 	}
 
 	// process client commands

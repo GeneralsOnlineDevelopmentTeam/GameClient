@@ -46,6 +46,9 @@
 #include "Common/CRCDebug.h"
 #include "Common/version.h"
 
+#include "../OnlineServices_Init.h"
+extern NGMPGame* TheNGMPGame;
+
 #ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -625,8 +628,13 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
 		}
 		else
 		{
+#if defined(GENERALS_ONLINE)
 			theSlotList = GameInfoToAsciiString(TheGameSpyGame);
+			localIndex = TheNGMPGame->getLocalSlotNum();
+#else
+			theSlotList = GameInfoToAsciiString(TheNGMPGame);
 			localIndex = TheGameSpyGame->getLocalSlotNum();
+#endif
 		}
 	}
 	else
@@ -1551,8 +1559,13 @@ AsciiString RecorderClass::getLastReplayFileName()
 		GameInfo *game = NULL;
 		if (TheLAN)
 			game = TheLAN->GetMyGame();
+#if defined(GENERALS_ONLINE)
+		else if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+			game = TheNGMPGame;
+#else
 		else if (TheGameSpyInfo)
 			game = TheGameSpyGame;
+#endif
 		if (game)
 		{
 			AsciiString players;
