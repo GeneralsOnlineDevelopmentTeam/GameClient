@@ -772,14 +772,16 @@ void GameEngine::update(void)
 				NGMP_OnlineServicesManager::DestroyInstance();
 
 			}
-			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-			{
-				NGMP_OnlineServicesManager::GetInstance()->Tick();
-			}
+			
 
 			if (TheNetwork != NULL)
 			{
 				TheNetwork->UPDATE();
+			}
+
+			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+			{
+				NGMP_OnlineServicesManager::GetInstance()->Tick();
 			}
 
 			TheCDManager->UPDATE();
