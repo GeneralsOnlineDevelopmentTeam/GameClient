@@ -34,3 +34,7 @@
 
 // useful for testing release builds with multiple logins
 //#define GENERALS_ONLINE_DONT_SAVE_CREDENTIALS 1
+
+#if !_DEBUG
+#define GENERALS_ONLINE_USE_SENTRY
+#endif

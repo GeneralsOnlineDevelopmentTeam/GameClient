@@ -1022,6 +1022,7 @@ void GameEngine::execute(void)
 						else
 							RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
 					}
+#if !defined(GENERALS_ONLINE_USE_SENTRY)
 					catch (...)
 					{
 						// try to save info off
@@ -1040,6 +1041,7 @@ void GameEngine::execute(void)
 						RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
 					}	// catch
 				}
+#endif
 			}	// perf
 
 			{
