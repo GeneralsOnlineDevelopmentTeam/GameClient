@@ -109,8 +109,6 @@ public:
 		return m_bLobbyListDirty;
 	}
 
-	// TODO_NGMP: We dont join right now (other than host)
-
 	UnicodeString m_PendingCreation_LobbyName;
 	UnicodeString m_PendingCreation_InitialMapDisplayName;
 	AsciiString m_PendingCreation_InitialMapPath;

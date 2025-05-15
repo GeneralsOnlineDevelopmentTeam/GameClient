@@ -926,9 +926,6 @@ static void StartPressed(void)
 		if (buttonBuddy)
 			buttonBuddy->winEnable(FALSE);
 		GameSpyCloseOverlay(GSOVERLAY_BUDDY);
-
-		*TheNGMPGame = *myGame;
-		TheNGMPGame->startGame(0);
 	}
 	else if (allHaveMap)
 	{
@@ -1477,12 +1474,6 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 			if (!TheNGMPGame)
 				return;
-
-			// NOTE: Host already did this logic
-			if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost())
-			{
-				return;
-			}
 
 			// TODO_NGMP
 			//SendStatsToOtherPlayers(TheNGMPGame);

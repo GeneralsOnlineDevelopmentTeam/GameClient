@@ -138,6 +138,4 @@ private:
 	ENetHost* enetInstance = nullptr;
 
 	std::map<int64_t, PlayerConnection> m_mapConnections;
-
-	// TODO_NGMP: Everywhere we use notifications, we should check if after creating it it is invalid, if so, error
 };
