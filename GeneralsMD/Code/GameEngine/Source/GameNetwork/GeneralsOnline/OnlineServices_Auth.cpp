@@ -75,7 +75,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 		j["challenge"] = PrepareChallenge();
 		std::string strPostData = j.dump();
 
-		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
 				try
 				{
@@ -129,7 +129,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 				j["challenge"] = PrepareChallenge();
 				std::string strPostData = j.dump();
 
-				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 					{
 						try
 						{
@@ -160,7 +160,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 								m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 								m_strCode = GenerateGamecode();
 
-								std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+								std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
 
 								ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
 							}
@@ -178,7 +178,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 				m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 				m_strCode = GenerateGamecode();
 
-				std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+				std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
 
 				ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
 			}
@@ -205,7 +205,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 			j["challenge"] = PrepareChallenge();
 			std::string strPostData = j.dump();
 
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
 				try
 				{
@@ -279,7 +279,7 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 
 				std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("MOTD", true);
 				std::map<std::string, std::string> mapHeaders;
-				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 					{
 						try
 						{
@@ -353,7 +353,7 @@ void NGMP_OnlineServices_AuthInterface::DeleteMyAccount()
 	// delete on service
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("User", true), m_userID);
 	std::map<std::string, std::string> mapHeaders;
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", nullptr);
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, "", nullptr);
 }
 
 void NGMP_OnlineServices_AuthInterface::LoginAsSecondaryDevAccount()

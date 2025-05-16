@@ -18,7 +18,7 @@ void NGMP_OnlineServices_StatsInterface::GetGlobalStats(std::function<void(Globa
 
 	std::map<std::string, std::string> mapHeaders;
 
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			GlobalStats stats;
 
@@ -86,7 +86,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 
 			std::map<std::string, std::string> mapHeaders;
 
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
 					PSPlayerStats stats;
 					stats.id = userID;
@@ -173,7 +173,7 @@ void NGMP_OnlineServices_StatsInterface::UpdateMyStats(PSPlayerStats stats)
 	// TODO_NGMP: Only serialize what exists, dont serialize null?
 	std::string strJsonData = JSONSerialize(stats);
 
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strJsonData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strJsonData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});

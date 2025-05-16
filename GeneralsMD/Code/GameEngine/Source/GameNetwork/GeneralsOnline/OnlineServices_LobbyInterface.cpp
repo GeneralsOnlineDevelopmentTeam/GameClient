@@ -93,7 +93,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strM
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			
 		});
@@ -113,7 +113,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_LimitSuperweapons(bo
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -133,7 +133,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -149,7 +149,7 @@ void NGMP_OnlineServices_LobbyInterface::MarkCurrentGameAsStarted()
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -172,7 +172,7 @@ void NGMP_OnlineServices_LobbyInterface::MarkCurrentGameAsFinished()
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -193,7 +193,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_HasMap()
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -216,7 +216,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AISide(int slot, int
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -237,7 +237,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AITeam(int slot, int
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -258,7 +258,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AIColor(int slot, in
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -280,7 +280,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MySide(int side, int
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -300,7 +300,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyColor(int color)
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -320,7 +320,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyStartPos(int start
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -340,7 +340,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyTeam(int team)
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -358,7 +358,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_SetSlotState(uint16_
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
 		});
@@ -375,7 +375,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_KickUser(int64_t use
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			UnicodeString msg;
 			msg.format(L"'%s' was kicked by the host.", name.str());;
@@ -393,7 +393,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			UnicodeString msg = UnicodeString(L"All players have been forced to ready up.");
 			SendAnnouncementMessageToCurrentLobby(msg, true);
@@ -455,7 +455,7 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies", true);
 	std::map<std::string, std::string> mapHeaders;
 
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 	{
 		// TODO_NGMP: Error handling
 		try
@@ -571,7 +571,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 		std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 		std::map<std::string, std::string> mapHeaders;
 
-		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			// safety, lobby could've been torn down by the time we get our response
 				if (m_CurrentLobby.lobbyID != -1 && TheNGMPGame != nullptr)
@@ -827,7 +827,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			// reset trying to join
 			ResetLobbyTryingToJoin();
@@ -948,7 +948,7 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 	// leave on service
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", nullptr);
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, "", nullptr);
 }
 
 LobbyEntry NGMP_OnlineServices_LobbyInterface::GetLobbyFromIndex(int index)
@@ -1007,7 +1007,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 	j["password"] = szPassword;
 	std::string strPostData = j.dump();
 
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			try
 			{

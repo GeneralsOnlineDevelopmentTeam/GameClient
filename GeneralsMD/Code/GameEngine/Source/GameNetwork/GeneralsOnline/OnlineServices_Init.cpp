@@ -49,7 +49,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 		}
 		else // PROD
 		{
-			return std::format("https://cloud.playgenerals.online:9000/cloud/env:prod:token:{}/{}", strToken, szEndpoint);
+			return std::format("http://cloud.playgenerals.online:9000/cloud/env:prod:token:{}/{}", strToken, szEndpoint);
 		}
 
 	}
@@ -61,7 +61,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 		}
 		else // PROD
 		{
-			return std::format("https://cloud.playgenerals.online:9000/cloud/env:prod/{}", szEndpoint);
+			return std::format("http://cloud.playgenerals.online:9000/cloud/env:prod/{}", szEndpoint);
 		}
 	}
 }
@@ -86,7 +86,7 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck", false);
 
 	// NOTE: Generals 'CRCs' are not true CRC's, its a custom algorithm. This is fine for lobby comparisons, but its not good for patch comparisons.
-
+	NetworkLog("Starting version check to endpoint %s", strURI.c_str());
 	// exe crc
 	Char filePath[_MAX_PATH];
 	GetModuleFileName(NULL, filePath, sizeof(filePath));
@@ -105,10 +105,12 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 	std::string strPostData = j.dump();
 
 	std::map<std::string, std::string> mapHeaders;
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
+			NetworkLog("Version Check: Response code was %d and body was %s", statusCode, strBody.c_str());
 			try
 			{
+				NetworkLog("VERSION CHECK: Up To Date");
 				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 				VersionCheckResponse authResp = jsonObject.get<VersionCheckResponse>();
 
@@ -159,7 +161,7 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 
 		// this isnt a super nice way of doing this, lets make a download manager
 		std::map<std::string, std::string> mapHeaders;
-		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
 				// set done
 				TheDownloadManager->OnProgressUpdate(downloadSize, downloadSize, 0, 0);
@@ -343,7 +345,7 @@ void NGMP_OnlineServicesManager::Tick()
 			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("User", true);
 
 			std::map<std::string, std::string> mapHeaders;
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
 					// TODO_NGMP: Handle 404 (session terminated)
 				});
@@ -357,9 +359,9 @@ void NGMP_OnlineServicesManager::InitSentry()
 	sentry_options_set_dsn(options, "{REPLACE_SENTRY_DSN}");
 	sentry_options_set_database_path(options, ".sentry-native");
 	sentry_options_set_release(options, "generalsonline-client@0.1");
-	sentry_options_set_debug(options, 1);
 
 #if _DEBUG
+	sentry_options_set_debug(options, 1);
 	sentry_options_set_logger_level(options, SENTRY_LEVEL_DEBUG);
 
 	sentry_options_set_logger(options,	[](sentry_level_t level, const char* message, va_list args, void* userdata)
