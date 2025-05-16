@@ -783,10 +783,12 @@ Int parseSync(char *args[], int)
 
 Int parseNoShellMap(char *args[], int)
 {
+#if !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 	if (TheWritableGlobalData)
 	{
 		TheWritableGlobalData->m_shellMapOn = FALSE;
 	}
+#endif
 	return 1;
 }
 
@@ -802,22 +804,26 @@ Int parseNoShaders(char *args[], int)
 #if (defined(RTS_DEBUG) || defined(RTS_INTERNAL))
 Int parseNoLogo(char *args[], int)
 {
+#if !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 	if (TheWritableGlobalData)
 	{
 		TheWritableGlobalData->m_playIntro = FALSE;
 		TheWritableGlobalData->m_afterIntro = TRUE;
 		TheWritableGlobalData->m_playSizzle = FALSE;
 	}
+#endif
 	return 1;
 }
 #endif
 
 Int parseNoSizzle( char *args[], int )
 {
+#if !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 	if (TheWritableGlobalData)
 	{
 		TheWritableGlobalData->m_playSizzle = FALSE;
 	}
+#endif
 	return 1;
 }
 
@@ -832,10 +838,12 @@ Int parseShellMap(char *args[], int num)
 
 Int parseNoWindowAnimation(char *args[], int num)
 {
+#if !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 	if (TheWritableGlobalData)
 	{
 		TheWritableGlobalData->m_animateWindows = FALSE;
 	}
+#endif
 	return 1;
 }
 

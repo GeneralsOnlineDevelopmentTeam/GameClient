@@ -38,3 +38,6 @@
 #if !_DEBUG
 #define GENERALS_ONLINE_USE_SENTRY 1
 #endif
+
+// NOTE: This is temporary until we work out why this causes mismatch when some players set it and others dont
+#define GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY 1
