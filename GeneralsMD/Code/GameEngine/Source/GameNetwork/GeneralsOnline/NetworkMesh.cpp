@@ -332,6 +332,59 @@ void NetworkMesh::Tick()
 
 					if (numConnectedConnections != expectedConnections)
 					{
+						// record fialure
+						{
+							AsciiString sentryMsg;
+							sentryMsg.format("Failed to connect. Saw %d connections, expected %d", numConnectedConnections, expectedConnections);
+
+							// append players in the lobby
+							int i = 0;
+							sentryMsg.concat("\n\nLobby Members:\n");
+							for (const auto& lobbyMember : currentLobby.members)
+							{
+								AsciiString sentryMsgPlayer;
+								sentryMsgPlayer.format("Lobby Member %d = %s [%lld]\n", i, lobbyMember.display_name.c_str(), lobbyMember.user_id);
+								sentryMsg.concat(sentryMsgPlayer);
+								++i;
+							}
+
+							// append who we're really connected to
+							i = 0;
+							sentryMsg.concat("\n\nLobby Members:\n");
+							for (auto& connectionData : m_mapConnections)
+							{
+								std::string strIPAddr = connectionData.second.GetIPAddrString();
+
+								AsciiString sentryMsgPlayer;
+								sentryMsgPlayer.format("Connection %d = UserID: %lld, State: %d, ConnectionAttempts: %d Latency: %d IpPort: %s:%d\n", i, connectionData.second.m_userID, connectionData.second.m_State,
+									connectionData.second.m_ConnectionAttempts, connectionData.second.latency, strIPAddr.c_str(), connectionData.second.m_address.port);
+								sentryMsg.concat(sentryMsgPlayer);
+								++i;
+							}
+
+							// local player info
+							int64_t userID = -1;
+							std::string strDisplayname = "Unknown";
+							int64_t lobbyID = -1;
+							if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+							{
+								userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+								strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str();
+								lobbyID = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby().lobbyID;
+							}
+
+							sentry_set_extra("user_id", sentry_value_new_int32(userID));
+							sentry_set_extra("user_displayname", sentry_value_new_string(strDisplayname.c_str()));
+							sentry_set_extra("lobby_id", sentry_value_new_bool(lobbyID));
+
+							// send event to sentry
+							sentry_capture_event(sentry_value_new_message_event(
+								SENTRY_LEVEL_INFO,
+								"CONNECTION_ERROR",
+								sentryMsg.str()
+							));
+						}
+
 						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback();
 						return;
 					}

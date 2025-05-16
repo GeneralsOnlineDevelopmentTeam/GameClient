@@ -2639,9 +2639,8 @@ void GameLogic::processCommandList( CommandList *list )
 				}
 				std::string strUserID = std::format("{}", userID);
 
-				
-				sentry_set_tag("user_id", strUserID.c_str());
-				sentry_set_tag("user_displayname", strDisplayname.c_str());
+				sentry_set_extra("user_id", sentry_value_new_int32(userID));
+				sentry_set_extra("user_displayname", sentry_value_new_string(strDisplayname.c_str()));
 
 				// send event to sentry
 				sentry_capture_event(sentry_value_new_message_event(

@@ -55,7 +55,7 @@ public:
 
 	bool HasPortOpen() const { return m_bHasPortOpenedViaUPNP || m_bHasPortOpenedViaNATPMP; }
 	bool HasPortOpenUPnP() const { return m_bHasPortOpenedViaUPNP; }
-	bool HasPortOpenNATPMP() const { m_bHasPortOpenedViaNATPMP; }
+	bool HasPortOpenNATPMP() const { return m_bHasPortOpenedViaNATPMP; }
 	int GetOpenPort() const { return m_PreferredPort; }
 
 	void UPnP_RemoveAllMappingsToThisMachine();

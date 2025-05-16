@@ -343,6 +343,42 @@ static void updateNumPlayersOnline(void)
 			capUPnP == ECapabilityState::OVERRIDDEN ? "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work." : ""
 		);
 
+		// record the game data to backend
+		{
+			AsciiString sentryMsg;
+			sentryMsg.format("Determined Network Capabilities");
+
+			// add info about how the game ended
+			sentry_set_extra("direct_connect", sentry_value_new_bool(NATDirectConnect == ECapabilityState::SUPPORTED));
+			sentry_set_extra("port_mapped", sentry_value_new_bool(bHasPortMapped));
+			sentry_set_extra("port_mapped_upnp", sentry_value_new_bool(bHasPortMappedUPnP));
+			sentry_set_extra("port_mapped_natpmp", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenNATPMP()));
+			sentry_set_extra("preferred_port", sentry_value_new_int32(preferredPort));
+			sentry_set_extra("tech_natpmp_supported", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP()));
+			sentry_set_extra("tech_upnp_supported", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP()));
+			sentry_set_extra("port_override_set", sentry_value_new_bool(capUPnP == ECapabilityState::OVERRIDDEN));
+
+			// local player info
+			int64_t userID = -1;
+			std::string strDisplayname = "Unknown";
+			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+			{
+				userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+				strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str();
+			}
+			std::string strUserID = std::format("{}", userID);
+
+			sentry_set_extra("user_id", sentry_value_new_int32(userID));
+			sentry_set_extra("user_displayname", sentry_value_new_string(strDisplayname.c_str()));
+
+			// send event to sentry
+			sentry_capture_event(sentry_value_new_message_event(
+				SENTRY_LEVEL_INFO,
+				"NETWORK_CAPS",
+				sentryMsg.str()
+			));
+		}
+
 		while (headingStr.nextToken(&line, UnicodeString(L"\n")))
 		{
 			if (line.getCharAt(line.getLength()-1) == '\r')

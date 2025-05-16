@@ -1779,11 +1779,6 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 								DEBUG_LOG(("Not sending results - we didn't finish a game. %d\n", TheVictoryConditions->getEndFrame()));
 								return;
 							}
-
-							// if we saw end of game, mark game as finished
-							// NGMP: mark the game done, everyone makes this call for safety (host can have left)
-							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->MarkCurrentGameAsFinished();
-
 							// TODO_NGMP_STATS: Impl ladders again, how did these work in the base game?
 							// send ladder results (even if we end the game in the first N seconds)
 							/*
@@ -1950,7 +1945,7 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 							stats.lastGeneral = ptIdx;
 
 							Int gameSize = 0;
-							for (i = 0; i < MAX_SLOTS; ++i)
+							for (int i = 0; i < MAX_SLOTS; ++i)
 							{
 								if (TheNGMPGame->getConstSlot(i)->isOccupied() && TheNGMPGame->getConstSlot(i)->getPlayerTemplate() != PLAYERTEMPLATE_OBSERVER)
 									++gameSize;
@@ -2065,6 +2060,163 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 //-------------------------------------------------------------------------------------------------
 void grabMultiPlayerInfo( void )
 {
+	// Generals Online NOTE:
+	// We do our important end of game flow here, the populate results flow doesn't execute in certain situations (e.g. quickmatch, custom match with stats off)
+	// but this logic we always need to run at end of game
+	{
+		UnsignedInt latestHumanInGame = 0;
+		UnsignedInt lastFrameOfGame = 0;
+		Bool gameEndedInDisconnect = TRUE;
+		Bool sawAnyDisconnects = FALSE;
+		Bool anyNonAI = FALSE;
+		Bool anyAI = FALSE;
+		Int i = 0;
+		for (; i < MAX_SLOTS; ++i)
+		{
+			const GameSlot* slot = TheGameInfo->getConstSlot(i);
+			if (slot->isOccupied())
+			{
+				if (slot->isAI())
+					anyAI = TRUE;
+				else
+					anyNonAI = TRUE;
+			}
+			if (slot->isOccupied())
+			{
+				lastFrameOfGame = max(lastFrameOfGame, slot->lastFrameInGame());
+			}
+			if (slot->isHuman())
+			{
+				latestHumanInGame = max(latestHumanInGame, slot->lastFrameInGame());
+			}
+		}
+		DEBUG_LOG(("Game ended on frame %d - TheGameLogic->getFrame()=%d\n", lastFrameOfGame - 1, TheGameLogic->getFrame() - 1));
+		for (i = 0; i < MAX_SLOTS; ++i)
+		{
+			const GameSlot* slot = TheGameInfo->getConstSlot(i);
+			DEBUG_LOG(("latestHumanInGame=%d, slot->isOccupied()=%d, slot->disconnected()=%d, slot->isAI()=%d, slot->lastFrameInGame()=%d\n",
+				latestHumanInGame, slot->isOccupied(), slot->disconnected(), slot->isAI(), slot->lastFrameInGame()));
+			if (slot->isOccupied() && slot->disconnected())
+			{
+				DEBUG_LOG(("Marking game as a possible disconnect game\n"));
+				sawAnyDisconnects = TRUE;
+			}
+			if (slot->isOccupied() && !slot->disconnected() &&
+				(slot->isAI() || (slot->lastFrameInGame() >= lastFrameOfGame/*TheGameLogic->getFrame()*/ - 1)))
+			{
+				DEBUG_LOG(("Marking game as not ending in disconnect\n"));
+				gameEndedInDisconnect = FALSE;
+			}
+		}
+
+		if (!sawAnyDisconnects)
+		{
+			DEBUG_LOG(("Didn't see any disconnects - making gameEndedInDisconnect == FALSE\n"));
+			gameEndedInDisconnect = FALSE;
+		}
+
+		if (gameEndedInDisconnect)
+		{
+			if (latestHumanInGame == TheNetwork->getPingFrame())
+			{
+				// we pinged on the last frame someone was there - i.e. game ended in a disconnect.
+				// check if we were to blame.
+				if (TheNetwork->getPingsRecieved() < max(1, TheNetwork->getPingsSent() / 2)) /// @todo: what's a good percent of pings to have gotten?
+				{
+					DEBUG_LOG(("We were to blame.  Leaving gameEndedInDisconnect = true\n"));
+				}
+				else
+				{
+					DEBUG_LOG(("We were not to blame.  Changing gameEndedInDisconnect = false\n"));
+					gameEndedInDisconnect = FALSE;
+				}
+			}
+			else
+			{
+				DEBUG_LOG(("gameEndedInDisconnect, and we didn't ping on last frame.  What's up with that?\n"));
+			}
+		}
+
+		//Remove the extra disconnection we add to all games when they start.
+		DEBUG_LOG(("populatePlayerInfo() - removing extra disconnect\n"));
+
+		// TODO_NGMP_STATS
+		//if (TheGameSpyInfo)
+			//TheGameSpyInfo->updateAdditionalGameSpyDisconnections(-1);
+
+		Bool sawEndOfGame = FALSE;
+		if (TheVictoryConditions->isLocalAlliedDefeat() || TheVictoryConditions->isLocalAlliedVictory())
+		{
+			sawEndOfGame = TRUE;
+		}
+		if (TheVictoryConditions->isLocalDefeat())
+		{
+			sawEndOfGame = TRUE;
+		}
+		if (TheNetwork->sawCRCMismatch() || gameEndedInDisconnect)
+		{
+			sawEndOfGame = TRUE;
+		}
+		if (!sawEndOfGame)
+		{
+			DEBUG_LOG(("Not sending results - we didn't finish a game. %d\n", TheVictoryConditions->getEndFrame()));
+		}
+
+		// record the game data to backend
+		{
+			AsciiString sentryMsg;
+			sentryMsg.format("Match Finished\nPlayers:\n");
+
+			for (int i = 0; i < MAX_SLOTS; ++i)
+			{
+				Player* player = ThePlayerList->getNthPlayer(i);
+
+				AsciiString sentryMsgPlayer;
+				sentryMsgPlayer.format("Player %d = %ls\n", i,
+					player ? player->getPlayerDisplayName().str() : L"<NONE>");
+
+				sentryMsg.concat(sentryMsgPlayer);
+			}
+
+			// add info about how the game ended
+			sentry_set_extra("crc_mismatch", sentry_value_new_bool(TheNetwork->sawCRCMismatch()));
+			sentry_set_extra("ended_with_disconnect", sentry_value_new_bool(gameEndedInDisconnect));
+			sentry_set_extra("had_any_disconnect", sentry_value_new_bool(sawAnyDisconnects));
+			sentry_set_extra("has_humans", sentry_value_new_bool(anyNonAI));
+			sentry_set_extra("has_ai", sentry_value_new_bool(anyAI));
+			sentry_set_extra("last_frame_of_game", sentry_value_new_int32(lastFrameOfGame));
+
+			int matchLenMinutes = TheGameLogic->getFrame() / LOGICFRAMES_PER_SECOND / 60;
+			sentry_set_extra("match_length_minutes", sentry_value_new_int32(matchLenMinutes));
+
+			// local player info
+			int64_t userID = -1;
+			std::string strDisplayname = "Unknown";
+			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+			{
+				userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+				strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str();
+			}
+
+			sentry_set_extra("user_id", sentry_value_new_int32(userID));
+			sentry_set_extra("user_displayname", sentry_value_new_string(strDisplayname.c_str()));
+
+			// send event to sentry
+			sentry_capture_event(sentry_value_new_message_event(
+				SENTRY_LEVEL_INFO,
+				"MATCH_FINISHED",
+				sentryMsg.str()
+			));
+		}
+
+		// if we saw end of game, mark game as finished
+		// NGMP: mark the game done, everyone makes this call for safety (host can have left)
+		if (sawEndOfGame)
+		{
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->MarkCurrentGameAsFinished();
+		}
+	}
+
 	typedef std::map<Int, Player *> ScoreMap;
 	typedef ScoreMap::iterator ScoreMapIt;
 	typedef ScoreMap::reverse_iterator RevScoreMapIt;

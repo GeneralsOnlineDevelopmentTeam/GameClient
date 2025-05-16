@@ -31,14 +31,23 @@ public:
 		enet_peer_timeout(m_peer, 5, 1000, 1000);
 	}
 
-	std::string GetIPAddrString()
+	std::string GetIPAddrString(bool bForceReveal = false)
 	{
 #if defined(_DEBUG)
 		char ip[INET_ADDRSTRLEN + 1] = { 0 };
 		enet_address_get_host_ip(&m_address, ip, sizeof(ip));
 		return std::string(ip);
 #else
-		return std::string("<redacted>");
+		if (bForceReveal)
+		{
+			char ip[INET_ADDRSTRLEN + 1] = { 0 };
+			enet_address_get_host_ip(&m_address, ip, sizeof(ip));
+			return std::string(ip);
+		}
+		else
+		{
+			return std::string("<redacted>");
+		}
 #endif
 	}
 
