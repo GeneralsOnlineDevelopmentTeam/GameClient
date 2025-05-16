@@ -332,8 +332,8 @@ void NGMPGame::launchGame(void)
 #endif
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	TheWritableGlobalData->m_horizontalScrollSpeedFactor = 0.5f;
-	TheWritableGlobalData->m_verticalScrollSpeedFactor = 0.5f;
+	//TheWritableGlobalData->m_horizontalScrollSpeedFactor = 0.5f;
+	//TheWritableGlobalData->m_verticalScrollSpeedFactor = 0.5f;
 #endif
 
 	setGameInProgress(TRUE);
@@ -407,8 +407,9 @@ void NGMPGame::launchGame(void)
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	TheWritableGlobalData->m_framesPerSecondLimit = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+	TheWritableGlobalData->m_useFpsLimit = true;
 #endif
-	TheWritableGlobalData->m_useFpsLimit = false;
+	//TheWritableGlobalData->m_useFpsLimit = false;
 
 	// Set the random seed
 	// TODO_NGMP: revisit this
