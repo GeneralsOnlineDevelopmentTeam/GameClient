@@ -2629,6 +2629,19 @@ void GameLogic::processCommandList( CommandList *list )
 					sentryMsg.concat(sentryMsgPlayer);
 				}
 
+				// local player info
+				int64_t userID = -1;
+				std::string strDisplayname = "Unknown";
+				if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+				{
+					userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+					strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str();
+				}
+				std::string strUserID = std::format("{}", userID);
+
+				
+				sentry_set_tag("user_id", strUserID.c_str());
+				sentry_set_tag("user_displayname", strDisplayname.c_str());
 
 				// send event to sentry
 				sentry_capture_event(sentry_value_new_message_event(
