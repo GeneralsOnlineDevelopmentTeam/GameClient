@@ -13,6 +13,7 @@ void NetworkLog(const char* fmt, ...)
 
 		std::stringstream ss;
 
+#if defined(_DEBUG)
 		if (IsDebuggerPresent())
 		{
 			ss << std::put_time(std::localtime(&in_time_t),
@@ -23,6 +24,9 @@ void NetworkLog(const char* fmt, ...)
 			ss << std::put_time(std::localtime(&in_time_t),
 				"GeneralsOnline_%Y-%m-%d-%H-%M-%S.log");
 		}
+#else
+		ss << "GeneralsOnline.log";
+#endif
 		m_strNetworkLogFileName = ss.str();
 		std::ofstream overwriteFile(m_strNetworkLogFileName);
 
