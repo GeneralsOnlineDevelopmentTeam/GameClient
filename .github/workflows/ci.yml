@@ -116,17 +116,17 @@ jobs:
 #            tools: true
 #            extras: true
           - preset: "win32"
-            tools: false
-            extras: false
+            tools: true
+            extras: true
           - preset: "win32-profile"
-            tools: false
-            extras: false
+            tools: true
+            extras: true
           - preset: "win32-internal"
-            tools: false
-            extras: false
+            tools: true
+            extras: true
           - preset: "win32-debug"
-            tools: false
-            extras: false
+            tools: true
+            extras: true
       fail-fast: true
     uses: ./.github/workflows/build-toolchain.yml
     with:
