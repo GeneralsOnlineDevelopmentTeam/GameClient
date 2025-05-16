@@ -331,6 +331,11 @@ void NGMPGame::launchGame(void)
 	TheWritableGlobalData->m_showMetrics = true;
 #endif
 
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	TheWritableGlobalData->m_horizontalScrollSpeedFactor = 0.5f;
+	TheWritableGlobalData->m_verticalScrollSpeedFactor = 0.5f;
+#endif
+
 	setGameInProgress(TRUE);
 
 	for (Int i = 0; i < MAX_SLOTS; ++i)
