@@ -1835,31 +1835,35 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 	{
 		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bHostMigrated = false;
 
-		// TODO_NGMP: Make sure we did a lobby get first
-		// did we become the host?
-		bool bIsHost = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost();
-
-		if (bIsHost)
+		// If we are in-game, nothing to do here, the game handles it for us
+		if (!TheNGMPGame->isInGame())
 		{
-			NetworkLog("Host left and server migrated the host to us...");
+			// TODO_NGMP: Make sure we did a lobby get first
+			// did we become the host?
+			bool bIsHost = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost();
 
-			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. You are now the host."), GameMakeColor(255, 255, 255, 255), -1, -1);
+			if (bIsHost)
+			{
+				NetworkLog("Host left and server migrated the host to us...");
 
-			// enable host buttons
-			buttonSelectMap->winEnable(true);
+				GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. You are now the host."), GameMakeColor(255, 255, 255, 255), -1, -1);
 
-			// rename start button
-			buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
+				// enable host buttons
+				buttonSelectMap->winEnable(true);
 
-			// mark myself as ready
+				// rename start button
+				buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
 
-			// NOTE: don't need to mark ourselves ready, the service did it for us upon migration
-			// TODO_NGMP: Should probably force ready for host?
-			//InitWOLGameGadgets();
-		}
-		else
-		{
-			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. a new host has been selected."), GameMakeColor(255, 255, 255, 255), -1, -1);
+				// mark myself as ready
+
+				// NOTE: don't need to mark ourselves ready, the service did it for us upon migration
+				// TODO_NGMP: Should probably force ready for host?
+				//InitWOLGameGadgets();
+			}
+			else
+			{
+				GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. a new host has been selected."), GameMakeColor(255, 255, 255, 255), -1, -1);
+			}
 		}
 	}
 
