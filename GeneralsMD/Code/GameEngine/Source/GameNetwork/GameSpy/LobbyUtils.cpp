@@ -1,5 +1,5 @@
 /*
-**	Command & Conquer Generals Zero Hour(tm)
+**	Command & Conquer Generals(tm)
 **	Copyright 2025 Electronic Arts Inc.
 **
 **	This program is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@
 #include "Common/GameEngine.h"
 #include "Common/MultiplayerSettings.h"
 #include "Common/PlayerTemplate.h"
-#include "Common/version.h"
+#include "Common/Version.h"
 #include "GameClient/AnimateWindowManager.h"
 #include "GameClient/WindowLayout.h"
 #include "GameClient/Gadget.h"
@@ -61,8 +61,10 @@
 #include "GameNetwork/GameSpy/GSConfig.h"
 
 #include "Common/STLTypedefs.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#include "GameNetwork/GeneralsOnline/OnlineServices_LobbyInterface.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -88,12 +90,12 @@ static NameKeyType windowSortAlphaID = NAMEKEY_INVALID;
 static NameKeyType windowSortPingID = NAMEKEY_INVALID;
 static NameKeyType windowSortBuddiesID = NAMEKEY_INVALID;
 
-static GameWindow *buttonSortAlpha = NULL;
-static GameWindow *buttonSortPing = NULL;
-static GameWindow *buttonSortBuddies = NULL;
-static GameWindow *windowSortAlpha = NULL;
-static GameWindow *windowSortPing = NULL;
-static GameWindow *windowSortBuddies = NULL;
+static GameWindow* buttonSortAlpha = NULL;
+static GameWindow* buttonSortPing = NULL;
+static GameWindow* buttonSortBuddies = NULL;
+static GameWindow* windowSortAlpha = NULL;
+static GameWindow* windowSortPing = NULL;
+static GameWindow* windowSortBuddies = NULL;
 
 static GameSortType theGameSortType = GAMESORT_ALPHA_ASCENDING;
 static Bool sortBuddies = TRUE;
@@ -101,28 +103,28 @@ static void showSortIcons(void)
 {
 	if (windowSortAlpha && windowSortPing)
 	{
-		switch(theGameSortType)
+		switch (theGameSortType)
 		{
-			case GAMESORT_ALPHA_ASCENDING:
-				windowSortAlpha->winHide(FALSE);
-				windowSortAlpha->winEnable(TRUE);
-				windowSortPing->winHide(TRUE);
-				break;
-			case GAMESORT_ALPHA_DESCENDING:
-				windowSortAlpha->winHide(FALSE);
-				windowSortAlpha->winEnable(FALSE);
-				windowSortPing->winHide(TRUE);
-				break;
-			case GAMESORT_PING_ASCENDING:
-				windowSortPing->winHide(FALSE);
-				windowSortPing->winEnable(TRUE);
-				windowSortAlpha->winHide(TRUE);
-				break;
-			case GAMESORT_PING_DESCENDING:
-				windowSortPing->winHide(FALSE);
-				windowSortPing->winEnable(FALSE);
-				windowSortAlpha->winHide(TRUE);
-				break;
+		case GAMESORT_ALPHA_ASCENDING:
+			windowSortAlpha->winHide(FALSE);
+			windowSortAlpha->winEnable(TRUE);
+			windowSortPing->winHide(TRUE);
+			break;
+		case GAMESORT_ALPHA_DESCENDING:
+			windowSortAlpha->winHide(FALSE);
+			windowSortAlpha->winEnable(FALSE);
+			windowSortPing->winHide(TRUE);
+			break;
+		case GAMESORT_PING_ASCENDING:
+			windowSortPing->winHide(FALSE);
+			windowSortPing->winEnable(TRUE);
+			windowSortAlpha->winHide(TRUE);
+			break;
+		case GAMESORT_PING_DESCENDING:
+			windowSortPing->winHide(FALSE);
+			windowSortPing->winEnable(FALSE);
+			windowSortAlpha->winHide(TRUE);
+			break;
 		}
 	}
 
@@ -141,14 +143,14 @@ static void showSortIcons(void)
 		}
 	}
 }
-void setSortMode( GameSortType sortType ) { theGameSortType = sortType; showSortIcons(); RefreshGameListBoxes(); }
-void sortByBuddies( Bool doSort ) { sortBuddies = doSort; showSortIcons(); RefreshGameListBoxes(); }
+void setSortMode(GameSortType sortType) { theGameSortType = sortType; showSortIcons(); RefreshGameListBoxes(); }
+void sortByBuddies(Bool doSort) { sortBuddies = doSort; showSortIcons(); RefreshGameListBoxes(); }
 
-Bool HandleSortButton( NameKeyType sortButton )
+Bool HandleSortButton(NameKeyType sortButton)
 {
 	if (sortButton == buttonSortBuddiesID)
 	{
-		sortByBuddies( !sortBuddies );
+		sortByBuddies(!sortBuddies);
 		return TRUE;
 	}
 	else if (sortButton == buttonSortAlphaID)
@@ -187,19 +189,24 @@ static NameKeyType listboxLobbyGamesLargeID = NAMEKEY_INVALID;
 //static NameKeyType listboxLobbyGameInfoID = NAMEKEY_INVALID;
 
 // Window Pointers ------------------------------------------------------------------------
-static GameWindow *parent = NULL;
+static GameWindow* parent = NULL;
 //static GameWindow *parentGameListSmall = NULL;
-static GameWindow *parentGameListLarge = NULL;
-       //GameWindow *listboxLobbyGamesSmall = NULL;
-       GameWindow *listboxLobbyGamesLarge = NULL;
-       //GameWindow *listboxLobbyGameInfo = NULL;
+static GameWindow* parentGameListLarge = NULL;
+//GameWindow *listboxLobbyGamesSmall = NULL;
+GameWindow* listboxLobbyGamesLarge = NULL;
+//GameWindow *listboxLobbyGameInfo = NULL;
 
-static const Image *pingImages[3] = { NULL, NULL, NULL };
+static const Image* pingImages[3] = { NULL, NULL, NULL };
 
-static void gameTooltip(GameWindow *window,
-													WinInstanceData *instData,
-													UnsignedInt mouse)
+static void gameTooltip(GameWindow* window,
+	WinInstanceData* instData,
+	UnsignedInt mouse)
 {
+	// TODO_NGMP
+#if defined(GENERALS_ONLINE)
+	return;
+#endif
+
 	Int x, y, row, col;
 	x = LOLONGTOSHORT(mouse);
 	y = HILONGTOSHORT(mouse);
@@ -528,8 +535,193 @@ struct GameSortStruct
 	}
 };
 
-static Int insertGame( GameWindow *win, GameSpyStagingRoom *game, Bool showMap )
+static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 {
+	// TODO_NGMP
+	//game->cleanUpSlotPointers();
+	Color gameColor = GameSpyColor[GSCOLOR_GAME];
+
+	// TODO_NGMP: Support full again
+	//if (game->getNumNonObserverPlayers() == game->getMaxPlayers() || game->getNumPlayers() == MAX_SLOTS)
+	{
+		//gameColor = GameSpyColor[GSCOLOR_GAME_FULL];
+	}
+
+	// TODO_NGMP: Support crc check again
+	//if (game->getExeCRC() != TheGlobalData->m_exeCRC || game->getIniCRC() != TheGlobalData->m_iniCRC)
+	{
+		//gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
+	}
+
+	std::string strOwnerName = "";
+	for (LobbyMemberEntry& member : lobbyInfo.members)
+	{
+		if (member.user_id == lobbyInfo.owner)
+		{
+			strOwnerName = member.display_name;
+		}
+	}
+
+	UnicodeString gameName;
+	gameName.format(L"%hs (%hs)", lobbyInfo.name.c_str(), strOwnerName.c_str());
+
+	int numPlayers = lobbyInfo.current_players;
+	int maxPlayers = lobbyInfo.max_players;
+
+	AsciiString lobbyMapName = AsciiString(lobbyInfo.map_name.c_str());
+	AsciiString ladder = AsciiString("TODO_NGMP");
+	USHORT ladderPort = 1;
+	int gameID = 0;
+
+	bool bHasPassword = lobbyInfo.passworded;
+
+	// TODO_NGMP
+	bool bAllowSpectators = true;
+	int latency = 5;
+
+	// TODO_NGMP: Asian text
+	/*
+	if (TheGameSpyInfo->getDisallowAsianText())
+	{
+		const WideChar* buff = gameName.str();
+		Int length = gameName.getLength();
+		for (Int i = 0; i < length; ++i)
+		{
+			if (buff[i] >= 256)
+				return -1;
+		}
+	}
+	else if (TheGameSpyInfo->getDisallowNonAsianText())
+	{
+		const WideChar* buff = gameName.str();
+		Int length = gameName.getLength();
+		Bool hasUnicode = FALSE;
+		for (Int i = 0; i < length; ++i)
+		{
+			if (buff[i] >= 256)
+			{
+				hasUnicode = TRUE;
+				break;
+			}
+		}
+		if (!hasUnicode)
+			return -1;
+	}
+	*/
+
+
+	Int index = GadgetListBoxAddEntryText(win, gameName, gameColor, -1, COLUMN_NAME);
+	GadgetListBoxSetItemData(win, (void*)gameID, index);
+
+	UnicodeString s;
+
+	if (showMap)
+	{
+		UnicodeString mapName;
+		const MapMetaData* md = TheMapCache->findMap(lobbyMapName);
+		if (md)
+		{
+			mapName = md->m_displayName;
+		}
+		else
+		{
+			const char* start = lobbyMapName.reverseFind('\\');
+			if (start)
+			{
+				++start;
+			}
+			else
+			{
+				start = lobbyMapName.str();
+			}
+			mapName.translate(start);
+		}
+		GadgetListBoxAddEntryText(win, mapName, gameColor, index, COLUMN_MAP);
+
+		// TODO_NGMP: Support ladder again
+		if (TheLadderList != nullptr)
+		{
+			const LadderInfo* li = TheLadderList->findLadder(ladder, ladderPort);
+			if (li)
+			{
+				GadgetListBoxAddEntryText(win, li->name, gameColor, index, COLUMN_LADDER);
+			}
+			else if (ladderPort)
+			{
+				GadgetListBoxAddEntryText(win, TheGameText->fetch("GUI:UnknownLadder"), gameColor, index, COLUMN_LADDER);
+			}
+			else
+			{
+				GadgetListBoxAddEntryText(win, TheGameText->fetch("GUI:NoLadder"), gameColor, index, COLUMN_LADDER);
+			}
+		}
+		else
+		{
+			GadgetListBoxAddEntryText(win, TheGameText->fetch("GUI:NoLadder"), gameColor, index, COLUMN_LADDER);
+		}
+	}
+	else
+	{
+		GadgetListBoxAddEntryText(win, UnicodeString(L" "), gameColor, index, COLUMN_MAP);
+		GadgetListBoxAddEntryText(win, UnicodeString(L" "), gameColor, index, COLUMN_LADDER);
+	}
+
+	s.format(L"%d/%d", numPlayers, maxPlayers);
+	GadgetListBoxAddEntryText(win, s, gameColor, index, COLUMN_NUMPLAYERS);
+
+	if (bHasPassword)
+	{
+		const Image* img = TheMappedImageCollection->findImageByName("Password");
+		Int width = 10, height = 10;
+		if (img)
+		{
+			width = img->getImageWidth();
+			height = img->getImageHeight();
+		}
+		GadgetListBoxAddEntryImage(win, img, index, COLUMN_PASSWORD, width, height);
+	}
+	else
+	{
+		GadgetListBoxAddEntryText(win, UnicodeString(L" "), gameColor, index, COLUMN_PASSWORD);
+	}
+
+	if (bAllowSpectators)
+	{
+		const Image* img = TheMappedImageCollection->findImageByName("Observer");
+		GadgetListBoxAddEntryImage(win, img, index, COLUMN_OBSERVER);
+	}
+	else
+	{
+		GadgetListBoxAddEntryText(win, UnicodeString(L" "), gameColor, index, COLUMN_OBSERVER);
+	}
+
+	s.format(L"%d", latency);
+	GadgetListBoxAddEntryText(win, s, gameColor, index, COLUMN_PING);
+	Int ping = latency;
+	Int width = 10, height = 10;
+	if (pingImages[0])
+	{
+		width = pingImages[0]->getImageWidth();
+		height = pingImages[0]->getImageHeight();
+	}
+	// CLH picking an arbitrary number for our ping display
+	// TODO_NGMP: Better values for this
+	if (ping < 30)
+	{
+		GadgetListBoxAddEntryImage(win, pingImages[0], index, COLUMN_PING, width, height);
+	}
+	else if (ping < 70)
+	{
+		GadgetListBoxAddEntryImage(win, pingImages[1], index, COLUMN_PING, width, height);
+	}
+	else
+	{
+		GadgetListBoxAddEntryImage(win, pingImages[2], index, COLUMN_PING, width, height);
+	}
+
+	return index;
+
+	/*
 	game->cleanUpSlotPointers();
 	Color gameColor = GameSpyColor[GSCOLOR_GAME];
 	if (game->getNumNonObserverPlayers() == game->getMaxPlayers() || game->getNumPlayers() == MAX_SLOTS)
@@ -541,11 +733,11 @@ static Int insertGame( GameWindow *win, GameSpyStagingRoom *game, Bool showMap )
 		gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
 	}
 	UnicodeString gameName = game->getGameName();
-	
+
 	if(TheGameSpyInfo->getDisallowAsianText())
 	{
 		const WideChar *buff = gameName.str();
-		Int length =  gameName.getLength();	
+		Int length =  gameName.getLength();
 		for(Int i = 0; i < length; ++i)
 		{
 			if(buff[i] >= 256)
@@ -555,7 +747,7 @@ static Int insertGame( GameWindow *win, GameSpyStagingRoom *game, Bool showMap )
 	else if(TheGameSpyInfo->getDisallowNonAsianText())
 	{
 		const WideChar *buff = gameName.str();
-		Int length =  gameName.getLength();	
+		Int length =  gameName.getLength();
 		Bool hasUnicode = FALSE;
 		for(Int i = 0; i < length; ++i)
 		{
@@ -681,6 +873,8 @@ static Int insertGame( GameWindow *win, GameSpyStagingRoom *game, Bool showMap )
 	}
 
 	return index;
+	*/
+
 }
 
 void RefreshGameListBox( GameWindow *win, Bool showMap )
@@ -702,6 +896,54 @@ void RefreshGameListBox( GameWindow *win, Bool showMap )
 	// empty listbox
 	GadgetListBoxReset(win);
 
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SearchForLobbies(
+		[=]()
+		{
+			win->winEnable(false);
+			GadgetListBoxAddEntryText(win, UnicodeString(L"Searching for public lobbies..."), GameMakeColor(255, 194, 15, 255), -1, -1);
+		},
+		[=](std::vector<LobbyEntry> vecLobbies)
+		{
+			size_t numResults = vecLobbies.size();
+
+			GadgetListBoxReset(win);
+			if (numResults == 0)
+			{
+				win->winEnable(false);
+				GadgetListBoxAddEntryText(win, UnicodeString(L"No lobbies were found"), GameMakeColor(255, 194, 15, 255), -1, -1);
+			}
+			else
+			{
+				win->winEnable(true);
+
+				Int indexToSelect = -1;
+
+				int i = 0;
+				for (LobbyEntry lobby : vecLobbies)
+				{
+					Int index = insertGame(win, lobby, showMap);
+					if (i == selectedID)
+					{
+						indexToSelect = index;
+					}
+
+					++i;
+				}
+
+				// restore selection
+				GadgetListBoxSetSelected(win, indexToSelect); // even for -1, so we can disable the 'Join Game' button
+				//	if(prevPos > 10)
+				GadgetListBoxSetTopVisibleEntry(win, prevPos);//+ 1
+
+				if (indexToSelect < 0 && selectedID)
+				{
+					TheWindowManager->winSetLoneWindow(NULL);
+				}
+			}
+		});
+
+	// TODO_NGMP: Impl below again + support buddy games
+	/*
 	// sort our games
 	typedef std::multiset<GameSpyStagingRoom *, GameSortStruct> SortedGameList;
 	SortedGameList sgl;
@@ -713,6 +955,7 @@ void RefreshGameListBox( GameWindow *win, Bool showMap )
 	}
 
 	// populate listbox
+	
 	for (SortedGameList::iterator sglIt = sgl.begin(); sglIt != sgl.end(); ++sglIt)
 	{
 		GameSpyStagingRoom *game = *sglIt;
@@ -725,6 +968,7 @@ void RefreshGameListBox( GameWindow *win, Bool showMap )
 			}
 		}
 	}
+	*/
 
 	clearBuddyGames();
 

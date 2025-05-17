@@ -45,7 +45,7 @@
 #include "GameLogic/Module/TransportContain.h"
 #include "GameLogic/Object.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -382,7 +382,7 @@ UpdateSleepTime TransportContain::update()
 				ContainedItemsList::const_iterator it;
 				it = items->begin();
 
-				while( *it )
+				while( it != items->end() )
 				{
 					Object *object = *it;
 

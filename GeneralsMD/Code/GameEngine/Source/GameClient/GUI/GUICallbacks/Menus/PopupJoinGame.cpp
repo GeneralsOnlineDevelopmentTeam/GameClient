@@ -62,6 +62,8 @@
 #include "GameNetwork/GameSpy/PeerDefs.h"
 #include "GameNetwork/GameSpy/PeerThread.h"
 #include "GameNetwork/GameSpyOverlay.h"
+#include "../ngmp_include.h"
+#include "../ngmp_interfaces.h"
 
 
 //-----------------------------------------------------------------------------
@@ -99,9 +101,10 @@ void PopupJoinGameInit( WindowLayout *layout, void *userData )
 
 	buttonCancelID = NAMEKEY("PopupJoinGame.wnd:ButtonCancel");
 
-	GameSpyStagingRoom *ourRoom = TheGameSpyInfo->findStagingRoomByID(TheGameSpyInfo->getCurrentStagingRoomID());
-	if (ourRoom)
-		GadgetStaticTextSetText(staticTextGameName, ourRoom->getGameName());
+	LobbyEntry lobbyTryingToJoin = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTryingToJoin();
+	UnicodeString lobbyName;
+	lobbyName.translate(lobbyTryingToJoin.name.c_str());
+	GadgetStaticTextSetText(staticTextGameName, lobbyName);
 
 	TheWindowManager->winSetFocus( parentPopup );
 	TheWindowManager->winSetModal( parentPopup );
@@ -243,21 +246,19 @@ WindowMsgHandledType PopupJoinGameSystem( GameWindow *window, UnsignedInt msg, W
 
 static void joinGame( AsciiString password )
 {
-	GameSpyStagingRoom *ourRoom = TheGameSpyInfo->findStagingRoomByID(TheGameSpyInfo->getCurrentStagingRoomID());
-	if (!ourRoom)
+	LobbyEntry lobbyTryingToJoin = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTryingToJoin();
+
+	if (lobbyTryingToJoin.lobbyID == -1)
 	{
 		GameSpyCloseOverlay(GSOVERLAY_GAMEPASSWORD);
-		SetLobbyAttemptHostJoin( FALSE );
+		SetLobbyAttemptHostJoin(FALSE);
 		parentPopup = NULL;
 		return;
 	}
-	PeerRequest req;
-	req.peerRequestType = PeerRequest::PEERREQUEST_JOINSTAGINGROOM;
-	req.text = ourRoom->getGameName().str();
-	req.stagingRoom.id = ourRoom->getID();
-	req.password = password.str();
-	TheGameSpyPeerMessageQueue->addRequest(req);
-	DEBUG_LOG(("Attempting to join game %d(%ls) with password [%s]\n", ourRoom->getID(), ourRoom->getGameName().str(), password.str()));
+
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->JoinLobby(lobbyTryingToJoin, password.str());
+	
+	DEBUG_LOG(("Attempting to join game %d(%s) with password [%s]\n", lobbyTryingToJoin.lobbyID, lobbyTryingToJoin.name.c_str(), password.str()));
 	GameSpyCloseOverlay(GSOVERLAY_GAMEPASSWORD);
 	parentPopup = NULL;
 }

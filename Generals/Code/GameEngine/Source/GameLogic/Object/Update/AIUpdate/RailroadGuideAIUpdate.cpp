@@ -58,7 +58,7 @@ static const Int INVALID_PATH = -1;
 
 
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -273,7 +273,7 @@ void RailroadBehavior::onCollide( Object *other, const Coord3D *loc, const Coord
 		DemoTrapUpdate *dtu = (DemoTrapUpdate*)other->findUpdateModule(key_DemoTrapUpdate);
 		if( dtu )
 		{
-			if( ! BitIsSet( other-> getStatusBits(), OBJECT_STATUS_UNDER_CONSTRUCTION ) )
+			if( !other->getStatusBits().test( OBJECT_STATUS_UNDER_CONSTRUCTION ) )
 				obj->kill(); // it can only detonate on me if it is ready
 
 			playImpactSound(other, other->getPosition());
@@ -871,7 +871,7 @@ public:
 
 	PartitionFilterIsValidCarriage(Object* obj, const RailroadBehaviorModuleData* data) : m_obj(obj), m_data(data) { }
 	
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	virtual const char* debugGetName() { return "PartitionFilterIsValidCarriage"; }
 #endif
 
@@ -1384,12 +1384,17 @@ void RailroadBehavior::FindPosByPathDistance( Coord3D *pos, const Real dist, con
 	{
 		const TrackPoint *thisPoint = &(*pointIter);
 		++pointIter;// next pointIter in this list, so then...
-		const TrackPoint *nextPoint = &(*pointIter);
 
 
 		if (thisPoint && thisPoint->m_distanceFromFirst < actualDistance)// I am after this point, and
 		{
 			Coord3D thisPointPos = thisPoint->m_position;
+			const TrackPoint *nextPoint = NULL;
+
+			// TheSuperHackers Mauller 02/04/2025 Prevent dereferencing of endpoint pointer which throws asserts during Debug
+			if (pointIter != pointList->end()) {
+				 nextPoint = &(*pointIter);
+			}
 			
 			if (nextPoint && nextPoint->m_distanceFromFirst > actualDistance)
 			{

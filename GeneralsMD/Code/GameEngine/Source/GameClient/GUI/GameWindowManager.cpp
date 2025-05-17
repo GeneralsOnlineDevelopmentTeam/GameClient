@@ -53,6 +53,7 @@
 #include "GameClient/GlobalLanguage.h"
 #include "GameClient/GameWindowTransitions.h"
 #include "Common/NameKeyGenerator.h"
+#include "../NextGenMP_defines.h"
 
 // PUBLIC DATA ////////////////////////////////////////////////////////////////////////////////////
 GameWindowManager *TheWindowManager = NULL;
@@ -61,7 +62,7 @@ UnsignedInt WindowLayoutCurrentVersion = 2;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PRIVATE FUNCTIONS //////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -1676,10 +1677,12 @@ GameWindow *GameWindowManager::gogoMessageBox(Int x, Int y, Int width, Int heigh
 
 {
 	// first check to make sure we have some buttons to display
+#if !defined(GENERALS_ONLINE)
 	if(buttonFlags == 0 )
 	{
 		return NULL;
 	}
+#endif
 	GameWindow *trueParent = NULL;
 	//Changed by Chris
 	if(useLogo)
@@ -2214,7 +2217,7 @@ GameWindow *GameWindowManager::gogoGadgetListBox( GameWindow *parent,
 	//
 	if( listboxData->columns == 1 )
 	{
-		listboxData->columnWidth = NEW Int;
+		listboxData->columnWidth = NEW Int[listboxData->columns];
 		listboxData->columnWidth[0] = width;
 		if( listboxData->slider )
 		{

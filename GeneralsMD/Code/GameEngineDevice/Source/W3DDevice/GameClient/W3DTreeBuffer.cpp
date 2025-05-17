@@ -88,7 +88,7 @@ enum
 #include "WW3D2/meshmdl.h"
 #include "d3dx8tex.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -146,7 +146,7 @@ int W3DTreeBuffer::W3DTreeTextureClass::update(W3DTreeBuffer *buffer)
 
 	Int tilePixelExtent = TILE_PIXEL_EXTENT;		 
 //	Int numRows = surface_desc.Height/(tilePixelExtent+TILE_OFFSET);
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 	//DASSERT_MSG(tilesPerRow*numRows >= htMap->m_numBitmapTiles,Debug::Format ("Too many tiles.")); 
 	//DEBUG_ASSERTCRASH((Int)surface_desc.Width >= tilePixelExtent*tilesPerRow, ("Bitmap too small."));
 #endif
@@ -968,7 +968,6 @@ void W3DTreeBuffer::loadTreesInVertexAndIndexBuffers(RefRenderObjListIterator *p
 				m_curNumTreeVertices[bNdx]++;
 			}
 
-			try {
 			for (i=0; i<numIndex; i++) {
 				if (m_curNumTreeIndices[bNdx]+4 > MAX_TREE_INDEX) 
 					break;
@@ -976,10 +975,6 @@ void W3DTreeBuffer::loadTreesInVertexAndIndexBuffers(RefRenderObjListIterator *p
 				*curIb++ = startVertex + pPoly[i].J;
 				*curIb++ = startVertex + pPoly[i].K;
 				m_curNumTreeIndices[bNdx]+=3;
-			}
-			IndexBufferExceptionFunc();
-			} catch(...) {
-				IndexBufferExceptionFunc();
 			}
 		}		
 	}
@@ -1542,12 +1537,12 @@ DECLARE_PERF_TIMER(Tree_Render)
 //=============================================================================
 /** Draws the trees.  Uses camera to cull. */
 //=============================================================================
-void W3DTreeBuffer::drawTrees(CameraClass * camera, RefRenderObjListIterator *pDynamicLightsIterator)
+void W3DTreeBuffer::drawTrees(CameraClass* camera, RefRenderObjListIterator* pDynamicLightsIterator)
 {
 	USE_PERF_TIMER(Tree_Render)
-	if (!m_isTerrainPass) {
-		return;
-	}
+		if (!m_isTerrainPass) {
+			return;
+		}
 
 	// if breeze changes, always process the full update, even if not visible, 
 	// so that things offscreen won't 'pop' when first viewed
@@ -1566,9 +1561,20 @@ void W3DTreeBuffer::drawTrees(CameraClass * camera, RefRenderObjListIterator *pD
 	Vector3 swayFactor[MAX_SWAY_TYPES];
 	for (i=0; i<MAX_SWAY_TYPES; i++) {
 		if (!pause) {
-			m_curSwayOffset[i] += m_curSwayStep[i];
-			if (m_curSwayOffset[i] > NUM_SWAY_ENTRIES-1) {
-				m_curSwayOffset[i] -= NUM_SWAY_ENTRIES-1;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			UnsignedInt currLogicFrame = 0;
+
+			if (TheGameLogic)
+				currLogicFrame = TheGameLogic->getFrame();
+
+			if (currLogicFrame % 2 != 0)
+#endif
+			{
+				m_curSwayOffset[i] += m_curSwayStep[i];
+				if (m_curSwayOffset[i] > NUM_SWAY_ENTRIES - 1)
+				{
+					m_curSwayOffset[i] -= NUM_SWAY_ENTRIES - 1;
+				}
 			}
 		}
 		Int minOffset = REAL_TO_INT_FLOOR(m_curSwayOffset[i]);

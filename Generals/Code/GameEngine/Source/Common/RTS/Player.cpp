@@ -99,7 +99,7 @@
 #include "GameLogic/VictoryConditions.h"
 
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -320,8 +320,6 @@ Player::Player( Int playerIndex )
 	m_bombardBattlePlans = 0;
 	m_holdTheLineBattlePlans = 0;
 	m_searchAndDestroyBattlePlans = 0;
-	m_upgradesInProgress = 0;
-	m_upgradesCompleted = 0;
 	m_tunnelSystem = NULL;
 	m_playerTemplate = NULL;
 	m_visionSpiedMask = PLAYERMASK_NONE;
@@ -432,7 +430,7 @@ void Player::init(const PlayerTemplate* pt)
 
 	m_unitsShouldHunt = FALSE;
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	m_DEMO_ignorePrereqs = FALSE;
 	m_DEMO_freeBuild = FALSE;
 	m_DEMO_instantBuild = FALSE;
@@ -1016,7 +1014,7 @@ void Player::becomingTeamMember(Object *obj, Bool yes)
 		return;	
 
 	// energy production/consumption hooks, note we ignore things that are UNDER_CONSTRUCTION
-	if( BitIsSet( obj->getStatusBits(), OBJECT_STATUS_UNDER_CONSTRUCTION ) == FALSE )
+	if( !obj->getStatusBits().test( OBJECT_STATUS_UNDER_CONSTRUCTION ) )
 	{
 		obj->friend_adjustPowerForPlayer(yes);
 	}  // end if
@@ -1095,8 +1093,7 @@ void Player::becomingLocalPlayer(Bool yes)
 					Drawable *draw = object->getDrawable();
 					if( draw )
 					{
-						static NameKeyType key_StealthUpdate = NAMEKEY( "StealthUpdate" );
-						StealthUpdate *update = (StealthUpdate*)object->findUpdateModule( key_StealthUpdate );
+						StealthUpdate *update = object->getStealth();
 						if( update && update->isDisguised() )
 						{
 							Player *disguisedPlayer = ThePlayerList->getNthPlayer( update->getDisguisedPlayerIndex() );
@@ -1304,6 +1301,10 @@ void Player::preTeamDestroy( const Team *team )
 	// ai notification callback
 	if( m_ai )
 		m_ai->aiPreTeamDestroy( team );
+
+	// TheSuperHackers @bugfix Mauller/Xezon 03/05/2025 Clear the default team to prevent dangling pointer usage
+	if( m_defaultTeam == team )
+		m_defaultTeam = NULL;
 }  // preTeamDestroy
 
 //-------------------------------------------------------------------------------------------------
@@ -2457,7 +2458,7 @@ Bool Player::canBuild(const ThingTemplate *tmplate) const
 				prereqsOK = false;
 		}
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 		if (ignoresPrereqs())
 			prereqsOK = true;
 #endif
@@ -2498,8 +2499,8 @@ void Player::deleteUpgradeList( void )
 	}  // end while
 
 	// This doesn't call removeUpgrade, so clear these ourselves.
-	m_upgradesInProgress = 0;
-	m_upgradesCompleted = 0;
+	m_upgradesInProgress.clear();
+	m_upgradesCompleted.clear();
 
 }  // end deleteUpgradeList
 
@@ -2534,7 +2535,7 @@ Bool Player::hasUpgradeComplete( const UpgradeTemplate *upgradeTemplate )
 //=================================================================================================
 Bool Player::hasUpgradeComplete( UpgradeMaskType testMask )
 {
-	return BitIsSet( m_upgradesCompleted, testMask );
+	return m_upgradesCompleted.testForAll( testMask );
 }
 
 //=================================================================================================
@@ -2543,7 +2544,7 @@ Bool Player::hasUpgradeComplete( UpgradeMaskType testMask )
 Bool Player::hasUpgradeInProduction( const UpgradeTemplate *upgradeTemplate )
 {
 	UpgradeMaskType testMask = upgradeTemplate->getUpgradeMask();
-	return BitIsSet( m_upgradesInProgress, testMask );
+	return m_upgradesInProgress.testForAll( testMask );
 }
 
 //=================================================================================================
@@ -2576,12 +2577,12 @@ Upgrade *Player::addUpgrade( const UpgradeTemplate *upgradeTemplate, UpgradeStat
 	UpgradeMaskType newMask = upgradeTemplate->getUpgradeMask();
 	if( status == UPGRADE_STATUS_IN_PRODUCTION )
 	{
-		BitSet( m_upgradesInProgress, newMask );
+		m_upgradesInProgress.set( newMask );
 	}
 	else if( status == UPGRADE_STATUS_COMPLETE )
 	{
-		BitClear( m_upgradesInProgress, newMask );
-		BitSet( m_upgradesCompleted, newMask );
+		m_upgradesInProgress.clear( newMask );
+		m_upgradesCompleted.set( newMask );
 		onUpgradeCompleted( upgradeTemplate );
 	}
 
@@ -2640,8 +2641,8 @@ void Player::removeUpgrade( const UpgradeTemplate *upgradeTemplate )
 
 		// Clear this upgrade's bits from our mind
 		UpgradeMaskType oldMask = upgradeTemplate->getUpgradeMask();
-		BitClear( m_upgradesInProgress, oldMask );
-		BitClear( m_upgradesCompleted, oldMask );
+		m_upgradesInProgress.clear( oldMask );
+		m_upgradesCompleted.clear( oldMask );
 
 		if( upgrade->getStatus() == UPGRADE_STATUS_COMPLETE )
 			onUpgradeRemoved();

@@ -47,6 +47,7 @@
 #include "layer.h"
 #include "w3derr.h"
 #include "robjlist.h"
+#include "../../../GameEngine/Include/GameNetwork/GeneralsOnline/NextGenMP_defines.h"
 
 class		SceneClass;
 class		CameraClass;
@@ -169,6 +170,10 @@ public:
 	** will control things like animated uv-offset mappers and render object animations.
 	*/
 	static void					Sync( unsigned int sync_time );
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	static float				Get_DeltaTime(void) { return DeltaTime; }
+	static void					Set_DeltaTime(float dt) { DeltaTime = dt; }
+#endif
 	static unsigned int		Get_Sync_Time(void) { return SyncTime; }
    static unsigned int     Get_Frame_Time(void) { return SyncTime - PreviousSyncTime; }
    static unsigned int     Get_Frame_Count(void) { return FrameCount; }
@@ -326,6 +331,10 @@ private:
    // application at the start of every frame. Note that wraparound cases
    // etc. need to be considered.
 	static unsigned int				SyncTime;
+
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	static float					DeltaTime;
+#endif
 
    // The previously set absolute sync time - this is used to get the interval between
    // the most recently set sync time and the previous one. Assuming the

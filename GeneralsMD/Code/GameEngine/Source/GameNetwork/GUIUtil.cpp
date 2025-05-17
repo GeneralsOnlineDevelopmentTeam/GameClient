@@ -46,7 +46,7 @@
 #include "GameNetwork/LANAPICallbacks.h" // for acceptTrueColor, etc
 #include "GameClient/ChallengeGenerals.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -350,6 +350,13 @@ void PopulateStartingCashComboBox(GameWindow *comboBox, GameInfo *myGame)
     {
       currentSelectionIndex = newIndex;
     }
+  }
+
+  // NGMP: safety
+  // TODO_NGMP: Why can we get in here with no data during lobby creation? async?
+  if (myGame->getStartingCash().countMoney() == 0)
+  {
+	  currentSelectionIndex = 0;
   }
 
   if ( currentSelectionIndex == -1 )

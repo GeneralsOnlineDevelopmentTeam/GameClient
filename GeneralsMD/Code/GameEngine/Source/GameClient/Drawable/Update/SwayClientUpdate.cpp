@@ -43,7 +43,9 @@
 #include "GameLogic/ScriptEngine.h"
 #include "GameLogic/GameLogic.h"
 
-#ifdef _INTERNAL
+#include "../NextGenMP_defines.h"
+#include "ww3d.h"
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -119,7 +121,12 @@ void SwayClientUpdate::clientUpdate( void )
 			return;
 	}
 
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	m_curValue += m_curDelta * WW3D::Get_DeltaTime();
+#else
 	m_curValue += m_curDelta;
+#endif
+
 	if (m_curValue > 2*PI) 
 		m_curValue -= 2*PI;
 	Real cosine = Cos(m_curValue);

@@ -31,7 +31,7 @@
 #ifndef __PERSISTENTSTORAGEDEFS_H__
 #define __PERSISTENTSTORAGEDEFS_H__
 
-enum LocaleType
+enum LocaleType CPP_11(: Int)
 {
     LOC_UNKNOWN = 0,
     LOC_MIN = 1,
@@ -41,7 +41,7 @@ enum LocaleType
 void HandlePersistentStorageResponses(void);
 void UpdateLocalPlayerStats(void);
 
-void SetLookAtPlayer( Int id, AsciiString nick );
+void SetLookAtPlayer( int64_t id, AsciiString nick );
 void PopulatePlayerInfoWindows( AsciiString parentWindowName );
 
 #endif // __PERSISTENTSTORAGEDEFS_H__

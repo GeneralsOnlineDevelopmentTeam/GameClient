@@ -108,7 +108,31 @@
 
 #include "Common/version.h"
 
-#ifdef _INTERNAL
+#include "../NextGenMP_defines.h"
+
+// GENERALS ONLINE
+#include "../OnlineServices_Init.h"
+#include "../../GameSpyOverlay.h"
+#include <chrono>
+#include "ww3d.h"
+
+static bool g_bTearDownGeneralsOnlineRequested = false;
+void TearDownGeneralsOnline(bool bWasDisconnectionError)
+{
+	g_bTearDownGeneralsOnlineRequested = true;
+
+	if (bWasDisconnectionError)
+	{
+		UnicodeString title, body;
+		title = TheGameText->fetch("GUI:GSErrorTitle");
+		body = L"Your connection to the Generals Online servers was lost.";
+		GameSpyCloseAllOverlays();
+		GSMessageBoxOk(title, body);
+	}
+}
+
+
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -190,7 +214,7 @@ GameEngine::GameEngine( void )
 	m_quitting = FALSE;
 	m_isActive = FALSE;
 
-	_Module.Init(NULL, ApplicationHInstance);
+	_Module.Init(NULL, ApplicationHInstance, NULL);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -222,6 +246,9 @@ GameEngine::~GameEngine()
 
 	delete TheFileSystem;
 	TheFileSystem = NULL;
+
+	// GENERALS ONLINE
+	NGMP_OnlineServicesManager::DestroyInstance();
 
 	if (TheGameLODManager)
 		delete TheGameLODManager;
@@ -258,9 +285,9 @@ void GameEngine::init( int argc, char *argv[] )
 		if (TheVersion)
 		{
 			DEBUG_LOG(("================================================================================\n"));
-	#if defined _DEBUG
+	#if defined RTS_DEBUG
 			const char *buildType = "Debug";
-	#elif defined _INTERNAL
+	#elif defined RTS_INTERNAL
 			const char *buildType = "Internal";
 	#else
 			const char *buildType = "Release";
@@ -372,7 +399,7 @@ void GameEngine::init( int argc, char *argv[] )
 
 
 
-	#if defined(_DEBUG) || defined(_INTERNAL)
+	#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 		// If we're in Debug or Internal, load the Debug info as well.
 		ini.load( AsciiString( "Data\\INI\\GameDataDebug.ini" ), INI_LOAD_OVERWRITE, NULL );
 	#endif
@@ -524,7 +551,7 @@ void GameEngine::init( int argc, char *argv[] )
 		fname.format("Data\\%s\\CommandMap.ini", GetRegistryLanguage().str());
 		initSubsystem(TheMetaMap,"TheMetaMap", MSGNEW("GameEngineSubsystem") MetaMap(), NULL, fname.str(), "Data\\INI\\CommandMap.ini");
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 		ini.load("Data\\INI\\CommandMapDebug.ini", INI_LOAD_MULTIFILE, NULL);
 #endif
 
@@ -574,33 +601,6 @@ void GameEngine::init( int argc, char *argv[] )
 		// If this really needs to take place, please make sure that pressing cancel on the audio 
 		// load music dialog will still cause the game to quit.
 		// m_quitting = FALSE;
-
-		// for fingerprinting, we need to ensure the presence of these files
-
-
-#if !defined(_INTERNAL) && !defined(_DEBUG)
-		AsciiString dirName;
-    dirName = TheArchiveFileSystem->getArchiveFilenameForFile("generalsbzh.sec");
-
-    if (dirName.compareNoCase("genseczh.big") != 0)
-		{
-			DEBUG_LOG(("generalsbzh.sec was not found in genseczh.big - it was in '%s'\n", dirName.str()));
-			m_quitting = TRUE;
-		}
-		
-		dirName = TheArchiveFileSystem->getArchiveFilenameForFile("generalsazh.sec");
-		const char *noPath = dirName.reverseFind('\\');
-		if (noPath) {
-			dirName = noPath + 1;
-		}
-
-		if (dirName.compareNoCase("musiczh.big") != 0)
-		{
-			DEBUG_LOG(("generalsazh.sec was not found in musiczh.big - it was in '%s'\n", dirName.str()));
-			m_quitting = TRUE;
-		}
-#endif
-
 
 		// initialize the MapCache
 		TheMapCache = MSGNEW("GameEngineSubsystem") MapCache;
@@ -743,29 +743,47 @@ DECLARE_PERF_TIMER(GameEngine_update)
  * @todo Allow the client to run as fast as possible, but limit the execution
  * of TheNetwork and TheGameLogic to a fixed framerate.
  */
-void GameEngine::update( void )
-{ 
+#if !defined(GENERALS_ONLINE_RUN_FAST)
+void GameEngine::update(void)
+{
 	USE_PERF_TIMER(GameEngine_update)
 	{
-
+		
 		{
-			
+
 			// VERIFY CRC needs to be in this code block.  Please to not pull TheGameLogic->update() inside this block.
 			VERIFY_CRC
 
-			TheRadar->UPDATE();
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+				m_maxFPS = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+#endif
+				TheRadar->UPDATE();
 
 			/// @todo Move audio init, update, etc, into GameClient update
-			
+
 			TheAudio->UPDATE();
 			TheGameClient->UPDATE();
 			TheMessageStream->propagateMessages();
+
+			if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
+			{
+				g_bTearDownGeneralsOnlineRequested = false;
+
+				NGMP_OnlineServicesManager::DestroyInstance();
+
+			}
+			
 
 			if (TheNetwork != NULL)
 			{
 				TheNetwork->UPDATE();
 			}
-			 
+
+			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+			{
+				NGMP_OnlineServicesManager::GetInstance()->Tick();
+			}
+
 			TheCDManager->UPDATE();
 		}
 
@@ -775,27 +793,181 @@ void GameEngine::update( void )
 			TheGameLogic->UPDATE();
 		}
 
+
+
 	}	// end perfGather
 
 }
+#else
+void GameEngine::update(void)
+{
+	static int m_serverFrame = 0;
+	static int m_clientFrame = 0;
+
+	m_maxFPS = 60;
+	extern INT TheW3DFrameLengthInMsec;
+	DWORD limit = (1000.0f / m_maxFPS) - 1;
+	DWORD clientlimit = (1000.0f / m_maxFPS) - 1;
+
+	//if (limit < clientlimit)
+	//	clientlimit = limit;
+
+	// Lock to slower framerate for cinematics. 
+	//bool inCinematic = limit > 33;
+	TheW3DFrameLengthInMsec = clientlimit;
+
+	USE_PERF_TIMER(GameEngine_update)
+	{
+		static auto lastTimeServer = std::chrono::high_resolution_clock::now();
+		static auto lastTimeClient = std::chrono::high_resolution_clock::now();
+
+		// Grab the current time		
+		auto now = std::chrono::high_resolution_clock::now();
+
+		// Compute how many milliseconds have elapsed since last call
+		auto elapsedMsServer = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeServer).count();
+
+		auto elapsedMsClient = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeClient).count();
+
+
+		{
+			{
+				VERIFY_CRC
+
+					TheRadar->UPDATE();
+				TheAudio->UPDATE();
+
+				if (elapsedMsClient >= clientlimit)
+
+				{
+					//StartClientCpuFrameTimer();
+
+					// Get the elapsed duration in milliseconds as a float:
+					float elapsedMs = std::chrono::duration<float, std::milli>(now - lastTimeClient).count();
+
+					// Convert ms ? seconds:
+					float clientDeltaTime = (elapsedMs / 1000.0f) * 30.0f;
+
+					if (clientDeltaTime > 1.0f) {
+						clientDeltaTime = 1.0f;
+					}
+
+					WW3D::Set_DeltaTime(clientDeltaTime);
+					lastTimeClient = now;
+
+					TheGameClient->setFrame(m_clientFrame);
+					m_clientFrame++;
+					TheW3DFrameLengthInMsec = clientlimit;
+					TheGameClient->UPDATE();
+
+					TheMessageStream->propagateMessages();
+
+					// update the shell
+					TheShell->UPDATE();
+
+					
+
+					// update the in game UI 
+					TheInGameUI->UPDATE();
+
+					//EndClientCpuFrameTimer();
+				}
+
+				
+
+				TheCDManager->UPDATE();
+			}
+
+			if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
+			{
+				g_bTearDownGeneralsOnlineRequested = false;
+
+				NGMP_OnlineServicesManager::DestroyInstance();
+
+			}
+			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+			{
+				NGMP_OnlineServicesManager::GetInstance()->Tick();
+			}
+
+			if (elapsedMsServer >= limit)
+			{
+				if (TheNetwork != NULL)
+				{
+					TheNetwork->UPDATE();
+				}
+
+				if ((TheNetwork == NULL && !TheGameLogic->isGamePaused())
+					|| (TheNetwork && TheNetwork->isFrameDataReady()))
+				{
+					//if (elapsedMsServer >= limit)
+					{
+						//StartServerCpuFrameTimer();
+						TheGameLogic->UPDATE();
+						//EndServerCpuFrameTimer();
+
+						lastTimeServer = now;
+						
+
+						// only increment frame if we actually started
+						if (!TheGameLogic->IsStartNewgame())
+						{
+							m_serverFrame++;
+						}
+						else
+						{
+							m_serverFrame = 0;
+						}
+						TheGameLogic->setFrame(m_serverFrame);
+					}
+				}
+			}
+			
+			// If network is absent or we have fresh network data, update the game logic
+			
+// 			TheNetwork->isPlayerConnected(tHEnET)
+// 
+// 			Network* pCastedNetwork = (Network*)TheNetwork;
+// 			if (pCastedNetwork->GetLocalStatus() != NETLOCALSTATUS_INGAME)
+// 			{
+// 				TheGameLogic->UPDATE();
+// 			}
+
+			if (elapsedMsServer >= limit)
+			{
+				
+			}
+
+
+		}
+	} // end perfGather
+}
+#endif
 
 // Horrible reference, but we really, really need to know if we are windowed.
 extern bool DX8Wrapper_IsWindowed;
 extern HWND ApplicationHWnd;
 
 /** -----------------------------------------------------------------------------------------------
- * The "main loop" of the game engine. It will not return until the game exits. 
+ * The "main loop" of the game engine. It will not return until the game exits.
  */
-void GameEngine::execute( void )
+void GameEngine::execute(void)
 {
-	
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	while (!m_quitting)
+	{
+		update();
+
+		Sleep(0);
+	}
+#else
 	DWORD prevTime = timeGetTime();
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	DWORD startTime = timeGetTime() / 1000;
 #endif
 
 	// pretty basic for now
-	while( !m_quitting )
+	while (!m_quitting)
 	{
 
 		//if (TheGlobalData->m_vTune)
@@ -807,7 +979,7 @@ void GameEngine::execute( void )
 
 		{
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 			{
 				// enter only if in benchmark mode
 				if (TheGlobalData->m_benchmarkTimer > 0)
@@ -828,34 +1000,48 @@ void GameEngine::execute( void )
 				}
 			}
 #endif
-			
+
 			{
-				try 
+				if (IsDebuggerPresent())
 				{
 					// compute a frame
 					update();
 				}
-				catch (INIException e)
+				else
 				{
-					// Release CRASH doesn't return, so don't worry about executing additional code.
-					if (e.mFailureMessage)
-						RELEASE_CRASH((e.mFailureMessage));
-					else
-						RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
-				}
-				catch (...)
-				{
-					// try to save info off
-					try 
+					try
 					{
-						if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_RECORD && TheRecorder->isMultiplayer())
-							TheRecorder->cleanUpReplayFile();
+						// compute a frame
+						update();
 					}
+					catch (INIException e)
+					{
+						// Release CRASH doesn't return, so don't worry about executing additional code.
+						if (e.mFailureMessage)
+							RELEASE_CRASH((e.mFailureMessage));
+						else
+							RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
+					}
+#if !defined(GENERALS_ONLINE_USE_SENTRY)
 					catch (...)
 					{
-					}
-					RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
-				}	// catch
+						// try to save info off
+						try
+						{
+							if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_RECORD && TheRecorder->isMultiplayer())
+								TheRecorder->cleanUpReplayFile();
+						}
+						catch (const std::exception& e) // caught by reference to base
+						{
+							NetworkLog("A standard exception was caught, with message: %s", e.what());
+						}
+						catch (...)
+						{
+						}
+						RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
+					}	// catch
+#endif
+				}
 			}	// perf
 
 			{
@@ -865,7 +1051,7 @@ void GameEngine::execute( void )
 
 		// I'm disabling this in internal because many people need alt-tab capability.  If you happen to be
 		// doing performance tuning, please just change this on your local system. -MDC
-		#if defined(_DEBUG) || defined(_INTERNAL)
+		#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 					::Sleep(1); // give everyone else a tiny time slice.
 		#endif
 
@@ -906,7 +1092,7 @@ void GameEngine::execute( void )
 #endif
 
 	}
-
+#endif
 }
 
 /** -----------------------------------------------------------------------------------------------

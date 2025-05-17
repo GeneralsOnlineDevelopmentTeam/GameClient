@@ -38,7 +38,7 @@
 #include "Common/UserPreferences.h"
 #include "GameLogic/GameLogic.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -90,7 +90,9 @@ LANAPI::LANAPI( void ) : m_transport(NULL)
 	m_directConnectRemoteIP = 0;
 	m_actionTimeout = 5000; // ms
 	m_lastUpdate = 0;
-	m_transport = new Transport;
+
+	// Generals Online
+	m_transport = new UDPTransport;
 	m_isActive = TRUE;
 }
 
@@ -263,7 +265,7 @@ AsciiString GetMessageTypeString(UnsignedInt type)
 
 void LANAPI::checkMOTD( void )
 {
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheGlobalData->m_useLocalMOTD)
 	{
 		// for a playtest, let's log some play statistics, eh?

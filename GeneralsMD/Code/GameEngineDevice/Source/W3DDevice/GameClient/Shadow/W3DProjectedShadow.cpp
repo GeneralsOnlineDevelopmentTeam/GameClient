@@ -44,7 +44,6 @@
 #include "WW3D2/texproject.h"
 #include "WW3D2/dx8renderer.h"
 #include "Lib/BaseType.h"
-#include "W3DDevice/GameClient/W3DGranny.h"
 #include "W3DDevice/GameClient/HeightMap.h"
 #include "d3dx8math.h"
 #include "Common/GlobalData.h"
@@ -59,7 +58,7 @@
 #include "W3DDevice/GameClient/W3DShadow.h"
 #include "W3DDevice/GameClient/HeightMap.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -549,7 +548,7 @@ TextureClass *ground=NULL;
 #define TILE_HEIGHT	10.1f
 #define TILE_DIFFUSE 0x00b4b0a5
 
-enum BlendDirection
+enum BlendDirection CPP_11(: Int)
 {	B_A,	//visible on all sides
 	B_R,	//visible on right
 	B_L,	//visible on left
@@ -1097,7 +1096,6 @@ void W3DProjectedShadowManager::queueDecal(W3DProjectedShadow *shadow)
 				return;
 		}
 
-		try {
 		if(pvIndices)
 		{	//fill each cell's vertex indices
 			Int rowStart;
@@ -1126,10 +1124,7 @@ void W3DProjectedShadowManager::queueDecal(W3DProjectedShadow *shadow)
 				}
 			}
 		}
-		IndexBufferExceptionFunc();
-		} catch(...) {
-			IndexBufferExceptionFunc();
-		}
+
 		shadowDecalIndexBufferD3D->Unlock();
 
 		Int numPolys = (endX - startX)*(endY - startY)*2;	//2 triangles per cell
@@ -1262,7 +1257,6 @@ void W3DProjectedShadowManager::queueSimpleDecal(W3DProjectedShadow *shadow)
 				return;
 		}
 
-		try {
 		if(pvIndices)
 		{	pvIndices[0]=nShadowDecalVertsInBatch;
 			pvIndices[1]=nShadowDecalVertsInBatch+1;
@@ -1271,10 +1265,6 @@ void W3DProjectedShadowManager::queueSimpleDecal(W3DProjectedShadow *shadow)
 			pvIndices[4]=nShadowDecalVertsInBatch+2;
 			pvIndices[5]=nShadowDecalVertsInBatch+3;
 			pvIndices += 6;
-		}
-		IndexBufferExceptionFunc();
-		} catch(...) {
-			IndexBufferExceptionFunc();
 		}
 
 		shadowDecalIndexBufferD3D->Unlock();
@@ -1320,9 +1310,9 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 		return projectionCount;
 
 	//According to Nvidia there's a D3D bug that happens if you don't start with a
- 	//new dynamic VB each frame - so we force a DISCARD by overflowing the counter.
- 	nShadowDecalVertsInBuf = 0xffff;
- 	nShadowDecalIndicesInBuf = 0xffff;
+	//new dynamic VB each frame - so we force a DISCARD by overflowing the counter.
+	nShadowDecalVertsInBuf = 0xffff;
+	nShadowDecalIndicesInBuf = 0xffff;
 
 	if (TheGlobalData->m_useShadowDecals)
 	{
@@ -2109,7 +2099,7 @@ void W3DProjectedShadowManager::removeAllShadows(void)
 	}  // end for
 }
 
-#if defined(_DEBUG) || defined(_INTERNAL)	
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)	
 void W3DProjectedShadow::getRenderCost(RenderCost & rc) const
 {
 	if (TheGlobalData->m_useShadowDecals && m_isEnabled && !m_isInvisibleEnabled)

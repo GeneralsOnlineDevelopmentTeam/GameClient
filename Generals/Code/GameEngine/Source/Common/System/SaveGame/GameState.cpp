@@ -59,7 +59,7 @@
 #include "GameLogic/SidesList.h"
 #include "GameLogic/TerrainLogic.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -236,7 +236,7 @@ UnicodeString getUnicodeDateBuffer(SYSTEMTIME timeVal)
 								 DATE_SHORTDATE,
 								 &timeVal,
 								 NULL,
-								 dateBuffer, sizeof(dateBuffer) );
+								 dateBuffer, ARRAY_SIZE(dateBuffer) );
 	displayDateBuffer.set(dateBuffer);
 	return displayDateBuffer;
 	//displayDateBuffer.format( L"%ls", dateBuffer );
@@ -270,7 +270,7 @@ UnicodeString getUnicodeTimeBuffer(SYSTEMTIME timeVal)
 								 &timeVal,
 								 NULL,
 								 timeBuffer,
-								 sizeof(timeBuffer) );
+								 ARRAY_SIZE(timeBuffer) );
 	displayTimeBuffer.set(timeBuffer);
 	return displayTimeBuffer;
 }

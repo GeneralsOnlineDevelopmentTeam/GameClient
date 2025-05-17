@@ -67,6 +67,8 @@ public:
 	virtual HRESULT OnProgressUpdate( Int bytesread, Int totalsize, Int timetaken, Int timeleft );
 	virtual HRESULT OnStatusUpdate( Int status );
 
+	virtual HRESULT SetFileName(AsciiString file) { return S_OK; };
+
 	virtual HRESULT downloadFile( AsciiString server, AsciiString username, AsciiString password, AsciiString file, AsciiString localfile, AsciiString regkey, Bool tryResume );
 	AsciiString getLastLocalFile( void );
 

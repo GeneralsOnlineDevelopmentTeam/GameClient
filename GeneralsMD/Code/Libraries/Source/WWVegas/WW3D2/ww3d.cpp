@@ -119,6 +119,8 @@
 #include "animatedsoundmgr.h"
 #include "static_sort_list.h"
 
+#include "../../../GameEngine/Include/GameNetwork/GeneralsOnline/NextGenMP_defines.h"
+
 #include "shdlib.h"
 
 #ifndef _UNIX
@@ -167,6 +169,11 @@ const char* DAZZLE_INI_FILENAME="DAZZLE.INI";
 ***********************************************************************************/
 
 unsigned int											WW3D::SyncTime = 0;
+
+#if defined(GENERALS_ONLINE_RUN_FAST)
+float													WW3D::DeltaTime = 0.0f;
+#endif
+
 unsigned int											WW3D::PreviousSyncTime = 0;
 bool														WW3D::IsSortingEnabled = true;
 
@@ -825,9 +832,7 @@ WW3DErrorType WW3D::Begin_Render(bool clear,bool clearz,const Vector3 & color, f
 //	TextureClass::_Reset_Time_Stamp();
 	DynamicVBAccessClass::_Reset(true);
 	DynamicIBAccessClass::_Reset(true);
-#ifdef WW3D_DX8
-	TextureFileClass::Update_Texture_Flash();
-#endif //WW3D_DX8
+
 	Debug_Statistics::Begin_Statistics();
 
 	if (IsCapturing && (!PauseRecord || RecordNextFrame)) {

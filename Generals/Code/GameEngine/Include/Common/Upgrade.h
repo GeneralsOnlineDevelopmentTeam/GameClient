@@ -41,12 +41,12 @@
 // FORWARD REFERENCES /////////////////////////////////////////////////////////////////////////////
 class Player;
 class UpgradeTemplate;
-enum NameKeyType;
+enum NameKeyType CPP_11(: Int);
 class Image;
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-enum UpgradeStatusType
+enum UpgradeStatusType CPP_11(: Int)
 {
 	UPGRADE_STATUS_INVALID = 0,
 	UPGRADE_STATUS_IN_PRODUCTION,
@@ -56,7 +56,50 @@ enum UpgradeStatusType
 //The maximum number of upgrades. 
 #define UPGRADE_MAX_COUNT 64
 
-typedef Int64	UpgradeMaskType;
+typedef BitFlags<UPGRADE_MAX_COUNT>	UpgradeMaskType;
+
+#define MAKE_UPGRADE_MASK(k) UpgradeMaskType(UpgradeMaskType::kInit, (k))
+#define MAKE_UPGRADE_MASK2(k,a) UpgradeMaskType(UpgradeMaskType::kInit, (k), (a))
+#define MAKE_UPGRADE_MASK3(k,a,b) UpgradeMaskType(UpgradeMaskType::kInit, (k), (a), (b))
+#define MAKE_UPGRADE_MASK4(k,a,b,c) UpgradeMaskType(UpgradeMaskType::kInit, (k), (a), (b), (c))
+#define MAKE_UPGRADE_MASK5(k,a,b,c,d) UpgradeMaskType(UpgradeMaskType::kInit, (k), (a), (b), (c), (d))
+
+inline Bool TEST_UPGRADE_MASK( const UpgradeMaskType& m, Int index ) 
+{ 
+	return m.test( index ); 
+}
+
+inline Bool TEST_UPGRADE_MASK_ANY( const UpgradeMaskType& m, const UpgradeMaskType& mask ) 
+{ 
+	return m.anyIntersectionWith( mask );
+}
+
+inline Bool TEST_UPGRADE_MASK_MULTI( const UpgradeMaskType& m, const UpgradeMaskType& mustBeSet, const UpgradeMaskType& mustBeClear )
+{
+	return m.testSetAndClear( mustBeSet, mustBeClear );
+}
+
+inline Bool UPGRADE_MASK_ANY_SET( const UpgradeMaskType& m) 
+{ 
+	return m.any(); 
+}
+
+inline void CLEAR_UPGRADE_MASK( UpgradeMaskType& m ) 
+{ 
+	m.clear(); 
+}
+
+inline void SET_ALL_UPGRADE_MASK_BITS( UpgradeMaskType& m )
+{
+	m.clear( );
+	m.flip( );
+}
+
+inline void FLIP_UPGRADE_MASK( UpgradeMaskType& m )
+{
+	m.flip();
+}
+
 
 //-------------------------------------------------------------------------------------------------
 /** A single upgrade *INSTANCE* */
@@ -101,21 +144,14 @@ protected:
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-enum UpgradeType
+enum UpgradeType CPP_11(: Int)
 {
 	UPGRADE_TYPE_PLAYER = 0,						// upgrade applies to a player as a whole
 	UPGRADE_TYPE_OBJECT,								// upgrade applies to an object instance only
 
 	NUM_UPGRADE_TYPES,		// keep this last
 };
-#ifdef DEFINE_UPGRADE_TYPE_NAMES
-static const Char *UpgradeTypeNames[] = 
-{
-	"PLAYER",
-	"OBJECT",
-	NULL
-};
-#endif  // end DEFINE_UPGRADE_TYPE_NAMES
+extern const char *TheUpgradeTypeNames[]; //Change above, change this!
 
 //-------------------------------------------------------------------------------------------------
 /** A single upgrade template definition */

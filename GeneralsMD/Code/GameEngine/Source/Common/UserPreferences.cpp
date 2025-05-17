@@ -51,7 +51,7 @@
 #include "GameClient/ChallengeGenerals.h"
 #include "GameNetwork/GameSpy/PeerDefs.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -432,7 +432,13 @@ Int QuickMatchPreferences::getSide( void )
 CustomMatchPreferences::CustomMatchPreferences()
 {
 	AsciiString userPrefFilename;
+
+	// NGMP: Just return 0 - the gamespy profile ID is only ever set to 0 anyway
+#if defined(GENERALS_ONLINE)
+	Int localProfile = 0;
+#else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
+#endif
 	userPrefFilename.format("GeneralsOnline\\CustomPref%d.ini", localProfile);
 	load(userPrefFilename);
 }

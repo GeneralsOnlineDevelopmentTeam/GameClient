@@ -77,12 +77,14 @@
 #include "GameClient/Shadow.h"
 #include "GameClient/GameText.h"
 
+#include "../NextGenMP_defines.h"
+
 //#define KRIS_BRUTAL_HACK_FOR_AIRCRAFT_CARRIER_DEBUGGING 
 #ifdef KRIS_BRUTAL_HACK_FOR_AIRCRAFT_CARRIER_DEBUGGING
 	#include "GameLogic/Module/ParkingPlaceBehavior.h"
 #endif
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -313,7 +315,7 @@ const Int MAX_ENABLED_MODULES								= 16;
 {
 	if( s_animationTemplates )
 	{
-		delete s_animationTemplates;
+		delete[] s_animationTemplates;
 		s_animationTemplates = NULL;
 	}
 }
@@ -1918,6 +1920,11 @@ void Drawable::calcPhysicsXformTreads( const Locomotor *locomotor, PhysicsXformI
 //-------------------------------------------------------------------------------------------------
 void Drawable::calcPhysicsXformWheels( const Locomotor *locomotor, PhysicsXformInfo& info )
 {
+	// TODO_NGMP_HIGHFPS: TODO
+#if defined(GENERALS_ONLINE_RUN_FAST)
+		return;
+#endif
+
 	if (m_locoInfo == NULL)
 		m_locoInfo = newInstance(DrawableLocoInfo);
 
@@ -2527,7 +2534,7 @@ const AudioEventRTS& Drawable::getAmbientSoundByDamage(BodyDamageType dt)
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 void Drawable::validatePos() const
 {
 	const Coord3D* ourPos = getPosition();
@@ -2655,7 +2662,7 @@ void Drawable::draw( View *view )
 
 
 
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 	validatePos();
 #endif
 
@@ -2672,10 +2679,38 @@ void Drawable::draw( View *view )
 
 	applyPhysicsXform(&transformMtx);
 
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	if (!m_hasPreviousTransform)
+	{
+		m_previousTransform = transformMtx;
+		m_hasPreviousTransform = true;
+	}
+
+	Matrix3D lerpedTransformatrix;
+	Matrix3D currentTransformMatrix = transformMtx;
+
+	Matrix3D::Lerp(m_previousTransform, currentTransformMatrix, 0.5f, lerpedTransformatrix);
+#endif
+
 	for (DrawModule** dm = getDrawModules(); *dm; ++dm)
 	{
+#if defined(GENERALS_ONLINE_RUN_FAST)
+		if (TheTacticalView->getCameraLockDrawable() == this)
+		{
+			(*dm)->doDrawModule(&currentTransformMatrix);
+		}
+		else
+		{
+			(*dm)->doDrawModule(&lerpedTransformatrix);
+		}
+#else
 		(*dm)->doDrawModule(&transformMtx);
+#endif
 	}
+
+#if defined(GENERALS_ONLINE_RUN_FAST)
+	m_previousTransform = lerpedTransformatrix;
+#endif
 }
 
 // ------------------------------------------------------------------------------------------------

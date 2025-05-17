@@ -92,10 +92,16 @@ void W3DBibBuffer::loadBibsInVertexAndIndexBuffers(void)
 	if (!m_anythingChanged) {
 		return;
 	}
+
 	m_curNumBibVertices = 0;
 	m_curNumBibIndices = 0;
 	m_curNumNormalBibIndices = 0;
 	m_curNumNormalBibVertex = 0;
+
+	if (m_numBibs==0) {
+		return;	
+	}
+
 	VertexFormatXYZDUV1 *vb;
 	UnsignedShort *ib;
 	// Lock the buffers.
@@ -228,10 +234,10 @@ W3DBibBuffer::W3DBibBuffer(void)
 
 	m_bibTexture = NEW_REF(TextureClass, ("TBBib.tga"));
 	m_highlightBibTexture = NEW_REF(TextureClass, ("TBRedBib.tga"));
-	m_bibTexture->Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
-	m_bibTexture->Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
-	m_highlightBibTexture->Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
-	m_highlightBibTexture->Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
+	m_bibTexture->Get_Filter().Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
+	m_bibTexture->Get_Filter().Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
+	m_highlightBibTexture->Get_Filter().Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
+	m_highlightBibTexture->Get_Filter().Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
 	m_initialized = true;
 }
 

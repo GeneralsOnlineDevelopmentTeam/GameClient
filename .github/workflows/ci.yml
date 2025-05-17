@@ -7,7 +7,7 @@ permissions:
 on:
   push:
     branches:
-      [main, develop]
+      [main, develop, secrets]
   pull_request:
     branches:
       [main, develop]
@@ -41,12 +41,13 @@ jobs:
             generalsmd:
               - 'GeneralsMD/**'
             shared:
-              - 'Dependencies/**'
-              - 'cmake/**'
+              - '.github/workflows/build-toolchain.yml'
+              - '.github/workflows/ci.yml'
               - 'CMakeLists.txt'
               - 'CMakePresets.json'
-              - ".github/workflows/ci.yml"
-              - '.github/workflows/build-toolchain.yml'
+              - 'cmake/**'
+              - 'Core/**'
+              - 'Dependencies/**'
 
       - name: Changes Summary
         run: |
@@ -55,45 +56,45 @@ jobs:
           echo "- GeneralsMD: ${{ steps.filter.outputs.generalsmd == 'true' && '✅' || '❌' }}" >> $GITHUB_STEP_SUMMARY
           echo "- Shared: ${{ steps.filter.outputs.shared == 'true' && '✅' || '❌' }}" >> $GITHUB_STEP_SUMMARY
 
-  build-generals:
-    name: Build Generals${{ matrix.preset && '' }}
-    needs: detect-changes
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.generals == 'true' || needs.detect-changes.outputs.shared == 'true' }}
-    strategy:
-      matrix:
-        include:
-          - preset: "vc6"
-            tools: true
-            extras: true
-          - preset: "vc6prof"
-            tools: true
-            extras: true
-          - preset: "vc6int"
-            tools: true
-            extras: true
-          - preset: "vc6dbg"
-            tools: true
-            extras: true
-          - preset: "win32"
-            tools: true
-            extras: true
-          - preset: "win32prof"
-            tools: true
-            extras: true
-          - preset: "win32int"
-            tools: true
-            extras: true
-          - preset: "win32dbg"
-            tools: true
-            extras: true
-      fail-fast: false
-    uses: ./.github/workflows/build-toolchain.yml
-    with:
-      game: "Generals"
-      preset: ${{ matrix.preset }}
-      tools: ${{ matrix.tools }}
-      extras: ${{ matrix.extras }}
-    secrets: inherit
+#  build-generals:
+#    name: Build Generals${{ matrix.preset && '' }}
+#    needs: detect-changes
+#    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.generals == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+#    strategy:
+#      matrix:
+#        include:
+#          - preset: "vc6"
+#            tools: true
+#            extras: true
+#          - preset: "vc6-profile"
+#            tools: true
+#            extras: true
+#          - preset: "vc6-internal"
+#            tools: true
+#            extras: true
+#          - preset: "vc6-debug"
+#            tools: true
+#            extras: true
+#          - preset: "win32-vcpkg"
+#            tools: true
+#            extras: true
+#          - preset: "win32-vcpkg-profile"
+#            tools: true
+#            extras: true
+#          - preset: "win32-vcpkg-internal"
+#            tools: true
+#            extras: true
+#          - preset: "win32-vcpkg-debug"
+#            tools: true
+#            extras: true
+#      fail-fast: false
+#    uses: ./.github/workflows/build-toolchain.yml
+#    with:
+#      game: "Generals"
+#      preset: ${{ matrix.preset }}
+#      tools: ${{ matrix.tools }}
+#      extras: ${{ matrix.extras }}
+#    secrets: inherit
 
   build-generalsmd:
     name: Build GeneralsMD${{ matrix.preset && '' }}
@@ -102,31 +103,31 @@ jobs:
     strategy:
       matrix:
         include:
-          - preset: "vc6"
-            tools: true
-            extras: true
-          - preset: "vc6prof"
-            tools: true
-            extras: true
-          - preset: "vc6int"
-            tools: true
-            extras: true
-          - preset: "vc6dbg"
-            tools: true
-            extras: true
+#          - preset: "vc6"
+#            tools: true
+#            extras: true
+#          - preset: "vc6-profile"
+#            tools: true
+#            extras: true
+#          - preset: "vc6-internal"
+#            tools: true
+#            extras: true
+#          - preset: "vc6-debug"
+#            tools: true
+#            extras: true
           - preset: "win32"
             tools: true
             extras: true
-          - preset: "win32prof"
+          - preset: "win32-profile"
             tools: true
             extras: true
-          - preset: "win32int"
+          - preset: "win32-internal"
             tools: true
             extras: true
-          - preset: "win32dbg"
+          - preset: "win32-debug"
             tools: true
             extras: true
-      fail-fast: false
+      fail-fast: true
     uses: ./.github/workflows/build-toolchain.yml
     with:
       game: "GeneralsMD"

@@ -89,7 +89,6 @@ set(GAMEENGINE_SRC
     Include/Common/PlayerTemplate.h
     Include/Common/ProductionPrerequisite.h
     Include/Common/QuickmatchPreferences.h
-    Include/Common/QuickTrig.h
     Include/Common/QuotedPrintable.h
     Include/Common/Radar.h
     Include/Common/RAMFile.h
@@ -113,7 +112,6 @@ set(GAMEENGINE_SRC
     Include/Common/StatsCollector.h
     Include/Common/STLTypedefs.h
     Include/Common/StreamingArchiveFile.h
-    Include/Common/string.h
     Include/Common/SubsystemInterface.h
     Include/Common/SystemInfo.h
     Include/Common/Team.h
@@ -131,16 +129,17 @@ set(GAMEENGINE_SRC
     Include/Common/UserPreferences.h
     Include/Common/version.h
     Include/Common/WellKnownKeys.h
-    Include/Common/Xfer.h
-    Include/Common/XferCRC.h
-    Include/Common/XferDeepCRC.h
-    Include/Common/XferLoad.h
-    Include/Common/XferSave.h
+#    Include/Common/Xfer.h
+#    Include/Common/XferCRC.h
+#    Include/Common/XferDeepCRC.h
+#    Include/Common/XferLoad.h
+#    Include/Common/XferSave.h
     Include/GameClient/Anim2D.h
     Include/GameClient/AnimateWindowManager.h
     Include/GameClient/CampaignManager.h
     Include/GameClient/CDCheck.h
     Include/GameClient/ChallengeGenerals.h
+    Include/GameClient/ClientInstance.h
     Include/GameClient/ClientRandomValue.h
     Include/GameClient/Color.h
     Include/GameClient/CommandXlat.h
@@ -156,7 +155,6 @@ set(GAMEENGINE_SRC
     Include/GameClient/DisplayStringManager.h
     Include/GameClient/Drawable.h
     Include/GameClient/DrawableInfo.h
-    Include/GameClient/DrawableManager.h
     Include/GameClient/DrawGroupInfo.h
     Include/GameClient/EstablishConnectionsMenu.h
     Include/GameClient/Eva.h
@@ -546,6 +544,7 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/networkutil.h
     Include/GameNetwork/RankPointValue.h
     Include/GameNetwork/Transport.h
+    Include/GameNetwork/UDPTransport.h
     Include/GameNetwork/udp.h
     Include/GameNetwork/User.h
     Include/GameNetwork/WOLBrowser/FEBDispatch.h
@@ -633,7 +632,6 @@ set(GAMEENGINE_SRC
     Source/Common/System/AsciiString.cpp
     Source/Common/System/BuildAssistant.cpp
     Source/Common/System/CDManager.cpp
-    Source/Common/System/Compression.cpp
     Source/Common/System/CopyProtection.cpp
     Source/Common/System/CriticalSection.cpp
     Source/Common/System/DataChunk.cpp
@@ -645,16 +643,15 @@ set(GAMEENGINE_SRC
     Source/Common/System/FileSystem.cpp
     Source/Common/System/FunctionLexicon.cpp
     Source/Common/System/GameCommon.cpp
-    Source/Common/System/GameMemory.cpp
+    #Source/Common/System/GameMemory.cpp
     Source/Common/System/GameType.cpp
     Source/Common/System/Geometry.cpp
     Source/Common/System/KindOf.cpp
     Source/Common/System/List.cpp
     Source/Common/System/LocalFile.cpp
     Source/Common/System/LocalFileSystem.cpp
-    Source/Common/System/MemoryInit.cpp
+    #Source/Common/System/MemoryInit.cpp
     Source/Common/System/ObjectStatusTypes.cpp
-    Source/Common/System/QuickTrig.cpp
     Source/Common/System/QuotedPrintable.cpp
     Source/Common/System/Radar.cpp
     Source/Common/System/RAMFile.cpp
@@ -664,15 +661,14 @@ set(GAMEENGINE_SRC
     Source/Common/System/Snapshot.cpp
     Source/Common/System/StackDump.cpp
     Source/Common/System/StreamingArchiveFile.cpp
-    Source/Common/System/String.cpp
     Source/Common/System/SubsystemInterface.cpp
     Source/Common/System/Trig.cpp
     Source/Common/System/UnicodeString.cpp
     Source/Common/System/Upgrade.cpp
-    Source/Common/System/Xfer.cpp
-    Source/Common/System/XferCRC.cpp
-    Source/Common/System/XferLoad.cpp
-    Source/Common/System/XferSave.cpp
+#    Source/Common/System/Xfer.cpp
+#    Source/Common/System/XferCRC.cpp
+#    Source/Common/System/XferLoad.cpp
+#    Source/Common/System/XferSave.cpp
     Source/Common/TerrainTypes.cpp
     Source/Common/Thing/DrawModule.cpp
     Source/Common/Thing/Module.cpp
@@ -682,17 +678,16 @@ set(GAMEENGINE_SRC
     Source/Common/Thing/ThingTemplate.cpp
     Source/Common/UserPreferences.cpp
     Source/Common/version.cpp
+    Source/GameClient/ClientInstance.cpp
     Source/GameClient/Color.cpp
     Source/GameClient/Credits.cpp
     Source/GameClient/Display.cpp
     Source/GameClient/DisplayString.cpp
     Source/GameClient/DisplayStringManager.cpp
-    Source/GameClient/Drawable/DrawableManager.cpp
+    Source/GameClient/Drawable.cpp
     Source/GameClient/Drawable/Update/AnimatedParticleSysBoneClientUpdate.cpp
     Source/GameClient/Drawable/Update/BeaconClientUpdate.cpp
     Source/GameClient/Drawable/Update/SwayClientUpdate.cpp
-    Source/GameClient/Drawable.cpp
-    Source/GameClient/DrawableManager.cpp
     Source/GameClient/DrawGroupInfo.cpp
     Source/GameClient/Eva.cpp
     Source/GameClient/FXList.cpp
@@ -968,6 +963,7 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/SpecialPower/SpecialAbility.cpp
     Source/GameLogic/Object/SpecialPower/SpecialPowerModule.cpp
     Source/GameLogic/Object/SpecialPower/SpyVisionSpecialPower.cpp
+    Source/GameLogic/Object/Update/AIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/AssaultTransportAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/ChinookAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/DeliverPayloadAIUpdate.cpp
@@ -983,7 +979,6 @@ set(GAMEENGINE_SRC
     Source/GameLogic/Object/Update/AIUpdate/TransportAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/WanderAIUpdate.cpp
     Source/GameLogic/Object/Update/AIUpdate/WorkerAIUpdate.cpp
-    Source/GameLogic/Object/Update/AIUpdate.cpp
     Source/GameLogic/Object/Update/AnimationSteeringUpdate.cpp
     Source/GameLogic/Object/Update/AssistedTargetingUpdate.cpp
     Source/GameLogic/Object/Update/AutoDepositUpdate.cpp
@@ -1099,6 +1094,9 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/FrameMetrics.cpp
     Source/GameNetwork/GameInfo.cpp
     Source/GameNetwork/GameMessageParser.cpp
+    #Source/GameNetwork/GameSpyChat.cpp
+    #Source/GameNetwork/GameSpyGameInfo.cpp
+    #Source/GameNetwork/GameSpyGP.cpp
     Source/GameNetwork/GameSpy/Chat.cpp
     Source/GameNetwork/GameSpy/GSConfig.cpp
     Source/GameNetwork/GameSpy/LadderDefs.cpp
@@ -1112,9 +1110,6 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/GameSpy/Thread/PersistentStorageThread.cpp
     Source/GameNetwork/GameSpy/Thread/PingThread.cpp
     Source/GameNetwork/GameSpy/Thread/ThreadUtils.cpp
-    #Source/GameNetwork/GameSpyChat.cpp
-    #Source/GameNetwork/GameSpyGameInfo.cpp
-    #Source/GameNetwork/GameSpyGP.cpp
     Source/GameNetwork/GameSpyOverlay.cpp
     Source/GameNetwork/GUIUtil.cpp
     Source/GameNetwork/IPEnumeration.cpp
@@ -1132,11 +1127,216 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/Network.cpp
     Source/GameNetwork/NetworkUtil.cpp
     Source/GameNetwork/Transport.cpp
+    Source/GameNetwork/UDPTransport.cpp
     Source/GameNetwork/udp.cpp
     Source/GameNetwork/User.cpp
     Source/GameNetwork/WOLBrowser/WebBrowser.cpp
     Source/Precompiled/PreRTS.cpp
+
+    Include/GameNetwork/GeneralsOnline/json.hpp
+    Include/GameNetwork/GeneralsOnline/NetworkBitstream.h
+    Include/GameNetwork/GeneralsOnline/NetworkMesh.h
+    Include/GameNetwork/GeneralsOnline/NetworkPacket.h
+    Include/GameNetwork/GeneralsOnline/NextGenMP_defines.h
+    Include/GameNetwork/GeneralsOnline/NGMPGame.h
+    Include/GameNetwork/GeneralsOnline/NGMP_include.h
+    Include/GameNetwork/GeneralsOnline/NGMP_interfaces.h
+    Include/GameNetwork/GeneralsOnline/NGMP_types.h
+    Include/GameNetwork/GeneralsOnline/OnlineServices_Auth.h
+    Include/GameNetwork/GeneralsOnline/OnlineServices_Init.h
+    Include/GameNetwork/GeneralsOnline/OnlineServices_LobbyInterface.h
+    Include/GameNetwork/GeneralsOnline/OnlineServices_RoomsInterface.h
+    Include/GameNetwork/GeneralsOnline/OnlineServices_StatsInterface.h
+    Include/GameNetwork/GeneralsOnline/PortMapper.h
+    Include/GameNetwork/GeneralsOnline/HTTP/HTTPManager.h
+    Include/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h
+    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Lobby_StartGame.h
+    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.h
+    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_Hello.h
+    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h
+    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.h
+    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.h
+    Include/GameNetwork/GeneralsOnline/Packets/NextGenTransport.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ENet/callbacks.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ENet/enet.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ENet/list.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ENet/protocol.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ENet/time.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ENet/types.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ENet/unix.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ENet/utility.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ENet/win32.h
+
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/core.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_aead_aegis128l.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_aead_aegis256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_aead_aes256gcm.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_aead_chacha20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_aead_xchacha20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_auth.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_auth_hmacsha256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_auth_hmacsha512.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_auth_hmacsha512256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_box.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_box_curve25519xchacha20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_box_curve25519xsalsa20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_ed25519.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_hchacha20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_hsalsa20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_ristretto255.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_salsa20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_salsa2012.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_core_salsa208.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_generichash.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_generichash_blake2b.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_hash.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_hash_sha256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_hash_sha512.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_kdf.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_kdf_blake2b.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_kdf_hkdf_sha256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_kdf_hkdf_sha512.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_kx.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_onetimeauth.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_onetimeauth_poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_pwhash.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_pwhash_argon2i.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_pwhash_argon2id.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_pwhash_scryptsalsa208sha256.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_scalarmult.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_scalarmult_curve25519.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_scalarmult_ed25519.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_scalarmult_ristretto255.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_secretbox.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_secretbox_xchacha20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_secretbox_xsalsa20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_secretstream_xchacha20poly1305.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_shorthash.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_shorthash_siphash24.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_sign.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_sign_ed25519.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_sign_edwards25519sha512batch.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_chacha20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_salsa20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_salsa2012.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_salsa208.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_xchacha20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_stream_xsalsa20.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_verify_16.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_verify_32.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/crypto_verify_64.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/export.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/randombytes.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/randombytes_internal_random.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/randombytes_sysrandom.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/runtime.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/utils.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/version.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/asm_cet.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/chacha20_ietf_ext.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/common.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/ed25519_ref10.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/ed25519_ref10_fe_25_5.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/ed25519_ref10_fe_51.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/implementations.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/mutex.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/softaes.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/sse2_64_32.h
+    Include/GameNetwork/GeneralsOnline/Vendor/sentry/sentry.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/curlver.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/easy.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/header.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/mprintf.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/multi.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/options.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/stdcheaders.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/system.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/typecheck-gcc.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/urlapi.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libcurl/websockets.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libnatpmp/declspec.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libnatpmp/getgateway.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libnatpmp/natpmp.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libnatpmp/natpmp_declspec.h
+    Include/GameNetwork/GeneralsOnline/Vendor/libnatpmp/wingettimeofday.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/addr_is_reserved.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/codelength.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/connecthostport.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/igd_desc_parse.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/minisoap.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/minissdpc.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/miniupnpc.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/miniupnpctypes.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/miniupnpc_declspec.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/miniupnpc_socketdef.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/miniwget.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/miniwget_private.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/minixml.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/portlistingparse.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/receivedata.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/upnpcommands.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/upnpdev.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/upnperrors.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/upnpreplyparse.h
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/win32_snprintf.h
+
+    Source/GameNetwork/GeneralsOnline/NGMP_Helpers.cpp
+    Source/GameNetwork/GeneralsOnline/NGMPGame.cpp
+    Source/GameNetwork/GeneralsOnline/PortMapper.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/libnatpmp/natpmp.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/libnatpmp/wingettimeofday.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/libnatpmp/getgateway.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/addr_is_reserved.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/connecthostport.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/igd_desc_parse.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/listdevices.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/minisoap.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/minissdpc.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/miniupnpc.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/miniwget.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/minixml.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/portlistingparse.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/receivedata.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/upnpc.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/upnpcommands.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/upnpdev.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/upnperrors.cpp
+    Source/GameNetwork/GeneralsOnline/Vendor/miniupnpc/upnpreplyparse.cpp
+    Source/GameNetwork/GeneralsOnline/HTTP/HTTPManager.cpp
+    Source/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.cpp
+    Source/GameNetwork/GeneralsOnline/NetworkMesh.cpp
+    Source/GameNetwork/GeneralsOnline/OnlineServices_Init.cpp
+    Source/GameNetwork/GeneralsOnline/OnlineServices_Auth.cpp
+    Source/GameNetwork/GeneralsOnline/OnlineServices_LobbyInterface.cpp
+    Source/GameNetwork/GeneralsOnline/OnlineServices_RoomsInterface.cpp
+    Source/GameNetwork/GeneralsOnline/OnlineServices_StatsInterface.cpp
+    Source/GameNetwork/GeneralsOnline/NextGenTransport.cpp
+    Source/GameNetwork/GeneralsOnline/NetworkBitstream.cpp
+    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_Hello.cpp
+    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.cpp
+    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.cpp
+    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Lobby_StartGamePacket.cpp
+    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.cpp
+    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Pong.cpp
 )
+
+if(RTS_GAMEMEMORY_ENABLE)
+    # Uses the original Game Memory implementation.
+    list(APPEND GAMEENGINE_SRC
+        Source/Common/System/GameMemory.cpp
+        Source/Common/System/MemoryInit.cpp
+    )
+else()
+    # Uses the null implementation when disabled.
+    list(APPEND GAMEENGINE_SRC
+        Source/Common/System/GameMemoryNull.cpp
+        Include/Common/GameMemoryNull.h
+    )
+endif()
+
 
 add_library(z_gameengine STATIC)
 
@@ -1144,6 +1344,14 @@ target_sources(z_gameengine PRIVATE ${GAMEENGINE_SRC})
 
 target_include_directories(z_gameengine PUBLIC
     Include
+
+    Include/GameNetwork/GeneralsOnline/Vendor/
+    Include/GameNetwork/GeneralsOnline/Vendor/libnatpmp
+    Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc
+)
+
+target_link_directories(z_gameengine PUBLIC
+   Source/GameNetwork/GeneralsOnline/Vendor
 )
 
 target_include_directories(z_gameengine PRIVATE
@@ -1151,23 +1359,16 @@ target_include_directories(z_gameengine PRIVATE
 )
 
 target_link_libraries(z_gameengine PRIVATE
-    zi_libraries_include
-    zi_libraries_source
+    corei_gameengine_private
+    zi_always
 )
 
 target_link_libraries(z_gameengine PUBLIC
-    d3d8lib
-    gamespy::gamespy
-    gz_config
-    gz_utility
-    stlport
-    z_browserdispatch
-    z_compression
+    corei_gameengine_public
     z_wwvegas
 )
 
-target_compile_definitions(z_gameengine PRIVATE
-    IG_DEBUG_STACKTRACE
-)
-
 target_precompile_headers(z_gameengine PRIVATE Include/Precompiled/PreRTS.h)
+
+add_compile_definitions(GENERALS_ONLINE)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:strict")

@@ -52,7 +52,7 @@
 #include "Common/Recorder.h"
 #include "GameClient/MessageBox.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -152,7 +152,7 @@ public:
 	void loadProgressComplete( void );
 	void sendTimeOutGameStart( void );
 
-#if defined(_INTERNAL) || defined(_DEBUG)
+#if defined(RTS_INTERNAL) || defined(RTS_DEBUG)
 	// Disconnect screen testing
 	virtual void toggleNetworkOn();
 #endif
@@ -219,7 +219,7 @@ protected:
 	std::list<Int> m_playersToDisconnect;
 	GameWindow *m_messageWindow;
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	Bool m_networkOn;
 #endif
 };
@@ -279,7 +279,7 @@ Network::Network()
 	m_conMgr = NULL;
 	m_messageWindow = NULL;
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	m_networkOn = TRUE;
 #endif
 }
@@ -362,7 +362,7 @@ void Network::init()
 	DEBUG_LOG(("FRAMES_TO_KEEP = %d\n", FRAMES_TO_KEEP));
 
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	m_networkOn = TRUE;
 #endif
 
@@ -380,7 +380,8 @@ void Network::setSawCRCMismatch( void )
 	TheRecorder->logCRCMismatch();
 
 	// dump GameLogic random seed
-	DEBUG_LOG(("GameLogic frame = %d\n", TheGameLogic->getFrame()));
+	DEBUG_LOG(("Latest frame for mismatch = %d GameLogic frame = %d\n",
+		TheGameLogic->getFrame()-m_runAhead-1, TheGameLogic->getFrame()));
 	DEBUG_LOG(("GetGameLogicRandomSeedCRC() = %d\n", GetGameLogicRandomSeedCRC()));
 
 	// dump CRCs
@@ -510,7 +511,11 @@ Bool Network::processCommand(GameMessage *msg)
 		if (m_localStatus == NETLOCALSTATUS_PREGAME) {
 			// a sort-of-hack that prevents extraneous frames from being executed before the game actually starts.
 			// Idealy this shouldn't be necessary, but I don't think its hurting anything by being here.
+#if defined(GENERALS_ONLINE_RUN_FAST)
 			if (TheGameLogic->getFrame() == 1) {
+#else
+			if (TheGameLogic->getFrame() == 1) {
+#endif
 				m_localStatus = NETLOCALSTATUS_INGAME;
 				NetCommandList *netcmdlist = m_conMgr->getFrameCommandList(0); // clear out frame 0 since we skipped it
 				netcmdlist->deleteInstance();
@@ -691,7 +696,7 @@ void Network::update( void )
 //
 	m_frameDataReady = FALSE;
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (m_networkOn == FALSE) {
 		return;
 	}
@@ -700,6 +705,13 @@ void Network::update( void )
 	GetCommandsFromCommandList(); // Remove commands from TheCommandList and send them to the connection manager.
 	if (m_conMgr != NULL) {
 		if (m_localStatus == NETLOCALSTATUS_INGAME) {
+#if defined(GENERALS_ONLINE_RUN_FAST)
+			m_frameRate = 60;
+#elif defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			m_frameRate = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+#else
+			m_frameRate = 30;
+#endif
 			m_conMgr->updateRunAhead(m_runAhead, m_frameRate, m_didSelfSlug, getExecutionFrame());
 			m_didSelfSlug = FALSE;
 		}
@@ -725,7 +737,7 @@ void Network::update( void )
 
 void Network::liteupdate() {
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (m_networkOn == FALSE) {
 		return;
 	}
@@ -749,7 +761,7 @@ void Network::endOfGameCheck() {
 
 			DEBUG_LOG(("Network::endOfGameCheck - about to show the shell\n"));
 		}
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 		else {
 			m_conMgr->debugPrintConnectionCommands();
 		}
@@ -1015,7 +1027,7 @@ Int Network::getSlotAverageFPS(Int slot) {
 	return -1;
 }
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 void Network::toggleNetworkOn() {
 	if (m_networkOn == TRUE) {
 		m_networkOn = FALSE;

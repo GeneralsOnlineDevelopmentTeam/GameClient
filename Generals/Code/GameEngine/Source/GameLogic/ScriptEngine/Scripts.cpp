@@ -66,7 +66,7 @@
 #include "GameLogic/SidesList.h"
 
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -2110,12 +2110,12 @@ Parameter *Parameter::ReadParameter(DataChunkInput &file)
 
 	if (pParm->getParameterType() == OBJECT_STATUS) 
 	{
-		// Need to change the string to an integer
-		for (int i = 0; TheObjectStatusBitNames[i]; ++i) 
+		// Need to change the string to an ObjectStatusMaskType
+		for( int i = 0; i < OBJECT_STATUS_COUNT; ++i ) 
 		{
-			if (pParm->m_string.compareNoCase(TheObjectStatusBitNames[i]) == 0) 
+			if( !pParm->m_string.compareNoCase( ObjectStatusMaskType::getBitNames()[i] ) ) 
 			{
-				pParm->setInt(1 << i);
+				pParm->setStatus( MAKE_OBJECT_STATUS_MASK( i ) );
 				break;
 			}
 		}
@@ -2372,7 +2372,7 @@ Bool ScriptAction::ParseActionDataChunk(DataChunkInput &file, DataChunkInfo *inf
 
 	pScriptAction->m_actionType = (enum ScriptActionType)file.readInt();
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	const ActionTemplate* at = TheScriptEngine->getActionTemplate(pScriptAction->m_actionType);
 	if (at && (at->getName().isEmpty() || (at->getName().compareNoCase("(placeholder)") == 0))) {
 		DEBUG_CRASH(("Invalid Script Action found in script '%s'\n", pScript->getName().str()));

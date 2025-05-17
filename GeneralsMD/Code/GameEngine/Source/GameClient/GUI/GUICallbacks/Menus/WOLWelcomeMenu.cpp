@@ -68,8 +68,9 @@
 #include "GameNetwork/GameSpy/ThreadUtils.h"
 #include "GameNetwork/GameSpy/MainMenuUtils.h"
 #include "GameNetwork/WOLBrowser/WebBrowser.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -227,6 +228,11 @@ static UnsignedByte grabUByte(const char *s)
 
 static void updateNumPlayersOnline(void)
 {
+	NGMP_OnlineServicesManager::GetInstance()->RegisterForNATTypeChanges([=](NGMP_ENATType previousNATType, NGMP_ENATType newNATType)
+		{
+			updateNumPlayersOnline(); // UI refresh
+		});
+
 	GameWindow *playersOnlineWindow = TheWindowManager->winGetWindowFromId(
 		NULL, NAMEKEY("WOLWelcomeMenu.wnd:StaticTextNumPlayersOnline") );
 
@@ -237,17 +243,141 @@ static void updateNumPlayersOnline(void)
 		GadgetStaticTextSetText(playersOnlineWindow, valStr);
 	}
 
-	if (listboxInfo && TheGameSpyInfo)
+	// TODO_NGMP
+	//if (listboxInfo && TheGameSpyInfo)
+	if (listboxInfo)
 	{
 		GadgetListBoxReset(listboxInfo);
 		AsciiString aLine;
 		UnicodeString line;
+
+#if defined(GENERALS_ONLINE)
+		AsciiString aMotd = AsciiString(NGMP_OnlineServicesManager::GetInstance()->GetMOTD().c_str());
+#else
 		AsciiString aMotd = TheGameSpyInfo->getMOTD();
+#endif
 		UnicodeString headingStr;
 		//Kris: Patch 1.01 - November 12, 2003
 		//Removed number of players from string, and removed the argument. The number is incorrect anyways...
 		//This was a Harvard initiated fix.
 		headingStr.format(TheGameText->fetch("MOTD:NumPlayersHeading"));
+
+		//headingStr.format(TheGameText->fetch("MOTD:NumPlayersHeading"), lastNumPlayersOnline);
+
+		/*
+		NGMP_ENATType natType = NGMP_OnlineServicesManager::GetInstance()->GetNATType();
+		AsciiString natTypeColor;
+		switch (natType)
+		{
+			case NGMP_ENATType::NAT_TYPE_UNDETERMINED:
+				natTypeColor = "FF5DE2E7";
+				break;
+
+			case NGMP_ENATType::NAT_TYPE_OPEN:
+				natTypeColor = "FF00FF00";
+				break;
+
+			case NGMP_ENATType::NAT_TYPE_MODERATE:
+				natTypeColor = "FFFFFD55";
+				break;
+
+			case NGMP_ENATType::NAT_TYPE_STRICT:
+				natTypeColor = "FFFF0000";
+				break;
+		}
+
+		headingStr.format(L"Welcome to Generals NextGen Multiplayer.\n\n<hexcol>%hsYour NAT type is %hs", natTypeColor.str(), natType == NGMP_ENATType::NAT_TYPE_UNDETERMINED ? "being determined" : NGMP_OnlineServicesManager::GetInstance()->GetNATTypeString().str());
+		*/
+
+
+		//<hexcol>%hs for colors
+		ECapabilityState capUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP();
+		ECapabilityState capNATPMP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP();
+
+		std::string strUPnPState;
+		if (capUPnP == ECapabilityState::UNDETERMINED)
+		{
+			strUPnPState = "Still Determining...";
+		}
+		else if (capUPnP == ECapabilityState::SUPPORTED)
+		{
+			strUPnPState = "Supported";
+		}
+		else if (capUPnP == ECapabilityState::UNSUPPORTED)
+		{
+			strUPnPState = "Unsupported";
+		}
+		else
+		{
+			strUPnPState = "User Overridden";
+		}
+
+		std::string strNATPMPState;
+		if (capNATPMP == ECapabilityState::UNDETERMINED)
+		{
+			strNATPMPState = "Still Determining...";
+		}
+		else if (capNATPMP == ECapabilityState::SUPPORTED)
+		{
+			strNATPMPState = "Supported";
+		}
+		else if (capNATPMP == ECapabilityState::UNSUPPORTED)
+		{
+			strNATPMPState = "Unsupported";
+		}
+		else
+		{
+			strNATPMPState = "User Overridden";
+		}
+
+		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
+		bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
+		bool bHasPortMappedUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenUPnP();
+		int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+		headingStr.format(L"Welcome to Generals Online for Zero Hour.\n \nNetwork Capabilities:\n\tUPnP: %hs\n\tNAT-PMP: %hs\n\tPort Mapped: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs",
+			strUPnPState.c_str(),
+			strNATPMPState.c_str(),
+			bHasPortMapped ? (bHasPortMappedUPnP ? "Yes (UPnP)" : "Yes (NAT-PMP)") : "No",
+			preferredPort,
+			NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+			capUPnP == ECapabilityState::OVERRIDDEN ? "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work." : ""
+		);
+
+		// record the game data to backend
+		{
+			AsciiString sentryMsg;
+			sentryMsg.format("Determined Network Capabilities");
+
+			// add info about how the game ended
+			sentry_set_extra("direct_connect", sentry_value_new_bool(NATDirectConnect == ECapabilityState::SUPPORTED));
+			sentry_set_extra("port_mapped", sentry_value_new_bool(bHasPortMapped));
+			sentry_set_extra("port_mapped_upnp", sentry_value_new_bool(bHasPortMappedUPnP));
+			sentry_set_extra("port_mapped_natpmp", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenNATPMP()));
+			sentry_set_extra("preferred_port", sentry_value_new_int32(preferredPort));
+			sentry_set_extra("tech_natpmp_supported", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP()));
+			sentry_set_extra("tech_upnp_supported", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP()));
+			sentry_set_extra("port_override_set", sentry_value_new_bool(capUPnP == ECapabilityState::OVERRIDDEN));
+
+			// local player info
+			int64_t userID = -1;
+			std::string strDisplayname = "Unknown";
+			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+			{
+				userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+				strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str();
+			}
+			std::string strUserID = std::format("{}", userID);
+
+			sentry_set_extra("user_id", sentry_value_new_int32(userID));
+			sentry_set_extra("user_displayname", sentry_value_new_string(strDisplayname.c_str()));
+
+			// send event to sentry
+			sentry_capture_event(sentry_value_new_message_event(
+				SENTRY_LEVEL_INFO,
+				"NETWORK_CAPS",
+				sentryMsg.str()
+			));
+		}
 
 		while (headingStr.nextToken(&line, UnicodeString(L"\n")))
 		{
@@ -376,6 +506,63 @@ void HandleOverallStats( const char* szHTTPStats, unsigned len )
 //called only from WOLWelcomeMenuInit to set %win stats
 static void updateOverallStats(void)
 {
+	NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->GetGlobalStats([=](GlobalStats stats)
+		{
+			UnicodeString percStr;
+			AsciiString wndName;
+			GameWindow* pWin;
+
+			// calculate total win percent
+			int totalWins = 0;
+			int totalGames = 0;
+			s_totalWinPercent = 0.f;
+
+			for (int i = 0; i < stats.matches.size(); ++i)
+			{
+				totalWins += stats.wins[i];
+				totalGames += stats.matches[i];
+			}
+
+			if (totalGames <= 0)
+				totalGames = 1;  //prevent divide by zero
+
+			s_totalWinPercent = ((float)totalWins / (float)totalGames);
+
+			if (s_totalWinPercent <= 0)
+				s_totalWinPercent = 1;  //prevent divide by zero
+
+			//std::map<AsciiString, float>::iterator it;
+			//for (it = s_winStats.begin(); it != s_winStats.end(); ++it)
+			for (int i = 0; i < stats.matches.size(); ++i)
+			{
+				int wins = stats.wins[i];
+				int matches = stats.matches[i];
+
+				// div by 0 fix
+				if (matches == 0)
+				{
+					matches = 1;
+				}
+
+
+				float fThisPercent = ((float)wins / (float)matches);
+
+				std::string teamName = g_mapServiceIndexToPlayerTemplateString[i]; 
+
+				//int percent = (int)(100.0f * (fThisPercent / s_totalWinPercent));
+				//percStr.format(TheGameText->fetch("GUI:WinPercent"), percent);
+
+				NetworkLog(teamName.c_str());
+
+				percStr.format(L"%d%% (%d of %d)", (int)(100.f*fThisPercent), stats.wins[i], stats.matches[i]);
+				wndName.format("WOLWelcomeMenu.wnd:Percent%s", teamName.c_str());
+				pWin = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY(wndName));
+				GadgetCheckBoxSetText(pWin, percStr);
+				//x		DEBUG_LOG(("Initialized win percent: %s -> %s %f=%s\n", wndName.str(), it->first.str(), it->second, percStr.str() ));
+			} //for
+		});
+
+	return;
 	UnicodeString percStr;
 	AsciiString wndName;
 	GameWindow* pWin;
@@ -402,7 +589,27 @@ static void updateOverallStats(void)
 
 void UpdateLocalPlayerStats(void)
 {
+	/*
+	int a = 0;
+	for (int i = 0; i < ThePlayerTemplateStore->getPlayerTemplateCount(); i++)
+	{
+		const PlayerTemplate* pTemplate = ThePlayerTemplateStore->getNthPlayerTemplate(i);
+		AsciiString side = pTemplate->getSide();
 
+		if (!pTemplate->isPlayableSide() || pTemplate->getSide().compare("Boss") == 0)
+		{
+			NetworkLog("Player Template %d (%s) is fake", i, side.str());
+			continue;  //skip non-players
+		}
+
+		
+
+		NetworkLog("Player Template %d (%d - %s) is real", i, a, side.str());
+		++a;
+
+		
+	}
+	*/
 	GameWindow *welcomeParent = TheWindowManager->winGetWindowFromId( NULL, NAMEKEY("WOLWelcomeMenu.wnd:WOLWelcomeMenuParent") );
 
 	if (welcomeParent)
@@ -472,12 +679,22 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	}
 
 	GameWindow *staticTextTitle = TheWindowManager->winGetWindowFromId(parentWOLWelcome, NAMEKEY("WOLWelcomeMenu.wnd:StaticTextTitle"));
+
+#if !defined(GENERALS_ONLINE)
 	if (staticTextTitle && TheGameSpyInfo)
 	{
 		UnicodeString title;
 		title.format(TheGameText->fetch("GUI:WOLWelcome"), TheGameSpyInfo->getLocalBaseName().str());
 		GadgetStaticTextSetText(staticTextTitle, title);
 	}
+#else
+	if (staticTextTitle)
+	{
+		UnicodeString title;
+		title.format(TheGameText->fetch("GUI:WOLWelcome"), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
+		GadgetStaticTextSetText(staticTextTitle, title);
+	}
+#endif
 
 	// Clear some defaults
 	/*
@@ -549,23 +766,38 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	// Set Keyboard to Main Parent
 	TheWindowManager->winSetFocus( parentWOLWelcome );
 
-	enableControls( TheGameSpyInfo->gotGroupRoomList() );
+
+#if defined(GENERALS_ONLINE)
+	enableControls( true );
+
+	// TODO_NGMP: disable things we havent implemented yet
+	buttonQuickMatch->winEnable(false);
+	//buttonMyInfo->winEnable(false);
+	buttonBuddies->winEnable(false);
+	//buttonbuttonOptions->winEnable(false);
+#else
+	enableControls(TheGameSpyInfo->gotGroupRoomList());
+#endif
 	TheShell->showShellMap(TRUE);
+
 
 	updateNumPlayersOnline();
 	updateOverallStats();
-
 	UpdateLocalPlayerStats();
 
+	// NGMP: We removed locales, it was pointless
+#if !defined(GENERALS_ONLINE)
 	GameSpyMiscPreferences cPref;
 	if (cPref.getLocale() < LOC_MIN || cPref.getLocale() > LOC_MAX)
 	{
 		GameSpyOpenOverlay(GSOVERLAY_LOCALESELECT);
 	}
+#endif
 
 	raiseMessageBoxes = TRUE;
 	TheTransitionHandler->setGroup("WOLWelcomeMenuFade");
 
+	
 } // WOLWelcomeMenuInit
 
 //-------------------------------------------------------------------------------------------------
@@ -615,6 +847,20 @@ void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 		raiseMessageBoxes = FALSE;
 	}
 
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->IsPendingFullTeardown())
+	{
+		NGMP_OnlineServicesManager::GetInstance()->ConsumePendingFullTeardown();
+
+		// NGMP: Don't need to logout here, just kill the WS connection, that triggers a log out
+		TearDownGeneralsOnline(true);
+
+		buttonPushed = TRUE;
+
+		TheShell->pop();
+	}
+
+	// TODO_NGMP: do we still care about FW helper?
+#if !defined(GENERALS_ONLINE)
 	if (TheFirewallHelper != NULL)
 	{
 		if (TheFirewallHelper->behaviorDetectionUpdate())
@@ -630,6 +876,7 @@ void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 			TheFirewallHelper = NULL;
 		}
 	}
+#endif
 
 	if (TheShell->isAnimFinished() && !buttonPushed && TheGameSpyPeerMessageQueue)
 	{
@@ -783,6 +1030,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 
 		case GBM_SELECTED:
 			{
+			// TODO_NGMP: Support exiting online again
 				if (buttonPushed)
 					break;
 
@@ -794,22 +1042,10 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 					//DEBUG_ASSERTCRASH(TheGameSpyChat->getPeer(), ("No GameSpy Peer object!"));
 					//TheGameSpyChat->disconnectFromChat();
 					
-					PeerRequest req;
-					req.peerRequestType = PeerRequest::PEERREQUEST_LOGOUT;
-					TheGameSpyPeerMessageQueue->addRequest( req );
-					BuddyRequest breq;
-					breq.buddyRequestType = BuddyRequest::BUDDYREQUEST_LOGOUT;
-					TheGameSpyBuddyMessageQueue->addRequest( breq );
+					// NGMP: Don't need to logout here, just kill the WS connection, that triggers a log out
+					TearDownGeneralsOnline(false);
 
-					DEBUG_LOG(("Tearing down GameSpy from WOLWelcomeMenuSystem(GBM_SELECTED)\n"));
-					TearDownGameSpy();
-
-					/*
-					if (TheGameSpyChat->getPeer())
-					{
-						peerDisconnect(TheGameSpyChat->getPeer());
-					}
-					*/
+					DEBUG_LOG(("Tearing down GeneralsOnline from WOLWelcomeMenuSystem(GBM_SELECTED)\n"));
 
 					buttonPushed = TRUE;
 
@@ -847,15 +1083,20 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 				}// else if
 				else if (controlID == buttonMyInfoID )
 				{
-					SetLookAtPlayer(TheGameSpyInfo->getLocalProfileID(), TheGameSpyInfo->getLocalName());
+					SetLookAtPlayer(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID(), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName());
 					GameSpyToggleOverlay(GSOVERLAY_PLAYERINFO);
 				}
 				else if (controlID == buttonLobbyID)
 				{
 					//TheGameSpyChat->clearGroupRoomList();
 					//peerListGroupRooms(TheGameSpyChat->getPeer(), ListGroupRoomsCallback, NULL, PEERTrue);
-					TheGameSpyInfo->joinBestGroupRoom();
-					enableControls( FALSE );
+
+					// TODO_NGMP
+					//TheGameSpyInfo->joinBestGroupRoom();
+					//enableControls( FALSE );
+					buttonPushed = TRUE;
+					nextScreen = "Menus/WOLCustomLobby.wnd";
+					TheShell->pop();
 
 
 					/*

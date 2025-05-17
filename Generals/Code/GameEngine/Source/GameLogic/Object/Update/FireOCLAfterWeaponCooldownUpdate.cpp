@@ -51,6 +51,12 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BodyModule.h"
 
+#ifdef RTS_INTERNAL
+// for occasional debugging...
+//#pragma optimize("", off)
+//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
+#endif
+
 //-------------------------------------------------------------------------------------------------
 FireOCLAfterWeaponCooldownUpdateModuleData::FireOCLAfterWeaponCooldownUpdateModuleData()
 {
@@ -122,7 +128,8 @@ UpdateSleepTime FireOCLAfterWeaponCooldownUpdate::update( void )
 
 	UpgradeMaskType objectMask = obj->getObjectCompletedUpgradeMask();
 	UpgradeMaskType playerMask = obj->getControllingPlayer()->getCompletedUpgradeMask();
-	UpgradeMaskType maskToCheck = playerMask | objectMask;
+	UpgradeMaskType maskToCheck = playerMask;
+	maskToCheck.set( objectMask );
 	if( validThisFrame && !testUpgradeConditions( maskToCheck ) )
 	{
 		//Can't use this period if this object doesn't have any of the upgrades

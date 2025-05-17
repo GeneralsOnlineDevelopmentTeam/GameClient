@@ -30,6 +30,7 @@
 #include "Common/Player.h"
 #include "Common/GlobalData.h"
 #include "Common/GameEngine.h"
+#include "GameClient/ClientInstance.h"
 #include "GameClient/GameWindow.h"
 #include "GameClient/GameWindowManager.h"
 #include "GameClient/InGameUI.h"
@@ -45,7 +46,10 @@
 #include "Common/CRCDebug.h"
 #include "Common/version.h"
 
-#ifdef _INTERNAL
+#include "../OnlineServices_Init.h"
+extern NGMPGame* TheNGMPGame;
+
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -56,10 +60,17 @@ Int REPLAY_CRC_INTERVAL = 100;
 const char *replayExtention = ".rep";
 const char *lastReplayFileName = "00000000";	// a name the user is unlikely to ever type, but won't cause panic & confusion
 
+// TheSuperHackers @tweak helmutbuhler 25/04/2025
+// The replay header contains two time fields; startTime and endTime of type time_t.
+// time_t is 32 bit wide on VC6, but on newer compilers it is 64 bit wide.
+// In order to remain compatible we need to load and save time values with 32 bits.
+// Note that this will overflow on January 18, 2038. @todo Upgrade to 64 bits when we break compatibility.
+typedef int32_t replay_time_t;
+
 static time_t startTime;
 static const UnsignedInt startTimeOffset = 6;
-static const UnsignedInt endTimeOffset = startTimeOffset + sizeof(time_t);
-static const UnsignedInt framesOffset = endTimeOffset + sizeof(time_t);
+static const UnsignedInt endTimeOffset = startTimeOffset + sizeof(replay_time_t);
+static const UnsignedInt framesOffset = endTimeOffset + sizeof(replay_time_t);
 static const UnsignedInt desyncOffset = framesOffset + sizeof(UnsignedInt);
 static const UnsignedInt quitEarlyOffset = desyncOffset + sizeof(Bool);
 static const UnsignedInt disconOffset = quitEarlyOffset + sizeof(Bool);
@@ -75,7 +86,8 @@ void RecorderClass::logGameStart(AsciiString options)
 	if (!fseek(m_file, startTimeOffset, SEEK_SET))
 	{
 		// save off start time
-		fwrite(&startTime, sizeof(time_t), 1, m_file);
+		replay_time_t tmp = (replay_time_t)startTime;
+		fwrite(&tmp, sizeof(replay_time_t), 1, m_file);
 	}
 	// move back to end of stream
 #ifdef DEBUG_CRASHING
@@ -84,7 +96,7 @@ void RecorderClass::logGameStart(AsciiString options)
 		fseek(m_file, fileSize, SEEK_SET);
 	DEBUG_ASSERTCRASH(res == 0, ("Could not seek to end of file!"));
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheNetwork && TheGlobalData->m_saveStats)
 	{
 		//if (TheLAN)
@@ -145,7 +157,7 @@ void RecorderClass::logPlayerDisconnect(UnicodeString player, Int slot)
 		fseek(m_file, fileSize, SEEK_SET);
 	DEBUG_ASSERTCRASH(res == 0, ("Could not seek to end of file!"));
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheGlobalData->m_saveStats)
 	{
 		unsigned long bufSize = MAX_COMPUTERNAME_LENGTH + 1;
@@ -190,7 +202,7 @@ void RecorderClass::logCRCMismatch( void )
 		fseek(m_file, fileSize, SEEK_SET);
 	DEBUG_ASSERTCRASH(res == 0, ("Could not seek to end of file!"));
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheGlobalData->m_saveStats)
 	{
 		m_wasDesync = TRUE;
@@ -229,7 +241,8 @@ void RecorderClass::logGameEnd( void )
 	if (!fseek(m_file, endTimeOffset, SEEK_SET))
 	{
 		// save off end time
-		fwrite(&t, sizeof(time_t), 1, m_file);
+		replay_time_t tmp = (replay_time_t)t;
+		fwrite(&tmp, sizeof(replay_time_t), 1, m_file);
 	}
 	// move to appropriate offset
 	if (!fseek(m_file, framesOffset, SEEK_SET))
@@ -244,7 +257,7 @@ void RecorderClass::logGameEnd( void )
 		fseek(m_file, fileSize, SEEK_SET);
 	DEBUG_ASSERTCRASH(res == 0, ("Could not seek to end of file!"));
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheNetwork && TheGlobalData->m_saveStats)
 	{
 		//if (TheLAN)
@@ -273,22 +286,9 @@ void RecorderClass::logGameEnd( void )
 #endif
 }
 
-#ifdef DEBUG_LOGGING
-	#if defined(_INTERNAL)
-		#define DEBUG_FILE_NAME				"DebugLogFileI.txt"
-		#define DEBUG_FILE_NAME_PREV	"DebugLogFilePrevI.txt"
-	#elif defined(_DEBUG)
-		#define DEBUG_FILE_NAME				"DebugLogFileD.txt"
-		#define DEBUG_FILE_NAME_PREV	"DebugLogFilePrevD.txt"
-	#else
-		#define DEBUG_FILE_NAME				"DebugLogFile.txt"
-		#define DEBUG_FILE_NAME_PREV	"DebugLogFilePrev.txt"
-	#endif
-#endif
-
 void RecorderClass::cleanUpReplayFile( void )
 {
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheGlobalData->m_saveStats)
 	{
 		char fname[_MAX_PATH+1];
@@ -298,14 +298,19 @@ void RecorderClass::cleanUpReplayFile( void )
 		AsciiString oldFname;
 		oldFname.format("%s%s", getReplayDir().str(), m_fileName.str());
 		CopyFile(oldFname.str(), fname, TRUE);
-#ifdef DEBUG_FILE_NAME
+
+#ifdef DEBUG_LOGGING
+		const char* logFileName = DebugGetLogFileName();
+		if (logFileName[0] == '\0')
+			return;
+
 		AsciiString debugFname = fname;
 		debugFname.removeLastChar();
 		debugFname.removeLastChar();
 		debugFname.removeLastChar();
 		debugFname.concat("txt");
 		UnsignedInt fileSize = 0;
-		FILE *fp = fopen(DEBUG_FILE_NAME, "rb");
+		FILE *fp = fopen(logFileName, "rb");
 		if (fp)
 		{
 			fseek(fp, 0, SEEK_END);
@@ -318,13 +323,13 @@ void RecorderClass::cleanUpReplayFile( void )
 		const int MAX_DEBUG_SIZE = 65536;
 		if (fileSize <= MAX_DEBUG_SIZE || TheGlobalData->m_saveAllStats)
 		{
-			DEBUG_LOG(("Using CopyFile to copy %s\n", DEBUG_FILE_NAME));
-			CopyFile(DEBUG_FILE_NAME, debugFname.str(), TRUE);
+			DEBUG_LOG(("Using CopyFile to copy %s\n", logFileName));
+			CopyFile(logFileName, debugFname.str(), TRUE);
 		}
 		else
 		{
-			DEBUG_LOG(("manual copy of %s\n", DEBUG_FILE_NAME));
-			FILE *ifp = fopen(DEBUG_FILE_NAME, "rb");
+			DEBUG_LOG(("manual copy of %s\n", logFileName));
+			FILE *ifp = fopen(logFileName, "rb");
 			FILE *ofp = fopen(debugFname.str(), "wb");
 			if (ifp && ofp)
 			{
@@ -348,7 +353,7 @@ void RecorderClass::cleanUpReplayFile( void )
 				ofp = NULL;
 			}
 		}
-#endif // DEBUG_FILE_NAME
+#endif // DEBUG_LOGGING
 	}
 #endif
 }
@@ -557,9 +562,9 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
 	//
 	// **** if this changes, change the LAN code above ****
 	//
-	time_t t = 0;
-	fwrite(&t, sizeof(time_t), 1, m_file);	// reserve space for start time
-	fwrite(&t, sizeof(time_t), 1, m_file);	// reserve space for end time
+	replay_time_t t = 0;
+	fwrite(&t, sizeof(replay_time_t), 1, m_file);	// reserve space for start time
+	fwrite(&t, sizeof(replay_time_t), 1, m_file);	// reserve space for end time
 
 	UnsignedInt frames = 0;
 	fwrite(&frames, sizeof(UnsignedInt), 1, m_file);	// reserve space for duration in frames
@@ -623,8 +628,13 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
 		}
 		else
 		{
+#if defined(GENERALS_ONLINE)
 			theSlotList = GameInfoToAsciiString(TheGameSpyGame);
+			localIndex = TheNGMPGame->getLocalSlotNum();
+#else
+			theSlotList = GameInfoToAsciiString(TheNGMPGame);
 			localIndex = TheGameSpyGame->getLocalSlotNum();
+#endif
 		}
 	}
 	else
@@ -836,8 +846,11 @@ Bool RecorderClass::readReplayHeader(ReplayHeader& header)
 	}
 
 	// read in some stats
-	fread(&header.startTime, sizeof(time_t), 1, m_file);
-	fread(&header.endTime, sizeof(time_t), 1, m_file);
+	replay_time_t tmp;
+	fread(&tmp, sizeof(replay_time_t), 1, m_file);
+	header.startTime = tmp;
+	fread(&tmp, sizeof(replay_time_t), 1, m_file);
+	header.endTime = tmp;
 
 	fread(&header.frameDuration, sizeof(UnsignedInt), 1, m_file);
 
@@ -902,7 +915,7 @@ Bool RecorderClass::readReplayHeader(ReplayHeader& header)
 	return TRUE;
 }
 
-#if defined _DEBUG || defined _INTERNAL
+#if defined RTS_DEBUG || defined RTS_INTERNAL
 Bool RecorderClass::analyzeReplay( AsciiString filename )
 {
 	m_doingAnalysis = TRUE;
@@ -1099,8 +1112,8 @@ Bool RecorderClass::playbackFile(AsciiString filename)
 	{
 		return FALSE;
 	}
-#ifdef DEBUG_LOGGING
 
+#ifdef DEBUG_CRASHING
 	Bool versionStringDiff = header.versionString != TheVersion->getUnicodeVersion();
 	Bool versionTimeStringDiff = header.versionTimeString != TheVersion->getUnicodeBuildTime();
 	Bool versionNumberDiff = header.versionNumber != TheVersion->getVersionNumber();
@@ -1112,15 +1125,20 @@ Bool RecorderClass::playbackFile(AsciiString filename)
 	AsciiString tempStr;
 	if (exeDifferent)
 	{
+		// TheSuperHackers @fix helmutbuhler 05/05/2025 No longer attempts to print unicode as ascii
+		// via a call to AsciiString::format with %ls format. It does not work with non-ascii characters.
+		UnicodeString tempStrWide;
 		debugString = "EXE is different:\n";
 		if (versionStringDiff)
 		{
-			tempStr.format("   Version [%ls] vs [%ls]\n", TheVersion->getUnicodeVersion().str(), header.versionString.str());
+			tempStrWide.format(L"   Version [%s] vs [%s]\n", TheVersion->getUnicodeVersion().str(), header.versionString.str());
+			tempStr.translate(tempStrWide);
 			debugString.concat(tempStr);
 		}
 		if (versionTimeStringDiff)
 		{
-			tempStr.format("   Build Time [%ls] vs [%ls]\n", TheVersion->getUnicodeBuildTime().str(), header.versionTimeString.str());
+			tempStrWide.format(L"   Build Time [%s] vs [%s]\n", TheVersion->getUnicodeBuildTime().str(), header.versionTimeString.str());
+			tempStr.translate(tempStrWide);
 			debugString.concat(tempStr);
 		}
 		if (versionNumberDiff)
@@ -1535,14 +1553,19 @@ AsciiString RecorderClass::getReplayExtention() {
  */
 AsciiString RecorderClass::getLastReplayFileName() 
 {
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheNetwork && TheGlobalData->m_saveStats)
 	{
 		GameInfo *game = NULL;
 		if (TheLAN)
 			game = TheLAN->GetMyGame();
+#if defined(GENERALS_ONLINE)
+		else if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+			game = TheNGMPGame;
+#else
 		else if (TheGameSpyInfo)
 			game = TheGameSpyGame;
+#endif
 		if (game)
 		{
 			AsciiString players;
@@ -1596,7 +1619,17 @@ AsciiString RecorderClass::getLastReplayFileName()
 		}
 	}
 #endif
-	return AsciiString(lastReplayFileName);
+
+	AsciiString filename;
+	if (rts::ClientInstance::getInstanceId() > 1u)
+	{
+		filename.format("%s_Instance%.2u", lastReplayFileName, rts::ClientInstance::getInstanceId());
+	}
+	else
+	{
+		filename = lastReplayFileName;
+	}
+	return filename;
 }
 
 /**

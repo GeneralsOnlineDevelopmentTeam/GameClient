@@ -61,7 +61,7 @@ UnsignedInt WindowLayoutCurrentVersion = 2;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // PRIVATE FUNCTIONS //////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -2214,7 +2214,7 @@ GameWindow *GameWindowManager::gogoGadgetListBox( GameWindow *parent,
 	//
 	if( listboxData->columns == 1 )
 	{
-		listboxData->columnWidth = NEW Int;
+		listboxData->columnWidth = NEW Int[listboxData->columns];
 		listboxData->columnWidth[0] = width;
 		if( listboxData->slider )
 		{

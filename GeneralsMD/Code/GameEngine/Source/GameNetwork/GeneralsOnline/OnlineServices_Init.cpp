@@ -1,0 +1,396 @@
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
+#include "../json.hpp"
+#include "GameClient/MessageBox.h"
+#include "Common/FileSystem.h"
+#include "Common/file.h"
+#include "realcrc.h"
+#include "../../DownloadManager.h"
+
+NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager = nullptr;
+
+enum class EVersionCheckResponseResult : int
+{
+	OK = 0,
+	FAILED = 1,
+	NEEDS_UPDATE = 2
+};
+
+struct VersionCheckResponse
+{
+	EVersionCheckResponseResult result;
+	std::string patcher_name;
+	std::string patcher_path;
+	std::string patchfile_path;
+	int64_t patcher_size;
+	int64_t patchfile_size;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result, patcher_name, patcher_path, patchfile_path, patcher_size, patchfile_size)
+};
+
+NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
+{
+	NetworkLog("[NGMP] Init");
+
+	m_pOnlineServicesManager = this;
+
+	InitSentry();
+}
+
+std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, bool bAttachToken)
+{
+	if (bAttachToken)
+	{
+		std::string strToken = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken();
+
+		if (g_Environment == EEnvironment::DEV)
+		{
+			return std::format("http://localhost:9000/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
+		}
+		else // PROD
+		{
+			return std::format("http://cloud.playgenerals.online:9000/cloud/env:prod:token:{}/{}", strToken, szEndpoint);
+		}
+
+	}
+	else
+	{
+		if (g_Environment == EEnvironment::DEV)
+		{
+			return std::format("http://localhost:9000/cloud/env:dev/{}", szEndpoint);
+		}
+		else // PROD
+		{
+			return std::format("http://cloud.playgenerals.online:9000/cloud/env:prod/{}", szEndpoint);
+		}
+	}
+}
+
+void NGMP_OnlineServicesManager::Shutdown()
+{
+	if (m_pHTTPManager != nullptr)
+	{
+		m_pHTTPManager->Shutdown();
+	}
+
+	if (m_pWebSocket != nullptr)
+	{
+		m_pWebSocket->Shutdown();
+	}
+
+	ShutdownSentry();
+}
+
+void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback)
+{
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck", false);
+
+	// NOTE: Generals 'CRCs' are not true CRC's, its a custom algorithm. This is fine for lobby comparisons, but its not good for patch comparisons.
+	NetworkLog("Starting version check to endpoint %s", strURI.c_str());
+	// exe crc
+	Char filePath[_MAX_PATH];
+	GetModuleFileName(NULL, filePath, sizeof(filePath));
+	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+	std::streamsize size = file.tellg();
+	file.seekg(0, std::ios::beg);
+	std::vector<uint8_t> buffer(size);
+	file.read((char*)buffer.data(), size);
+	uint32_t realExeCRC = CRC_Memory((unsigned char*)buffer.data(), size);
+
+	nlohmann::json j;
+	j["execrc"] = realExeCRC;
+	j["ver"] = GENERALS_ONLINE_VERSION;
+	j["netver"] = GENERALS_ONLINE_NET_VERSION;
+	j["servicesver"] = GENERALS_ONLINE_SERVICE_VERSION;
+	std::string strPostData = j.dump();
+
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			NetworkLog("Version Check: Response code was %d and body was %s", statusCode, strBody.c_str());
+			try
+			{
+				NetworkLog("VERSION CHECK: Up To Date");
+				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+				VersionCheckResponse authResp = jsonObject.get<VersionCheckResponse>();
+
+				if (authResp.result == EVersionCheckResponseResult::OK)
+				{
+					NetworkLog("VERSION CHECK: Up To Date");
+					fnCallback(true, false);
+				}
+				else if (authResp.result == EVersionCheckResponseResult::NEEDS_UPDATE)
+				{
+					NetworkLog("VERSION CHECK: Needs Update");
+
+					// cache the data
+					m_patcher_name = authResp.patcher_name;
+					m_patcher_path = authResp.patcher_path;
+					m_patchfile_path = authResp.patchfile_path;
+					m_patcher_size = authResp.patcher_size;
+					m_patchfile_size = authResp.patchfile_size;
+
+					fnCallback(true, true);
+				}
+				else
+				{
+					NetworkLog("VERSION CHECK: Failed");
+					fnCallback(false, false);
+				}
+			}
+			catch (...)
+			{
+				NetworkLog("VERSION CHECK: Failed to parse response");
+				fnCallback(false, false);
+			}
+		});
+}
+
+void NGMP_OnlineServicesManager::ContinueUpdate()
+{
+	if (m_vecFilesToDownload.size() > 0) // download next
+	{
+		std::string strDownloadPath = m_vecFilesToDownload.front();
+		m_vecFilesToDownload.pop();
+
+		uint32_t downloadSize = m_vecFilesSizes.front();
+		m_vecFilesSizes.pop();
+
+		TheDownloadManager->SetFileName(AsciiString(strDownloadPath.c_str()));
+		TheDownloadManager->OnStatusUpdate(DOWNLOADSTATUS_DOWNLOADING);
+
+		// this isnt a super nice way of doing this, lets make a download manager
+		std::map<std::string, std::string> mapHeaders;
+		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+			{
+				// set done
+				TheDownloadManager->OnProgressUpdate(downloadSize, downloadSize, 0, 0);
+
+				m_vecFilesDownloaded.push_back(strDownloadPath);
+
+				char CurDir[MAX_PATH + 1] = {};
+				::GetCurrentDirectoryA(MAX_PATH + 1u, CurDir);
+
+				// Extract the filename with extension from strDownloadPath  
+				std::string strFileName = strDownloadPath.substr(strDownloadPath.find_last_of('/') + 1);
+				std::string strOutPath = std::format("{}/{}/{}", CurDir, strPatchDir, strFileName.c_str());
+
+				uint8_t* pBuffer = pReq->GetBuffer();
+				size_t bufSize = pReq->GetBufferSize();
+
+				if (!std::filesystem::exists(strPatchDir))
+				{
+					std::filesystem::create_directory(strPatchDir);
+				}
+
+				FILE* pFile = fopen(strOutPath.c_str(), "wb");
+				fwrite(pBuffer, sizeof(uint8_t), bufSize, pFile);
+				fclose(pFile);
+
+				// call continue update again, thisll check if we're done or have more work to do
+				ContinueUpdate();
+
+				NetworkLog("GOT FILE: %s", strDownloadPath.c_str());
+			},
+			[=](size_t bytesReceived)
+			{
+				//m_bytesReceivedSoFar += bytesReceived;
+
+				TheDownloadManager->OnProgressUpdate(bytesReceived, downloadSize, -1, -1);
+			}
+			);
+	}
+	else if (m_vecFilesToDownload.size() == 0 && m_vecFilesDownloaded.size() > 0) // nothing left but we did download something
+	{
+		TheDownloadManager->SetFileName("Update is complete!");
+		TheDownloadManager->OnStatusUpdate(DOWNLOADSTATUS_FINISHING);
+
+		m_updateCompleteCallback();
+	}
+	
+}
+
+void NGMP_OnlineServicesManager::CancelUpdate()
+{
+
+}
+
+void NGMP_OnlineServicesManager::LaunchPatcher()
+{
+	STARTUPINFOA si = { sizeof(STARTUPINFOA) };
+	PROCESS_INFORMATION pi = {};
+
+	char CurDir[MAX_PATH + 1] = {};
+	::GetCurrentDirectoryA(MAX_PATH + 1u, CurDir);
+
+	// Extract the filename with extension from strDownloadPath  
+	std::string strPatcherDir = std::format("{}/{}", CurDir, strPatchDir);
+	std::string strPatcherPath = std::format("{}/{}", strPatcherDir, m_patcher_name);
+
+	if (CreateProcessA(strPatcherPath.c_str(), nullptr, nullptr, nullptr, FALSE, 0, nullptr, strPatcherDir.c_str(), &si, &pi))
+	{
+		// Successfully launched the process, close handles  
+		CloseHandle(pi.hProcess);
+		CloseHandle(pi.hThread);
+
+		// Exit the application  
+		exit(0);
+	}
+	else
+	{
+		// show msg
+		MessageBoxOk(UnicodeString(L"Update Failed"), UnicodeString(L"Could not run the updater. Please visit www.playgenerals.online and install the latest version manually."), nullptr);
+	}
+}
+
+void NGMP_OnlineServicesManager::StartDownloadUpdate(std::function<void(void)> cb)
+{
+	TheDownloadManager->SetFileName("Connecting to update service...");
+	TheDownloadManager->OnStatusUpdate(DOWNLOADSTATUS_CONNECTING);
+
+	m_vecFilesToDownload = std::queue<std::string>();
+	m_vecFilesDownloaded.clear();
+
+	// patcher
+	m_vecFilesToDownload.emplace(m_patcher_path);
+	m_vecFilesSizes.emplace(m_patcher_size);
+
+	// patch
+	m_vecFilesToDownload.emplace(m_patchfile_path);
+	m_vecFilesSizes.emplace(m_patchfile_size);
+	
+	m_updateCompleteCallback = cb;
+
+	// cleanup current folder
+	if (std::filesystem::exists(strPatchDir) && std::filesystem::is_directory(strPatchDir))
+	{
+		for (const auto& entry : std::filesystem::directory_iterator(strPatchDir))
+		{
+			std::filesystem::remove_all(entry.path());
+		}
+	}
+
+	// start for real
+	ContinueUpdate();
+
+
+}
+
+void NGMP_OnlineServicesManager::OnLogin(bool bSuccess, const char* szWSAddr, const char* szWSToken)
+{
+	// TODO_NGMP: Support websocket reconnects here and on server
+	// TODO_NGMP: disconnect websocket when leaving MP
+	// TODO_NGMP: websocket keep alive
+	if (bSuccess)
+	{
+		// connect to WS
+		// TODO_NGMP: Handle WS conn failure
+		m_pWebSocket = new WebSocket();
+
+		m_pWebSocket->Connect(std::format("{}/{}", szWSAddr, szWSToken).c_str());
+
+		// TODO_NGMP: This hangs forever if it fails to connect
+	}
+}
+
+void NGMP_OnlineServicesManager::Init()
+{
+	// initialize child classes, these need the platform handle
+	m_pAuthInterface = new NGMP_OnlineServices_AuthInterface();
+	m_pLobbyInterface = new NGMP_OnlineServices_LobbyInterface();
+	m_pRoomInterface = new NGMP_OnlineServices_RoomsInterface();
+	m_pStatsInterface = new NGMP_OnlineServices_StatsInterface();
+
+	m_pHTTPManager = new HTTPManager();
+}
+
+
+
+void NGMP_OnlineServicesManager::Tick()
+{
+	if (m_pWebSocket != nullptr)
+	{
+		m_pWebSocket->Tick();
+	}
+
+	if (m_pHTTPManager != nullptr)
+	{
+		m_pHTTPManager->MainThreadTick();
+	}
+
+	if (m_pRoomInterface != nullptr)
+	{
+		m_pAuthInterface->Tick();
+	}
+
+	m_PortMapper.Tick();
+
+	if (m_pRoomInterface != nullptr)
+	{
+		m_pRoomInterface->Tick();
+	}
+
+	if (m_pLobbyInterface != nullptr)
+	{
+		m_pLobbyInterface->Tick();
+	}
+
+	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	if ((currTime - m_lastUserPut) > m_timeBetweenUserPuts)
+	{
+		m_lastUserPut = currTime;
+
+		if (m_pAuthInterface != nullptr && m_pAuthInterface->IsLoggedIn())
+		{
+			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("User", true);
+
+			std::map<std::string, std::string> mapHeaders;
+			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+				{
+					// TODO_NGMP: Handle 404 (session terminated)
+				});
+		}
+	};
+}
+
+void NGMP_OnlineServicesManager::InitSentry()
+{
+	sentry_options_t* options = sentry_options_new();
+	sentry_options_set_dsn(options, "{REPLACE_SENTRY_DSN}");
+	sentry_options_set_database_path(options, ".sentry-native");
+	sentry_options_set_release(options, "generalsonline-client@0.1");
+
+#if _DEBUG
+	sentry_options_set_debug(options, 1);
+	sentry_options_set_logger_level(options, SENTRY_LEVEL_DEBUG);
+
+	sentry_options_set_logger(options,	[](sentry_level_t level, const char* message, va_list args, void* userdata)
+	{
+			char buffer[1024];
+			va_start(args, message);
+			vsnprintf(buffer, 1024, message, args);
+			buffer[1024 - 1] = 0;
+			va_end(args);
+
+			NetworkLog("[Sentry] %s", buffer);
+	}, nullptr);
+#endif
+
+	int i = sentry_init(options);
+	NetworkLog("Sentry init: %d", i);
+}
+
+void NGMP_OnlineServicesManager::ShutdownSentry()
+{
+	sentry_close();
+}
+
+void WebSocket::Shutdown()
+{
+	Disconnect();
+}
+
+void WebSocket::SendData_LeaveNetworkRoom()
+{
+	SendData_JoinNetworkRoom(-1);
+}

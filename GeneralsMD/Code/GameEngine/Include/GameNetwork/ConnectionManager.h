@@ -35,6 +35,7 @@
 #include "GameNetwork/Connection.h"
 #include "GameNetwork/NetCommandList.h"
 #include "GameNetwork/Transport.h"
+#include "GameNetwork/UDPTransport.h"
 #include "GameNetwork/FrameDataManager.h"
 #include "GameNetwork/FrameMetrics.h"
 #include "GameNetwork/NetworkDefs.h"
@@ -140,7 +141,7 @@ public:
 	Int getAverageFPS( void );
 	Int getSlotAverageFPS(Int slot);
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	void debugPrintConnectionCommands();
 #endif
 

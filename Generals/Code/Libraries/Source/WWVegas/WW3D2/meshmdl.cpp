@@ -102,7 +102,6 @@ MeshModelClass::MeshModelClass(const MeshModelClass & that) :
 
 MeshModelClass::~MeshModelClass(void)
 {
-	TheDX8MeshRenderer.Unregister_Mesh_Type(this);
 
 	Reset(0,0,0);
 	REF_PTR_RELEASE(MatInfo);
@@ -140,7 +139,7 @@ MeshModelClass & MeshModelClass::operator = (const MeshModelClass & that)
 		clone_materials(that);
 
 		if (GapFiller) {
-			delete[] GapFiller;
+			delete GapFiller;
 				GapFiller=NULL;
 		}
 		if (that.GapFiller) GapFiller=W3DNEW GapFillerClass(*that.GapFiller);
@@ -150,6 +149,11 @@ MeshModelClass & MeshModelClass::operator = (const MeshModelClass & that)
 
 void MeshModelClass::Reset(int polycount,int vertcount,int passcount)
 {
+	//DMS - We must delete the gapfiller object BEFORE the geometry is reset.  Otherwise,
+	// the number of stages and passes gets reset and the gapfiller cannot deallocate properly.
+	delete GapFiller;
+	GapFiller=NULL;
+
 	Reset_Geometry(polycount,vertcount);
 
 	// Release everything we have and reset to initial state
@@ -163,9 +167,6 @@ void MeshModelClass::Reset(int polycount,int vertcount,int passcount)
 		AlternateMatDesc = NULL;
 	}
 	CurMatDesc = DefMatDesc;
-
-	delete GapFiller;
-	GapFiller=NULL;
 
 	return ;
 }
@@ -384,7 +385,7 @@ void MeshModelClass::compose_deformed_vertex_buffer(
 // Destination pointers MUST point to arrays large enough to hold all vertices
 void MeshModelClass::get_deformed_screenspace_vertices(Vector4 *dst_vert,const RenderInfoClass & rinfo,const Matrix3D & mesh_transform,const HTreeClass * htree)
 {
-	Matrix4 prj = rinfo.Camera.Get_Projection_Matrix() * rinfo.Camera.Get_View_Matrix() * mesh_transform;
+	Matrix4x4 prj = rinfo.Camera.Get_Projection_Matrix() * rinfo.Camera.Get_View_Matrix() * mesh_transform;
 
 	Vector3 * src_vert = Vertex->Get_Array();
 	int vertex_count=Get_Vertex_Count();
@@ -394,7 +395,7 @@ void MeshModelClass::get_deformed_screenspace_vertices(Vector4 *dst_vert,const R
 		for (int vi = 0; vi < vertex_count;) {
 			int idx=bonelink[vi];
 
-			Matrix4 tm = prj * htree->Get_Transform(idx);
+			Matrix4x4 tm = prj * htree->Get_Transform(idx);
 
 			// Count equal matrices (the vertices should be pre-sorted by matrices they use)
 			int cnt = vi;

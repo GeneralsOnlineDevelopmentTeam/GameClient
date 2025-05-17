@@ -61,7 +61,10 @@
 #include "GameNetwork/GameInfo.h"
 #include "GameNetwork/NetworkDefs.h"
 
-#ifdef _INTERNAL
+#include "../NextGenMP_defines.h"
+#include "../NGMP_interfaces.h"
+
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -352,15 +355,39 @@ void WaypointMap::update( void )
 
 const char * MapCache::m_mapCacheName = "MapCache.ini";
 
-AsciiString MapCache::getMapDir() const 
+
+AsciiString MapCache::getMapDir(bool bCustomMapDebug) const
 { 
+#if defined(GENERALS_ONLINE_TEST_MAP_TRANSFER)
+	
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID() == -2) // dev account 1 doesnt have custom maps, always transfer
+	{
+		return AsciiString("MapsEmpty");
+
+		if (bCustomMapDebug)
+		{
+			return AsciiString("MapsEmpty");
+		}
+		else
+		{
+			return AsciiString("Maps");
+		}
+	}
+	else
+	{
+		return AsciiString("Maps");
+	}
+#else
 	return AsciiString("Maps"); 
+#endif
 }
 
-AsciiString MapCache::getUserMapDir() const
+
+AsciiString MapCache::getUserMapDir(bool bCustomMapDebug) const
 {
 	AsciiString tmp = TheGlobalData->getPath_UserData();
-	tmp.concat(getMapDir());
+
+	tmp.concat(getMapDir(bCustomMapDebug));
 	return tmp;
 }
 
@@ -467,7 +494,8 @@ void MapCache::updateCache( void )
 		writeCacheINI( TRUE );
 	}
 	loadStandardMaps();	// we shall overwrite info from matching user maps to prevent munkees from getting rowdy :)
-#if defined(_DEBUG) || defined(_INTERNAL)
+
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheLocalFileSystem->doesFileExist(getMapDir().str()))
 	{
 		// only create the map cache file if "Maps" exist
@@ -506,7 +534,8 @@ void MapCache::loadStandardMaps(void)
 	INI ini;
 	AsciiString fname;
 	fname.format("%s\\%s", getMapDir().str(), m_mapCacheName);
-#if defined(_DEBUG) || defined(_INTERNAL)
+
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	File *fp = TheFileSystem->openFile(fname.str(), File::READ);
 	if (fp != NULL)
 	{
@@ -514,7 +543,8 @@ void MapCache::loadStandardMaps(void)
 		fp = NULL;
 #endif
 		ini.load( fname, INI_LOAD_OVERWRITE, NULL );
-#if defined(_DEBUG) || defined(_INTERNAL)
+
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	}
 #endif
 }

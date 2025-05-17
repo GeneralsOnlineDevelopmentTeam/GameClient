@@ -85,12 +85,13 @@
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "GameNetwork/RankPointValue.h"
+#include "../OnlineServices_Init.h"
 
 //-----------------------------------------------------------------------------
 // DEFINES ////////////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -1729,6 +1730,8 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		m_playerNames[netSlot]->winSetEnabledTextColors(houseColor, m_playerNames[netSlot]->winGetEnabledTextBorderColor());
 
 		// Get the stats for the player
+		// TODO_NGMP: Impl
+		/*
 		PSPlayerStats stats = TheGameSpyPSMessageQueue->findPlayerStatsByID(slot->getProfileID());
 		DEBUG_LOG(("LoadScreen - populating info for %ls(%d) - stats returned id %d\n",
 			slot->getName().str(), slot->getProfileID(), stats.id));
@@ -1736,6 +1739,11 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		Bool isPreorder = TheGameSpyInfo->didPlayerPreorder(stats.id);
 		Int rankPoints = CalculateRank(stats);
 		Int favSide = GetFavoriteSide(stats);
+		*/
+		Bool isPreorder = true;
+		Int rankPoints = 0;
+		Int favSide = 0;
+
 		const Image *preorderImg = TheMappedImageCollection->findImageByName("OfficersClubsmall");
 		if (!isPreorder)
 			preorderImg = NULL;
@@ -1747,6 +1755,9 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 	
 		// pop wins and losses
 		Int numLosses = 0;
+		Int numWins = 0;
+		// TODO_NGMP
+		/*
 		PerGeneralMap::iterator it;
 		for(it = stats.losses.begin(); it != stats.losses.end(); ++it)
 		{
@@ -1757,12 +1768,16 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		{
 			numWins += it->second;
 		}
+		*/
 		formatString.format(L"%d/%d", numWins, numLosses);
 		GadgetStaticTextSetText(m_playerWinLosses[netSlot], formatString);
 		m_playerWinLosses[netSlot]->winSetEnabledTextColors(houseColor, m_playerWinLosses[netSlot]->winGetEnabledTextBorderColor());
 		// favoriteFaction
 			Int numGames = 0;
-		Int favorite = 0;
+		//Int favorite = 0;
+
+		// TODO_NGMP
+		/*
 		for(it =stats.games.begin(); it != stats.games.end(); ++it)
 		{
 			if(it->second >= numGames)
@@ -1771,6 +1786,8 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 				favorite = it->first;
 			}
 		}
+		*/
+
 //		if(numGames == 0)
 //			GadgetStaticTextSetText(m_playerFavoriteFactions[netSlot], TheGameText->fetch("GUI:None"));	
 //		else if( stats.gamesAsRandom > numGames )
@@ -1789,6 +1806,9 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 //		m_playerFavoriteFactions[netSlot]->winSetEnabledTextColors(houseColor, m_playerFavoriteFactions[netSlot]->winGetEnabledTextBorderColor());
 		// disconnects
 		numGames = 0;
+
+		// TODO_NGMP
+		/*
 		for(it =stats.discons.begin(); it != stats.discons.end(); ++it)
 		{
 			numGames += it->second;
@@ -1798,6 +1818,7 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 			numGames += it->second;
 		}
 		numGames += GetAdditionalDisconnectsFromUserFile(stats.id);
+		*/
 
 		formatString.format(L"%d", numGames);
 		GadgetStaticTextSetText(m_playerTotalDisconnects[netSlot], formatString);
@@ -1882,6 +1903,12 @@ void GameSpyLoadScreen::update( Int percent )
 	if(percent <= 100)
 		TheNetwork->updateLoadProgress( percent );
 	TheNetwork->liteupdate();
+
+	// GENERALS ONLINE: this is ticked in game engine, but game engine doesnt tick for MP loads when the host is complete and remotes arent... do a liteupdate like TheNetwork does
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+	{
+		NGMP_OnlineServicesManager::GetInstance()->Tick();
+	}
 
 	//GadgetProgressBarSetProgress(m_progressBars[TheNetwork->getLocalPlayerID()], percent );	
 
@@ -2035,6 +2062,12 @@ void MapTransferLoadScreen::update( Int percent )
 	if (TheNetwork)
 	{
 		TheNetwork->liteupdate();
+	}
+
+	// GENERALS ONLINE: this is ticked in game engine, but game engine doesnt tick for MP loads and map transfers are while(true)... when the host is complete and remotes arent... do a liteupdate like TheNetwork does
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+	{
+		NGMP_OnlineServicesManager::GetInstance()->Tick();
 	}
 
 	TheMouse->setCursorTooltip(UnicodeString::TheEmptyString);

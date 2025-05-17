@@ -32,7 +32,7 @@
 #include "GameNetwork/networkutil.h"
 #include "GameNetwork/GameMessageParser.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -990,6 +990,7 @@ void NetPacket::FillBufferWithFrameCommand(UnsignedByte *buffer, NetCommandRef *
 	UnsignedShort offset = 0;
 	//		DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("NetPacket::addFrameCommand - adding frame command for frame %d, command count = %d, command id = %d\n", cmdMsg->getExecutionFrame(), cmdMsg->getCommandCount(), cmdMsg->getID()));
 
+	// TODO_NGMP: Revisit this, some of this can be stripped outside of LAN
 // If necessary, put the NetCommandType into the packet.
 	buffer[offset] = 'T';
 	++offset;

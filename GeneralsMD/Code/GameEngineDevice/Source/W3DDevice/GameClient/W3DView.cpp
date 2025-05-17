@@ -93,10 +93,13 @@
 
 #include "W3DDevice/GameClient/camerashakesystem.h"
 
+#include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
+
+
 #include "WinMain.h"  /** @todo Remove this, it's only here because we
 													are using timeGetTime, but we can remove that
 													when we have our own timer */
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -585,7 +588,7 @@ void W3DView::setCameraTransform( void )
 	}
 
 	m_3DCamera->Set_Clip_Planes(nearZ, farZ);
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheGlobalData->m_useCameraConstraints)
 #endif
 	{
@@ -608,7 +611,7 @@ void W3DView::setCameraTransform( void )
 		}
 	}
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	m_3DCamera->Set_View_Plane( m_FOV, -1 );
 #endif
 
@@ -726,7 +729,7 @@ static void drawTerrainNormal( Drawable *draw, void *userData )
   }
 }
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 // ------------------------------------------------------------------------------------------------
 // Draw a crude circle. Appears on top of any world geometry
 // ------------------------------------------------------------------------------------------------
@@ -992,7 +995,7 @@ static void drawablePostDraw( Drawable *draw, void *userData )
 
 	Object* obj = draw->getObject();
 	Int localPlayerIndex = ThePlayerList ? ThePlayerList->getLocalPlayer()->getPlayerIndex() : 0;
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	ObjectShroudStatus ss = (!obj || !TheGlobalData->m_shroudOn) ? OBJECTSHROUD_CLEAR : obj->getShroudedStatus(localPlayerIndex);
 #else
 	ObjectShroudStatus ss = (!obj) ? OBJECTSHROUD_CLEAR : obj->getShroudedStatus(localPlayerIndex);
@@ -1010,7 +1013,7 @@ static void drawablePostDraw( Drawable *draw, void *userData )
 			draw->drawIconUI();
 	//}
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	// debug collision extents
 	if( TheGlobalData->m_showCollisionExtents )
 	  drawDrawableExtents( draw, userData );
@@ -1687,7 +1690,7 @@ void W3DView::draw( void )
 
 	}  // end if, show debug AI
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if( TheGlobalData->m_debugCamera )
 	{
 		UnsignedInt c = 0xaaffffff;
@@ -1916,9 +1919,20 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 	// MDC - we no longer want to rotate maps (design made all of them right to begin with)
 	//	m_defaultAngle = angle * M_PI/180.0f;
 	m_defaultPitchAngle = pitch;
-	m_maxHeightAboveGround = TheGlobalData->m_maxCameraHeight*maxHeight;
+
+	// TODO_NGMP: Better way of doing this
+#if defined(GENERALS_ONLINE)
+	TheWritableGlobalData->m_minCameraHeight = 100.f;
+	TheWritableGlobalData->m_maxCameraHeight = 650.f;
+	m_minHeightAboveGround = 100.f;
+	m_maxHeightAboveGround = 600.f;
+	
+#endif
+
+	m_maxHeightAboveGround = TheGlobalData->m_maxCameraHeight * maxHeight;
 	if (m_minHeightAboveGround > m_maxHeightAboveGround)
 		m_maxHeightAboveGround = m_minHeightAboveGround;
+
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -2006,7 +2020,7 @@ void W3DView::setFieldOfView( Real angle )
 {
 	View::setFieldOfView( angle );
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	// this is only for testing, and recalculating the 
 	// camera every frame is wasteful
 	setCameraTransform();

@@ -53,8 +53,11 @@
 
 #include "WWDownload/Registry.h"
 #include "WWDownload/urlBuilder.h"
+#include "../OnlineServices_Init.h"
+#include "Common/GameEngine.h"
+#include "Common/GlobalData.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -147,7 +150,7 @@ static void noPatchBeforeOnlineCallback( void )
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-static Bool hasWriteAccess()
+static Bool hasWriteAccess(bool bFileAccessOnly = false)
 {
 	const char* filename = "PatchAccessTest.txt";	
 
@@ -162,15 +165,19 @@ static Bool hasWriteAccess()
 	_close(handle);
 	remove(filename);
 	
-	unsigned int val;
-	if (!GetUnsignedIntFromRegistry("", "Version", val))
+	// NGMP: We don't care about registry anymore... just disk access
+	if (!bFileAccessOnly)
 	{
-		return false;
-	}
+		unsigned int val;
+		if (!GetUnsignedIntFromRegistry("", "Version", val))
+		{
+			return false;
+		}
 
-	if (!SetUnsignedIntInRegistry("", "Version", val))
-	{
-		return false;
+		if (!SetUnsignedIntInRegistry("", "Version", val))
+		{
+			return false;
+		}
 	}
 
 	return true;
@@ -221,6 +228,7 @@ static void startOnline( void )
 
 	TheScriptEngine->signalUIInteract(TheShellHookNames[SHELL_SCRIPT_HOOK_MAIN_MENU_ONLINE_SELECTED]);
 
+#if !defined(GENERALS_ONLINE)
 	DEBUG_ASSERTCRASH( !TheGameSpyBuddyMessageQueue, ("TheGameSpyBuddyMessageQueue exists!") );
 	DEBUG_ASSERTCRASH( !TheGameSpyPeerMessageQueue, ("TheGameSpyPeerMessageQueue exists!") );
 	DEBUG_ASSERTCRASH( !TheGameSpyInfo, ("TheGameSpyInfo exists!") );
@@ -236,6 +244,7 @@ static void startOnline( void )
 		configBuffer = NULL;
 	}
 
+
 #ifdef ALLOW_NON_PROFILED_LOGIN
 	UserPreferences pref;
 	pref.load("GameSpyLogin.ini");
@@ -247,6 +256,9 @@ static void startOnline( void )
 	else
 		TheShell->push( AsciiString("Menus/GameSpyLoginQuick.wnd") );
 #endif // ALLOW_NON_PROFILED_LOGIN
+#else
+	TheShell->push(AsciiString("Menus/GameSpyLoginProfile.wnd"));
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -766,6 +778,9 @@ void StopAsyncDNSCheck( void )
 
 void StartPatchCheck( void )
 {
+	// GENERALS ONLINE
+	NGMP_OnlineServicesManager::CreateInstance();
+
 	checkingForPatchBeforeGameSpy = TRUE;
 	cantConnectBeforeOnline = FALSE;
 	timeThroughOnline++;
@@ -774,6 +789,81 @@ void StartPatchCheck( void )
 	onlineCancelWindow = MessageBoxCancel(TheGameText->fetch("GUI:CheckingForPatches"),
 		TheGameText->fetch("GUI:CheckingForPatches"), CancelPatchCheckCallbackAndReopenDropdown);
 
+	// online services must be initialized
+	// TODO_NGMP: Uninit this when leaving MP, waste of resources and cycles
+	NGMP_OnlineServicesManager::GetInstance()->Init();
+
+	NGMP_OnlineServicesManager::GetInstance()->StartVersionCheck([](bool bSuccess, bool bNeedsUpdate)
+		{
+			cantConnectBeforeOnline = !bSuccess;
+			mustDownloadPatch = bNeedsUpdate;
+
+			if (!bSuccess)
+			{
+				if (onlineCancelWindow)
+				{
+					TheWindowManager->winDestroy(onlineCancelWindow);
+					onlineCancelWindow = NULL;
+				}
+
+				// TODO_NGMP: do this everywhere teardowngamespy was called
+				TearDownGeneralsOnline(false);
+
+				MessageBoxOk(TheGameText->fetch("GUI:CannotConnectToServservTitle"),
+					TheGameText->fetch("GUI:CannotConnectToServserv"),
+					noPatchBeforeOnlineCallback);
+			}
+			else
+			{
+				if (!bNeedsUpdate)
+				{
+					startOnline();
+				}
+				else
+				{
+					// TODO_NGMP: Later we should allow in-game updates
+					if (onlineCancelWindow)
+					{
+						TheWindowManager->winDestroy(onlineCancelWindow);
+						onlineCancelWindow = NULL;
+					}
+
+					if (!hasWriteAccess(true))
+					{
+						MessageBoxOk(TheGameText->fetch("GUI:Error"),
+							TheGameText->fetch("GUI:MustHaveAdminRights"),
+							CancelPatchCheckCallbackAndReopenDropdown);
+					}
+					else if (mustDownloadPatch)
+					{
+						// NOTE: we treat all patches as mandatory currently
+						onlineCancelWindow = MessageBoxOkCancel(TheGameText->fetch("GUI:PatchAvailable"),
+							UnicodeString(L"An update is required.\n\nPress OK to begin updating.\n\nOtherwise, you can visit www.playgenerals.online to download the latest update manually"), []()
+							{
+								WindowLayout* layout;
+								layout = TheWindowManager->winCreateLayout(AsciiString("Menus/DownloadMenu.wnd"));
+								layout->runInit();
+								layout->hide(FALSE);
+								layout->bringForward();
+
+								NGMP_OnlineServicesManager::GetInstance()->StartDownloadUpdate([]()
+									{
+										MessageBoxOk(UnicodeString(L"Update Ready"), UnicodeString(L"Press OK to begin installing the patch"), []()
+											{
+												NGMP_OnlineServicesManager::GetInstance()->LaunchPatcher();
+											});
+									});
+
+							}, CancelPatchCheckCallbackAndReopenDropdown);
+					}
+				}
+			}
+		});
+	
+
+	// TODO_NGMP: Impl patch checks again
+
+	/*
 	s_asyncDNSLookupInProgress = TRUE;
 	Char hostname[] = "servserv.generals.ea.com";
 	Int ret = asyncGethostbyname(hostname);
@@ -787,6 +877,7 @@ void StartPatchCheck( void )
 		reallyStartPatchCheck();
 		break;
 	}
+	*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////

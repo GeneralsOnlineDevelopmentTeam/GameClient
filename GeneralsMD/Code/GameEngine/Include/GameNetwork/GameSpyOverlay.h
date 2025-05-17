@@ -44,7 +44,12 @@ void GSMessageBoxOkCancel(UnicodeString title, UnicodeString message, GameWinMsg
 void GSMessageBoxYesNo(UnicodeString title, UnicodeString message, GameWinMsgBoxFunc yesFunc, GameWinMsgBoxFunc noFunc);	///< Display a Message box with Yes/No buttons and track it
 void RaiseGSMessageBox( void );		///< Bring GS message box to the foreground (if we transition screens while a message box is up)
 
-enum GSOverlayType
+
+// GeneralsOnline
+void GSMessageBoxCancel(UnicodeString title, UnicodeString message, GameWinMsgBoxFunc cancelFunc);	///< Display a Message box with Ok/Cancel buttons and track it
+void GSMessageBoxNoButtons(UnicodeString title, UnicodeString message, bool bShowLogo);
+
+enum GSOverlayType CPP_11(: Int)
 {
 	GSOVERLAY_PLAYERINFO,
 	GSOVERLAY_MAPSELECT,

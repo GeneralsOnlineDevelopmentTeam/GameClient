@@ -72,6 +72,12 @@
 #include "Common/CustomMatchPreferences.h"
 #include "Common/LadderPreferences.h"
 
+// GENERALS ONLINE:
+#include "../NextGenMP_defines.h"
+#include "../OnlineServices_Init.h"
+#include "../OnlineServices_LobbyInterface.h"
+#include "GameClient/MapUtil.h"
+
 //-----------------------------------------------------------------------------
 // DEFINES ////////////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
@@ -100,7 +106,7 @@ static GameWindow *textEntryGamePassword = NULL;
 static GameWindow *checkBoxLimitArmies = NULL;
 static GameWindow *checkBoxUseStats = NULL;
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -321,7 +327,13 @@ void PopupHostGameInit( WindowLayout *layout, void *userData )
 	textEntryGameNameID = TheNameKeyGenerator->nameToKey(AsciiString("PopupHostGame.wnd:TextEntryGameName"));
 	textEntryGameName = TheWindowManager->winGetWindowFromId(parentPopup, textEntryGameNameID);
 	UnicodeString name;
+
+#if defined(GENERALS_ONLINE)
+	name.translate("Generals Online Lobby");
+#else
 	name.translate(TheGameSpyInfo->getLocalName());
+#endif
+
 	GadgetTextEntrySetText(textEntryGameName, name);
 
 	textEntryGameDescriptionID = TheNameKeyGenerator->nameToKey(AsciiString("PopupHostGame.wnd:TextEntryGameDescription"));
@@ -567,8 +579,35 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 // PRIVATE FUNCTIONS //////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
 
+extern GlobalData* TheWritableGlobalData;
 void createGame( void )
 {
+	// TODO_NGMP: exe and ini crc, verison etc
+	// TODO_NGMP: passworded lobbies
+
+#if defined(GENERALS_ONLINE)
+	// TODO_NGMP: Support 'favorite map' again
+	AsciiString defaultMap = getDefaultMap(true);
+	const MapMetaData* md = TheMapCache->findMap(defaultMap);
+
+	Bool limitArmies = GadgetCheckBoxIsChecked(checkBoxLimitArmies);
+	Bool useStats = GadgetCheckBoxIsChecked(checkBoxUseStats);
+
+	UnicodeString gameName = GadgetTextEntryGetText(textEntryGameName);
+
+	AsciiString passwd;
+	passwd.translate(GadgetTextEntryGetText(textEntryGamePassword));
+
+
+	// NGMP:NOTE: We count money here because mods etc sometimes change the starting money, so we dont want to hard code it, just create with whatever the client is telling us is a sensible amount
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->CreateLobby(gameName, md->m_displayName, md->m_fileName, md->m_isOfficial, md->m_numPlayers, limitArmies, useStats, TheGlobalData->m_defaultStartingCash.countMoney(), passwd.isNotEmpty(), passwd.str());
+
+	GSMessageBoxCancel(UnicodeString(L"Creating Lobby"), UnicodeString(L"Lobby Creation is in progress..."), nullptr);
+
+	return;
+#else
+	// TODO_NGMP: Everything using TheGameSpy%
+
 	TheGameSpyInfo->setCurrentGroupRoom(0);
 	PeerRequest req;
 	UnicodeString gameName = GadgetTextEntryGetText(textEntryGameName);
@@ -619,4 +658,5 @@ void createGame( void )
 	req.hostPingStr = TheGameSpyInfo->getPingString().str();
 
 	TheGameSpyPeerMessageQueue->addRequest(req);
+#endif
 }

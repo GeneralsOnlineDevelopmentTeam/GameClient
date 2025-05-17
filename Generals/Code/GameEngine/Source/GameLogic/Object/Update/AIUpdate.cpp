@@ -73,7 +73,7 @@
 
 #define SLEEPY_AI
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -2163,7 +2163,7 @@ UpdateSleepTime AIUpdateInterface::doLocomotor( void )
 							// obstacles, and follow the intermediate path points.
 							ClosestPointOnPathInfo info;
 							CRCDEBUG_LOG(("AIUpdateInterface::doLocomotor() - calling computePointOnPath() for %s\n",
-								DescribeObject(getObject()).str()));
+								DebugDescribeObject(getObject()).str()));
 							getPath()->computePointOnPath(getObject(), m_locomotorSet, *getObject()->getPosition(), info);
 							onPathDistToGoal = info.distAlongPath;
 							goalPos = info.posOnPath;
@@ -2256,9 +2256,9 @@ UpdateSleepTime AIUpdateInterface::doLocomotor( void )
 
 		// After our movement for the frame, update our AirborneTarget flag.
 		if(getObject()->getHeightAboveTerrain() > m_curLocomotor->getAirborneTargetingHeight() )
-			getObject()->setStatus(OBJECT_STATUS_AIRBORNE_TARGET);
+			getObject()->setStatus( MAKE_OBJECT_STATUS_MASK( OBJECT_STATUS_AIRBORNE_TARGET ) );
 		else
-			getObject()->clearStatus(OBJECT_STATUS_AIRBORNE_TARGET);
+			getObject()->clearStatus( MAKE_OBJECT_STATUS_MASK( OBJECT_STATUS_AIRBORNE_TARGET ) );
 
 		m_curMaxBlockedSpeed = FAST_AS_POSSIBLE;
 	}
@@ -2290,7 +2290,7 @@ void AIUpdateInterface::setLocomotorGoalPositionExplicit(const Coord3D& newPos)
 {
 	m_locomotorGoalType = POSITION_EXPLICIT;
 	m_locomotorGoalData = newPos;
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 if (_isnan(m_locomotorGoalData.x) || _isnan(m_locomotorGoalData.y) || _isnan(m_locomotorGoalData.z))
 {
 	DEBUG_CRASH(("NAN in setLocomotorGoalPositionExplicit"));
@@ -2303,7 +2303,7 @@ void AIUpdateInterface::setLocomotorGoalOrientation(Real angle)
 {
 	m_locomotorGoalType = ANGLE;
 	m_locomotorGoalData.x = angle;
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 if (_isnan(m_locomotorGoalData.x) || _isnan(m_locomotorGoalData.y) || _isnan(m_locomotorGoalData.z))
 {
 	DEBUG_CRASH(("NAN in setLocomotorGoalOrientation"));
@@ -3365,12 +3365,12 @@ void AIUpdateInterface::privateAttackPosition( const Coord3D *pos, Int maxShotsT
 	if (continueRange > 0.0f)
 	{
 		// ick. set this bit so we can find the mine to go target, even if stealthed. (srj)
-		getObject()->setStatus(OBJECT_STATUS_IGNORING_STEALTH, true);
+		getObject()->setStatus( MAKE_OBJECT_STATUS_MASK( OBJECT_STATUS_IGNORING_STEALTH ) );
 		PartitionFilterPossibleToAttack filterAttack(ATTACK_NEW_TARGET, getObject(), cmdSource);
 		PartitionFilterSameMapStatus filterMapStatus(getObject());
 		PartitionFilter *filters[] = { &filterAttack, &filterMapStatus, NULL };
 		Object* victim = ThePartitionManager->getClosestObject(&localPos, continueRange, FROM_CENTER_2D, filters);
-		getObject()->setStatus(OBJECT_STATUS_IGNORING_STEALTH, false);
+		getObject()->clearStatus( MAKE_OBJECT_STATUS_MASK( OBJECT_STATUS_IGNORING_STEALTH ) );
 
 		if (victim)
 		{
@@ -4281,7 +4281,7 @@ Object* AIUpdateInterface::getNextMoodTarget( Bool calledByAI, Bool calledDuring
 	//AutoAcquireWhenIdle = Yes Stealthed.
 	if ( calledDuringIdle )
 	{
-		if ((obj->getStatusBits() & OBJECT_STATUS_STEALTHED) != 0) 
+		if( obj->getStatusBits().test( OBJECT_STATUS_STEALTHED ) ) 
 		{
 			if ((getAIUpdateModuleData()->m_autoAcquireEnemiesWhenIdle & AAS_Idle_Stealthed) == 0) 
 			{
@@ -5010,3 +5010,15 @@ Int AIUpdateInterface::friend_getWaypointGoalPathSize() const
 
 	return getStateMachine()->getGoalPathSize(); 
 }
+
+// ------------------------------------------------------------------------------------------------
+Bool AIUpdateInterface::hasLocomotorForSurface(LocomotorSurfaceType surfaceType)
+{
+	LocomotorSurfaceTypeMask surfaceMask = (LocomotorSurfaceTypeMask)surfaceType;
+	if (m_locomotorSet.findLocomotor(surfaceMask))
+		return TRUE;
+	else
+		return FALSE;
+}
+
+// ------------------------------------------------------------------------------------------------

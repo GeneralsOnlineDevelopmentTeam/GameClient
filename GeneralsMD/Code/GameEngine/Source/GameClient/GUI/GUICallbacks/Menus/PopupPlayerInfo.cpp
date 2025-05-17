@@ -60,7 +60,11 @@
 
 #include "WWDownload/Registry.h"
 
-#ifdef _INTERNAL
+#include "../ngmp_interfaces.h"
+#include "../ngmp_include.h"
+#include "../OnlineServices_Init.h"
+
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -91,7 +95,7 @@ static GameWindow *checkBoxNonAsianFont = NULL;
 
 static Bool isOverlayActive = false;
 static Bool raiseMessageBox = false;
-static Int lookAtPlayerID = 0;
+static int64_t lookAtPlayerID = 0;
 static std::string lookAtPlayerName;
 
 
@@ -182,6 +186,8 @@ Int GetAdditionalDisconnectsFromUserFile(Int playerID)
 		return 0;
 	}
 
+	// TODO_NGMP_STATS:
+	/*
 	if (TheGameSpyInfo->getAdditionalDisconnects() > 0 && !retval)
 	{
 		DEBUG_LOG(("Clearing additional disconnects\n"));
@@ -192,6 +198,7 @@ Int GetAdditionalDisconnectsFromUserFile(Int playerID)
 	{
 		return TheGameSpyInfo->getAdditionalDisconnects();
 	}
+	*/
 
 	return retval;
 }
@@ -243,16 +250,18 @@ void GetAdditionalDisconnectsFromUserFile(PSPlayerStats *stats)
 // default values
 RankPoints::RankPoints(void)
 {
+	auto statsInterface = NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface();
+
 	m_ranks[RANK_PRIVATE]							= 0;
-	m_ranks[RANK_CORPORAL]						= TheGameSpyConfig->getPointsForRank(RANK_CORPORAL); // 5
-	m_ranks[RANK_SERGEANT]						= TheGameSpyConfig->getPointsForRank(RANK_SERGEANT); // 10
-	m_ranks[RANK_LIEUTENANT]					= TheGameSpyConfig->getPointsForRank(RANK_LIEUTENANT); // 20
-	m_ranks[RANK_CAPTAIN]							= TheGameSpyConfig->getPointsForRank(RANK_CAPTAIN); // 50
-	m_ranks[RANK_MAJOR]								= TheGameSpyConfig->getPointsForRank(RANK_MAJOR); // 100
-	m_ranks[RANK_COLONEL]							= TheGameSpyConfig->getPointsForRank(RANK_COLONEL); // 200
-	m_ranks[RANK_BRIGADIER_GENERAL]		= TheGameSpyConfig->getPointsForRank(RANK_BRIGADIER_GENERAL); // 500
-	m_ranks[RANK_GENERAL]							= TheGameSpyConfig->getPointsForRank(RANK_GENERAL); // 1000
-	m_ranks[RANK_COMMANDER_IN_CHIEF]	= TheGameSpyConfig->getPointsForRank(RANK_COMMANDER_IN_CHIEF); // 2000
+	m_ranks[RANK_CORPORAL]						= statsInterface->getPointsForRank(RANK_CORPORAL); // 5
+	m_ranks[RANK_SERGEANT]						= statsInterface->getPointsForRank(RANK_SERGEANT); // 10
+	m_ranks[RANK_LIEUTENANT]					= statsInterface->getPointsForRank(RANK_LIEUTENANT); // 20
+	m_ranks[RANK_CAPTAIN]							= statsInterface->getPointsForRank(RANK_CAPTAIN); // 50
+	m_ranks[RANK_MAJOR]								= statsInterface->getPointsForRank(RANK_MAJOR); // 100
+	m_ranks[RANK_COLONEL]							= statsInterface->getPointsForRank(RANK_COLONEL); // 200
+	m_ranks[RANK_BRIGADIER_GENERAL]		= statsInterface->getPointsForRank(RANK_BRIGADIER_GENERAL); // 500
+	m_ranks[RANK_GENERAL]							= statsInterface->getPointsForRank(RANK_GENERAL); // 1000
+	m_ranks[RANK_COMMANDER_IN_CHIEF]	= statsInterface->getPointsForRank(RANK_COMMANDER_IN_CHIEF); // 2000
 
 	m_winMultiplier = 3.0f;
 	m_lostMultiplier = 0.0f;
@@ -263,7 +272,7 @@ RankPoints::RankPoints(void)
 
 RankPoints *TheRankPointValues = NULL;
 
-void SetLookAtPlayer( Int id, AsciiString nick)
+void SetLookAtPlayer(int64_t id, AsciiString nick)
 {
 	lookAtPlayerID = id;
 	lookAtPlayerName = nick.str();
@@ -721,7 +730,10 @@ static void populateBattleHonors(const PSPlayerStats& stats, Int battleHonors, I
 	}
 	*/
 
-	if (TheGameSpyInfo->didPlayerPreorder(stats.id))
+	// TODO_NGMP_STATS
+	bool bPreordered = true;
+	//if (TheGameSpyInfo->didPlayerPreorder(stats.id))
+	if (bPreordered)
 	{
 		InsertBattleHonor(list, TheMappedImageCollection->findImageByName("OfficersClub"), TRUE,
 			BATTLE_HONOR_OFFICERSCLUB, row, column);
@@ -749,6 +761,7 @@ Int GetFavoriteSide( const PSPlayerStats& stats )
 	return favorite;
 }
 
+// TODO_NGMP: We should calculate this and store it on server side too so we can display on website
 Int CalculateRank( const PSPlayerStats& stats )
 {
 	if(stats.id == 0 || !TheRankPointValues)	
@@ -811,297 +824,303 @@ static GameWindow* findWindow(GameWindow *parent, AsciiString baseWindow, AsciiS
 
 void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 {
-	Int lookupID = TheGameSpyInfo->getLocalProfileID();
+	int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	int64_t lookupID = localID;
 	if(parentWindowName == "PopupPlayerInfo.wnd")
 	{
 		lookupID = lookAtPlayerID;
-		if (lookAtPlayerID <= 0 || !parent)
+		if (lookAtPlayerID == -1 || !parent)
 			return;
 	}
 
-	PSPlayerStats stats = TheGameSpyPSMessageQueue->findPlayerStatsByID(lookupID);
-
-	Bool weHaveStats = (stats.id != 0);
-
-	// if we don't have the stats from the server, see if we have cached stats
-	if( !weHaveStats && lookupID == TheGameSpyInfo->getLocalProfileID() )
-	{
-		stats = TheGameSpyInfo->getCachedLocalPlayerStats();
-
-		weHaveStats = TRUE;
-	}
-	
-	Int currentRank = 0;
-	Int rankPoints = CalculateRank(stats);
-	Int i = 0;
-	while( rankPoints >= TheRankPointValues->m_ranks[i + 1])
-		++i;
-	currentRank = i;
-
-	PerGeneralMap::iterator it;
-	Int numWins = 0;
-	Int numLosses = 0;
-	Int numDiscons = 0;
-	Int numGames = 0;
-	for(it =stats.wins.begin(); it != stats.wins.end(); ++it)
-	{
-		numWins += it->second;
-	}
-	for(it =stats.losses.begin(); it != stats.losses.end(); ++it)
-	{
-		numLosses += it->second;
-	}
-	for(it =stats.discons.begin(); it != stats.discons.end(); ++it)
-	{
-		numDiscons += it->second;
-	}
-	for(it =stats.desyncs.begin(); it != stats.desyncs.end(); ++it)
-	{
-		numDiscons += it->second;
-	}
-
-	numDiscons += GetAdditionalDisconnectsFromUserFile(lookupID);
-
-	numGames = numWins + numLosses + numDiscons;
-	
-	GameWindow *win = NULL;
-	UnicodeString uStr;
-	win = findWindow(NULL, parentWindowName, "StaticTextPlayerStatisticsLabel");
-	if(win)
-	{
-		AsciiString localeID = "WOL:Locale00";
-		if (stats.locale >= LOC_MIN && stats.locale <= LOC_MAX)
-			localeID.format("WOL:Locale%2.2d", stats.locale);
-		uStr.format(TheGameText->fetch("GUI:PlayerStatistics"), lookAtPlayerName.c_str(), TheGameText->fetch(localeID).str());
-		GadgetStaticTextSetText(win, uStr);
-	}
-	win = findWindow(NULL, parentWindowName, "StaticTextGamesPlayedValue");
-	if(win)
-	{
-		uStr.format(L"%d", numGames);
-		GadgetStaticTextSetText(win, uStr);
-	}
-	win = findWindow(NULL, parentWindowName, "StaticTextWinsValue");
-	if(win)
-	{
-		uStr.format(L"%d", numWins);
-		GadgetStaticTextSetText(win, uStr);
-	}
-	win = findWindow(NULL, parentWindowName, "StaticTextLossesValue");
-	if(win)
-	{
-		uStr.format(L"%d", numLosses);
-		GadgetStaticTextSetText(win, uStr);
-	}
-	win = findWindow(NULL, parentWindowName, "StaticTextDisconnectsValue");
-	if(win)
-	{
-		uStr.format(L"%d", numDiscons);
-		GadgetStaticTextSetText(win, uStr);
-	}
-
-	win = findWindow(NULL, parentWindowName, "StaticTextBestStreakValue");
-	if (win)
-	{
-		uStr.format(L"%d", stats.maxWinsInARow);
-		GadgetStaticTextSetText(win, uStr);
-	}
-
-	win = findWindow(NULL, parentWindowName, "StaticTextStreak");
-	if (win)
-	{
-		if (stats.lossesInARow > 0)
+	NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(lookupID, [=](bool bSuccess, PSPlayerStats stats)
 		{
-			GadgetStaticTextSetText(win, TheGameText->fetch("GUI:CurrentLossStreak"));
-		}
-		else
-		{
-			GadgetStaticTextSetText(win, TheGameText->fetch("GUI:CurrentWinStreak"));
-		}
-	}
-	win = findWindow(NULL, parentWindowName, "StaticTextStreakValue");
-	if(win)
-	{
-		Int streak = max(stats.lossesInARow, stats.winsInARow);
-		uStr.format(L"%d", streak);
-		GadgetStaticTextSetText(win, uStr);
-	}
+			Bool weHaveStats = bSuccess;
 
-	win = findWindow(NULL, parentWindowName, "StaticTextTotalKillsValue");
-	if(win)
-	{
-		Int numGames = 0;
-		for(it =stats.unitsKilled.begin(); it != stats.unitsKilled.end(); ++it)
-		{
-			numGames += it->second;
-		}
-		uStr.format(L"%d", numGames);
-		GadgetStaticTextSetText(win, uStr);
-	}
-	win = findWindow(NULL, parentWindowName, "StaticTextTotalDeathsValue");
-	if(win)
-	{
-		Int numGames = 0;
-		for(it =stats.unitsLost.begin(); it != stats.unitsLost.end(); ++it)
-		{
-			numGames += it->second;
-		}
-		uStr.format(L"%d", numGames);
-		GadgetStaticTextSetText(win, uStr);
-	}
-	win = findWindow(NULL, parentWindowName, "StaticTextTotalBuiltValue");
-	if(win)
-	{
-		Int numGames = 0;
-		for(it =stats.unitsBuilt.begin(); it != stats.unitsBuilt.end(); ++it)
-		{
-			numGames += it->second;
-		}
-		uStr.format(L"%d", numGames);
-		GadgetStaticTextSetText(win, uStr);
-	}
-	win = findWindow(NULL, parentWindowName, "StaticTextBuildingsKilledValue");
-	if(win)
-	{
-		Int numGames = 0;
-		for(it =stats.buildingsKilled.begin(); it != stats.buildingsKilled.end(); ++it)
-		{
-			numGames += it->second;
-		}
-		uStr.format(L"%d", numGames);
-		GadgetStaticTextSetText(win, uStr);
-	}
-	win = findWindow(NULL, parentWindowName, "StaticTextBuildingsLostValue");
-	if(win)
-	{
-		Int numGames = 0;
-		for(it =stats.buildingsLost.begin(); it != stats.buildingsLost.end(); ++it)
-		{
-			numGames += it->second;
-		}
-		uStr.format(L"%d", numGames);
-		GadgetStaticTextSetText(win, uStr);
-	}
-	win = findWindow(NULL, parentWindowName, "StaticTextBuildingsBuiltValue");
-	if(win)
-	{
-		Int numGames = 0;
-		for(it =stats.buildingsBuilt.begin(); it != stats.buildingsBuilt.end(); ++it)
-		{
-			numGames += it->second;
-		}
-		uStr.format(L"%d", numGames);
-		GadgetStaticTextSetText(win, uStr);
-	}
-
-	win = findWindow(NULL, parentWindowName, "StaticTextWinPercentValue");
-	if(win)
-	{
-		//GS  prevent divide by zero
-		if( numGames > 0 )
-			uStr.format(TheGameText->fetch("GUI:WinPercent"), REAL_TO_INT(numWins/(Real)numGames*100.0f));
-		else
-			uStr.format(TheGameText->fetch("GUI:WinPercent"), 0);
-		GadgetStaticTextSetText(win, uStr);
-	}
-
-	win = findWindow(NULL, parentWindowName, "ProgressBarRank");
-	if(win && TheRankPointValues)
-	{
-		if( currentRank == MAX_RANKS - 1)
-		{
-			// we've reached the max rank
-			win->winHide(TRUE);
-		}
-		else
-		{
-			GadgetProgressBarSetProgress(win, 100 * INT_TO_REAL(rankPoints - TheRankPointValues->m_ranks[currentRank])/( TheRankPointValues->m_ranks[currentRank + 1] - TheRankPointValues->m_ranks[currentRank]));
-		}
-	}
-
-	//calculate favorite side and rank overlay image
-	UnicodeString rankStr; //, sideStr, sideRankStr;
-	const PlayerTemplate* pPlayerTemplate = NULL;  //NULL == newbie
-	{	//search all stats for side favorite side (highest numGames)
-		Int mostGames = 0;
-		Int favorite = 0;
-		for(it =stats.games.begin(); it != stats.games.end(); ++it)
-		{
-			if(it->second >= mostGames)
+			// if we don't have the stats from the server, see if we have cached stats
+			if (!weHaveStats)
 			{
-				mostGames = it->second;
-				favorite = it->first;
+				return;
 			}
-		}
-		if( mostGames > 0 )
-			pPlayerTemplate = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
 
-		//rank (ex: Corporal)
-		AsciiString rank;
-		rank.format("GUI:GSRank%d", currentRank);
-		rankStr = TheGameText->fetch(rank);
+			Int currentRank = 0;
+			Int rankPoints = CalculateRank(stats);
+			Int i = 0;
+			while (rankPoints >= TheRankPointValues->m_ranks[i + 1])
+				++i;
+			currentRank = i;
 
-//		//favorite side  (ex: Toxin, Tank, Stealth, etc.)
-//		AsciiString side;
-//		if( mostGames > 0  &&  pPlayerTemplate != NULL )
-//		{
-//			if( stats.gamesAsRandom >= mostGames )
-//				side = "GUI:Random";
-//			else
-//				side.format("SIDE:%s", pPlayerTemplate->getSide().str());
-//		}
-//
-//		//combined text (Ex: Toxin Corporal)
-//		sideStr = TheGameText->fetch(side);
-//		sideRankStr.format(L"%s - %s", sideStr.str(), rankStr.str() );
-	}
+			PerGeneralMap::iterator it;
+			Int numWins = 0;
+			Int numLosses = 0;
+			Int numDiscons = 0;
+			Int numGames = 0;
+			for (it = stats.wins.begin(); it != stats.wins.end(); ++it)
+			{
+				numWins += it->second;
+			}
+			for (it = stats.losses.begin(); it != stats.losses.end(); ++it)
+			{
+				numLosses += it->second;
+			}
+			for (it = stats.discons.begin(); it != stats.discons.end(); ++it)
+			{
+				numDiscons += it->second;
+			}
+			for (it = stats.desyncs.begin(); it != stats.desyncs.end(); ++it)
+			{
+				numDiscons += it->second;
+			}
 
-	//rank image;  based on rank and primary faction (USA, China, GLA)
-	win = findWindow(NULL, parentWindowName, "WinRank");
-	if(win && TheRankPointValues)
-	{
-		if (rankPoints == 0 || pPlayerTemplate == NULL)
-			win->winSetEnabledImage(0, TheMappedImageCollection->findImageByName("NewPlayer"));
-		else
-			win->winSetEnabledImage(0, lookupRankImage(pPlayerTemplate->getBaseSide(), currentRank));
-//x		win->setTooltipText(rankStr);  //ex: Corporal
-	}
+			numDiscons += GetAdditionalDisconnectsFromUserFile(lookupID);
 
-	//sub-faction overlay icon  (ex: Tank General, Toxin General, etc.)
-	win = findWindow(NULL, parentWindowName, "FactionImage");
-	if(win && pPlayerTemplate && TheRankPointValues && rankPoints)
-	{
-		win->winSetEnabledImage(0, pPlayerTemplate->getGeneralImage());
-//x		win->setTooltipText( sideStr );  //ex: Toxin General
-	}
+			numGames = numWins + numLosses + numDiscons;
 
-	//favorite side and rank text (Ex: Tank Corporal)
-	win = findWindow(NULL, parentWindowName, "StaticTextRank");
-	if(win)
-	{
-		GadgetStaticTextSetText(win, rankStr);  //just rank
-//x		win->setTooltipText(sideRankStr);  //ex: Toxin General - Corporal
-	}
+			GameWindow* win = NULL;
+			UnicodeString uStr;
+			win = findWindow(NULL, parentWindowName, "StaticTextPlayerStatisticsLabel");
+			if (win)
+			{
+				AsciiString localeID = "WOL:Locale00";
+				if (stats.locale >= LOC_MIN && stats.locale <= LOC_MAX)
+					localeID.format("WOL:Locale%2.2d", stats.locale);
 
-	win = findWindow(NULL, parentWindowName, "StaticTextInProgress");
-	if (win)
-	{
-		if (weHaveStats)
-		{
-			win->winHide(TRUE);
-		}
-		else
-		{
-			win->winHide(FALSE);
-			GadgetStaticTextSetText(win, TheGameText->fetch("GUI:FetchingPlayerInfo"));
-		}
-	}
-	
-	win = findWindow(NULL, parentWindowName, "ListboxInfo");
-	if(win)
-	{
-		populateBattleHonors(stats, stats.battleHonors,stats.gamesInRowWithLastGeneral,stats.lastGeneral,stats.challengeMedals, win);
-	}
+				// NGMP: Dont show the "from <locale> anymore...
+#if defined(GENERALS_ONLINE)
+				uStr.format(L"%hs", lookAtPlayerName.c_str());
+#else
+				uStr.format(TheGameText->fetch("GUI:PlayerStatistics"), lookAtPlayerName.c_str(), TheGameText->fetch(localeID).str());
+#endif
+				GadgetStaticTextSetText(win, uStr);
+			}
+			win = findWindow(NULL, parentWindowName, "StaticTextGamesPlayedValue");
+			if (win)
+			{
+				uStr.format(L"%d", numGames);
+				GadgetStaticTextSetText(win, uStr);
+			}
+			win = findWindow(NULL, parentWindowName, "StaticTextWinsValue");
+			if (win)
+			{
+				uStr.format(L"%d", numWins);
+				GadgetStaticTextSetText(win, uStr);
+			}
+			win = findWindow(NULL, parentWindowName, "StaticTextLossesValue");
+			if (win)
+			{
+				uStr.format(L"%d", numLosses);
+				GadgetStaticTextSetText(win, uStr);
+			}
+			win = findWindow(NULL, parentWindowName, "StaticTextDisconnectsValue");
+			if (win)
+			{
+				uStr.format(L"%d", numDiscons);
+				GadgetStaticTextSetText(win, uStr);
+			}
+
+			win = findWindow(NULL, parentWindowName, "StaticTextBestStreakValue");
+			if (win)
+			{
+				uStr.format(L"%d", stats.maxWinsInARow);
+				GadgetStaticTextSetText(win, uStr);
+			}
+
+			win = findWindow(NULL, parentWindowName, "StaticTextStreak");
+			if (win)
+			{
+				if (stats.lossesInARow > 0)
+				{
+					GadgetStaticTextSetText(win, TheGameText->fetch("GUI:CurrentLossStreak"));
+				}
+				else
+				{
+					GadgetStaticTextSetText(win, TheGameText->fetch("GUI:CurrentWinStreak"));
+				}
+			}
+			win = findWindow(NULL, parentWindowName, "StaticTextStreakValue");
+			if (win)
+			{
+				Int streak = max(stats.lossesInARow, stats.winsInARow);
+				uStr.format(L"%d", streak);
+				GadgetStaticTextSetText(win, uStr);
+			}
+
+			win = findWindow(NULL, parentWindowName, "StaticTextTotalKillsValue");
+			if (win)
+			{
+				Int numGames = 0;
+				for (it = stats.unitsKilled.begin(); it != stats.unitsKilled.end(); ++it)
+				{
+					numGames += it->second;
+				}
+				uStr.format(L"%d", numGames);
+				GadgetStaticTextSetText(win, uStr);
+			}
+			win = findWindow(NULL, parentWindowName, "StaticTextTotalDeathsValue");
+			if (win)
+			{
+				Int numGames = 0;
+				for (it = stats.unitsLost.begin(); it != stats.unitsLost.end(); ++it)
+				{
+					numGames += it->second;
+				}
+				uStr.format(L"%d", numGames);
+				GadgetStaticTextSetText(win, uStr);
+			}
+			win = findWindow(NULL, parentWindowName, "StaticTextTotalBuiltValue");
+			if (win)
+			{
+				Int numGames = 0;
+				for (it = stats.unitsBuilt.begin(); it != stats.unitsBuilt.end(); ++it)
+				{
+					numGames += it->second;
+				}
+				uStr.format(L"%d", numGames);
+				GadgetStaticTextSetText(win, uStr);
+			}
+			win = findWindow(NULL, parentWindowName, "StaticTextBuildingsKilledValue");
+			if (win)
+			{
+				Int numGames = 0;
+				for (it = stats.buildingsKilled.begin(); it != stats.buildingsKilled.end(); ++it)
+				{
+					numGames += it->second;
+				}
+				uStr.format(L"%d", numGames);
+				GadgetStaticTextSetText(win, uStr);
+			}
+			win = findWindow(NULL, parentWindowName, "StaticTextBuildingsLostValue");
+			if (win)
+			{
+				Int numGames = 0;
+				for (it = stats.buildingsLost.begin(); it != stats.buildingsLost.end(); ++it)
+				{
+					numGames += it->second;
+				}
+				uStr.format(L"%d", numGames);
+				GadgetStaticTextSetText(win, uStr);
+			}
+			win = findWindow(NULL, parentWindowName, "StaticTextBuildingsBuiltValue");
+			if (win)
+			{
+				Int numGames = 0;
+				for (it = stats.buildingsBuilt.begin(); it != stats.buildingsBuilt.end(); ++it)
+				{
+					numGames += it->second;
+				}
+				uStr.format(L"%d", numGames);
+				GadgetStaticTextSetText(win, uStr);
+			}
+
+			win = findWindow(NULL, parentWindowName, "StaticTextWinPercentValue");
+			if (win)
+			{
+				//GS  prevent divide by zero
+				if (numGames > 0)
+					uStr.format(TheGameText->fetch("GUI:WinPercent"), REAL_TO_INT(numWins / (Real)numGames * 100.0f));
+				else
+					uStr.format(TheGameText->fetch("GUI:WinPercent"), 0);
+				GadgetStaticTextSetText(win, uStr);
+			}
+
+			win = findWindow(NULL, parentWindowName, "ProgressBarRank");
+			if (win && TheRankPointValues)
+			{
+				if (currentRank == MAX_RANKS - 1)
+				{
+					// we've reached the max rank
+					win->winHide(TRUE);
+				}
+				else
+				{
+					GadgetProgressBarSetProgress(win, 100 * INT_TO_REAL(rankPoints - TheRankPointValues->m_ranks[currentRank]) / (TheRankPointValues->m_ranks[currentRank + 1] - TheRankPointValues->m_ranks[currentRank]));
+				}
+			}
+
+			//calculate favorite side and rank overlay image
+			UnicodeString rankStr; //, sideStr, sideRankStr;
+			const PlayerTemplate* pPlayerTemplate = NULL;  //NULL == newbie
+			{	//search all stats for side favorite side (highest numGames)
+				Int mostGames = 0;
+				Int favorite = 0;
+				for (it = stats.games.begin(); it != stats.games.end(); ++it)
+				{
+					if (it->second >= mostGames)
+					{
+						mostGames = it->second;
+						favorite = it->first;
+					}
+				}
+				if (mostGames > 0)
+					pPlayerTemplate = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
+
+				//rank (ex: Corporal)
+				AsciiString rank;
+				rank.format("GUI:GSRank%d", currentRank);
+				rankStr = TheGameText->fetch(rank);
+
+				//		//favorite side  (ex: Toxin, Tank, Stealth, etc.)
+				//		AsciiString side;
+				//		if( mostGames > 0  &&  pPlayerTemplate != NULL )
+				//		{
+				//			if( stats.gamesAsRandom >= mostGames )
+				//				side = "GUI:Random";
+				//			else
+				//				side.format("SIDE:%s", pPlayerTemplate->getSide().str());
+				//		}
+				//
+				//		//combined text (Ex: Toxin Corporal)
+				//		sideStr = TheGameText->fetch(side);
+				//		sideRankStr.format(L"%s - %s", sideStr.str(), rankStr.str() );
+			}
+
+			//rank image;  based on rank and primary faction (USA, China, GLA)
+			win = findWindow(NULL, parentWindowName, "WinRank");
+			if (win && TheRankPointValues)
+			{
+				if (rankPoints == 0 || pPlayerTemplate == NULL)
+					win->winSetEnabledImage(0, TheMappedImageCollection->findImageByName("NewPlayer"));
+				else
+					win->winSetEnabledImage(0, lookupRankImage(pPlayerTemplate->getBaseSide(), currentRank));
+				//x		win->setTooltipText(rankStr);  //ex: Corporal
+			}
+
+			//sub-faction overlay icon  (ex: Tank General, Toxin General, etc.)
+			win = findWindow(NULL, parentWindowName, "FactionImage");
+			if (win && pPlayerTemplate && TheRankPointValues && rankPoints)
+			{
+				win->winSetEnabledImage(0, pPlayerTemplate->getGeneralImage());
+				//x		win->setTooltipText( sideStr );  //ex: Toxin General
+			}
+
+			//favorite side and rank text (Ex: Tank Corporal)
+			win = findWindow(NULL, parentWindowName, "StaticTextRank");
+			if (win)
+			{
+				GadgetStaticTextSetText(win, rankStr);  //just rank
+				//x		win->setTooltipText(sideRankStr);  //ex: Toxin General - Corporal
+			}
+
+			win = findWindow(NULL, parentWindowName, "StaticTextInProgress");
+			if (win)
+			{
+				if (weHaveStats)
+				{
+					win->winHide(TRUE);
+				}
+				else
+				{
+					win->winHide(FALSE);
+					GadgetStaticTextSetText(win, TheGameText->fetch("GUI:FetchingPlayerInfo"));
+				}
+			}
+
+			win = findWindow(NULL, parentWindowName, "ListboxInfo");
+			if (win)
+			{
+				populateBattleHonors(stats, stats.battleHonors, stats.gamesInRowWithLastGeneral, stats.lastGeneral, stats.challengeMedals, win);
+			}
+		}, EStatsRequestPolicy::BYPASS_CACHE_FORCE_REQUEST);
 }
 
 
@@ -1303,13 +1322,13 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 	PopulatePlayerInfoWindows("PopupPlayerInfo.wnd");
 
 	// we're on the myinfo screen
-	if(lookAtPlayerID == TheGameSpyInfo->getLocalProfileID())
+	if(lookAtPlayerID == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
 	{
 		//buttonbuttonOptions->winHide(FALSE);
-		buttonSetLocale->winHide(FALSE);
-		buttonDeleteAccount->winHide(TRUE); // set back to false when we have this worked out.
-		checkBoxAsianFont->winHide(FALSE);
-		checkBoxNonAsianFont->winHide(FALSE);
+		buttonSetLocale->winHide(TRUE);
+		buttonDeleteAccount->winHide(FALSE); // set back to false when we have this worked out.
+		checkBoxAsianFont->winHide(TRUE);
+		checkBoxNonAsianFont->winHide(TRUE);
 	}
 	else
 	{
@@ -1478,7 +1497,11 @@ WindowMsgHandledType GameSpyPlayerInfoOverlaySystem( GameWindow *window, Unsigne
 				{
 					RefreshGameListBoxes();
 					GameSpyCloseOverlay( GSOVERLAY_PLAYERINFO );
-					MessageBoxYesNo(TheGameText->fetch("GUI:DeleteAccount"), TheGameText->fetch("GUI:AreYouSureDeleteAccount"),messageBoxYes, NULL);
+
+					MessageBoxOk(TheGameText->fetch("GUI:DeleteAccount"), UnicodeString(L"NOTE: This will only delete your in-game data. It will not delete your account on our website, forums or bugtracker. Please contact us if you wish to fully delete all of your data."), []()
+						{
+							MessageBoxYesNo(TheGameText->fetch("GUI:DeleteAccount"), TheGameText->fetch("GUI:AreYouSureDeleteAccount"), messageBoxYes, NULL);
+						});
 				}
 				else if (controlID == checkBoxAsianFontID)
 				{
@@ -1531,9 +1554,13 @@ WindowMsgHandledType GameSpyPlayerInfoOverlaySystem( GameWindow *window, Unsigne
 
 static void messageBoxYes( void )
 {
-	BuddyRequest breq;
-	breq.buddyRequestType = BuddyRequest::BUDDYREQUEST_DELETEACCT;
-	TheGameSpyBuddyMessageQueue->addRequest( breq );
-	TheGameSpyInfo->setLocalProfileID(0);
+	// delete account
+	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->DeleteMyAccount();
+
+	NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown();
+
+	// and go back
+	RefreshGameListBoxes();
+	GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
 	
 }

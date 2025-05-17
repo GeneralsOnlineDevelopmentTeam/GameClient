@@ -66,7 +66,7 @@
 #include "W3DDevice/GameClient/W3DCustomScene.h"
 
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -1222,6 +1222,14 @@ void WaterRenderObjClass::update( void )
 	if( TheGameLogic )
 		currLogicFrame = TheGameLogic->getFrame();
 
+	// 60fps... only update the water at the original game speed
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (lastLogicFrame != currLogicFrame && currLogicFrame % 2 != 0)
+	{
+		return;
+	}
+#endif
+
 	m_riverVOrigin += 0.002f;
 	m_riverXOffset += (Real)(0.0125*33/5000);
 	m_riverYOffset += (Real)(2*0.0125*33/5000);
@@ -1234,10 +1242,8 @@ void WaterRenderObjClass::update( void )
 		m_iBumpFrame = 0;
 	}
 
-
-
 	// we only process some things if the logic frame has changed
-	if( lastLogicFrame != currLogicFrame )
+	if (lastLogicFrame != currLogicFrame)
 	{
 
 		// for vertex animated water we need to update the vector field
@@ -2729,7 +2735,6 @@ void WaterRenderObjClass::drawRiverWater(PolygonTrigger *pTrig)
 	{
 		DynamicIBAccessClass::WriteLockClass lockib(&ib_access);
  		UnsignedShort *curIb = lockib.Get_Index_Array();
-		try {
 		for (Int i=0; i<rectangleCount; i++)
 		{
 			//triangle 1
@@ -2744,11 +2749,8 @@ void WaterRenderObjClass::drawRiverWater(PolygonTrigger *pTrig)
 
 			curIb += 6;	//skip the 6 indices we just added.
 		}
-		IndexBufferExceptionFunc();
-		} catch(...) {
-			IndexBufferExceptionFunc();
-		}
 	}
+
 
 	Real shadeR=TheWaterTransparency->m_standingWaterColor.red;
 	Real shadeG=TheWaterTransparency->m_standingWaterColor.green;
@@ -3075,7 +3077,6 @@ void WaterRenderObjClass::drawTrapezoidWater(Vector3 points[4])
 	{
 		DynamicIBAccessClass::WriteLockClass lockib(&ib_access);
  		UnsignedShort *curIb = lockib.Get_Index_Array();
-		try {
 		for (j=0; j<vCount-1; j++)
 		{	for (i=0; i<uCount-1; i++)
 			{
@@ -3091,10 +3092,6 @@ void WaterRenderObjClass::drawTrapezoidWater(Vector3 points[4])
 
 				curIb += 6;	//skip the 6 indices we just added.
 			}
-		}
-		IndexBufferExceptionFunc();
-		} catch(...) {
-			IndexBufferExceptionFunc();
 		}
 	}
 
