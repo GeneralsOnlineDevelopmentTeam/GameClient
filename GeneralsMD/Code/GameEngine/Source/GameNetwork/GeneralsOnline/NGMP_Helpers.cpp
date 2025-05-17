@@ -150,18 +150,6 @@ std::string PrepareChallenge()
 	const unsigned char iv[12] = { {REPLACE_CHALLENGE_IV} };
 #endif
 
-	NetworkLog("Dumping key:");
-	for (int i = 0; i < 32; ++i)
-	{
-		NetworkLog("%d = %d", i, key[i]);
-	}
-
-	NetworkLog("Dumping iv:");
-	for (int i = 0; i < 12; ++i)
-	{
-		NetworkLog("%d = %d", i, iv[i]);
-	}
-
 	// encrypt
 	std::vector<unsigned char> ciphertext((strlen(szChallenge) * sizeof(char)) + crypto_aead_aes256gcm_ABYTES);
 	unsigned long long ciphertext_len;
