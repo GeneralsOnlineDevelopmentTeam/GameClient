@@ -2167,7 +2167,8 @@ void grabMultiPlayerInfo( void )
 			AsciiString sentryMsg;
 			sentryMsg.format("Match Finished\nPlayers:\n");
 
-			for (int i = 0; i < MAX_SLOTS; ++i)
+			int numPlayers = ThePlayerList->getPlayerCount();
+			for (int i = 0; i < numPlayers; ++i)
 			{
 				Player* player = ThePlayerList->getNthPlayer(i);
 
