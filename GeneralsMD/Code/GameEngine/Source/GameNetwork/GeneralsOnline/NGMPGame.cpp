@@ -10,6 +10,7 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "Common/GlobalData.h"
+#include "GameClient/LanguageFilter.h"
 
 NGMPGameSlot::NGMPGameSlot()
 {
@@ -337,6 +338,9 @@ void NGMPGame::launchGame(void)
 #endif
 
 	setGameInProgress(TRUE);
+
+	// disable language filter
+	TheLanguageFilter->reset();
 
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
