@@ -49,7 +49,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 		}
 		else // PROD
 		{
-			return std::format("http://cloud.playgenerals.online:9000/cloud/env:prod:token:{}/{}", strToken, szEndpoint);
+			return std::format("https://cloud.playgenerals.online:9000/cloud/env:prod:token:{}/{}", strToken, szEndpoint);
 		}
 
 	}
@@ -61,7 +61,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 		}
 		else // PROD
 		{
-			return std::format("http://cloud.playgenerals.online:9000/cloud/env:prod/{}", szEndpoint);
+			return std::format("https://cloud.playgenerals.online:9000/cloud/env:prod/{}", szEndpoint);
 		}
 	}
 }
