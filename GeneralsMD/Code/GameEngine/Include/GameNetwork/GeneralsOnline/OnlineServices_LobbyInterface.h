@@ -88,6 +88,7 @@ public:
 	void UpdateCurrentLobby_AIColor(int slot, int color);
 	void UpdateCurrentLobby_AISide(int slot, int side, int updatedStartPos);
 	void UpdateCurrentLobby_AITeam(int slot, int team);
+	void UpdateCurrentLobby_AIStartPos(int slot, int startpos);
 
 	void UpdateCurrentLobby_KickUser(int64_t userID, UnicodeString name);
 	void UpdateCurrentLobby_SetSlotState(uint16_t slotIndex, uint16_t slotState);

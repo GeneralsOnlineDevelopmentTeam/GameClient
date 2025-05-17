@@ -721,9 +721,14 @@ static void handleStartPositionSelection(Int player, int startPos)
 		//slot->setStartPos(startPos);
 
 		// NGMP: Update lobby (if local, for remote players we'll get it from the service)
+		//		 We also allow host to set AI here
 		if (player == myGame->getLocalSlotNum())
 		{
 			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_MyStartPos(startPos);
+		}
+		else if (myGame->amIHost() && slot->isAI()) // AI + Host
+		{
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_AIStartPos(player, startPos);
 		}
 	}
 }
