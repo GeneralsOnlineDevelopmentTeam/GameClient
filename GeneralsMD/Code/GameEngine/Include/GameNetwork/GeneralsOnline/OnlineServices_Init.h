@@ -110,8 +110,10 @@ public:
 
 #if defined(_DEBUG)
 	const static EEnvironment g_Environment = EEnvironment::DEV;
+	#pragma message ("Building for DEV environment")
 #else
 	const static EEnvironment g_Environment = EEnvironment::PROD;
+	#pragma message ("Building for PROD environment")
 #endif
 	static std::string GetAPIEndpoint(const char* szEndpoint, bool bAttachToken);
 

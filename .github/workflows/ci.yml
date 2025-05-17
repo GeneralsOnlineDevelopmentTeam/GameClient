@@ -7,7 +7,7 @@ permissions:
 on:
   push:
     branches:
-      [main, develop, secrets]
+      [main, develop, citest]
   pull_request:
     branches:
       [main, develop]

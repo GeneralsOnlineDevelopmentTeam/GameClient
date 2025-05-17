@@ -1654,7 +1654,13 @@ void InGameUI::update( void )
 	// frame
 	//
 	UnsignedInt currLogicFrame = TheGameLogic->getFrame();
+
+	// GeneralsOnline NOTE: Increasing this, it's short + we increased framerate which is tied into the calc elsewhere
+#if defined(GENERALS_ONLINE)
+	const int messageTimeout = 15 * LOGICFRAMES_PER_SECOND;
+#else
 	const int messageTimeout = m_messageDelayMS / LOGICFRAMES_PER_SECOND / 1000;
+#endif
 	UnsignedByte r, g, b, a;
 	Int amount;
 	for( i = MAX_UI_MESSAGES - 1; i >= 0; i-- )
