@@ -140,7 +140,7 @@ public:
 	template<typename T>
 	T Read()
 	{
-		T outVar;
+		T outVar = T();
 
 		// safety
 		if (m_Offset >= m_memBuffer.GetAllocatedSize())

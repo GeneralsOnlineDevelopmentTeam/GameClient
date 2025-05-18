@@ -1,6 +1,8 @@
 #pragma once
 
+#if !defined(GENERALS_ONLINE)
 #define GENERALS_ONLINE
+#endif
 
 //#define USE_ENCRYPTED_SERVICE_TOKENS 1
 
