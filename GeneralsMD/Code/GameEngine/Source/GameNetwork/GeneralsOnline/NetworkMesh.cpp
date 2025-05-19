@@ -505,6 +505,8 @@ void NetworkMesh::Tick()
 						char ip[INET_ADDRSTRLEN + 1] = { 0 };
 						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
 						NetworkLog("[NGMP]: Got challenge req from %s:%d, sending challenge resp", ip, event.peer->address.port);
+#else // same log, no IP
+						NetworkLog("[NGMP]: Received ack from port %d", event.peer->address.port);
 #endif
 
 						Net_ChallengePacket challengePacket(bitstream);
@@ -543,6 +545,8 @@ void NetworkMesh::Tick()
 						char ip[INET_ADDRSTRLEN + 1] = { 0 };
 						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
 						NetworkLog("[NGMP]: Received ack from %s (user ID: %d), we're now connected", ip, challengeRespPacket.GetUserID());
+#else // same log, no IP
+						NetworkLog("[NGMP]: Received ack from user ID: %d, we're now connected", challengeRespPacket.GetUserID());
 #endif
 
 						// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
