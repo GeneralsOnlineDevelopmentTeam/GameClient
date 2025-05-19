@@ -431,6 +431,9 @@ void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeSt
 
 	NetRoom_ChatMessagePacket chatPacket(strChatMsg, false, false);
 
+	// fake send / process locally too
+	m_pLobbyMesh->ProcessChatMessage(chatPacket, NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
+
 	// TODO_NGMP: Move to uint64 for user id
 	std::vector<int64_t> vecUsersToSend;
 	for (auto kvPair : m_CurrentLobby.members)
@@ -451,6 +454,9 @@ void NGMP_OnlineServices_LobbyInterface::SendAnnouncementMessageToCurrentLobby(U
 	strChatMsg.translate(strAnnouncementMsgUnicode);
 
 	NetRoom_ChatMessagePacket chatPacket(strChatMsg, true, bShowToHost);
+
+	// fake send / process locally too
+	m_pLobbyMesh->ProcessChatMessage(chatPacket, NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
 
 	std::vector<int64_t> vecUsersToSend;
 	if (m_pLobbyMesh != nullptr)

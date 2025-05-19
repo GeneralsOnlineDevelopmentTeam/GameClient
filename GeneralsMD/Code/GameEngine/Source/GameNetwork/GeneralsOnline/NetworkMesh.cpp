@@ -15,6 +15,49 @@
 #include "GameLogic/GameLogic.h"
 
 
+void NetworkMesh::ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int64_t sendingUserID)
+{
+	int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	auto lobbyUsers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
+	for (const auto& lobbyUser : lobbyUsers)
+	{
+		if (lobbyUser.user_id == sendingUserID)
+		{
+			// if its an announce, dont show it to the sender, they did something locally instead
+			if (chatPacket.IsAnnouncement())
+			{
+				// if its not us, show the message
+				if (chatPacket.ShowAnnouncementToHost() || lobbyUser.user_id != localID)
+				{
+					UnicodeString str;
+					str.format(L"%hs", chatPacket.GetMsg().c_str());
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
+				}
+			}
+			else
+			{
+				UnicodeString str;
+				str.format(L"%hs: %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
+				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
+			}
+
+
+			break;
+		}
+	}
+}
+
+void NetworkMesh::ProcessGameStart(Lobby_StartGamePacket& startGamePacket)
+{
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
+
+	// increase our timeout, Generals has its own timeout code and allows reconnecting, so just set an extremely long value and let the game handle it.
+	for (auto& connectionInfo : m_mapConnections)
+	{
+		enet_peer_timeout(connectionInfo.second.m_peer, 0, 0, 0);
+	}
+}
+
 bool NetworkMesh::HasGamePacket()
 {
 	return !m_queueQueuedGamePackets.empty();
@@ -136,6 +179,13 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 
 void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsReconnect)
 {
+	// never connect to ourself
+	if (lobbyMember.user_id == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
+	{
+		NetworkLog("NetworkMesh::ConnectToSingleUser - Skipping connection to user %lld - user is local", lobbyMember.user_id);
+		return;
+	}
+
 	ENetAddress addr;
 	enet_address_set_host(&addr, lobbyMember.strIPAddress.c_str());
 	addr.port = lobbyMember.preferredPort;
@@ -164,9 +214,19 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	{
 		// TODO_NGMP: Is this really necessary
 		enet_address_set_host(&addr, "127.0.0.1");
+		// dont connect to ourselves
+
+		NetworkLog("NetworkMesh::ConnectToSingleUser - not connecting to ourselves (%lld)", user_id);
+		return;
+	}
+	else
+	{
+		//enet_address_set_host(&addr, "127.0.0.1");
+		//addr.port = 7777;
 	}
 
 	/* Initiate the connection, allocating the 3 channels. */
+	
 	ENetPeer* peer = enet_host_connect(enetInstance, &addr, 3, 0);
 
 	// don't care about in-game
@@ -385,7 +445,7 @@ void NetworkMesh::Tick()
 							));
 						}
 
-						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback();
+						//NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback();
 						return;
 					}
 				}
@@ -541,6 +601,11 @@ void NetworkMesh::Tick()
 					{
 						Net_ChallengeRespPacket challengeRespPacket(bitstream);
 
+						if (challengeRespPacket.GetUserID() == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
+						{
+							continue;
+						}
+
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 						char ip[INET_ADDRSTRLEN + 1] = { 0 };
 						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
@@ -591,13 +656,8 @@ void NetworkMesh::Tick()
 						// TODO_NGMP: Ignore if not host sending
 						NetworkLog("[NGMP]: Got start game packet from %d", event.peer->incomingPeerID);
 
-						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
-
-						// increase our timeout, Generals has its own timeout code and allows reconnecting, so just set an extremely long value and let the game handle it.
-						for (auto& connectionInfo : m_mapConnections)
-						{
-							enet_peer_timeout(connectionInfo.second.m_peer, 0, 0, 0);
-						}
+						Lobby_StartGamePacket startGamePacket(bitstream);
+						ProcessGameStart(startGamePacket);
 					}
 					else if (packetID == EPacketID::PACKET_ID_NET_ROOM_CHAT_MSG)
 					{
@@ -607,39 +667,11 @@ void NetworkMesh::Tick()
 						NetworkLog("[NGMP]: Received chat message of len %d: %s from %d", chatPacket.GetMsg().length(), chatPacket.GetMsg().c_str(), event.peer->incomingPeerID);
 
 						// get host ID
-						int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-
 						PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
 
 						if (pConnection != nullptr)
 						{
-							auto lobbyUsers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
-							for (const auto& lobbyUser : lobbyUsers)
-							{
-								if (lobbyUser.user_id == pConnection->m_userID)
-								{
-									// if its an announce, dont show it to the sender, they did something locally instead
-									if (chatPacket.IsAnnouncement())
-									{
-										// if its not us, show the message
-										if (chatPacket.ShowAnnouncementToHost() || lobbyUser.user_id != localID)
-										{
-											UnicodeString str;
-											str.format(L"%hs", chatPacket.GetMsg().c_str());
-											NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
-										}
-									}
-									else
-									{
-										UnicodeString str;
-										str.format(L"%hs: %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
-										NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
-									}
-
-
-									break;
-								}
-							}
+							ProcessChatMessage(chatPacket, pConnection->m_userID);
 						}
 
 					}

@@ -3,6 +3,9 @@
 #include "NGMP_include.h"
 #include <ws2ipdef.h>
 
+class NetRoom_ChatMessagePacket;
+class Lobby_StartGamePacket;
+
 enum class EConnectionState
 {
 	NOT_CONNECTED,
@@ -85,7 +88,9 @@ public:
 
 	}
 
-	
+	void ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int64_t sendingUserID);
+	void ProcessGameStart(Lobby_StartGamePacket& startGamePacket);
+
 	std::queue<QueuedGamePacket> m_queueQueuedGamePackets;
 
 	bool HasGamePacket();

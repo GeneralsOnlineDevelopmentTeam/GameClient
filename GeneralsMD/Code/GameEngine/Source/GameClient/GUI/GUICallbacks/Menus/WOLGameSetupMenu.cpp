@@ -921,6 +921,13 @@ static void StartPressed(void)
 		Lobby_StartGamePacket startGamePacket;
 		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendToMesh(startGamePacket);
 
+		// process locally too
+		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+		if (pMesh != nullptr)
+		{
+			pMesh->ProcessGameStart(startGamePacket);
+		}
+
 		// TODO_NGMP
 		//SendStatsToOtherPlayers(myGame);
 
