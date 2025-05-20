@@ -25,11 +25,18 @@ public:
 	}
 
 
-	PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* peer)
+	PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* peer, bool bStartSendingHellosAgain)
 	{
 		m_userID = userID;
 		m_address = addr;
 		m_peer = peer;
+
+		if (bStartSendingHellosAgain)
+		{
+			NetworkLog("Starting sending hellos 1");
+			m_bNeedsHelloSent = true;
+		}
+		// otherwise, keep whatever start we were in, its just a connection update
 
 		enet_peer_timeout(m_peer, 5, 1000, 1000);
 	}
@@ -57,6 +64,8 @@ public:
 #endif
 	}
 
+	void Tick();
+
 	
 	int64_t m_userID = -1;
 	ENetAddress m_address;
@@ -65,6 +74,9 @@ public:
 	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
 	int m_ConnectionAttempts = 0;
 	int64_t m_lastConnectionAttempt = -1;
+
+	int64_t lastHelloSent = -1;
+	bool m_bNeedsHelloSent = true;
 
 	int64_t pingSent = -1;
 	int latency = -1;

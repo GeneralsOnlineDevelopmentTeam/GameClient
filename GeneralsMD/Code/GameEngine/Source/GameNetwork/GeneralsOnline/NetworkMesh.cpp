@@ -243,8 +243,9 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 		// TODO_RELAY: We shouldn't really rly on the normal handshake flow, it doesnt really account for connecting to multiple users via one relay. We must ALWAYS use the flow below
 		
 		// send challenge
-		Net_ChallengePacket challengePacket;
-		m_mapConnections[user_id].SendPacket(challengePacket, 2);
+		// // TODO_RELAY
+		////Net_ChallengePacket challengePacket;
+		////m_mapConnections[user_id].SendPacket(challengePacket, 2);
 	}
 	else
 	{
@@ -263,11 +264,13 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 		}
 
 		// TODO_RELAY: How do we want to handle m_peer?
-		m_mapConnections[user_id].m_peer = m_pRelayPeer;
+		//m_mapConnections[user_id].m_peer = m_pRelayPeer;
+		m_mapConnections[user_id].m_peer = nullptr;
 
 		// send challenge
-		Net_ChallengePacket challengePacket;
-		m_mapConnections[user_id].SendPacket(challengePacket, 2);
+		// TODO_RELAY
+		////Net_ChallengePacket challengePacket;
+		////m_mapConnections[user_id].SendPacket(challengePacket, 2);
 	}
 }
 	
@@ -293,8 +296,11 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	}
 	else
 	{
+
+#if defined(GENERALS_ONLINE_FORCE_RELAY)
 		enet_address_set_host(&addr, "127.1.2.3");
 		addr.port = 9999;
+#endif
 	}
 
 	/* Initiate the connection, allocating the 3 channels. */
@@ -326,7 +332,7 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	// store it
 	if (!bIsReconnect)
 	{
-		m_mapConnections[user_id] = PlayerConnection(user_id, addr, peer);
+		m_mapConnections[user_id] = PlayerConnection(user_id, addr, peer, true);
 	}
 
 	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING_DIRECT;
@@ -427,6 +433,12 @@ void NetworkMesh::Tick()
 	if (currTime - m_lastPing > 1000)
 	{
 		SendPing();
+	}
+
+	// tick connections
+	for (auto& connectionData : m_mapConnections)
+	{
+		connectionData.second.Tick();
 	}
 
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
@@ -565,6 +577,19 @@ void NetworkMesh::Tick()
 			{
 			case ENET_EVENT_TYPE_CONNECT:
 			{
+#if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
+				char ip[INET_ADDRSTRLEN + 1] = { 0 };
+				if (enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip)) == 0)
+				{
+					NetworkLog("[SERVER] A new client connected from %s:%u. Starting wait for hello",
+						ip,
+						event.peer->address.port);
+				}
+#endif
+
+				NetworkLog("[SERVER] Got a new connection, waiting for hello");
+
+				/*
 				// TODO_NGMP: Set a timeout where we remove it, and only accept hello if not connected
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 				char ip[INET_ADDRSTRLEN + 1] = { 0 };
@@ -584,8 +609,21 @@ void NetworkMesh::Tick()
 				ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 					ENET_PACKET_FLAG_RELIABLE);
 
-				enet_peer_send(event.peer, 2, pENetPacket);
+				if (event.peer == m_pRelayPeer)
+				{
+					// repackage with relay header (unencrypted, 9 bytes) + use relay channel
+					// grow
+					pBitStream->GetMemoryBuffer().ReAllocate(pBitStream->GetMemoryBuffer().GetAllocatedSize() + 9);
+					pBitStream->Write<int64_t>(m_userID);
+					pBitStream->Write<uint8_t>(channel);
 
+					enet_peer_send(event.peer, 2, pENetPacket);
+				}
+				else
+				{
+					enet_peer_send(event.peer, 2, pENetPacket);
+				}
+				*/
 				break;
 			}
 				
@@ -630,8 +668,34 @@ void NetworkMesh::Tick()
 					bitstream.Decrypt(currentLobby.EncKey, currentLobby.EncIV);
 
 					EPacketID packetID = bitstream.Read<EPacketID>();
+					if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO) // remote host is sending us hello
+					{
+						NetRoom_HelloPacket helloPacket(bitstream);
 
-					if (packetID == EPacketID::PACKET_ID_CHALLENGE) // remote host is challenging us
+						// send challenge
+						Net_ChallengePacket challengePacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
+						CBitStream* pBitStream = challengePacket.Serialize();
+						pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
+							ENET_PACKET_FLAG_RELIABLE);
+
+						if (event.peer == m_pRelayPeer)
+						{
+							// repackage with relay header (unencrypted, 9 bytes) + use relay channel
+							// grow
+							pBitStream->GetMemoryBuffer().ReAllocate(pBitStream->GetMemoryBuffer().GetAllocatedSize() + 9);
+							pBitStream->Write<int64_t>(helloPacket.GetUserID());
+							pBitStream->Write<uint8_t>(2);
+
+							enet_peer_send(event.peer, 4, pENetPacket);
+						}
+						else
+						{
+							enet_peer_send(event.peer, 2, pENetPacket);
+						}
+					}
+					else  if (packetID == EPacketID::PACKET_ID_CHALLENGE) // remote host is challenging us
 					{
 						// server sends hello ack in response to hello
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
@@ -643,6 +707,10 @@ void NetworkMesh::Tick()
 #endif
 
 						Net_ChallengePacket challengePacket(bitstream);
+
+						// we no longer need to send hellos, challenge is the response to hello
+						NetworkLog("Stopping sending hellos 1");
+						m_mapConnections[challengePacket.GetUserID()].m_bNeedsHelloSent = false;
 
 						// just send manually to that one user, dont broadcast
 						Net_ChallengeRespPacket challengeRespPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
@@ -679,6 +747,12 @@ void NetworkMesh::Tick()
 							continue;
 						}
 
+						// only if not already connected
+						if (m_mapConnections[challengeRespPacket.GetUserID()].m_State == EConnectionState::CONNECTED_DIRECT || m_mapConnections[challengeRespPacket.GetUserID()].m_State == EConnectionState::CONNECTED_RELAY)
+						{
+							continue;
+						}
+
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 						char ip[INET_ADDRSTRLEN + 1] = { 0 };
 						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
@@ -687,13 +761,16 @@ void NetworkMesh::Tick()
 						NetworkLog("[NGMP]: Received ack from user ID: %d, we're now connected", challengeRespPacket.GetUserID());
 #endif
 
+						NetworkLog("Stopping sending hellos 2");
+						m_mapConnections[challengeRespPacket.GetUserID()].m_bNeedsHelloSent = false;
+
 						// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
 						// store the connection
 
 						// only do this if it's not a relayed connection
 						if (m_mapConnections[challengeRespPacket.GetUserID()].m_State != EConnectionState::CONNECTING_RELAY)
 						{
-							m_mapConnections[challengeRespPacket.GetUserID()] = PlayerConnection(challengeRespPacket.GetUserID(), event.peer->address, event.peer);
+							m_mapConnections[challengeRespPacket.GetUserID()] = PlayerConnection(challengeRespPacket.GetUserID(), event.peer->address, event.peer, false);
 						}
 
 
@@ -933,12 +1010,15 @@ ENetPeer* PlayerConnection::GetPeerToUse()
 // TODO_RELAY: determine channel from packet type
 int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 {
+	if (m_State != EConnectionState::CONNECTED_DIRECT && m_State != EConnectionState::CONNECTED_RELAY)
+	{
+		NetworkLog("WARNING: Attempting to send packet before connected, state is %d", m_State);
+		return 0;
+	}
+
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
 
-	CBitStream* pBitStream = packet.Serialize();
-	pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
-
-	ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
+	
 
 	/*
 
@@ -951,6 +1031,11 @@ CONNECTION_FAILED
 	}
 	else if (m_State == EConnectionState::CONNECTING_DIRECT || m_State == EConnectionState::CONNECTED_DIRECT)
 	{
+		CBitStream* pBitStream = packet.Serialize();
+		pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
+
 		return enet_peer_send(m_peer, channel, pENetPacket);
 	}
 	else if (m_State == EConnectionState::CONNECTING_RELAY || m_State == EConnectionState::CONNECTED_RELAY)
@@ -959,7 +1044,19 @@ CONNECTION_FAILED
 		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
 		if (pMesh != nullptr)
 		{
-			return enet_peer_send(pMesh->GetRelayPeer(), channel, pENetPacket);
+			// encrypt the game packet as normal
+			CBitStream* pBitStream = packet.Serialize();
+			pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+			// repackage with relay header (unencrypted, 9 bytes) + use relay channel
+			// grow
+			pBitStream->GetMemoryBuffer().ReAllocate(pBitStream->GetMemoryBuffer().GetAllocatedSize() + 9);
+			pBitStream->Write<int64_t>(m_userID);
+			pBitStream->Write<uint8_t>(channel);
+
+			ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
+
+			return enet_peer_send(pMesh->GetRelayPeer(), 4, pENetPacket);
 		}
 		else
 		{
@@ -969,4 +1066,46 @@ CONNECTION_FAILED
 	}
 
 	return -3;
+}
+
+void PlayerConnection::Tick()
+{
+	if (m_bNeedsHelloSent)
+	{
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();;
+		if (currTime - lastHelloSent >= 1000)
+		{
+			lastHelloSent = currTime;
+
+			NetworkLog("Sending hello again");
+
+			auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+
+			NetRoom_HelloPacket helloPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
+			CBitStream* pBitStream = helloPacket.Serialize();
+			pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+			ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
+				ENET_PACKET_FLAG_RELIABLE);
+
+			// TODO_RELAY: must suport this
+			//if (event.peer == m_pRelayPeer)
+			if (false)
+			{
+				// repackage with relay header (unencrypted, 9 bytes) + use relay channel
+				// grow
+				//pBitStream->GetMemoryBuffer().ReAllocate(pBitStream->GetMemoryBuffer().GetAllocatedSize() + 9);
+				//pBitStream->Write<int64_t>(helloPacket.GetUserID());
+				//pBitStream->Write<uint8_t>(2);
+
+				//enet_peer_send(event.peer, 4, pENetPacket);
+			}
+			else
+			{
+				enet_peer_send(m_peer, 2, pENetPacket);
+			}
+		}
+
+
+	}
 }

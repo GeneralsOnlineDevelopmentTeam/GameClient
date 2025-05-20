@@ -20,13 +20,16 @@ private:
 class Net_ChallengePacket : public NetworkPacket
 {
 public:
-	Net_ChallengePacket();
+	Net_ChallengePacket(int64_t myUserID);
 
 	Net_ChallengePacket(CBitStream& bitstream);
 
 	virtual CBitStream* Serialize() override;
 
+	int64_t GetUserID() const { return m_user_id; }
+
 private:
+	int64_t m_user_id = -1;
 };
 
 class Net_ChallengeRespPacket : public NetworkPacket
