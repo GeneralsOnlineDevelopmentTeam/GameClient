@@ -436,6 +436,7 @@ void NetworkMesh::Tick()
 	}
 
 	// tick connections
+	// TODO_RELAY: does this ever get cleaned up
 	for (auto& connectionData : m_mapConnections)
 	{
 		connectionData.second.Tick();
@@ -1029,7 +1030,7 @@ CONNECTION_FAILED
 
 void PlayerConnection::Tick()
 {
-	if (m_bNeedsHelloSent)
+	if (m_bNeedsHelloSent && m_peer != nullptr)
 	{
 		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();;
 		if (currTime - lastHelloSent >= 1000)
