@@ -88,7 +88,7 @@ bool NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t 
 
 	if (m_mapConnections.contains(user_id))
 	{
-		int ret = enet_peer_send(m_mapConnections[user_id].m_peer, 1, pENetPacket);
+		int ret = enet_peer_send(m_mapConnections[user_id].GetPeerToUse(), 1, pENetPacket);
 
 		if (ret == 0)
 		{
@@ -111,6 +111,9 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 {
 	// 
 	// TODO_NGMP: Respect vecTargetUsers again
+
+	// TODO_RELAY: Impl this again, right now we serialize PER target, which is wasteful
+	/*
 	CBitStream* pBitStream = packet.Serialize();
 
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
@@ -118,24 +121,43 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 
 	ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 		0); // TODO_NGMP: Support flags
+		*/
 
 
 	for (auto& connection : m_mapConnections)
 	{
-		ENetPeer* peer = connection.second.m_peer;
+		//ENetPeer* peer = connection.second.m_peer;
 
-		if (peer != nullptr)
+		//if (peer != nullptr)
 		{
-			int ret = enet_peer_send(peer, 0, pENetPacket);
+			//int ret = enet_peer_send(peer, 0, pENetPacket);
+			int ret = connection.second.SendPacket(packet, 0);
 
-			std::string ip = connection.second.GetIPAddrString();
-			if (ret == 0)
+
+			if (connection.second.m_State == EConnectionState::CONNECTING_RELAY || connection.second.m_State == EConnectionState::CONNECTED_RELAY)
 			{
-				NetworkLog("Packet Sent! %s:%d", ip.c_str(), peer->address.port);
+				if (ret == 0)
+				{
+					NetworkLog("Packet Sent! Via Relay");
+				}
+				else
+				{
+					NetworkLog("Packet Failed To Send! Via Relay");
+				}
 			}
 			else
 			{
-				NetworkLog("Packet Failed To Send! %s:%d", ip.c_str(), peer->address.port);
+				std::string ip = connection.second.GetIPAddrString();
+				ENetPeer* peer = connection.second.m_peer;
+
+				if (ret == 0)
+				{
+					NetworkLog("Packet Sent! %s:%d", ip.c_str(), peer->address.port);
+				}
+				else
+				{
+					NetworkLog("Packet Failed To Send! %s:%d", ip.c_str(), peer->address.port);
+				}
 			}
 		}
 	}
@@ -200,6 +222,50 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 	ConnectToSingleUser(addr, lobbyMember.user_id, bIsReconnect);
 }
 
+void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
+{
+	NetworkLog("NetworkMesh::ConnectToUserViaRelay - Attempting to connect to user %lld via relay", user_id);
+
+	// update
+	m_mapConnections[user_id].m_peer = nullptr;
+	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING_RELAY;
+	m_mapConnections[user_id].m_ConnectionAttempts = 0;
+	m_mapConnections[user_id].m_lastConnectionAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	
+	NetworkLog("[SERVER] Connecting to user %lld via relay.\n", user_id);
+
+	// TODO_RELAY: is it already connected?
+	if (m_pRelayPeer != nullptr) // in this case, we'll get a connect event and we can use that to send handshake
+	{
+		// TODO_RELAY: We shouldn't really rly on the normal handshake flow, it doesnt really account for connecting to multiple users via one relay. We must ALWAYS use the flow below
+		
+		// send challenge
+		Net_ChallengePacket challengePacket;
+		m_mapConnections[user_id].SendPacket(challengePacket, 2);
+	}
+	else
+	{
+		// relay details
+		ENetAddress addr;
+		enet_address_set_host(&addr, "127.0.0.1");
+		addr.port = 7777;
+
+		m_pRelayPeer = enet_host_connect(enetInstance, &addr, 3, 0);
+
+		if (m_pRelayPeer == nullptr)
+		{
+			// TODO_NGMP: Better handling
+			NetworkLog("No available peers for initiating an ENet connection to relay.");
+			return;
+		}
+
+		// send challenge
+		Net_ChallengePacket challengePacket;
+		m_mapConnections[user_id].SendPacket(challengePacket, 2);
+	}
+}
+	
+
 void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect /*= false*/)
 {
 	// is it already connected?
@@ -221,8 +287,8 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	}
 	else
 	{
-		//enet_address_set_host(&addr, "127.0.0.1");
-		//addr.port = 7777;
+		enet_address_set_host(&addr, "127.1.2.3");
+		addr.port = 9999;
 	}
 
 	/* Initiate the connection, allocating the 3 channels. */
@@ -257,7 +323,7 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 		m_mapConnections[user_id] = PlayerConnection(user_id, addr, peer);
 	}
 
-	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING;
+	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING_DIRECT;
 
 	if (bIsReconnect)
 	{
@@ -329,6 +395,7 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 
 void NetworkMesh::Disconnect()
 {
+	// TODO_RELAY: Handle relay disconnects?
 	if (enetInstance != nullptr)
 	{
 		for (auto& connectionData : m_mapConnections)
@@ -384,7 +451,7 @@ void NetworkMesh::Tick()
 					int numConnectedConnections = 0;
 					for (const auto& connectionData : m_mapConnections)
 					{
-						if (connectionData.second.m_State == EConnectionState::CONNECTED_DIRECT || connectionData.second.m_State == EConnectionState::CONNECTED_RELAY_1 || connectionData.second.m_State == EConnectionState::CONNECTED_RELAY_2)
+						if (connectionData.second.m_State == EConnectionState::CONNECTED_DIRECT || connectionData.second.m_State == EConnectionState::CONNECTED_RELAY)
 						{
 							++numConnectedConnections;
 						}
@@ -616,8 +683,22 @@ void NetworkMesh::Tick()
 
 						// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
 						// store the connection
-						m_mapConnections[challengeRespPacket.GetUserID()] = PlayerConnection(challengeRespPacket.GetUserID(), event.peer->address, event.peer);
-						m_mapConnections[challengeRespPacket.GetUserID()].m_State = EConnectionState::CONNECTED_DIRECT;
+
+						// only do this if it's not a relayed connection
+						if (m_mapConnections[challengeRespPacket.GetUserID()].m_State != EConnectionState::CONNECTING_RELAY)
+						{
+							m_mapConnections[challengeRespPacket.GetUserID()] = PlayerConnection(challengeRespPacket.GetUserID(), event.peer->address, event.peer);
+						}
+
+
+						if (m_mapConnections[challengeRespPacket.GetUserID()].m_State == EConnectionState::CONNECTING_RELAY)
+						{
+							m_mapConnections[challengeRespPacket.GetUserID()].m_State = EConnectionState::CONNECTED_RELAY;
+						}
+						else
+						{
+							m_mapConnections[challengeRespPacket.GetUserID()].m_State = EConnectionState::CONNECTED_DIRECT;
+						}
 
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 						NetworkLog("[NGMP]: Registered client connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, challengeRespPacket.GetUserID());
@@ -677,6 +758,7 @@ void NetworkMesh::Tick()
 					}
 					else if (packetID == EPacketID::PACKET_ID_PING)
 					{
+						/*
 						NetworkLog("Received Ping");
 						// send pong
 						NetworkPacket_Pong pongPacket;
@@ -690,8 +772,9 @@ void NetworkMesh::Tick()
 
 						if (pConnection != nullptr)
 						{
-							enet_peer_send(pConnection->m_peer, 0, pENetPacket);
+							//enet_peer_send(pConnection->m_peer, 0, pENetPacket);
 						}
+						*/
 					}
 					else if (packetID == EPacketID::PACKET_ID_PONG)
 					{
@@ -726,12 +809,23 @@ void NetworkMesh::Tick()
 
 				if (pConnection != nullptr)
 				{
-					if (pConnection->m_State == EConnectionState::CONNECTING)
+					if (pConnection->m_State == EConnectionState::CONNECTING_DIRECT || pConnection->m_State == EConnectionState::CONNECTING_RELAY)
 					{
-						NetworkLog("[SERVER] %d timed out while connecting.\n", pConnection->m_userID);
+						if (pConnection->m_State == EConnectionState::CONNECTING_DIRECT)
+						{
+							NetworkLog("[SERVER] %d timed out while connecting directly, attempting to use relay\n", pConnection->m_userID);
+							ConnectToUserViaRelay(pConnection->m_userID);
+						}
+						else
+						{
+							NetworkLog("[SERVER] %d timed out while connecting via relay, closing connection and throwing error\n", pConnection->m_userID);
 
-						// remove it, they disconnected
-						m_mapConnections.erase(pConnection->m_userID);
+							// remove it, they disconnected
+							m_mapConnections.erase(pConnection->m_userID);
+						}
+						
+
+						
 
 						/*
 						// should we retry?
@@ -783,6 +877,7 @@ void NetworkMesh::Tick()
 
 void NetworkMesh::SendPing()
 {
+	/*
 	m_lastPing = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
 	// TODO_NGMP: Better way of checking we have everything we need / are fully in the lobby
@@ -804,8 +899,64 @@ void NetworkMesh::SendPing()
 		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
 			ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
 
-		enet_peer_send(connectionInfo.second.m_peer, 0, pENetPacket);
+		//enet_peer_send(connectionInfo.second.m_peer, 0, pENetPacket);
 
 		connectionInfo.second.pingSent = m_lastPing;
 	}
+	*/
+}
+
+ENetPeer* PlayerConnection::GetPeerToUse()
+{
+	if (m_peer == nullptr)
+	{
+		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+		if (pMesh != nullptr)
+		{
+			return pMesh->GetRelayPeer();
+		}
+	}
+	
+	return m_peer;
+}
+
+// TODO_RELAY: determine channel from packet type
+int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
+{
+	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+
+	CBitStream* pBitStream = packet.Serialize();
+	pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+	ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
+
+	/*
+
+CONNECTION_FAILED
+	*/
+	if (m_State == EConnectionState::NOT_CONNECTED
+		|| m_State == EConnectionState::CONNECTION_FAILED)
+	{
+		return -1;
+	}
+	else if (m_State == EConnectionState::CONNECTING_DIRECT || m_State == EConnectionState::CONNECTED_DIRECT)
+	{
+		return enet_peer_send(m_peer, channel, pENetPacket);
+	}
+	else if (m_State == EConnectionState::CONNECTING_RELAY || m_State == EConnectionState::CONNECTED_RELAY)
+	{
+		// use relay peer
+		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+		if (pMesh != nullptr)
+		{
+			return enet_peer_send(pMesh->GetRelayPeer(), channel, pENetPacket);
+		}
+		else
+		{
+			// TODO_RELAY: error
+			return -2;
+		}
+	}
+
+	return -3;
 }

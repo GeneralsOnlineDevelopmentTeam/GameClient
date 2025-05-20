@@ -9,10 +9,10 @@ class Lobby_StartGamePacket;
 enum class EConnectionState
 {
 	NOT_CONNECTED,
-	CONNECTING,
+	CONNECTING_DIRECT,
+	CONNECTING_RELAY,
 	CONNECTED_DIRECT,
-	CONNECTED_RELAY_1,
-	CONNECTED_RELAY_2,
+	CONNECTED_RELAY,
 	CONNECTION_FAILED
 };
 
@@ -33,6 +33,9 @@ public:
 
 		enet_peer_timeout(m_peer, 5, 1000, 1000);
 	}
+
+	ENetPeer* GetPeerToUse();
+	int SendPacket(NetworkPacket& packet, int channel);
 
 	std::string GetIPAddrString(bool bForceReveal = false)
 	{
@@ -103,6 +106,9 @@ public:
 
 	void ConnectToSingleUser(LobbyMemberEntry& member, bool bIsReconnect = false);
 	void ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect = false);
+
+	void ConnectToUserViaRelay(Int64 user_id);
+
 	void ConnectToMesh(LobbyEntry& lobby);
 
 	void Disconnect();
@@ -132,9 +138,15 @@ public:
 		return nullptr;
 	}
 
+	ENetPeer* GetRelayPeer()
+	{
+		return m_pRelayPeer;
+	}
+
 private:
 	PlayerConnection* GetConnectionForPeer(ENetPeer* peer)
 	{
+		// TODO_RELAY: need to update how this works
 		for (auto& connection : m_mapConnections)
 		{
 			if (connection.second.m_peer->address.host == peer->address.host
@@ -145,11 +157,14 @@ private:
 		}
 		return nullptr;
 	}
+
 private:
 	ENetworkMeshType m_meshType;
 
 	ENetAddress server_address;
 	ENetHost* enetInstance = nullptr;
+
+	ENetPeer* m_pRelayPeer = nullptr;
 
 	std::map<int64_t, PlayerConnection> m_mapConnections;
 };

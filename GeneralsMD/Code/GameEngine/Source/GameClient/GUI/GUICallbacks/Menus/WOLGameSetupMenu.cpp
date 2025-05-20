@@ -925,7 +925,8 @@ static void StartPressed(void)
 		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
 		if (pMesh != nullptr)
 		{
-			pMesh->ProcessGameStart(startGamePacket);
+			Lobby_StartGamePacket startGamePacket2;
+			pMesh->ProcessGameStart(startGamePacket2);
 		}
 
 		// TODO_NGMP
@@ -2855,21 +2856,21 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 				strState = "Not Connected";
 				break;
 
-			case EConnectionState::CONNECTING:
-				strState = "Connecting";
+			case EConnectionState::CONNECTING_DIRECT:
+				strState = "Connecting (Direct)";
+				break;
+			case EConnectionState::CONNECTING_RELAY:
+				strState = "Connecting (Relay)";
 				break;
 
 			case EConnectionState::CONNECTED_DIRECT:
-				strState = "Connected Direct";
+				strState = "Connected (Direct)";
 				break;
 
-			case EConnectionState::CONNECTED_RELAY_1:
-				strState = "Connected Relay 1";
+			case EConnectionState::CONNECTED_RELAY:
+				strState = "Connected (Relay)";
 				break;
 
-			case EConnectionState::CONNECTED_RELAY_2:
-				strState = "Connected Relay 2";
-				break;
 
 			case EConnectionState::CONNECTION_FAILED:
 				strState = "Connection Failed";
