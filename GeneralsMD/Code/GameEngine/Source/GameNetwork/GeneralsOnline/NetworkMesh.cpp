@@ -672,9 +672,9 @@ void NetworkMesh::Tick()
 					{
 						NetRoom_HelloPacket helloPacket(bitstream);
 
-						// send challenge
-						Net_ChallengePacket challengePacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
-						CBitStream* pBitStream = challengePacket.Serialize();
+						// send ack
+						NetRoom_HelloAckPacket ackPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
+						CBitStream* pBitStream = ackPacket.Serialize();
 						pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
 
 						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
@@ -695,60 +695,21 @@ void NetworkMesh::Tick()
 							enet_peer_send(event.peer, 2, pENetPacket);
 						}
 					}
-					else  if (packetID == EPacketID::PACKET_ID_CHALLENGE) // remote host is challenging us
+					else if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO_ACK)
 					{
-						// server sends hello ack in response to hello
-#if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
-						char ip[INET_ADDRSTRLEN + 1] = { 0 };
-						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
-						NetworkLog("[NGMP]: Got challenge req from %s:%d, sending challenge resp", ip, event.peer->address.port);
-#else // same log, no IP
-						NetworkLog("[NGMP]: Received ack from port %d", event.peer->address.port);
-#endif
-
-						Net_ChallengePacket challengePacket(bitstream);
+						NetRoom_HelloAckPacket ackPacket(bitstream);
 
 						// we no longer need to send hellos, challenge is the response to hello
 						NetworkLog("Stopping sending hellos 1");
-						m_mapConnections[challengePacket.GetUserID()].m_bNeedsHelloSent = false;
+						m_mapConnections[ackPacket.GetUserID()].m_bNeedsHelloSent = false;
 
-						// just send manually to that one user, dont broadcast
-						Net_ChallengeRespPacket challengeRespPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
-						CBitStream* pBitStream = challengeRespPacket.Serialize();
-
-						pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
-
-						ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(),
-							ENET_PACKET_FLAG_RELIABLE);
-
-						int ret = enet_peer_send(event.peer, 2, pENetPacket);
-
-						if (ret == 0)
-						{
-							NetworkLog("Packet Sent!");
-
-							// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
-							// store the connection
-							//m_mapConnections[helloPacket.GetUserID()] = PlayerConnection(helloPacket.GetUserID(), event.peer->address, event.peer);
-
-							//NetworkLog("[NGMP]: Registered connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, helloPacket.GetUserID());
-						}
-						else
-						{
-							NetworkLog("Packet Failed To Send!");
-						}
-					}
-					else if (packetID == EPacketID::PACKET_ID_CHALLENGE_RESP)
-					{
-						Net_ChallengeRespPacket challengeRespPacket(bitstream);
-
-						if (challengeRespPacket.GetUserID() == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
+						if (ackPacket.GetUserID() == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
 						{
 							continue;
 						}
 
 						// only if not already connected
-						if (m_mapConnections[challengeRespPacket.GetUserID()].m_State == EConnectionState::CONNECTED_DIRECT || m_mapConnections[challengeRespPacket.GetUserID()].m_State == EConnectionState::CONNECTED_RELAY)
+						if (m_mapConnections[ackPacket.GetUserID()].m_State == EConnectionState::CONNECTED_DIRECT || m_mapConnections[ackPacket.GetUserID()].m_State == EConnectionState::CONNECTED_RELAY)
 						{
 							continue;
 						}
@@ -756,35 +717,33 @@ void NetworkMesh::Tick()
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 						char ip[INET_ADDRSTRLEN + 1] = { 0 };
 						enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip));
-						NetworkLog("[NGMP]: Received ack from %s (user ID: %d), we're now connected", ip, challengeRespPacket.GetUserID());
+						NetworkLog("[NGMP]: Received ack from %s (user ID: %d), we're now connected", ip, ackPacket.GetUserID());
 #else // same log, no IP
-						NetworkLog("[NGMP]: Received ack from user ID: %d, we're now connected", challengeRespPacket.GetUserID());
+						NetworkLog("[NGMP]: Received ack from user ID: %d, we're now connected", ackPacket.GetUserID());
 #endif
 
-						NetworkLog("Stopping sending hellos 2");
-						m_mapConnections[challengeRespPacket.GetUserID()].m_bNeedsHelloSent = false;
 
 						// TODO_NGMP: Have a full handshake here, dont just assume we're connected because we sent an ack
 						// store the connection
 
 						// only do this if it's not a relayed connection
-						if (m_mapConnections[challengeRespPacket.GetUserID()].m_State != EConnectionState::CONNECTING_RELAY)
+						if (m_mapConnections[ackPacket.GetUserID()].m_State != EConnectionState::CONNECTING_RELAY)
 						{
-							m_mapConnections[challengeRespPacket.GetUserID()] = PlayerConnection(challengeRespPacket.GetUserID(), event.peer->address, event.peer, false);
+							m_mapConnections[ackPacket.GetUserID()] = PlayerConnection(ackPacket.GetUserID(), event.peer->address, event.peer, false);
 						}
 
 
-						if (m_mapConnections[challengeRespPacket.GetUserID()].m_State == EConnectionState::CONNECTING_RELAY)
+						if (m_mapConnections[ackPacket.GetUserID()].m_State == EConnectionState::CONNECTING_RELAY)
 						{
-							m_mapConnections[challengeRespPacket.GetUserID()].m_State = EConnectionState::CONNECTED_RELAY;
+							m_mapConnections[ackPacket.GetUserID()].m_State = EConnectionState::CONNECTED_RELAY;
 						}
 						else
 						{
-							m_mapConnections[challengeRespPacket.GetUserID()].m_State = EConnectionState::CONNECTED_DIRECT;
+							m_mapConnections[ackPacket.GetUserID()].m_State = EConnectionState::CONNECTED_DIRECT;
 						}
 
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
-						NetworkLog("[NGMP]: Registered client connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, challengeRespPacket.GetUserID());
+						NetworkLog("[NGMP]: Registered client connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, ackPacket.GetUserID());
 #endif
 					}
 
