@@ -149,12 +149,16 @@ private:
 		// TODO_RELAY: need to update how this works
 		for (auto& connection : m_mapConnections)
 		{
-			if (connection.second.m_peer->address.host == peer->address.host
-				&& connection.second.m_peer->address.port == peer->address.port)
+			if (connection.second.m_peer != nullptr)
 			{
-				return &connection.second;
+				if (connection.second.m_peer->address.host == peer->address.host
+					&& connection.second.m_peer->address.port == peer->address.port)
+				{
+					return &connection.second;
+				}
 			}
 		}
+
 		return nullptr;
 	}
 

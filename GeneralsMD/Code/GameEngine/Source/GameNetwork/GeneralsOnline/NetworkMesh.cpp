@@ -227,7 +227,10 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 	NetworkLog("NetworkMesh::ConnectToUserViaRelay - Attempting to connect to user %lld via relay", user_id);
 
 	// update
-	m_mapConnections[user_id].m_peer = nullptr;
+
+	// TODO_RELAY: How do we want to handle m_peer?
+	//m_mapConnections[user_id].m_peer = nullptr;
+	//m_mapConnections[user_id].m_peer = m_pRelayPeer;
 	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING_RELAY;
 	m_mapConnections[user_id].m_ConnectionAttempts = 0;
 	m_mapConnections[user_id].m_lastConnectionAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
@@ -258,6 +261,9 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 			NetworkLog("No available peers for initiating an ENet connection to relay.");
 			return;
 		}
+
+		// TODO_RELAY: How do we want to handle m_peer?
+		m_mapConnections[user_id].m_peer = m_pRelayPeer;
 
 		// send challenge
 		Net_ChallengePacket challengePacket;
@@ -718,6 +724,10 @@ void NetworkMesh::Tick()
 				if (pConnection != nullptr)
 				{
 					connUserID = pConnection->m_userID;
+				}
+				else // TODO_RELAY
+				{
+					connUserID = -999;
 				}
 
 				CBitStream bitstream(event.packet->data, event.packet->dataLength, (EPacketID)event.packet->data[0]);
