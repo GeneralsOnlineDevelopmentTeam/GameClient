@@ -3,6 +3,13 @@
 #include "NGMP_include.h"
 #include <ws2ipdef.h>
 
+/* NET CHANNELS:
+0 = genonline basic traffic - chat etc
+1 = generals game traffic
+2 = handshake
+3 = relay traffic
+*/
+
 class NetRoom_ChatMessagePacket;
 class Lobby_StartGamePacket;
 
