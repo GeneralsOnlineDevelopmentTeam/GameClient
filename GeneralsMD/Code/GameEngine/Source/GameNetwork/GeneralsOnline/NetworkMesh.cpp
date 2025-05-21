@@ -54,7 +54,10 @@ void NetworkMesh::ProcessGameStart(Lobby_StartGamePacket& startGamePacket)
 	// increase our timeout, Generals has its own timeout code and allows reconnecting, so just set an extremely long value and let the game handle it.
 	for (auto& connectionInfo : m_mapConnections)
 	{
-		enet_peer_timeout(connectionInfo.second.m_peer, 0, 0, 0);
+		if (connectionInfo.second.m_peer != nullptr)
+		{
+			enet_peer_timeout(connectionInfo.second.m_peer, 0, 0, 0);
+		}
 	}
 }
 
@@ -77,13 +80,17 @@ QueuedGamePacket NetworkMesh::RecvGamePacket()
 
 bool NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t user_id)
 {
+	if (m_mapConnections.contains(user_id))
+	{
+		return m_mapConnections[user_id].SendGamePacket(pBuffer, totalDataSize);
+	}
+	
+	return -2;
+
+	/*
 	// TODO_NGMP: Reduce memcpy's done here
 	// encrypt
-	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
-	CBitStream bitstream(totalDataSize, (BYTE*)pBuffer, totalDataSize);
-	bitstream.Encrypt(currentLobby.EncKey, currentLobby.EncIV);
-
-	ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+	
 
 
 	if (m_mapConnections.contains(user_id))
@@ -105,6 +112,8 @@ bool NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t 
 	// TODO_NGMP: Error
 	NetworkLog("Packet Failed To Send, client connection not found!");
 	return false;
+	*/
+
 }
 
 void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers)
@@ -624,6 +633,9 @@ void NetworkMesh::Tick()
 // 					event.peer->data,
 // 					event.channelID);
 
+				PlayerConnection* pConnection = nullptr;
+				int64_t connUserID = -1;
+
 				// handle relayed packets
 				if (event.channelID == 3)
 				{
@@ -633,10 +645,19 @@ void NetworkMesh::Tick()
 					int64_t targetUser = *(int64_t*)(event.packet->data + event.packet->dataLength - sizeof(int64_t) - sizeof(byte));
 					byte channel = *(byte*)(event.packet->data + event.packet->dataLength - sizeof(byte));
 
+					// TODO_RELAY: check target user, if not us, ignore
+
+					// used later, in some scenarios
+					pConnection = &m_mapConnections[sourceUser];
+					connUserID = sourceUser;
+
 					// resize packet
 
 					NetworkLog("Got relayed packed from %lld to %lld on channel %d", sourceUser, targetUser, channel);
 
+					// correct channel and length
+					event.packet->dataLength -= sizeof(int64_t) + sizeof(int64_t) + sizeof(byte);
+					event.channelID = channel;
 					/*
 					byte* dataPointerSource = netEvent.packet->data + netEvent.packet->dataLength - sizeof(byte) - sizeof(Int64) - sizeof(Int64);
                                 Int64 sourceUserId = *(Int64*)dataPointerSource;
@@ -648,28 +669,27 @@ void NetworkMesh::Tick()
                                 byte originalChannel = netEvent.packet->data[netEvent.packet->dataLength - sizeof(byte)];
 								*/
 				}
+				else // if not relayed, find our real connection
+				{
+					pConnection = GetConnectionForPeer(event.peer);
+
+					if (pConnection != nullptr)
+					{
+						connUserID = pConnection->m_userID;
+					}
+				}
 
 				// was it on the game channel? just queue it for generals and bail
 				if (event.channelID == 1)
 				{
-					// find conneciton
-					PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
+					// decrypt
+					CBitStream* bitstream = new CBitStream(event.packet->dataLength, event.packet->data, event.packet->dataLength);
+					bitstream->Decrypt(currentLobby.EncKey, currentLobby.EncIV);
+					//bitstream->ResetOffsetForLocalRead();
 
-					if (pConnection != nullptr)
-					{
-						// decrypt
-						CBitStream* bitstream = new CBitStream(event.packet->dataLength, event.packet->data, event.packet->dataLength);
-						bitstream->Decrypt(currentLobby.EncKey, currentLobby.EncIV);
-						//bitstream->ResetOffsetForLocalRead();
+					m_queueQueuedGamePackets.push(QueuedGamePacket{ bitstream,connUserID });
 
-						m_queueQueuedGamePackets.push(QueuedGamePacket{ bitstream, pConnection->m_userID });
-
-						enet_packet_destroy(event.packet);
-					}
-					else
-					{
-						// TODO_NGMP: Handle
-					}
+					enet_packet_destroy(event.packet);
 					continue;
 				}
 				else if (event.channelID == 2) // handshake channel
@@ -748,19 +768,6 @@ void NetworkMesh::Tick()
 				// process
 				// TODO_NGMP: Reject any packets from members not in the room? or mesh
 
-
-				int64_t connUserID = -1;
-				PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
-
-				if (pConnection != nullptr)
-				{
-					connUserID = pConnection->m_userID;
-				}
-				else // TODO_RELAY
-				{
-					connUserID = -999;
-				}
-
 				CBitStream bitstream(event.packet->data, event.packet->dataLength, (EPacketID)event.packet->data[0]);
 				NetworkLog("[NGMP]: Received %d bytes from peer %d (user id is %lld)", event.packet->dataLength, event.peer->incomingPeerID, connUserID);
 
@@ -788,13 +795,7 @@ void NetworkMesh::Tick()
 						// TODO_NGMP: Support longer msgs
 						NetworkLog("[NGMP]: Received chat message of len %d: %s from %d", chatPacket.GetMsg().length(), chatPacket.GetMsg().c_str(), event.peer->incomingPeerID);
 
-						// get host ID
-						PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
-
-						if (pConnection != nullptr)
-						{
-							ProcessChatMessage(chatPacket, pConnection->m_userID);
-						}
+						ProcessChatMessage(chatPacket, connUserID);
 
 					}
 					else if (packetID == EPacketID::PACKET_ID_PING)
@@ -807,8 +808,7 @@ void NetworkMesh::Tick()
 
 						
 						// store delta on connection
-						PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
-
+						
 						if (pConnection != nullptr)
 						{
 							int l = currTime - pConnection->pingSent;
@@ -828,6 +828,7 @@ void NetworkMesh::Tick()
 
 			case ENET_EVENT_TYPE_DISCONNECT:
 				
+				// TODO_RELAY: How to handle remote user disconnects/timeouts?
 				// was it a timeout while attempting to connect?
 
 				PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
@@ -919,6 +920,57 @@ ENetPeer* PlayerConnection::GetPeerToUse()
 	return m_peer;
 }
 
+int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
+{
+	const int gameChannel = 1;
+
+	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+	CBitStream bitstream(totalDataSize, (BYTE*)pBuffer, totalDataSize);
+
+	if (m_State == EConnectionState::NOT_CONNECTED
+		|| m_State == EConnectionState::CONNECTION_FAILED)
+	{
+		return -1;
+	}
+	else if (m_State == EConnectionState::CONNECTING_DIRECT || m_State == EConnectionState::CONNECTED_DIRECT)
+	{
+		bitstream.Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+
+		return enet_peer_send(m_peer, gameChannel, pENetPacket);
+	}
+	else if (m_State == EConnectionState::CONNECTING_RELAY || m_State == EConnectionState::CONNECTED_RELAY)
+	{
+		// use relay peer
+		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+		if (pMesh != nullptr)
+		{
+			// encrypt the game packet as normal
+			bitstream.Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+
+			// repackage with relay header (unencrypted, 9 bytes) + use relay channel
+			// grow
+			bitstream.GetMemoryBuffer().ReAllocate(bitstream.GetMemoryBuffer().GetAllocatedSize() + 8 + 8 + 1);
+			bitstream.Write<int64_t>(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
+			bitstream.Write<int64_t>(m_userID);
+			bitstream.Write<uint8_t>(gameChannel);
+
+
+			ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+
+			// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
+			// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
+			return enet_peer_send(pMesh->GetRelayPeer(), 3, pENetPacket);
+		}
+		else
+		{
+			// TODO_RELAY: error
+			return -2;
+		}
+	}
+}
+
 // TODO_RELAY: determine channel from packet type
 int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 {
@@ -934,12 +986,6 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
 
-	
-
-	/*
-
-CONNECTION_FAILED
-	*/
 	if (m_State == EConnectionState::NOT_CONNECTED
 		|| m_State == EConnectionState::CONNECTION_FAILED)
 	{

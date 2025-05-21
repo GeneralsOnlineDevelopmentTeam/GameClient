@@ -50,6 +50,7 @@ public:
 
 	ENetPeer* GetPeerToUse();
 	int SendPacket(NetworkPacket& packet, int channel);
+	int SendGamePacket(void* pBuffer, uint32_t totalDataSize);
 
 	std::string GetIPAddrString(bool bForceReveal = false)
 	{
