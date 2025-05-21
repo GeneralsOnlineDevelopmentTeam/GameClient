@@ -111,6 +111,12 @@ public:
 
 	}
 
+	std::function<void(int64_t, std::string, EConnectionState)> m_cbOnConnected = nullptr;
+	void RegisterForConnectionEvents(std::function<void(int64_t, std::string, EConnectionState)> cb)
+	{
+		m_cbOnConnected = cb;
+	}
+
 	void ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int64_t sendingUserID);
 	void ProcessGameStart(Lobby_StartGamePacket& startGamePacket);
 

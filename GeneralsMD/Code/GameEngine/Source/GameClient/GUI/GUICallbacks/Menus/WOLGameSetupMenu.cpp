@@ -1441,6 +1441,25 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			PopBackToLobby();
 		});
 
+	// connection events (for debug really)
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	pMesh->RegisterForConnectionEvents([](int64_t userID, std::string strDisplayName, EConnectionState connState)
+		{
+			std::string strConnectionType = "Unknown";
+			if (connState == EConnectionState::CONNECTED_DIRECT)
+			{
+				strConnectionType = "Direct Connection";
+			}
+			else
+			{
+				strConnectionType = "Relayed Connection";
+			}
+
+			UnicodeString strConnectionMessage;
+			strConnectionMessage.format(L"You are now connected to %hs using connection mechanism %hs", strDisplayName.c_str(), strConnectionType.c_str());
+			GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(0, 0, 255, 255), -1, -1);
+		});
+
 	// player doesnt have map events
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForPlayerDoesntHaveMapCallback([](LobbyMemberEntry lobbyMember)
 		{
@@ -1662,9 +1681,13 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		std::map<AsciiString, MapMetaData>::iterator it = TheMapCache->find(asciiMap);
 		if (it != TheMapCache->end())
 		{
-			game->getSlot(game->getLocalSlotNum())->setMapAvailability(true);
-			game->setMapCRC(it->second.m_CRC);
-			game->setMapSize(it->second.m_filesize);
+			// TODO_NGMP: Urgent, this crashes when you join a 2/2 game as the 3rd player, because we shouldnt let you join...
+			if (game->getLocalSlotNum() != -1)
+			{
+				game->getSlot(game->getLocalSlotNum())->setMapAvailability(true);
+				game->setMapCRC(it->second.m_CRC);
+				game->setMapSize(it->second.m_filesize);
+			}
 		}
 		else
 		{

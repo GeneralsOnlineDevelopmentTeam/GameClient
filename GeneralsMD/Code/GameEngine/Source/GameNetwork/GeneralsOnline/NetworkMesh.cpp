@@ -86,34 +86,6 @@ bool NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t 
 	}
 	
 	return -2;
-
-	/*
-	// TODO_NGMP: Reduce memcpy's done here
-	// encrypt
-	
-
-
-	if (m_mapConnections.contains(user_id))
-	{
-		int ret = enet_peer_send(m_mapConnections[user_id].GetPeerToUse(), 1, pENetPacket);
-
-		if (ret == 0)
-		{
-			NetworkLog("Game Packet Sent!");
-			return true;
-		}
-		else
-		{
-			NetworkLog("Game Packet Failed To Send!");
-			return false;
-		}
-	}
-
-	// TODO_NGMP: Error
-	NetworkLog("Packet Failed To Send, client connection not found!");
-	return false;
-	*/
-
 }
 
 void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers)
@@ -653,7 +625,7 @@ void NetworkMesh::Tick()
 
 					// resize packet
 
-					NetworkLog("Got relayed packed from %lld to %lld on channel %d", sourceUser, targetUser, channel);
+					NetworkLog("Got relayed packed from %lld (%lld) to %lld on channel %d, size was %d", sourceUser, connUserID, targetUser, channel, event.packet->dataLength);
 
 					// correct channel and length
 					event.packet->dataLength -= sizeof(int64_t) + sizeof(int64_t) + sizeof(byte);
@@ -686,6 +658,9 @@ void NetworkMesh::Tick()
 					CBitStream* bitstream = new CBitStream(event.packet->dataLength, event.packet->data, event.packet->dataLength);
 					bitstream->Decrypt(currentLobby.EncKey, currentLobby.EncIV);
 					//bitstream->ResetOffsetForLocalRead();
+
+					NetworkLog("Got game packet source user is %lld", connUserID);
+					NetworkLog("Got game packet source user is %lld, of size %lld (bs: %lld), ", connUserID, event.packet->dataLength, bitstream->GetNumBytesAllocated());
 
 					m_queueQueuedGamePackets.push(QueuedGamePacket{ bitstream,connUserID });
 
@@ -750,11 +725,43 @@ void NetworkMesh::Tick()
 
 						if (m_mapConnections[ackPacket.GetUserID()].m_State == EConnectionState::CONNECTING_RELAY)
 						{
-							m_mapConnections[ackPacket.GetUserID()].m_State = EConnectionState::CONNECTED_RELAY;
+							if (m_mapConnections[ackPacket.GetUserID()].m_State != EConnectionState::CONNECTED_RELAY)
+							{
+								m_mapConnections[ackPacket.GetUserID()].m_State = EConnectionState::CONNECTED_RELAY;
+
+								std::string strDisplayName = "Unknown User";
+								auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+								for (const auto& member : currentLobby.members)
+								{
+									if (member.user_id == ackPacket.GetUserID())
+									{
+										strDisplayName = member.display_name;
+										break;
+									}
+								}
+
+								m_cbOnConnected(ackPacket.GetUserID(), strDisplayName, EConnectionState::CONNECTED_RELAY);
+							}
 						}
 						else
 						{
-							m_mapConnections[ackPacket.GetUserID()].m_State = EConnectionState::CONNECTED_DIRECT;
+							if (m_mapConnections[ackPacket.GetUserID()].m_State != EConnectionState::CONNECTED_DIRECT)
+							{
+								m_mapConnections[ackPacket.GetUserID()].m_State = EConnectionState::CONNECTED_DIRECT;
+
+								std::string strDisplayName = "Unknown User";
+								auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+								for (const auto& member : currentLobby.members)
+								{
+									if (member.user_id == ackPacket.GetUserID())
+									{
+										strDisplayName = member.display_name;
+										break;
+									}
+								}
+
+								m_cbOnConnected(ackPacket.GetUserID(), strDisplayName, EConnectionState::CONNECTED_DIRECT);
+							}
 						}
 
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
@@ -969,6 +976,8 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 			return -2;
 		}
 	}
+
+	return -3;
 }
 
 // TODO_RELAY: determine channel from packet type
