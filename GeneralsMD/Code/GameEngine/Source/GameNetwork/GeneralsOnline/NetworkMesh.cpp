@@ -78,7 +78,7 @@ QueuedGamePacket NetworkMesh::RecvGamePacket()
 	return QueuedGamePacket();
 }
 
-bool NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t user_id)
+int NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t user_id)
 {
 	if (m_mapConnections.contains(user_id))
 	{
@@ -280,7 +280,7 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 
 #if defined(GENERALS_ONLINE_FORCE_RELAY)
 		enet_address_set_host(&addr, "127.1.2.3");
-		addr.port = 9999;
+		addr.port = 1000 + (rand() % (50000 - 1000 + 1));
 #endif
 	}
 

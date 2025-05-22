@@ -124,7 +124,7 @@ public:
 
 	bool HasGamePacket();
 	QueuedGamePacket RecvGamePacket();
-	bool SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
+	int SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
 
 	void SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers);
 
