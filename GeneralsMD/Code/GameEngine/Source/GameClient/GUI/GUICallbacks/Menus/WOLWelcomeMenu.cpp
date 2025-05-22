@@ -340,7 +340,7 @@ static void updateNumPlayersOnline(void)
 			bHasPortMapped ? (bHasPortMappedUPnP ? "Yes (UPnP)" : "Yes (NAT-PMP)") : "No",
 			preferredPort,
 			NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
-			capUPnP == ECapabilityState::OVERRIDDEN ? "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work." : ""
+			capUPnP == ECapabilityState::OVERRIDDEN ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : ""
 		);
 
 		// record the game data to backend
