@@ -278,9 +278,17 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	else
 	{
 
-#if defined(GENERALS_ONLINE_FORCE_RELAY)
+#if defined(GENERALS_ONLINE_FORCE_RELAY_EVERYONE)
 		enet_address_set_host(&addr, "127.1.2.3");
 		addr.port = 1000 + (rand() % (50000 - 1000 + 1));
+#elif defined(GENERALS_ONLINE_FORCE_RELAY_ONE_PLAYER_ONLY)
+		//if (user_id == -2)
+		if (!m_bDidOneTimeForceRelay)
+		{
+			m_bDidOneTimeForceRelay = true;
+			enet_address_set_host(&addr, "127.1.2.3");
+			addr.port = 1000 + (rand() % (50000 - 1000 + 1));
+		}
 #endif
 	}
 

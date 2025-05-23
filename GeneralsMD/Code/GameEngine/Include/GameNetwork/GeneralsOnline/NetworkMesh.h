@@ -197,4 +197,8 @@ private:
 	ENetPeer* m_pRelayPeer = nullptr;
 
 	std::map<int64_t, PlayerConnection> m_mapConnections;
+
+#if defined(GENERALS_ONLINE_FORCE_RELAY_ONE_PLAYER_ONLY)
+	bool m_bDidOneTimeForceRelay = false;
+#endif
 };
