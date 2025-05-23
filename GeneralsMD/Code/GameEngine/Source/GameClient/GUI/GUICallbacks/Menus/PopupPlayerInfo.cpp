@@ -1333,7 +1333,8 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 	{
 		//buttonbuttonOptions->winHide(FALSE);
 		buttonSetLocale->winHide(TRUE);
-		buttonDeleteAccount->winHide(FALSE); // set back to false when we have this worked out.
+		// TODO_NGMP: What should this do? reset stats? but not delete account?
+		buttonDeleteAccount->winHide(TRUE); // set back to false when we have this worked out.
 		checkBoxAsianFont->winHide(TRUE);
 		checkBoxNonAsianFont->winHide(TRUE);
 	}
@@ -1345,6 +1346,11 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 		checkBoxAsianFont->winHide(TRUE);
 		checkBoxNonAsianFont->winHide(TRUE);
 	}
+
+#if defined(GENERALS_ONLINE)
+	// TODO_NGMP: re-enable social
+	buttonBuddies->winHide(true);
+#endif
 
 	// set the asian check boxes
 	CustomMatchPreferences pref;
