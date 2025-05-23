@@ -2017,6 +2017,13 @@ Int TerrainShaderPixelShader::init( void )
 
 Int TerrainShaderPixelShader::set(Int pass)
 {	
+#if defined(GENERALS_ONLINE)
+	if (W3DShaderManager::getShaderTexture(0) == nullptr || W3DShaderManager::getShaderTexture(1) == nullptr)
+	{
+		return FALSE;
+	}
+#endif
+
 	//force WW3D2 system to set it's states so it won't later overwrite our custom settings.
 	DX8Wrapper::Apply_Render_State_Changes();
 
