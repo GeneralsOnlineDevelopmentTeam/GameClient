@@ -97,9 +97,9 @@ void HTTPManager::BackgroundThreadRun()
 	// TODO_HTTP: While should be until core is existing
 	while (!m_bExitRequested)
 	{
-		PlatformThreadedTick_PreLock();
-
 		m_mutex.lock();
+
+		PlatformThreadedTick_PreLock();
 
 		PlatformThreadedTick_Locked();
 

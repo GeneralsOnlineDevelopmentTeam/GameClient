@@ -174,8 +174,14 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 	// now delete + remove from map
 	for (int64_t userIDToDisconnect : vecConnectionsToRemove)
 	{
-		enet_peer_disconnect_now(m_mapConnections[userIDToDisconnect].m_peer, 0);
-		m_mapConnections.erase(userIDToDisconnect);
+		if (m_mapConnections.find(userIDToDisconnect) != m_mapConnections.end())
+		{
+			if (m_mapConnections[userIDToDisconnect].m_peer != nullptr)
+			{
+				enet_peer_disconnect_now(m_mapConnections[userIDToDisconnect].m_peer, 0);
+			}
+			m_mapConnections.erase(userIDToDisconnect);
+		}
 	}
 }
 
@@ -848,6 +854,7 @@ void NetworkMesh::Tick()
 
 				PlayerConnection* pConnection = GetConnectionForPeer(event.peer);
 
+				// TODO_RELAY: Handle relay disconnect?
 				if (pConnection != nullptr)
 				{
 					if (pConnection->m_State == EConnectionState::CONNECTING_DIRECT || pConnection->m_State == EConnectionState::CONNECTING_RELAY)
@@ -1015,6 +1022,25 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 
 		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
 
+		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+		if (pMesh != nullptr)
+		{
+			if (m_peer == pMesh->GetRelayPeer())
+			{
+				NetworkLog("Unexpected!");
+
+				if (m_State == EConnectionState::CONNECTING_DIRECT)
+				{
+					m_State = EConnectionState::CONNECTING_RELAY;
+				}
+				else if (m_State == EConnectionState::CONNECTED_DIRECT)
+				{
+					m_State = EConnectionState::CONNECTED_RELAY;
+				}
+
+				return -4;
+			}
+		}
 		return enet_peer_send(m_peer, channel, pENetPacket);
 	}
 	else if (m_State == EConnectionState::CONNECTING_RELAY || m_State == EConnectionState::CONNECTED_RELAY)
