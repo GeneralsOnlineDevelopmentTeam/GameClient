@@ -863,13 +863,17 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 			// TODO_NGMP: Dont do extra get here, just return it in the put...
 			EJoinLobbyResult JoinResult = EJoinLobbyResult::JoinLobbyResult_JoinFailed;
 
-			if (statusCode == 200)
+			if (statusCode == 200 && bSuccess)
 			{
 				JoinResult = EJoinLobbyResult::JoinLobbyResult_Success;
 			}
 			else if (statusCode == 401)
 			{
 				JoinResult = EJoinLobbyResult::JoinLobbyResult_BadPassword;
+			}
+			else if (statusCode == 406)
+			{
+				JoinResult = EJoinLobbyResult::JoinLobbyResult_FullRoom;
 			}
 			// TODO_NGMP: Handle room full error (JoinLobbyResult_FullRoom, can we even get that?
 
@@ -935,6 +939,10 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 			else if (statusCode == 404)
 			{
 				NetworkLog("[NGMP] Failed to join lobby: Lobby not found");
+			}
+			else if (statusCode == 406)
+			{
+				NetworkLog("[NGMP] Failed to join lobby: Lobby is full");
 			}
 			
 
