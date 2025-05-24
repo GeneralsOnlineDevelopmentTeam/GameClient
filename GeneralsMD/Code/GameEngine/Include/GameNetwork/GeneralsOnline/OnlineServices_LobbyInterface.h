@@ -46,6 +46,10 @@ struct LobbyEntry
 	bool limit_superweapons;
 	bool track_stats;
 
+	int rng_seed = -1;
+	std::string strRelayIP;
+	uint16_t relayPort;
+
 	bool passworded;
 	std::string password;
 

@@ -2076,6 +2076,9 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 
 				if( controlID == listboxLobbyPlayersID ) 
 				{
+					// TODO_NGMP: enable social again
+					break;
+
 					RightClickStruct *rc = (RightClickStruct *)mData2;
 					WindowLayout *rcLayout = NULL;
 					GameWindow *rcMenu;

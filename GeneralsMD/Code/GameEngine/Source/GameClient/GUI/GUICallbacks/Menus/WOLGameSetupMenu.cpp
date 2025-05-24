@@ -925,7 +925,8 @@ static void StartPressed(void)
 		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
 		if (pMesh != nullptr)
 		{
-			pMesh->ProcessGameStart(startGamePacket);
+			Lobby_StartGamePacket startGamePacket2;
+			pMesh->ProcessGameStart(startGamePacket2);
 		}
 
 		// TODO_NGMP
@@ -1440,6 +1441,25 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			PopBackToLobby();
 		});
 
+	// connection events (for debug really)
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	pMesh->RegisterForConnectionEvents([](int64_t userID, std::string strDisplayName, EConnectionState connState)
+		{
+			std::string strConnectionType = "Unknown";
+			if (connState == EConnectionState::CONNECTED_DIRECT)
+			{
+				strConnectionType = "Direct Connection";
+			}
+			else
+			{
+				strConnectionType = "Relayed Connection";
+			}
+
+			UnicodeString strConnectionMessage;
+			strConnectionMessage.format(L"You are now connected to %hs using connection mechanism %hs", strDisplayName.c_str(), strConnectionType.c_str());
+			GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(0, 0, 255, 255), -1, -1);
+		});
+
 	// player doesnt have map events
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForPlayerDoesntHaveMapCallback([](LobbyMemberEntry lobbyMember)
 		{
@@ -1661,9 +1681,13 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		std::map<AsciiString, MapMetaData>::iterator it = TheMapCache->find(asciiMap);
 		if (it != TheMapCache->end())
 		{
-			game->getSlot(game->getLocalSlotNum())->setMapAvailability(true);
-			game->setMapCRC(it->second.m_CRC);
-			game->setMapSize(it->second.m_filesize);
+			// TODO_NGMP: Urgent, this crashes when you join a 2/2 game as the 3rd player, because we shouldnt let you join...
+			if (game->getLocalSlotNum() != -1)
+			{
+				game->getSlot(game->getLocalSlotNum())->setMapAvailability(true);
+				game->setMapCRC(it->second.m_CRC);
+				game->setMapSize(it->second.m_filesize);
+			}
 		}
 		else
 		{
@@ -2855,21 +2879,21 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 				strState = "Not Connected";
 				break;
 
-			case EConnectionState::CONNECTING:
-				strState = "Connecting";
+			case EConnectionState::CONNECTING_DIRECT:
+				strState = "Connecting (Direct)";
+				break;
+			case EConnectionState::CONNECTING_RELAY:
+				strState = "Connecting (Relay)";
 				break;
 
 			case EConnectionState::CONNECTED_DIRECT:
-				strState = "Connected Direct";
+				strState = "Connected (Direct)";
 				break;
 
-			case EConnectionState::CONNECTED_RELAY_1:
-				strState = "Connected Relay 1";
+			case EConnectionState::CONNECTED_RELAY:
+				strState = "Connected (Relay)";
 				break;
 
-			case EConnectionState::CONNECTED_RELAY_2:
-				strState = "Connected Relay 2";
-				break;
 
 			case EConnectionState::CONNECTION_FAILED:
 				strState = "Connection Failed";

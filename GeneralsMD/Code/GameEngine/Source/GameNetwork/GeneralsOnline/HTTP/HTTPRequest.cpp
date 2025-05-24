@@ -55,12 +55,25 @@ void HTTPRequest::StartRequest()
 
 	// 1MB buffer at first, will resize
 	m_pBuffer = (uint8_t*)malloc(g_initialBufSize);
-	memset(m_pBuffer, 0, g_initialBufSize);
 
-	m_currentBufSize = g_initialBufSize;
-	m_currentBufSize_Used = 0;
+	if (m_pBuffer == nullptr)
+	{
+		// invoke fail immediately
+		PlatformThreaded_SetComplete();
 
-	PlatformStartRequest();
+		m_strResponse = std::string();
+		m_responseCode = 500;
+		m_bIsComplete = true;
+	}
+	else
+	{
+		memset(m_pBuffer, 0, g_initialBufSize);
+
+		m_currentBufSize = g_initialBufSize;
+		m_currentBufSize_Used = 0;
+
+		PlatformStartRequest();
+	}
 }
 
 void HTTPRequest::OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes)

@@ -111,8 +111,13 @@ public:
 	virtual void attachTransport(Transport *transport) = 0;
 	virtual void initTransport() = 0;
 	virtual Bool sawCRCMismatch() = 0;
-	virtual void setSawCRCMismatch() = 0;
 
+#if defined(GENERALS_ONLINE)
+	virtual void setSawCRCMismatch(UnicodeString& strMismatchDetails) = 0;
+#else
+	virtual void setSawCRCMismatch() = 0;
+#endif
+	
 	virtual Bool isPlayerConnected(Int playerID) = 0;
 
 	virtual void notifyOthersOfCurrentFrame() = 0;					///< Tells all the other players what frame we are on.

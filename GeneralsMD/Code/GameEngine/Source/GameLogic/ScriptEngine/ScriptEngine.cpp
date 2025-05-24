@@ -130,9 +130,14 @@ enum { K_SCRIPTS_DATA_VERSION_1 = 1 };
 enum { MAX_SPIN_COUNT = 20 };
 #define NONE_STRING "<none>"
 
+#if defined(GENERALS_ONLINE)
+static const Int FRAMES_TO_SHOW_WIN_LOSE_MESSAGE = 120 * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER;
+static const Int FRAMES_TO_FADE_IN_AT_START = 33 * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER;
+#else
 static const Int FRAMES_TO_SHOW_WIN_LOSE_MESSAGE = 120;
-
 static const Int FRAMES_TO_FADE_IN_AT_START = 33;
+#endif
+
 
 
 //------------------------------------------------------------------------------ Performance Timers 
@@ -5709,9 +5714,24 @@ void ScriptEngine::startQuickEndGameTimer( void )
 //-------------------------------------------------------------------------------------------------
 /** startEndGameTimer */
 //-------------------------------------------------------------------------------------------------
+#if defined(GENERALS_ONLINE)
+void ScriptEngine::startEndGameTimer(bool bExtendForErrorMsg)
+#else
 void ScriptEngine::startEndGameTimer( void )
+#endif
 {
+#if defined(GENERALS_ONLINE)
+	if (bExtendForErrorMsg)
+	{
+		m_endGameTimer = FRAMES_TO_SHOW_WIN_LOSE_MESSAGE * 5;
+	}
+	else
+	{
+		m_endGameTimer = FRAMES_TO_SHOW_WIN_LOSE_MESSAGE;
+	}
+#else
 	m_endGameTimer = FRAMES_TO_SHOW_WIN_LOSE_MESSAGE;
+#endif
 }  // end startEndGameTimer
 
 //-------------------------------------------------------------------------------------------------

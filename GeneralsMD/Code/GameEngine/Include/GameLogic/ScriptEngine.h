@@ -243,7 +243,12 @@ public:
 	virtual void newMap(  );	///< reset script engine for new map
 	virtual const ActionTemplate *getActionTemplate( Int ndx); ///< Get the template for a script action.
 	virtual const ConditionTemplate *getConditionTemplate( Int ndx); ///< Get the template for a script Condition.
+
+#if defined(GENERALS_ONLINE)
+	virtual void startEndGameTimer(bool bExtendForErrorMsg = false); ///< Starts the end game timer after a mission is won or lost.
+#else
 	virtual void startEndGameTimer(void); ///< Starts the end game timer after a mission is won or lost.
+#endif
 	Bool isGameEnding( void ) { return m_endGameTimer >= 0;	}
 	virtual void startQuickEndGameTimer(void); ///< Starts the quick end game timer after a campaign is won or lost.
 	virtual void startCloseWindowTimer(void); ///< Starts the timer to close windows after a mission is won or lost.

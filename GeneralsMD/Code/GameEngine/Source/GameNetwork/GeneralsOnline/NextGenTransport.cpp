@@ -166,7 +166,7 @@ Bool NextGenTransport::doSend(void)
 
 			if (pSlot != nullptr)
 			{
-				retval = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->SendGamePacket((void*)(&m_outBuffer[i]), (uint32_t)m_outBuffer[i].length + sizeof(TransportMessageHeader), pSlot->m_userID);
+				retval = (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->SendGamePacket((void*)(&m_outBuffer[i]), (uint32_t)m_outBuffer[i].length + sizeof(TransportMessageHeader), pSlot->m_userID) >= 0);
 			}
 			else
 			{

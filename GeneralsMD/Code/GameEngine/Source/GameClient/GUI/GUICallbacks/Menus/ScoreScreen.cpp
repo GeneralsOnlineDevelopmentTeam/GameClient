@@ -245,8 +245,14 @@ void ScoreScreenEnableControls(Bool enable)
 		buttonContinue->winEnable(enable);
 	}
 
-	if ((buttonBuddies != NULL) && (buttonBuddies->winIsHidden() == FALSE)) {
+	if ((buttonBuddies != NULL) && (buttonBuddies->winIsHidden() == FALSE))
+	{
+#if defined(GENERALS_ONLINE)
+		// TODO_NGMP: enable social again
+		buttonBuddies->winEnable(false);
+#else
 		buttonBuddies->winEnable(enable);
+#endif
 	}
 
 	GameWindow *buttonSaveReplay = TheWindowManager->winGetWindowFromId( parent, buttonSaveReplayID );
@@ -386,6 +392,11 @@ void ScoreScreenInit( WindowLayout *layout, void *userData )
 		s_blankLayout->hide(FALSE);
 		s_blankLayout->bringForward();
 	}
+
+#if defined(GENERALS_ONLINE)
+	// TODO_NGMP: enable social again
+	buttonBuddies->winEnable(false);
+#endif
 	
 }
 

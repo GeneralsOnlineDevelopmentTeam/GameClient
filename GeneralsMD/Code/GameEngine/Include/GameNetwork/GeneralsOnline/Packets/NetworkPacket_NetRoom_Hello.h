@@ -16,30 +16,3 @@ public:
 private:
 	int64_t m_user_id = -1;
 };
-
-class Net_ChallengePacket : public NetworkPacket
-{
-public:
-	Net_ChallengePacket();
-
-	Net_ChallengePacket(CBitStream& bitstream);
-
-	virtual CBitStream* Serialize() override;
-
-private:
-};
-
-class Net_ChallengeRespPacket : public NetworkPacket
-{
-public:
-	Net_ChallengeRespPacket(int64_t myUserID);
-
-	Net_ChallengeRespPacket(CBitStream& bitstream);
-
-	virtual CBitStream* Serialize() override;
-
-	int64_t GetUserID() const { return m_user_id; }
-
-private:
-	int64_t m_user_id = -1;
-};

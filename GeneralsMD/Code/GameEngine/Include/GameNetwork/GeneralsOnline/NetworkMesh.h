@@ -3,16 +3,23 @@
 #include "NGMP_include.h"
 #include <ws2ipdef.h>
 
+/* NET CHANNELS:
+0 = genonline basic traffic - chat etc
+1 = generals game traffic
+2 = handshake
+3 = relay traffic
+*/
+
 class NetRoom_ChatMessagePacket;
 class Lobby_StartGamePacket;
 
 enum class EConnectionState
 {
 	NOT_CONNECTED,
-	CONNECTING,
+	CONNECTING_DIRECT,
+	CONNECTING_RELAY,
 	CONNECTED_DIRECT,
-	CONNECTED_RELAY_1,
-	CONNECTED_RELAY_2,
+	CONNECTED_RELAY,
 	CONNECTION_FAILED
 };
 
@@ -25,14 +32,25 @@ public:
 	}
 
 
-	PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* peer)
+	PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* peer, bool bStartSendingHellosAgain)
 	{
 		m_userID = userID;
 		m_address = addr;
 		m_peer = peer;
 
+		if (bStartSendingHellosAgain)
+		{
+			NetworkLog("Starting sending hellos 1");
+			m_bNeedsHelloSent = true;
+		}
+		// otherwise, keep whatever start we were in, its just a connection update
+
 		enet_peer_timeout(m_peer, 5, 1000, 1000);
 	}
+
+	ENetPeer* GetPeerToUse();
+	int SendPacket(NetworkPacket& packet, int channel);
+	int SendGamePacket(void* pBuffer, uint32_t totalDataSize);
 
 	std::string GetIPAddrString(bool bForceReveal = false)
 	{
@@ -54,6 +72,8 @@ public:
 #endif
 	}
 
+	void Tick();
+
 	
 	int64_t m_userID = -1;
 	ENetAddress m_address;
@@ -62,6 +82,9 @@ public:
 	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
 	int m_ConnectionAttempts = 0;
 	int64_t m_lastConnectionAttempt = -1;
+
+	int64_t lastHelloSent = -1;
+	bool m_bNeedsHelloSent = true;
 
 	int64_t pingSent = -1;
 	int latency = -1;
@@ -88,6 +111,12 @@ public:
 
 	}
 
+	std::function<void(int64_t, std::string, EConnectionState)> m_cbOnConnected = nullptr;
+	void RegisterForConnectionEvents(std::function<void(int64_t, std::string, EConnectionState)> cb)
+	{
+		m_cbOnConnected = cb;
+	}
+
 	void ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int64_t sendingUserID);
 	void ProcessGameStart(Lobby_StartGamePacket& startGamePacket);
 
@@ -95,7 +124,7 @@ public:
 
 	bool HasGamePacket();
 	QueuedGamePacket RecvGamePacket();
-	bool SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
+	int SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
 
 	void SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers);
 
@@ -103,13 +132,16 @@ public:
 
 	void ConnectToSingleUser(LobbyMemberEntry& member, bool bIsReconnect = false);
 	void ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect = false);
+
+	void ConnectToUserViaRelay(Int64 user_id);
+
 	void ConnectToMesh(LobbyEntry& lobby);
 
 	void Disconnect();
 
 	void Tick();
 
-	const int64_t m_thresoldToCheckConnected = 2000;
+	const int64_t m_thresoldToCheckConnected = 10000;
 	int64_t m_connectionCheckGracePeriodStart = -1;
 
 	int64_t m_lastPing = -1;
@@ -132,24 +164,41 @@ public:
 		return nullptr;
 	}
 
+	ENetPeer* GetRelayPeer()
+	{
+		return m_pRelayPeer;
+	}
+
 private:
 	PlayerConnection* GetConnectionForPeer(ENetPeer* peer)
 	{
+		// TODO_RELAY: need to update how this works
 		for (auto& connection : m_mapConnections)
 		{
-			if (connection.second.m_peer->address.host == peer->address.host
-				&& connection.second.m_peer->address.port == peer->address.port)
+			if (connection.second.m_peer != nullptr)
 			{
-				return &connection.second;
+				if (connection.second.m_peer->address.host == peer->address.host
+					&& connection.second.m_peer->address.port == peer->address.port)
+				{
+					return &connection.second;
+				}
 			}
 		}
+
 		return nullptr;
 	}
+
 private:
 	ENetworkMeshType m_meshType;
 
 	ENetAddress server_address;
 	ENetHost* enetInstance = nullptr;
 
+	ENetPeer* m_pRelayPeer = nullptr;
+
 	std::map<int64_t, PlayerConnection> m_mapConnections;
+
+#if defined(GENERALS_ONLINE_FORCE_RELAY_ONE_PLAYER_ONLY)
+	bool m_bDidOneTimeForceRelay = false;
+#endif
 };

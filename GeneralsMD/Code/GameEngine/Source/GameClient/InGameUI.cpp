@@ -4092,8 +4092,15 @@ void InGameUI::militarySubtitle( const AsciiString& label, Int duration )
 	
 	// calculate where this screen position should be since the position being passed in is based off 8x6
 	Coord2D multiplier;
+
+#if !defined(GENERALS_ONLINE_WIDESCREEN)
 	multiplier.x = (float)TheDisplay->getWidth() / 800.0f;
 	multiplier.y = (float)TheDisplay->getHeight() / 600.0f;
+#else
+	multiplier.x = (float)TheDisplay->getWidth() / GENERALS_ONLINE_WIDESCREEN_X_SCALE;
+	multiplier.y = (float)TheDisplay->getHeight() / GENERALS_ONLINE_WIDESCREEN_Y_SCALE;
+#endif
+
 	
 	// lets bring out the data structure!
 	m_militarySubtitle = NEW MilitarySubtitleData;

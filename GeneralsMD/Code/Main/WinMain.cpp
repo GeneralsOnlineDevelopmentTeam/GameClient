@@ -450,12 +450,19 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 			{
 //				DWORD threadId=GetCurrentThreadId();
 				if ((bool) wParam != isWinMainActive)
-				{	isWinMainActive = (BOOL) wParam;
+				{
+#if defined(GENERALS_ONLINE_WINDOWED_FULLSCREEN)
+					isWinMainActive = true; // is always windowed now
+#else
+					isWinMainActive = (BOOL)wParam;
+#endif
 					
 					if (TheGameEngine)
 						TheGameEngine->setIsActive(isWinMainActive);
 
+#if !defined(GENERALS_ONLINE_WINDOWED_FULLSCREEN) // no need to reset device in windowed FS
 					Reset_D3D_Device(isWinMainActive);
+#endif
 					if (isWinMainActive)
 					{	//restore mouse cursor to our custom version.
 						if (TheWin32Mouse)
