@@ -635,6 +635,9 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryJSON["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
 						lobbyEntryJSON["track_stats"].get_to(lobbyEntry.track_stats);
 						lobbyEntryJSON["passworded"].get_to(lobbyEntry.passworded);
+						lobbyEntryJSON["rng_seed"].get_to(lobbyEntry.rng_seed);
+						lobbyEntryJSON["relay_ip"].get_to(lobbyEntry.strRelayIP);
+						lobbyEntryJSON["relay_port"].get_to(lobbyEntry.relayPort);
 
 						// correct map path
 						if (lobbyEntry.map_official)

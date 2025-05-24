@@ -236,9 +236,13 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 	else
 	{
 		// relay details
+		auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+
 		ENetAddress addr;
-		enet_address_set_host(&addr, "127.0.0.1");
-		addr.port = 7777;
+		enet_address_set_host(&addr, currentLobby.strRelayIP.c_str());
+		addr.port = currentLobby.relayPort;
+
+		NetworkLog("Attempting to connect to relay. The relay for this lobby is %s:%d.", currentLobby.strRelayIP.c_str(), currentLobby.relayPort);;
 
 		enet_uint32 connectData = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 		m_pRelayPeer = enet_host_connect(enetInstance, &addr, 4, connectData);
@@ -534,7 +538,7 @@ void NetworkMesh::Tick()
 							));
 						}
 
-						//NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback();
+						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback();
 						return;
 					}
 				}

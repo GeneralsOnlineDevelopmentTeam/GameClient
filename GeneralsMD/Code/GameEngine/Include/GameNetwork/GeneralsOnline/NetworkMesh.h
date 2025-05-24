@@ -141,7 +141,7 @@ public:
 
 	void Tick();
 
-	const int64_t m_thresoldToCheckConnected = 2000;
+	const int64_t m_thresoldToCheckConnected = 10000;
 	int64_t m_connectionCheckGracePeriodStart = -1;
 
 	int64_t m_lastPing = -1;

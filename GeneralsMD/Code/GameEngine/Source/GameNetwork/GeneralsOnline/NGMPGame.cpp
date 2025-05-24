@@ -67,6 +67,9 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 	// stats
 	setUseStats(lobby.track_stats);
 
+	// rng seed
+	setSeed(lobby.rng_seed);
+
 	// starting cash
 	Money startingCash;
 	startingCash.deposit(lobby.starting_cash, FALSE);
@@ -416,11 +419,8 @@ void NGMPGame::launchGame(void)
 	//TheWritableGlobalData->m_useFpsLimit = false;
 
 	// Set the random seed
-	// TODO_NGMP: revisit this
-	//InitGameLogicRandom(getSeed());
-	//DEBUG_LOG(("InitGameLogicRandom( %d )\n", getSeed()));
-	InitGameLogicRandom(123);
-	DEBUG_LOG(("InitGameLogicRandom( %d )\n", 123));
+	InitGameLogicRandom(getSeed());
+	DEBUG_LOG(("InitGameLogicRandom( %d )\n", getSeed()));
 
 	// mark us as "Loading" in the buddy list
 	// TODO_NGMP
