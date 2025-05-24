@@ -470,7 +470,11 @@ void NetworkMesh::Tick()
 					{
 						if (lobbyMember.IsHuman())
 						{
-							++expectedConnections; // we should also have a local 'connection'
+							// we should not have a local 'connection'
+							if (lobbyMember.user_id != NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
+							{
+								++expectedConnections;
+							}
 						}
 					}
 
