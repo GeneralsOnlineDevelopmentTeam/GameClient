@@ -402,7 +402,6 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 
 void NetworkMesh::Disconnect()
 {
-	// TODO_RELAY: Handle relay disconnects?
 	if (enetInstance != nullptr)
 	{
 		for (auto& connectionData : m_mapConnections)
@@ -412,7 +411,16 @@ void NetworkMesh::Disconnect()
 			{
 				enet_peer_disconnect(peer, 0);
 				enet_peer_reset(peer);
+				peer = nullptr;
 			}
+		}
+
+		// disconnect from relay too
+		if (m_pRelayPeer != nullptr)
+		{
+			enet_peer_disconnect(m_pRelayPeer, 0);
+			enet_peer_reset(m_pRelayPeer);
+			m_pRelayPeer = nullptr;
 		}
 
 		m_mapConnections.clear();
