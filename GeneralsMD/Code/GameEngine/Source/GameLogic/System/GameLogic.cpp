@@ -2612,45 +2612,6 @@ void GameLogic::processCommandList( CommandList *list )
 
 		if (sawCRCMismatch)
 		{
-#if defined(GENERALS_ONLINE_USE_SENTRY)
-			if (TheNGMPGame != nullptr)
-			{
-				AsciiString sentryMsg;
-				sentryMsg.format("CRC Mismatch - saw %d CRCs from %d players\nMap was %s\n", m_cachedCRCs.size(), numPlayers, TheNGMPGame->getMap().str());
-
-				for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
-				{
-					Player* player = ThePlayerList->getNthPlayer(crcIt->first);
-
-					AsciiString sentryMsgPlayer;
-					sentryMsgPlayer.format("CRC from player %d (%ls) = %X\n", crcIt->first,
-						player ? player->getPlayerDisplayName().str() : L"<NONE>", crcIt->second);
-
-					sentryMsg.concat(sentryMsgPlayer);
-				}
-
-				// local player info
-				int64_t userID = -1;
-				std::string strDisplayname = "Unknown";
-				if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-				{
-					userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-					strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str();
-				}
-				std::string strUserID = std::format("{}", userID);
-
-				sentry_set_extra("user_id", sentry_value_new_int32(userID));
-				sentry_set_extra("user_displayname", sentry_value_new_string(strDisplayname.c_str()));
-
-				// send event to sentry
-				sentry_capture_event(sentry_value_new_message_event(
-					SENTRY_LEVEL_ERROR,
-					"CRC_MISMATCH",
-					sentryMsg.str()
-				));
-			}
-#endif
-
 #ifdef DEBUG_LOGGING
 			DEBUG_LOG(("CRC Mismatch - saw %d CRCs from %d players\n", m_cachedCRCs.size(), numPlayers));
 			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
@@ -2713,6 +2674,34 @@ void GameLogic::processCommandList( CommandList *list )
 			// TODO_NGMP: Handle missing CRCs, although that doesnt seem common
 
 			TheNetwork->setSawCRCMismatch(strMismatchDetails);
+
+#if defined(GENERALS_ONLINE_USE_SENTRY)
+			if (TheNGMPGame != nullptr)
+			{
+				// local player info
+				int64_t userID = -1;
+				std::string strDisplayname = "Unknown";
+				if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+				{
+					userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+					strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str();
+				}
+				std::string strUserID = std::format("{}", userID);
+
+				sentry_set_extra("user_id", sentry_value_new_int32(userID));
+				sentry_set_extra("user_displayname", sentry_value_new_string(strDisplayname.c_str()));
+
+				AsciiString sentryMsg;
+				sentryMsg.translate(strMismatchDetails);
+
+				// send event to sentry
+				sentry_capture_event(sentry_value_new_message_event(
+					SENTRY_LEVEL_ERROR,
+					"CRC_MISMATCH",
+					sentryMsg.str()
+				));
+			}
+#endif
 #else
 			TheNetwork->setSawCRCMismatch();
 #endif
