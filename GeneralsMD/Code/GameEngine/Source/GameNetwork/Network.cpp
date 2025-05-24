@@ -168,7 +168,11 @@ public:
 	void attachTransport(Transport *transport);
 	void initTransport();
 
-	void setSawCRCMismatch( void );
+#if defined(GENERALS_ONLINE)
+	void setSawCRCMismatch(UnicodeString& strMismatchDetails);
+#else
+	void setSawCRCMismatch(void);
+#endif
 	Bool sawCRCMismatch( void ) { return m_sawCRCMismatch; }
 	Bool isPlayerConnected( Int playerID );
 
@@ -369,14 +373,27 @@ void Network::init()
 	return;
 }
 
+#if defined(GENERALS_ONLINE)
+void Network::setSawCRCMismatch(UnicodeString& strMismatchDetails)
+#else
 void Network::setSawCRCMismatch( void )
+#endif
 {
 	m_sawCRCMismatch = TRUE;
 
 	TheScriptActions->closeWindows( TRUE );
+#if defined(GENERALS_ONLINE)
+	m_messageWindow = MessageBoxOk(UnicodeString(L"Mismatch Occurred"), strMismatchDetails, nullptr);
+#else
 	m_messageWindow = TheWindowManager->winCreateFromScript("Menus/CRCMismatch.wnd");
-	TheScriptEngine->startEndGameTimer();
+#endif
 
+#if defined(GENERALS_ONLINE)
+	TheScriptEngine->startEndGameTimer(true);
+#else
+	TheScriptEngine->startEndGameTimer();
+#endif
+	
 	TheRecorder->logCRCMismatch();
 
 	// dump GameLogic random seed

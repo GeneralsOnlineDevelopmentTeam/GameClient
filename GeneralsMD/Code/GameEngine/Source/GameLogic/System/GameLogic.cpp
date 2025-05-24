@@ -2660,7 +2660,62 @@ void GameLogic::processCommandList( CommandList *list )
 					player?player->getPlayerDisplayName().str():L"<NONE>", crcIt->second));
 			}
 #endif // DEBUG_LOGGING
+
+#if defined(GENERALS_ONLINE)
+			// provide more details
+			UnicodeString strMismatchDetails;
+			strMismatchDetails.format(L"GameLogic frame %d, latest frame %d, GetGameLogicRandomSeedCRC was %d\nHad %d CRCs from %d players\nAll Player CRCs:\n",
+				TheGameLogic->getFrame(),
+				TheGameLogic->getFrame() - TheNetwork->getRunAhead() - 1,
+				GetGameLogicRandomSeedCRC(),
+				m_cachedCRCs.size(),
+				numPlayers);
+
+			// determine who is at fault
+			std::map<UnsignedInt, int> mapCRCOccurences;
+			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+			{
+				// data to determine who mismatched
+				if (mapCRCOccurences.contains(crcIt->second))
+				{
+					++mapCRCOccurences[crcIt->second];
+				}
+				else
+				{
+					mapCRCOccurences[crcIt->second] = 1;
+				}
+			}
+
+			// determine who mismatched
+			// take the 'most frequent' CRC as the correct one, everyone else is to blame
+			int biggestCRCCount = -1;
+			UnsignedInt biggestCRC = -1;
+			for (auto& crcIter : mapCRCOccurences)
+			{
+				if (crcIter.second > biggestCRCCount)
+				{
+					biggestCRC = crcIter.first;
+					biggestCRCCount = crcIter.second;
+				}
+			}
+
+			// show all players
+			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+			{
+				Player* player = ThePlayerList->getNthPlayer(crcIt->first);
+				UnicodeString strPlayerInfo;
+				strPlayerInfo.format(L"player %d (%s) = %X [%s]\n", crcIt->first, player ? player->getPlayerDisplayName().str() : L"<NONE>", crcIt->second,
+					crcIt->second == biggestCRC ? L"OK" : L"MISMATCH");
+
+				strMismatchDetails.concat(strPlayerInfo);
+			}
+
+			// TODO_NGMP: Handle missing CRCs, although that doesnt seem common
+
+			TheNetwork->setSawCRCMismatch(strMismatchDetails);
+#else
 			TheNetwork->setSawCRCMismatch();
+#endif
 		}
 	}
 
@@ -3731,6 +3786,13 @@ void GameLogic::update( void )
 		m_CRC = getCRC( CRC_RECALC );
 		if (isMPGameOrReplay)
 		{
+#if defined(GENERALS_ONLINE)
+			bool bForceArtificialMismatch = false;
+			if (bForceArtificialMismatch)
+			{
+				m_CRC = 1234567890;
+			}
+#endif
 			GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_LOGIC_CRC );
 			msg->appendIntegerArgument( m_CRC );
 			msg->appendBooleanArgument( (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK) ); // playback CRC
