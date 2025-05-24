@@ -837,13 +837,18 @@ void NetworkMesh::Tick()
 					}
 					else if (packetID == EPacketID::PACKET_ID_PING)
 					{
-
+						NetworkLog("Received Ping");
+						// send pong
+						NetworkPacket_Pong pongPacket;
+						if (pConnection != nullptr)
+						{
+							pConnection->SendPacket(pongPacket, 0);
+						}
 					}
 					else if (packetID == EPacketID::PACKET_ID_PONG)
 					{
 						NetworkLog("Received Pong");
 
-						
 						// store delta on connection
 						
 						if (pConnection != nullptr)
@@ -941,7 +946,24 @@ void NetworkMesh::Tick()
 
 void NetworkMesh::SendPing()
 {
-	
+	m_lastPing = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+	// TODO_NGMP: Better way of checking we have everything we need / are fully in the lobby
+	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+	if (currentLobby.EncKey.empty() || currentLobby.EncIV.empty())
+	{
+		NetworkLog("No encryption key or IV, not sending ping");
+		return;
+	}
+
+	for (auto& connectionInfo : m_mapConnections)
+	{
+		// this also does some hole punching... so don't even check if we're connected, just sent
+		NetworkPacket_Ping pingPacket;
+		connectionInfo.second.SendPacket(pingPacket, 0);
+
+		connectionInfo.second.pingSent = m_lastPing;
+	}
 }
 
 ENetPeer* PlayerConnection::GetPeerToUse()
