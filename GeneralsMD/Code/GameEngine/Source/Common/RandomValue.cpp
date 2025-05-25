@@ -35,6 +35,11 @@
 #include "Common/Debug.h"
 #include "GameLogic/GameLogic.h"
 
+#if defined(GENERALS_ONLINE_USE_NEW_RNG_LOGIC)
+#include <random>
+#include <GameNetwork/GeneralsOnline/NGMP_include.h>
+#endif
+
 //#define DETERMINISTIC				// to allow repetition for debugging
 
 #ifdef RTS_INTERNAL
@@ -73,8 +78,46 @@ static UnsignedInt theGameLogicSeed[6] =
 // Add with carry. SUM is replaced with A + B + C, C is replaced with 1  if there was a carry, 0 if there wasn't. A carry occurred if the sum is  less than one of the inputs. This is addition, so carry can never be  more than one.
 #define ADC(SUM, A, B, C)   SUM = (A) + (B) + (C); C = ((SUM < (A)) || (SUM < (B)))
 
+#if defined(GENERALS_ONLINE_RNG_USE_PER_FRAME_VAL)
+static uint32_t lastRngFrame = -1;
+static uint32_t lastRngFrameVal = -1;
+#endif
+
+static bool createdRNG = false;
+static std::mt19937 generator;
+
 static UnsignedInt randomValue(UnsignedInt *seed)
 {
+#if defined(GENERALS_ONLINE_USE_NEW_RNG_LOGIC)
+	
+	if (!createdRNG)
+	{
+		__debugbreak();
+		return 0;
+	}
+
+	// NOTE: Ok to not do this, it's not critical, only used for logging
+	if (TheGameLogic != nullptr)
+	{
+		TheGameLogic->IncrementNumRNGS();
+	}
+
+#if !defined(GENERALS_ONLINE_RNG_USE_PER_FRAME_VAL)
+	uint32_t randomNumber = generator();
+	return randomNumber;
+#else	
+	// Do we need a new number?
+	if (lastRngFrame != TheGameLogic->getFrame())
+	{
+		NetworkLog("Generating new RNG for frame %u", TheGameLogic->getFrame());
+		lastRngFrameVal = generator();
+		lastRngFrame = TheGameLogic->getFrame();
+	}
+
+	return lastRngFrameVal;
+
+#endif
+#else
 	UnsignedInt ax;
 	UnsignedInt c = 0;
 	
@@ -114,10 +157,21 @@ static UnsignedInt randomValue(UnsignedInt *seed)
 		}
 	}
 	return(ax);
+#endif
 }
 
 static void seedRandom(UnsignedInt SEED, UnsignedInt *seed)
 {
+#if defined(GENERALS_ONLINE_USE_NEW_RNG_LOGIC)
+	generator = std::mt19937(SEED);
+	createdRNG = true;
+	
+	// NOTE: Ok to not do this, it's not critical, only used for logging
+	if (TheGameLogic != nullptr)
+	{
+		TheGameLogic->ResetNumRNGs();
+	}
+#else
 	UnsignedInt ax;
 
 	ax = SEED;                      /* mov     eax,SEED                     */
@@ -133,6 +187,7 @@ static void seedRandom(UnsignedInt SEED, UnsignedInt *seed)
 	seed[4] = ax;                   /* mov     seed+16,eax                  */
 	ax += 0x6fdf3b64 - 0x9e353f7d;  /* add     eax,06fdf3b64h-09e353f7dh    */
 	seed[5] = ax;                   /* mov     seed+20,eax                  */
+#endif
 }
 
 //

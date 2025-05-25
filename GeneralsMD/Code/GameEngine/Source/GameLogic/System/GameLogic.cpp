@@ -2643,12 +2643,13 @@ void GameLogic::processCommandList( CommandList *list )
 #if defined(GENERALS_ONLINE)
 			// provide more details
 			UnicodeString strMismatchDetails;
-			strMismatchDetails.format(L"GameLogic frame %d, latest frame %d, GetGameLogicRandomSeedCRC was %d\nHad %d CRCs from %d players\nAll Player CRCs:\n",
+			strMismatchDetails.format(L"GameLogic frame %d, latest frame %d, GetGameLogicRandomSeedCRC was %d\nHad %d CRCs from %d players\nNum RNG Calls %ull\nAll Player CRCs:\n",
 				TheGameLogic->getFrame(),
 				TheGameLogic->getFrame() - TheNetwork->getRunAhead() - 1,
 				GetGameLogicRandomSeedCRC(),
 				m_cachedCRCs.size(),
-				numPlayers);
+				numPlayers,
+				TheGameLogic->GetNumRNGS());
 
 			// determine who is at fault
 			std::map<UnsignedInt, int> mapCRCOccurences;
