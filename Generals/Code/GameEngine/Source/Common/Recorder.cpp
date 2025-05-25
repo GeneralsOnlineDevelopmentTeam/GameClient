@@ -777,7 +777,7 @@ void RecorderClass::writeToFile(GameMessage * msg) {
 		writeArgument(msg->getArgumentDataType(i), *(msg->getArgument(i)));
 	}
 
-	parser->deleteInstance();
+	deleteInstance(parser);
 	parser = NULL;
 
 	fflush(m_file); ///< @todo should this be in the final release?
@@ -1041,6 +1041,9 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 			// the mismatch first happened in case the NetCRCInterval is set to 1 during the game.
 			DEBUG_CRASH(("Replay has gone out of sync!  All bets are off!\nInGame:%8.8X Replay:%8.8X\nFrame:%d",
 				playbackCRC, newCRC, TheGameLogic->getFrame()-m_crcInfo->GetQueueSize()-1));
+
+			// TheSuperHackers @tweak Pause the game on mismatch.
+			TheGameLogic->setGamePaused(true);
 		}
 		return;
 	}
@@ -1366,17 +1369,17 @@ void RecorderClass::appendNextCommand() {
 
 	if (type == GameMessage::MSG_CLEAR_GAME_DATA || type == GameMessage::MSG_BEGIN_NETWORK_MESSAGES)
 	{
-		msg->deleteInstance();
+		deleteInstance(msg);
 		msg = NULL;
 	}
 
 	if (m_doingAnalysis)
 	{
-		msg->deleteInstance();
+		deleteInstance(msg);
 		msg = NULL;
 	}
 
-	parser->deleteInstance();
+	deleteInstance(parser);
 	parser = NULL;
 }
 
@@ -1511,7 +1514,7 @@ void RecorderClass::cullBadCommands() {
 				(msg->getType() < GameMessage::MSG_END_NETWORK_MESSAGES) &&
 				(msg->getType() != GameMessage::MSG_LOGIC_CRC)) {
 
-			msg->deleteInstance();
+			deleteInstance(msg);
 		}
 
 		msg = next;

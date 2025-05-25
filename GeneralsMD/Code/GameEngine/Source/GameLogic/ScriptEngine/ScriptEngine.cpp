@@ -6612,7 +6612,7 @@ void ScriptEngine::setPriorityThing( ScriptAction *pAction )
 	{
 		// Found a list by this name, so we have a bunch of things
 
-		for( Int typeIndex = 0; typeIndex < types->getListSize(); typeIndex ++ )
+		for( size_t typeIndex = 0; typeIndex < types->getListSize(); typeIndex ++ )
 		{
 			AsciiString thisTypeName = types->getNthInList(typeIndex);
 			const ThingTemplate *thisType = TheThingFactory->findTemplate(thisTypeName);
@@ -6726,7 +6726,7 @@ void ScriptEngine::removeObjectTypes(ObjectTypes *typesToRemove)
 	}
 
 	// delete it.
-	typesToRemove->deleteInstance();
+	deleteInstance(typesToRemove);
 
 	// remove it from the main array of stuff
 	m_allObjectTypeLists.erase(it);
@@ -8097,14 +8097,14 @@ ScriptEngine::VecSequentialScriptPtrIt ScriptEngine::cleanupSequentialScript(Vec
 		while (seqScript) {
 			scriptToDelete = seqScript;
 			seqScript = seqScript->m_nextScriptInSequence;
-			scriptToDelete->deleteInstance();
+			deleteInstance(scriptToDelete);
 			scriptToDelete = NULL;
 		}
 		(*it) = NULL;
 	} else {
 		// we want to make sure to not delete any dangling scripts.
 		(*it) = scriptToDelete->m_nextScriptInSequence;
-		scriptToDelete->deleteInstance();
+		deleteInstance(scriptToDelete);
 		scriptToDelete = NULL;
 	}
 

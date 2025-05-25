@@ -279,7 +279,7 @@ void GameSpyCloseOverlay( GSOverlayType overlay )
 	{
 		overlayLayouts[overlay]->runShutdown();
 		overlayLayouts[overlay]->destroyWindows();
-		overlayLayouts[overlay]->deleteInstance();
+		deleteInstance(overlayLayouts[overlay]);
 		overlayLayouts[overlay] = NULL;
 	}
 }

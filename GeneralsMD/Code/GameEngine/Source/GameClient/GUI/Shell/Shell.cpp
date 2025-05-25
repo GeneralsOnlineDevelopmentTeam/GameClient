@@ -99,7 +99,7 @@ Shell::~Shell( void )
 	if(m_background)
 	{
 		m_background->destroyWindows();
-		m_background->deleteInstance();
+		deleteInstance(m_background);
 		m_background = NULL;
 	}
 
@@ -116,7 +116,7 @@ Shell::~Shell( void )
 	{
 
 		m_saveLoadMenuLayout->destroyWindows();
-		m_saveLoadMenuLayout->deleteInstance();
+		deleteInstance(m_saveLoadMenuLayout);
 		m_saveLoadMenuLayout = NULL;
 
 	}  //end if
@@ -126,7 +126,7 @@ Shell::~Shell( void )
 	{
 
 		m_popupReplayLayout->destroyWindows();
-		m_popupReplayLayout->deleteInstance();
+		deleteInstance(m_popupReplayLayout);
 		m_popupReplayLayout = NULL;
 
 	}  //end if
@@ -134,7 +134,7 @@ Shell::~Shell( void )
 	// delete the options menu if present.
 	if (m_optionsLayout != NULL) {
 		m_optionsLayout->destroyWindows();
-		m_optionsLayout->deleteInstance();
+		deleteInstance(m_optionsLayout);
 		m_optionsLayout = NULL;
 	}
 
@@ -203,7 +203,7 @@ void Shell::update( void )
 		{
 			
 			m_background->destroyWindows();
-			m_background->deleteInstance();
+			deleteInstance(m_background);
 			m_background = NULL;
 			
 		}
@@ -641,15 +641,18 @@ void Shell::doPop( Bool impendingPush )
 
 	// there better be a top of the stack since we're popping
 	DEBUG_ASSERTCRASH( currentTop, ("Shell: No top of stack and we want to pop!\n") );
-		
-	// remove this screen from our list
-	unlinkScreen( currentTop );
 
-	// delete all the windows in the screen
-	currentTop->destroyWindows();
+	if (currentTop)
+	{
+		// remove this screen from our list
+		unlinkScreen(currentTop);
 
-	// release the screen object back to the memory pool
-	currentTop->deleteInstance();
+		// delete all the windows in the screen
+		currentTop->destroyWindows();
+
+		// release the screen object back to the memory pool
+		deleteInstance(currentTop);
+	}
 
 	// run the init for the new top of the stack if present
 	WindowLayout *newTop = top();
@@ -712,7 +715,7 @@ void Shell::shutdownComplete( WindowLayout *screen, Bool impendingPush )
 		if(m_background)
 		{
 			m_background->destroyWindows();
-			m_background->deleteInstance();
+			deleteInstance(m_background);
 			m_background = NULL;
 			m_clearBackground = FALSE;
 		}
@@ -839,7 +842,7 @@ WindowLayout *Shell::getOptionsLayout( Bool create )
 void Shell::destroyOptionsLayout() {
 	if (m_optionsLayout != NULL) {
 		m_optionsLayout->destroyWindows();
-		m_optionsLayout->deleteInstance();
+		deleteInstance(m_optionsLayout);
 		m_optionsLayout = NULL;
 	}
 }

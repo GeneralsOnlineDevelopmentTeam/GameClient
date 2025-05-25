@@ -110,7 +110,7 @@ public:
 	virtual const char*					Get_Name(void) const			{ return Name.str(); }
 	virtual int									Get_Class_ID(void) const	{ return Proto->Class_ID(); }
 	virtual RenderObjClass *		Create(void);
-	virtual void								DeleteSelf()							{	deleteInstance(); }
+	virtual void								DeleteSelf()							{	deleteInstance(this); }
 
 protected:
 	//virtual ~W3DPrototypeClass(void);
@@ -855,6 +855,9 @@ RenderObjClass * W3DAssetManager::Create_Render_Obj(
 */
 int W3DAssetManager::Recolor_Asset(RenderObjClass *robj, const int color)
 {
+	if (TheGlobalData->m_headless)
+		return 0;
+
 	switch (robj->Class_ID())	{	
 	case RenderObjClass::CLASSID_MESH:
 		return Recolor_Mesh(robj,color);
@@ -871,6 +874,9 @@ int W3DAssetManager::Recolor_Asset(RenderObjClass *robj, const int color)
 */
 int W3DAssetManager::Recolor_Mesh(RenderObjClass *robj, const int color)
 {
+	if (TheGlobalData->m_headless)
+		return 0;
+
 	int i;
 	int didRecolor=0;
 	const char *meshName;
@@ -916,6 +922,9 @@ int W3DAssetManager::Recolor_Mesh(RenderObjClass *robj, const int color)
 
 int W3DAssetManager::Recolor_HLOD(RenderObjClass *robj, const int color)
 {
+	if (TheGlobalData->m_headless)
+		return 0;
+
 	int didRecolor=0;
 
 	int num_sub = robj->Get_Num_Sub_Objects();
