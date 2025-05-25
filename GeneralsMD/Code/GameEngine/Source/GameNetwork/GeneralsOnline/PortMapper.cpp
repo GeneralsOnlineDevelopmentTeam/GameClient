@@ -53,8 +53,12 @@ void PortMapper::Tick()
 			m_callbackDeterminedCaps();
 			m_callbackDeterminedCaps = nullptr;
 
-			closesocket(m_NATSocket);
-			WSACleanup();
+			if (m_NATSocket != INVALID_SOCKET)
+			{
+				closesocket(m_NATSocket);
+				WSACleanup();
+				m_NATSocket = INVALID_SOCKET;
+			}
 		}
 
 		// timed out?
@@ -68,39 +72,46 @@ void PortMapper::Tick()
 			m_callbackDeterminedCaps();
 			m_callbackDeterminedCaps = nullptr;
 
-			closesocket(m_NATSocket);
-			WSACleanup();
-		}
-
-		// now recv again
-		char buffer[1024] = { 0 };
-		sockaddr_in clientAddr;
-		int clientAddrLen = sizeof(clientAddr);
-
-		int bytesReceived = recvfrom(m_NATSocket, buffer, sizeof(buffer), 0, (sockaddr*)&clientAddr, &clientAddrLen);
-		if (bytesReceived == SOCKET_ERROR)
-		{
-			if (WSAGetLastError() == WSAEWOULDBLOCK)
+			if (m_NATSocket != INVALID_SOCKET)
 			{
-				return;
-			}
-			else {
-				NetworkLog("[NAT Check]: recvfrom failed");
-				return;
+				closesocket(m_NATSocket);
+				WSACleanup();
+				m_NATSocket = INVALID_SOCKET;
 			}
 		}
 
-		buffer[bytesReceived] = '\0';
-		//NetworkLog("[NAT Check]: Received from server: %s", buffer);
-
-		for (int i = 0; i < m_probesExpected; ++i)
+		if (m_NATSocket != INVALID_SOCKET)
 		{
-			char szBuffer[32] = { 0 };
-			sprintf_s(szBuffer, "NATCHECK%d", i);
+			// now recv again
+			char buffer[1024] = { 0 };
+			sockaddr_in clientAddr;
+			int clientAddrLen = sizeof(clientAddr);
 
-			if (strcmp(buffer, szBuffer) == 0)
+			int bytesReceived = recvfrom(m_NATSocket, buffer, sizeof(buffer), 0, (sockaddr*)&clientAddr, &clientAddrLen);
+			if (bytesReceived == SOCKET_ERROR)
 			{
-				m_probesReceived[i] = true;
+				if (WSAGetLastError() == WSAEWOULDBLOCK)
+				{
+					return;
+				}
+				else {
+					NetworkLog("[NAT Check]: recvfrom failed");
+					return;
+				}
+			}
+
+			buffer[bytesReceived] = '\0';
+			//NetworkLog("[NAT Check]: Received from server: %s", buffer);
+
+			for (int i = 0; i < m_probesExpected; ++i)
+			{
+				char szBuffer[32] = { 0 };
+				sprintf_s(szBuffer, "NATCHECK%d", i);
+
+				if (strcmp(buffer, szBuffer) == 0)
+				{
+					m_probesReceived[i] = true;
+				}
 			}
 		}
 	}
@@ -149,6 +160,7 @@ void PortMapper::StartNATCheck()
 	{
 		NetworkLog("[NAT Check]: Failed to set non-blocking mode.");
 		closesocket(m_NATSocket);
+		m_NATSocket = INVALID_SOCKET;
 		WSACleanup();
 		m_directConnect = ECapabilityState::UNSUPPORTED;
 		m_callbackDeterminedCaps();
@@ -165,6 +177,7 @@ void PortMapper::StartNATCheck()
 	{
 		NetworkLog("[NAT Check]: Binding failed. Error: %d", WSAGetLastError());
 		closesocket(m_NATSocket);
+		m_NATSocket = INVALID_SOCKET;
 		WSACleanup();
 		m_directConnect = ECapabilityState::UNSUPPORTED;
 		m_callbackDeterminedCaps();

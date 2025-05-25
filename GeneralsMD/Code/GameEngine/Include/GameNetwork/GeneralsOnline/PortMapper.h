@@ -78,7 +78,7 @@ private:
 
 	uint16_t m_PreferredPort = 0;
 
-	SOCKET m_NATSocket;
+	SOCKET m_NATSocket = INVALID_SOCKET;
 	bool m_bNATCheckInProgress = false;
 
 	std::atomic<bool> m_bPortMapperWorkComplete = false;
