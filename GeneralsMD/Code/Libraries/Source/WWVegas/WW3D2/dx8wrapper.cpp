@@ -947,6 +947,9 @@ void DX8Wrapper::Resize_And_Position_Window()
 			// Apply the new style
 			SetWindowLongPtr(_Hwnd, GWL_STYLE, style);
 
+			// no DPI scaling for games
+			SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
 			// Move window to (0,0) with the monitors resolution:
 			SetWindowPos(
 				_Hwnd,
