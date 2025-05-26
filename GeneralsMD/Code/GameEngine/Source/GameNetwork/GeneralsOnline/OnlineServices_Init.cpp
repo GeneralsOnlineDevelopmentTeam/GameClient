@@ -422,31 +422,44 @@ void QoSManager::Tick()
 					struct sockaddr_in probeAddr;
 
 					hostent* pEnt = gethostbyname(probe.strEndpoint.c_str());
-					memcpy(&probeAddr.sin_addr, pEnt->h_addr_list[0], pEnt->h_length);
-					probeAddr.sin_family = AF_INET;
-					probeAddr.sin_port = htons(3075);
+					if (pEnt != nullptr)
+					{
+						memcpy(&probeAddr.sin_addr, pEnt->h_addr_list[0], pEnt->h_length);
+						probeAddr.sin_family = AF_INET;
+						probeAddr.sin_port = htons(3075);
 
-					CBitStream bsProbe(6);
-					bsProbe.Write<BYTE>(0xFF);
-					bsProbe.Write<BYTE>(0xFF);
-					bsProbe.Write<BYTE>(0x01);
-					bsProbe.Write<BYTE>(0x02);
-					bsProbe.Write<BYTE>(0x03);
-					bsProbe.Write<BYTE>(0x04);
-					sendto(m_Socket_QoSProbing, (char*)bsProbe.GetRawBuffer(), (int)bsProbe.GetNumBytesUsed(), 0, (sockaddr*)&probeAddr, sizeof(sockaddr_in));
+						CBitStream bsProbe(6);
+						bsProbe.Write<BYTE>(0xFF);
+						bsProbe.Write<BYTE>(0xFF);
+						bsProbe.Write<BYTE>(0x01);
+						bsProbe.Write<BYTE>(0x02);
+						bsProbe.Write<BYTE>(0x03);
+						bsProbe.Write<BYTE>(0x04);
+						sendto(m_Socket_QoSProbing, (char*)bsProbe.GetRawBuffer(), (int)bsProbe.GetNumBytesUsed(), 0, (sockaddr*)&probeAddr, sizeof(sockaddr_in));
 
-					// add to in flight list
-					char szIpAddress[MAX_SIZE_IP_ADDR] = { 0 };
-					inet_ntop(AF_INET, &probeAddr.sin_addr, szIpAddress, MAX_SIZE_IP_ADDR);
+						// add to in flight list
+						char szIpAddress[MAX_SIZE_IP_ADDR] = { 0 };
+						inet_ntop(AF_INET, &probeAddr.sin_addr, szIpAddress, MAX_SIZE_IP_ADDR);
 
-					probe.bSent = true;
-					probe.Port = probeAddr.sin_port;
-					probe.strIPAddr = std::string(szIpAddress);
-					probe.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+						probe.bSent = true;
+						probe.Port = probeAddr.sin_port;
+						probe.strIPAddr = std::string(szIpAddress);
+						probe.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
-					NetworkLog("Sending QoS Probe %s (%s)", probe.strRegion.c_str(), szIpAddress);
+						NetworkLog("Sending QoS Probe %s (%s)", probe.strRegion.c_str(), szIpAddress);
 
-					break;
+						break;
+					}
+					else
+					{
+						// mark as done and failed
+						probe.bSent = true;
+						probe.bDone = true;
+						probe.Latency = -1;
+
+						NetworkLog("QoS: Failed to resolve hostname %s", probe.strEndpoint.c_str());
+						continue;
+					}
 				}
 			}
 
@@ -473,9 +486,12 @@ void QoSManager::Tick()
 		{
 			NetworkLog("QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegion.c_str(), probe.Latency);
 
-			if (pBestRegion == nullptr || probe.Latency < pBestRegion->Latency)
+			if (probe.Latency > 0)
 			{
-				pBestRegion = &probe;
+				if (pBestRegion == nullptr || probe.Latency < pBestRegion->Latency)
+				{
+					pBestRegion = &probe;
+				}
 			}
 		}
 
@@ -510,9 +526,25 @@ void QoSManager::Tick()
 	memset(&addr, 0, sizeof(sockaddr_in));
 	int iFromLen = sizeof(sockaddr_in);
 
+	// does current probe need a timetout?
+	for (QoSProbe& probe : m_lstQoSProbesInFlight)
+	{
+		if (!probe.bDone && probe.HasTimedOut())
+		{
+			NetworkLog("[QoS] Probe for %s (%s) has timed out", probe.strRegion.c_str(), probe.strEndpoint.c_str());
+			// mark as failed
+			probe.bDone = true;
+			probe.Latency = -1;
+		}
+	}
+
 	int iBytesRead = -1;
 	while ((iBytesRead = recvfrom(m_Socket_QoSProbing, szBuffer, sizeof(szBuffer), 0, (sockaddr*)&addr, &iFromLen)) != -1)
 	{
+		char szIpAddress[MAX_SIZE_IP_ADDR] = { 0 };
+		inet_ntop(AF_INET, &addr.sin_addr, szIpAddress, MAX_SIZE_IP_ADDR);
+		unsigned short usPort = addr.sin_port;
+
 		const int expectedLength = 6;
 		if (iBytesRead == expectedLength)
 		{
@@ -538,9 +570,7 @@ void QoSManager::Tick()
 			{
 				NetworkLog("GOOD QOS PACKET (CHECK 2)");
 
-				char szIpAddress[MAX_SIZE_IP_ADDR] = { 0 };
-				inet_ntop(AF_INET, &addr.sin_addr, szIpAddress, MAX_SIZE_IP_ADDR);
-				unsigned short usPort = addr.sin_port;
+				
 
 				// find the associated one
 				bool bFound = false;
@@ -562,19 +592,50 @@ void QoSManager::Tick()
 					}
 				}
 
+				// TODO_RELAY: add a timeout for the overall process too?
 				if (!bFound)
 				{
 					NetworkLog("BAD QOS PACKET (CHECK 3), IP was %s", szIpAddress);
+
+					// find which probe is in flight and mark it as bad
+					for (QoSProbe& probe : m_lstQoSProbesInFlight)
+					{
+						if (!probe.bDone && probe.bSent)
+						{
+							probe.Latency = -1;
+							probe.bDone = true;
+							break;
+						}
+					}
 				}
 			}
 			else
 			{
 				NetworkLog("BAD QOS PACKET (CHECK 2)");
+				for (QoSProbe& probe : m_lstQoSProbesInFlight)
+				{
+					//if (memcmp(&probe.addr, &addr, sizeof(addr) == 0))
+					if (strcmp(szIpAddress, probe.strIPAddr.c_str()) == 0 && probe.Port == usPort)
+					{
+						probe.Latency = -1;
+						probe.bDone = true;
+						NetworkLog("BAD QOS PACKET (CHECK 1)");
+					}
+				}
 			}
 		}
 		else
 		{
-			NetworkLog("BAD QOS PACKET (CHECK 1)");
+			for (QoSProbe& probe : m_lstQoSProbesInFlight)
+			{
+				//if (memcmp(&probe.addr, &addr, sizeof(addr) == 0))
+				if (strcmp(szIpAddress, probe.strIPAddr.c_str()) == 0 && probe.Port == usPort)
+				{
+					probe.Latency = -1;
+					probe.bDone = true;
+					NetworkLog("BAD QOS PACKET (CHECK 1)");
+				}
+			}
 		}
 	}
 }

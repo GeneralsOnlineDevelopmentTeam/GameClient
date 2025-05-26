@@ -16,6 +16,7 @@ class NGMP_OnlineServices_StatsInterface;
 
 #include "GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h"
 #include "GameNetwork/GeneralsOnline/Vendor/sentry/sentry.h"
+#include <chrono>
 
 enum EWebSocketMessageID
 {
@@ -53,7 +54,7 @@ private:
 		std::string strRegion;
 		std::string strEndpoint;
 
-		int64_t startTime;
+		int64_t startTime = -1;
 
 		unsigned short Port = -1;
 		std::string strIPAddr;
@@ -61,6 +62,18 @@ private:
 		bool bSent = false;
 		bool bDone = false;
 		int Latency = -1;
+
+		bool HasTimedOut()
+		{
+			if (startTime == -1)
+			{
+				return false;
+			}
+
+			const int timeoutMS = 1000;
+			int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+			return (currTime - startTime) >= timeoutMS;
+		}
 	};
 	std::vector<QoSProbe> m_lstQoSProbesInFlight;
 
