@@ -29,6 +29,45 @@ enum EWebSocketMessageID
 	NETWORK_ROOM_LOBBY_LIST_UPDATE = 7,
 };
 
+class QoSManager
+{
+public:
+	void Tick();
+	void StartProbing(std::map<std::string, std::string>& endpoints, std::function<void(void)> cbOnComplete);
+
+	std::string& GetPreferredRegion() { return m_PreferredRegion; }
+	int GetPreferredRegionLatency() { return m_PreferredRegionLatency; }
+
+private:
+	std::function<void(void)> m_cbCompletion = nullptr;
+	std::string m_PreferredRegion = "Unknown";
+	int m_PreferredRegionLatency = -1;
+
+	std::map<std::string, std::string> m_mapQoSEndpoints;
+	SOCKET m_Socket_QoSProbing = -1;
+	int64_t m_timeStartQoS = -1;
+
+	class QoSProbe
+	{
+	public:
+		std::string strRegion;
+		std::string strEndpoint;
+
+		int64_t startTime;
+
+		unsigned short Port = -1;
+		std::string strIPAddr;
+
+		bool bSent = false;
+		bool bDone = false;
+		int Latency = -1;
+	};
+	std::vector<QoSProbe> m_lstQoSProbesInFlight;
+
+	const static int MAX_SIZE_IP_ADDR = 16;
+
+};
+
 class WebSocket
 {
 public:
@@ -196,6 +235,8 @@ public:
 	NGMP_OnlineServices_LobbyInterface* GetLobbyInterface() const { return m_pLobbyInterface; }
 	NGMP_OnlineServices_RoomsInterface* GetRoomsInterface() const { return m_pRoomInterface; }
 	NGMP_OnlineServices_StatsInterface* GetStatsInterface() const { return m_pStatsInterface; }
+	QoSManager& GetQoSManager() { return m_qosMgr; }
+	QoSManager m_qosMgr;
 
 	void OnLogin(bool bSuccess, const char* szWSAddr, const char* szWSToken);
 	

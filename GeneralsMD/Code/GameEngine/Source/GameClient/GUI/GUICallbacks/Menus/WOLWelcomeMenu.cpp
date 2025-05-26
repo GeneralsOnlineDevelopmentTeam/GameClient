@@ -334,13 +334,16 @@ static void updateNumPlayersOnline(void)
 		bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
 		bool bHasPortMappedUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenUPnP();
 		int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-		headingStr.format(L"Welcome to Generals Online for Zero Hour.\n \nNetwork Capabilities:\n\tUPnP: %hs\n\tNAT-PMP: %hs\n\tPort Mapped: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs",
+		headingStr.format(L"Welcome to Generals Online for Zero Hour.\n \nNetwork Capabilities:\n\tUPnP: %hs\n\tNAT-PMP: %hs\n\tPort Mapped: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs\n\tRelayed Connect: %hs\n\tPreferred Server Region: %hs (%dms latency)",
 			strUPnPState.c_str(),
 			strNATPMPState.c_str(),
 			bHasPortMapped ? (bHasPortMappedUPnP ? "Yes (UPnP)" : "Yes (NAT-PMP)") : "No",
 			preferredPort,
 			NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
-			capUPnP == ECapabilityState::OVERRIDDEN ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : ""
+			capUPnP == ECapabilityState::OVERRIDDEN ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
+			"Supported",
+			NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegion().c_str(),
+			NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency()
 		);
 
 		// record the game data to backend
