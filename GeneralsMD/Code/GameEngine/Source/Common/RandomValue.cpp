@@ -83,8 +83,10 @@ static uint32_t lastRngFrame = -1;
 static uint32_t lastRngFrameVal = -1;
 #endif
 
+#if defined(GENERALS_ONLINE_USE_NEW_RNG_LOGIC)
 static bool createdRNG = false;
 static std::mt19937 generator;
+#endif
 
 static UnsignedInt randomValue(UnsignedInt *seed)
 {

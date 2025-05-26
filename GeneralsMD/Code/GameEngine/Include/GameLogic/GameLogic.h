@@ -189,12 +189,12 @@ bool IsStartNewgame() const { return m_startNewGame; }
 	Bool isInShellGame( void );
 	Bool isInMultiplayerGame( void );
 
-#if defined(GENERALS_ONLINE_USE_NEW_RNG_LOGIC)
+//#if defined(GENERALS_ONLINE_USE_NEW_RNG_LOGIC)
 	uint32_t m_numRNGs = 0;
 	void ResetNumRNGs();
 	void IncrementNumRNGS();
 	uint32_t GetNumRNGS();
-#endif
+//#endif
 
 	//Kris: Cut isLoadingGame() and replaced with isLoadingMap() and isLoadingSave() -- reason: nomenclature
 	//Bool isLoadingGame() const { return m_loadingScene; }		// This is the old function that isn't very clear on it's definition.
@@ -411,11 +411,11 @@ inline void GameLogic::setHeight( Real height ) { m_height = height; }
 inline Real GameLogic::getHeight( void ) { return m_height; }
 inline UnsignedInt GameLogic::getFrame( void ) { return m_frame; }
 
-#if defined(GENERALS_ONLINE_USE_NEW_RNG_LOGIC)
+//#if defined(GENERALS_ONLINE_USE_NEW_RNG_LOGIC)
 inline void GameLogic::ResetNumRNGs() { m_numRNGs = 0; }
 inline void GameLogic::IncrementNumRNGS() { ++m_numRNGs; }
 inline uint32_t GameLogic::GetNumRNGS() { return m_numRNGs; }
-#endif
+//#endif
 
 #if defined(GENERALS_ONLINE_RUN_FAST)
 inline void GameLogic::setFrame(UnsignedInt frame) { m_frame = frame; }

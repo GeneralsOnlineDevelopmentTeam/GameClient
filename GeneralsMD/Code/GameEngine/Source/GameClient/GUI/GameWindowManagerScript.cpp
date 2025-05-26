@@ -2734,6 +2734,26 @@ GameWindow *GameWindowManager::winCreateFromScript( AsciiString filenameString,
 	else
 		strcpy( filepath, filename );
 
+#if defined(GENERALS_ONLINE)
+	// check Generals Online first
+	char gofilepath[_MAX_PATH] = "GeneralsOnlineUI\\";
+	if (strchr(filename, '\\') == NULL)
+		sprintf(gofilepath, "GeneralsOnlineUI\\%s", filename);
+	else
+		strcpy(gofilepath, filename);
+
+	inFile = TheFileSystem->openFile(gofilepath, File::READ);
+	if (inFile == NULL)
+	{
+		// fall back to game archive
+		inFile = TheFileSystem->openFile(filepath, File::READ);
+		if (inFile == NULL)
+		{
+			DEBUG_LOG(("WinCreateFromScript: Cannot access file '%s'.\n", filename));
+			return NULL;
+		}
+	}
+#else
   // Open the input file
 	inFile = TheFileSystem->openFile(filepath, File::READ);
 	if (inFile == NULL)
@@ -2741,6 +2761,7 @@ GameWindow *GameWindowManager::winCreateFromScript( AsciiString filenameString,
 		DEBUG_LOG(( "WinCreateFromScript: Cannot access file '%s'.\n", filename ));
 		return NULL;
 	}
+#endif
 
   // read into memory
   inFile=inFile->convertToRAMFile();

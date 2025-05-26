@@ -280,17 +280,19 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 				try
 				{
 					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-					std::map<std::string, std::string> mapQoSEndpoints;
+					std::map<std::pair<std::string, EQoSRegions>, std::string> mapQoSEndpoints;
 
 					for (const auto& qosEntry : jsonObject["Servers"])
 					{
 						std::string strServerURL;
 						std::string strRegion;
+						EQoSRegions regionID;
 
 						qosEntry["ServerURL"].get_to(strServerURL);
-						qosEntry["Region"].get_to(strRegion);
+						qosEntry["Region"].get_to(regionID);
+						qosEntry["RegionName"].get_to(strRegion);
 
-						mapQoSEndpoints.emplace(strRegion, strServerURL);
+						mapQoSEndpoints.emplace(std::make_pair<>(strRegion, regionID), strServerURL);
 					}
 
 					// TODO_RELAY: The network caps stuff should wait on this finishing, they can run in parallel but should never go forward iwthout determining region

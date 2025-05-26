@@ -446,7 +446,7 @@ void QoSManager::Tick()
 						probe.strIPAddr = std::string(szIpAddress);
 						probe.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
-						NetworkLog("Sending QoS Probe %s (%s)", probe.strRegion.c_str(), szIpAddress);
+						NetworkLog("Sending QoS Probe %s (%s)", probe.strRegionName.c_str(), szIpAddress);
 
 						break;
 					}
@@ -484,7 +484,7 @@ void QoSManager::Tick()
 		NetworkLog("==== START QOS RESULTS ====");
 		for (QoSProbe& probe : m_lstQoSProbesInFlight)
 		{
-			NetworkLog("QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegion.c_str(), probe.Latency);
+			NetworkLog("QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegionName.c_str(), probe.Latency);
 
 			if (probe.Latency > 0)
 			{
@@ -497,8 +497,9 @@ void QoSManager::Tick()
 
 		if (pBestRegion != nullptr)
 		{
-			NetworkLog("Best region is %s (%dms)", pBestRegion->strRegion.c_str(), pBestRegion->Latency);
-			m_PreferredRegion = pBestRegion->strRegion.c_str();
+			NetworkLog("Best region is %s (%dms)", pBestRegion->strRegionName.c_str(), pBestRegion->Latency);
+			m_PreferredRegionName = pBestRegion->strRegionName.c_str();
+			m_PreferredRegionID = pBestRegion->regionID;
 			m_PreferredRegionLatency = pBestRegion->Latency;
 		}
 		NetworkLog("==== END QOS RESULTS ====");
@@ -531,7 +532,7 @@ void QoSManager::Tick()
 	{
 		if (!probe.bDone && probe.HasTimedOut())
 		{
-			NetworkLog("[QoS] Probe for %s (%s) has timed out", probe.strRegion.c_str(), probe.strEndpoint.c_str());
+			NetworkLog("[QoS] Probe for %s (%s) has timed out", probe.strRegionName.c_str(), probe.strEndpoint.c_str());
 			// mark as failed
 			probe.bDone = true;
 			probe.Latency = -1;
@@ -587,7 +588,7 @@ void QoSManager::Tick()
 						probe.bDone = true;
 
 						bFound = true;
-						NetworkLog("QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegion.c_str(), msTaken);
+						NetworkLog("QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegionName.c_str(), msTaken);
 						break;
 					}
 				}
@@ -640,7 +641,7 @@ void QoSManager::Tick()
 	}
 }
 
-void QoSManager::StartProbing(std::map<std::string, std::string>& endpoints, std::function<void(void)> cbOnComplete)
+void QoSManager::StartProbing(std::map<std::pair<std::string, EQoSRegions>, std::string>& endpoints, std::function<void(void)> cbOnComplete)
 {
 	m_cbCompletion = cbOnComplete;
 
@@ -656,11 +657,12 @@ void QoSManager::StartProbing(std::map<std::string, std::string>& endpoints, std
 	// get ip from hostname
 	for (const auto& qosEndpoint : m_mapQoSEndpoints)
 	{
-		NetworkLog("Queueing QoS Probe %s", qosEndpoint.first.c_str());
+		NetworkLog("Queueing QoS Probe %s", qosEndpoint.first.first.c_str());
 
 		QoSProbe newProbe;
 		newProbe.strEndpoint = qosEndpoint.second;
-		newProbe.strRegion = qosEndpoint.first;
+		newProbe.strRegionName = qosEndpoint.first.first;
+		newProbe.regionID = qosEndpoint.first.second;
 		m_lstQoSProbesInFlight.push_back(newProbe);
 	}
 }

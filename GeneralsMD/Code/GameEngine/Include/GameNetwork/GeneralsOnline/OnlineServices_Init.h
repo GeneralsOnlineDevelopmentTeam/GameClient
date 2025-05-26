@@ -30,28 +30,52 @@ enum EWebSocketMessageID
 	NETWORK_ROOM_LOBBY_LIST_UPDATE = 7,
 };
 
+enum class EQoSRegions
+{
+	UNKNOWN = -1,
+	WestUS = 0,
+	CentralUS = 1,
+	WestEurope = 2, 
+	SouthCentralUS = 3,
+	NorthEurope = 4,
+	NorthCentralUS = 5,
+	EastUS = 6,
+	BrazilSouth = 7,
+	AustraliaEast = 8,
+	JapanWest = 9,
+	AustraliaSoutheast = 10,
+	EastAsia = 11,
+	JapanEast = 12,
+	SoutheastAsia = 13,
+	SouthAfricaNorth = 14,
+	UaeNorth = 15
+};
+
 class QoSManager
 {
 public:
 	void Tick();
-	void StartProbing(std::map<std::string, std::string>& endpoints, std::function<void(void)> cbOnComplete);
+	void StartProbing(std::map<std::pair<std::string, EQoSRegions>, std::string>& endpoints, std::function<void(void)> cbOnComplete);
 
-	std::string& GetPreferredRegion() { return m_PreferredRegion; }
+	std::string& GetPreferredRegionName() { return m_PreferredRegionName; }
+	EQoSRegions GetPreferredRegionID() { return m_PreferredRegionID; }
 	int GetPreferredRegionLatency() { return m_PreferredRegionLatency; }
 
 private:
 	std::function<void(void)> m_cbCompletion = nullptr;
-	std::string m_PreferredRegion = "Unknown";
+	std::string m_PreferredRegionName = "Unknown";
+	EQoSRegions m_PreferredRegionID = EQoSRegions::UNKNOWN;
 	int m_PreferredRegionLatency = -1;
 
-	std::map<std::string, std::string> m_mapQoSEndpoints;
+	std::map<std::pair<std::string, EQoSRegions>, std::string> m_mapQoSEndpoints;
 	SOCKET m_Socket_QoSProbing = -1;
 	int64_t m_timeStartQoS = -1;
 
 	class QoSProbe
 	{
 	public:
-		std::string strRegion;
+		EQoSRegions regionID;
+		std::string strRegionName;
 		std::string strEndpoint;
 
 		int64_t startTime = -1;

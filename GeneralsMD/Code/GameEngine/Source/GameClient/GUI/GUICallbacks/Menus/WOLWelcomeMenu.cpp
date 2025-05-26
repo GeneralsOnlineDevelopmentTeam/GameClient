@@ -89,6 +89,11 @@ static NameKeyType buttonBuddiesID = NAMEKEY_INVALID;
 static NameKeyType buttonLadderID = NAMEKEY_INVALID;
 static NameKeyType buttonMyInfoID = NAMEKEY_INVALID;
 
+// GENERALS ONLINE UI CHANGES
+#if defined(GENERALS_ONLINE)
+static NameKeyType buttonNetworkStatusID = NAMEKEY_INVALID;
+#endif
+
 static NameKeyType listboxInfoID = NAMEKEY_INVALID;
 static NameKeyType buttonOptionsID = NAMEKEY_INVALID;
 // Window Pointers ------------------------------------------------------------------------
@@ -102,6 +107,11 @@ static GameWindow *buttonMyInfo = NULL;
 static GameWindow *buttonbuttonOptions = NULL;
 static WindowLayout *welcomeLayout = NULL;
 static GameWindow *listboxInfo = NULL;
+
+// GENERALS ONLINE UI CHANGES
+#if defined(GENERALS_ONLINE)
+static GameWindow *buttonNetworkStatus = nullptr;
+#endif
 
 static GameWindow *staticTextServerName = NULL;
 static GameWindow *staticTextLastUpdated = NULL;
@@ -262,92 +272,17 @@ static void updateNumPlayersOnline(void)
 		//This was a Harvard initiated fix.
 		headingStr.format(TheGameText->fetch("MOTD:NumPlayersHeading"));
 
-		//headingStr.format(TheGameText->fetch("MOTD:NumPlayersHeading"), lastNumPlayersOnline);
-
-		/*
-		NGMP_ENATType natType = NGMP_OnlineServicesManager::GetInstance()->GetNATType();
-		AsciiString natTypeColor;
-		switch (natType)
-		{
-			case NGMP_ENATType::NAT_TYPE_UNDETERMINED:
-				natTypeColor = "FF5DE2E7";
-				break;
-
-			case NGMP_ENATType::NAT_TYPE_OPEN:
-				natTypeColor = "FF00FF00";
-				break;
-
-			case NGMP_ENATType::NAT_TYPE_MODERATE:
-				natTypeColor = "FFFFFD55";
-				break;
-
-			case NGMP_ENATType::NAT_TYPE_STRICT:
-				natTypeColor = "FFFF0000";
-				break;
-		}
-
-		headingStr.format(L"Welcome to Generals NextGen Multiplayer.\n\n<hexcol>%hsYour NAT type is %hs", natTypeColor.str(), natType == NGMP_ENATType::NAT_TYPE_UNDETERMINED ? "being determined" : NGMP_OnlineServicesManager::GetInstance()->GetNATTypeString().str());
-		*/
-
 
 		//<hexcol>%hs for colors
-		ECapabilityState capUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP();
-		ECapabilityState capNATPMP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP();
-
-		std::string strUPnPState;
-		if (capUPnP == ECapabilityState::UNDETERMINED)
-		{
-			strUPnPState = "Still Determining...";
-		}
-		else if (capUPnP == ECapabilityState::SUPPORTED)
-		{
-			strUPnPState = "Supported";
-		}
-		else if (capUPnP == ECapabilityState::UNSUPPORTED)
-		{
-			strUPnPState = "Unsupported";
-		}
-		else
-		{
-			strUPnPState = "User Overridden";
-		}
-
-		std::string strNATPMPState;
-		if (capNATPMP == ECapabilityState::UNDETERMINED)
-		{
-			strNATPMPState = "Still Determining...";
-		}
-		else if (capNATPMP == ECapabilityState::SUPPORTED)
-		{
-			strNATPMPState = "Supported";
-		}
-		else if (capNATPMP == ECapabilityState::UNSUPPORTED)
-		{
-			strNATPMPState = "Unsupported";
-		}
-		else
-		{
-			strNATPMPState = "User Overridden";
-		}
-
-		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
-		bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
-		bool bHasPortMappedUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenUPnP();
-		int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-		headingStr.format(L"Welcome to Generals Online for Zero Hour.\n \nNetwork Capabilities:\n\tUPnP: %hs\n\tNAT-PMP: %hs\n\tPort Mapped: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs\n\tRelayed Connect: %hs\n\tPreferred Server Region: %hs (%dms latency)",
-			strUPnPState.c_str(),
-			strNATPMPState.c_str(),
-			bHasPortMapped ? (bHasPortMappedUPnP ? "Yes (UPnP)" : "Yes (NAT-PMP)") : "No",
-			preferredPort,
-			NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
-			capUPnP == ECapabilityState::OVERRIDDEN ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
-			"Supported",
-			NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegion().c_str(),
-			NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency()
-		);
-
+		
 		// record the game data to backend
 		{
+			ECapabilityState capUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP();
+			ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
+			bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
+			bool bHasPortMappedUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenUPnP();
+			int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+
 			AsciiString sentryMsg;
 			sentryMsg.format("Determined Network Capabilities");
 
@@ -713,6 +648,13 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	GadgetStaticTextSetText(staticTextHighscorePoints, questionMark);
 	GadgetStaticTextSetText(staticTextHighscoreRank, questionMark);
 	*/
+
+	// GENERALS ONLINE UI CHANGES
+#if defined(GENERALS_ONLINE)
+	buttonNetworkStatusID = TheNameKeyGenerator->nameToKey(AsciiString("WOLWelcomeMenu.wnd:ButtonNetwork"));
+	buttonNetworkStatus = TheWindowManager->winGetWindowFromId(parentWOLWelcome, buttonNetworkStatusID);
+	buttonNetworkStatus->winSetText(UnicodeString(L"NETWORK STATUS"));
+#endif
 
 	//DEBUG_ASSERTCRASH(listboxInfo, ("No control found!"));
 
@@ -1109,6 +1051,73 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 					TheWOL->addCommand( WOL::WOLCOMMAND_REFRESH_CHANNELS );
 					*/
 				}// else if
+				// GENERALS ONLINE UI CHANGES
+#if defined(GENERALS_ONLINE)
+				else if (controlID == buttonNetworkStatusID)
+				{
+					ECapabilityState capUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP();
+					ECapabilityState capNATPMP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP();
+
+					std::string strUPnPState;
+					if (capUPnP == ECapabilityState::UNDETERMINED)
+					{
+						strUPnPState = "Still Determining...";
+					}
+					else if (capUPnP == ECapabilityState::SUPPORTED)
+					{
+						strUPnPState = "Supported";
+					}
+					else if (capUPnP == ECapabilityState::UNSUPPORTED)
+					{
+						strUPnPState = "Unsupported";
+					}
+					else
+					{
+						strUPnPState = "User Overridden";
+					}
+
+					std::string strNATPMPState;
+					if (capNATPMP == ECapabilityState::UNDETERMINED)
+					{
+						strNATPMPState = "Still Determining...";
+					}
+					else if (capNATPMP == ECapabilityState::SUPPORTED)
+					{
+						strNATPMPState = "Supported";
+					}
+					else if (capNATPMP == ECapabilityState::UNSUPPORTED)
+					{
+						strNATPMPState = "Unsupported";
+					}
+					else
+					{
+						strNATPMPState = "User Overridden";
+					}
+
+					UnicodeString headingStr;
+
+					ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
+					bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
+					bool bHasPortMappedUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenUPnP();
+					int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+					headingStr.format(L"Network Capabilities:\n\tUPnP: %hs\n\tNAT-PMP: %hs\n\tPort Mapped: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs\n\tRelayed Connect: %hs\n\tPreferred Server Region: %hs (%dms latency)",
+						strUPnPState.c_str(),
+						strNATPMPState.c_str(),
+						bHasPortMapped ? (bHasPortMappedUPnP ? "Yes (UPnP)" : "Yes (NAT-PMP)") : "No",
+						preferredPort,
+						NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+						capUPnP == ECapabilityState::OVERRIDDEN ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
+						"Supported",
+						NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionName().c_str(),
+						NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency()
+					);
+
+					// show
+					ClearGSMessageBoxes();
+					GSMessageBoxOk(UnicodeString(L"Network Details"), headingStr);
+
+				}
+#endif
 				else if (controlID == buttonBuddiesID)
 				{
 					GameSpyToggleOverlay( GSOVERLAY_BUDDY );
