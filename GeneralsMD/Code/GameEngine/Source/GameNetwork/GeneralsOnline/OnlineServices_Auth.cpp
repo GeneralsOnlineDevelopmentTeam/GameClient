@@ -37,6 +37,13 @@ struct AuthResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(AuthResponse, result, ss_token, al_token, user_id, display_name, ws_uri, ws_token)
 };
 
+struct MOTDResponse
+{
+	std::string MOTD;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(MOTDResponse, MOTD)
+};
+
 std::string GenerateGamecode()
 {
 	std::string result;
@@ -52,6 +59,74 @@ std::string GenerateGamecode()
 	}
 
 	return result;
+}
+
+void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
+{
+	// move on to network capabilities section
+	ClearGSMessageBoxes();
+	GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining local network capabilities... this may take a few seconds"), true);
+
+	// NOTE: This is partially blocking and partially async...
+	NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().DetermineLocalNetworkCapabilities([this]()
+		{
+			// GET MOTD
+			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("MOTD", true);
+			std::map<std::string, std::string> mapHeaders;
+			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+				{
+					try
+					{
+						nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+						MOTDResponse motdResp = jsonObject.get<MOTDResponse>();
+
+						NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD(motdResp.MOTD.c_str());
+
+						bool bResult = true;
+
+						// WS should be connected by this point
+						bool bWSConnected = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->IsConnected();
+						if (!bWSConnected)
+						{
+							bResult = bWSConnected;
+						}
+
+						// NOTE: Don't need to get stats here, PopulatePlayerInfoWindows is called as part of going to MP...
+						// cache our local stats 
+						// 
+						// go to next screen
+						ClearGSMessageBoxes();
+
+						for (auto cb : m_vecLogin_PendingCallbacks)
+						{
+							// TODO_NGMP: Support failure
+							cb(bResult);
+						}
+						m_vecLogin_PendingCallbacks.clear();
+
+
+					}
+					catch (...)
+					{
+						NetworkLog("LOGIN: Failed to parse response");
+
+						// if MOTD was bad, still proceed, its a soft error
+						NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD("Error retrieving MOTD");
+
+						// go to next screen
+						ClearGSMessageBoxes();
+
+						for (auto cb : m_vecLogin_PendingCallbacks)
+						{
+							// TODO_NGMP: Support failure
+							cb(false);
+						}
+						m_vecLogin_PendingCallbacks.clear();
+
+						TheShell->pop();
+					}
+				});
+		});
 }
 
 void NGMP_OnlineServices_AuthInterface::BeginLogin()
@@ -255,13 +330,6 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 	}
 }
 
-struct MOTDResponse
-{
-	std::string MOTD;
-
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(MOTDResponse, MOTD)
-};
-
 void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const char* szWSAddr, const char* szWSToken)
 {
 	if (bSuccess)
@@ -298,76 +366,13 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 					// TODO_RELAY: The network caps stuff should wait on this finishing, they can run in parallel but should never go forward iwthout determining region
 					NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().StartProbing(mapQoSEndpoints, [this]()
 						{
-							// move on to network capabilities section
-							ClearGSMessageBoxes();
-							GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining local network capabilities... this may take a few seconds"), true);
-
-							// NOTE: This is partially blocking and partially async...
-							NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().DetermineLocalNetworkCapabilities([this]()
-								{
-									// GET MOTD
-
-									std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("MOTD", true);
-									std::map<std::string, std::string> mapHeaders;
-									NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-										{
-											try
-											{
-												nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-												MOTDResponse motdResp = jsonObject.get<MOTDResponse>();
-
-
-												NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD(motdResp.MOTD.c_str());
-
-												bool bResult = true;
-
-												// WS should be connected by this point
-												bool bWSConnected = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->IsConnected();
-												if (!bWSConnected)
-												{
-													bResult = bWSConnected;
-												}
-
-												// NOTE: Don't need to get stats here, PopulatePlayerInfoWindows is called as part of going to MP...
-												// cache our local stats 
-												// 
-												// go to next screen
-												ClearGSMessageBoxes();
-
-												for (auto cb : m_vecLogin_PendingCallbacks)
-												{
-													// TODO_NGMP: Support failure
-													cb(bResult);
-												}
-												m_vecLogin_PendingCallbacks.clear();
-
-
-											}
-											catch (...)
-											{
-												NetworkLog("LOGIN: Failed to parse response");
-
-												// if MOTD was bad, still proceed, its a soft error
-												NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD("Error retrieving MOTD");
-
-												// go to next screen
-												ClearGSMessageBoxes();
-
-												for (auto cb : m_vecLogin_PendingCallbacks)
-												{
-													// TODO_NGMP: Support failure
-													cb(false);
-												}
-												m_vecLogin_PendingCallbacks.clear();
-
-												TheShell->pop();
-											}
-										});
-								});
+							GoToDetermineNetworkCaps();
 						});
 				}
 				catch (...)
 				{
+					// TODO_RELAY: Handle this service side, someone might not have a preferred server set
+					GoToDetermineNetworkCaps();
 					// NOTE: This is a soft error, if we couldnt get QoS for some reason, we'll pick a relay still, it just wont be the best one
 				}
 			});
