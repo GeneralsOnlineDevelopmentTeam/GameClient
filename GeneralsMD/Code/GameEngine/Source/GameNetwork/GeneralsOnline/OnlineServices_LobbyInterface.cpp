@@ -636,8 +636,6 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryJSON["track_stats"].get_to(lobbyEntry.track_stats);
 						lobbyEntryJSON["passworded"].get_to(lobbyEntry.passworded);
 						lobbyEntryJSON["rng_seed"].get_to(lobbyEntry.rng_seed);
-						lobbyEntryJSON["relay_ip"].get_to(lobbyEntry.strRelayIP);
-						lobbyEntryJSON["relay_port"].get_to(lobbyEntry.relayPort);
 
 						// correct map path
 						if (lobbyEntry.map_official)
@@ -714,6 +712,8 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							memberEntryIter["has_map"].get_to(memberEntry.has_map);
 							memberEntryIter["slot_index"].get_to(memberEntry.m_SlotIndex);
 							memberEntryIter["slot_state"].get_to(memberEntry.m_SlotState);
+							memberEntryIter["relay_ip"].get_to(memberEntry.strRelayIP);
+							memberEntryIter["relay_port"].get_to(memberEntry.relayPort);
 
 							lobbyEntry.members.push_back(memberEntry);
 

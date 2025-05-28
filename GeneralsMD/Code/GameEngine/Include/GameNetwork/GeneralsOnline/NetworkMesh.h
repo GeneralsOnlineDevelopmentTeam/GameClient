@@ -26,6 +26,7 @@ enum class EConnectionState
 class PlayerConnection
 {
 public:
+	// TODO_RELAY: Add destructor that shuts down peers etc, but only shut down relay peer if not being used by another connection
 	PlayerConnection()
 	{
 
@@ -37,6 +38,7 @@ public:
 		m_userID = userID;
 		m_address = addr;
 		m_peer = peer;
+		m_pRelayPeer = nullptr;
 
 		if (bStartSendingHellosAgain)
 		{
@@ -72,12 +74,24 @@ public:
 #endif
 	}
 
+	void SetRelayPeer(ENetPeer* pRelayPeer)
+	{
+		m_pRelayPeer = pRelayPeer;
+	}
+
+	ENetPeer* GetRelayPeer()
+	{
+		return m_pRelayPeer;
+	}
+
 	void Tick();
 
 	
 	int64_t m_userID = -1;
 	ENetAddress m_address;
 	ENetPeer* m_peer = nullptr;
+
+	ENetPeer* m_pRelayPeer = nullptr;
 
 	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
 	int m_ConnectionAttempts = 0;
@@ -164,10 +178,6 @@ public:
 		return nullptr;
 	}
 
-	ENetPeer* GetRelayPeer()
-	{
-		return m_pRelayPeer;
-	}
 
 private:
 	PlayerConnection* GetConnectionForPeer(ENetPeer* peer)
@@ -193,8 +203,6 @@ private:
 
 	ENetAddress server_address;
 	ENetHost* enetInstance = nullptr;
-
-	ENetPeer* m_pRelayPeer = nullptr;
 
 	std::map<int64_t, PlayerConnection> m_mapConnections;
 

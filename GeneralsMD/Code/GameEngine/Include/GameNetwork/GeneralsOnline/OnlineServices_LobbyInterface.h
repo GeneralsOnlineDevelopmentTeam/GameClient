@@ -23,6 +23,9 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	uint16_t m_SlotIndex = 999999;
 	uint16_t m_SlotState = SlotState::SLOT_OPEN;
 
+	std::string strRelayIP;
+	uint16_t relayPort;
+
 
 	bool IsHuman() const
 	{
@@ -47,8 +50,6 @@ struct LobbyEntry
 	bool track_stats;
 
 	int rng_seed = -1;
-	std::string strRelayIP;
-	uint16_t relayPort;
 
 	bool passworded;
 	std::string password;

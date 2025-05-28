@@ -223,45 +223,83 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 	
 	NetworkLog("[SERVER] Connecting to user %lld via relay.\n", user_id);
 
-	// TODO_RELAY: is it already connected?
-	if (m_pRelayPeer != nullptr) // in this case, we'll get a connect event and we can use that to send handshake
+	
+
+	// relay details
+	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+
+	// find member
+	bool bFoundRelay = false;
+	for (LobbyMemberEntry& member : currentLobby.members)
 	{
-		// TODO_RELAY: We shouldn't really rly on the normal handshake flow, it doesnt really account for connecting to multiple users via one relay. We must ALWAYS use the flow below
-		
-		// send challenge
-		// // TODO_RELAY
-		////Net_ChallengePacket challengePacket;
-		////m_mapConnections[user_id].SendPacket(challengePacket, 2);
-	}
-	else
-	{
-		// relay details
-		auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
-
-		ENetAddress addr;
-		enet_address_set_host(&addr, currentLobby.strRelayIP.c_str());
-		addr.port = currentLobby.relayPort;
-
-		NetworkLog("Attempting to connect to relay. The relay for this lobby is %s:%d.", currentLobby.strRelayIP.c_str(), currentLobby.relayPort);;
-
-		enet_uint32 connectData = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-		m_pRelayPeer = enet_host_connect(enetInstance, &addr, 4, connectData);
-
-		if (m_pRelayPeer == nullptr)
+		if (member.user_id == user_id)
 		{
-			// TODO_NGMP: Better handling
-			NetworkLog("No available peers for initiating an ENet connection to relay.");
-			return;
+			if (!member.strRelayIP.empty() && member.relayPort > 0)
+			{
+				ENetAddress addr;
+				enet_address_set_host(&addr, member.strRelayIP.c_str());
+				addr.port = member.relayPort;
+
+				NetworkLog("Attempting to connect to relay. The relay for this lobby member is %s:%d.", member.strRelayIP.c_str(), member.relayPort);
+
+				// Do we already have a peer we can reuse?
+				ENetPeer* pExistingRelayPeer = nullptr;
+				for (auto connection : m_mapConnections)
+				{
+					if (connection.second.GetRelayPeer() != nullptr)
+					{
+						enet_uint16 port = connection.second.GetRelayPeer()->address.port;
+						if (port == member.relayPort)
+						{
+							char existingRelayIP[INET_ADDRSTRLEN + 1] = { 0 };
+							enet_address_get_host_ip(&connection.second.GetRelayPeer()->address, existingRelayIP, sizeof(existingRelayIP));
+
+							if (strcmp(existingRelayIP, member.strRelayIP.c_str()) == 0)
+							{
+								pExistingRelayPeer = connection.second.GetRelayPeer();
+								break;
+							}
+						}
+					}
+				}
+
+				if (pExistingRelayPeer == nullptr)
+				{
+					NetworkLog("Making a new relay connection...");
+					enet_uint32 connectData = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+					ENetPeer* pNewRelayPeer = enet_host_connect(enetInstance, &addr, 4, connectData);
+
+					if (pNewRelayPeer == nullptr)
+					{
+						// TODO_NGMP: Better handling
+						NetworkLog("No available peers for initiating an ENet connection to relay.");
+						return;
+					}
+
+					m_mapConnections[user_id].m_pRelayPeer = pNewRelayPeer;
+					m_mapConnections[user_id].m_peer = nullptr;
+
+					// send challenge
+					// TODO_RELAY
+					////Net_ChallengePacket challengePacket;
+					////m_mapConnections[user_id].SendPacket(challengePacket, 2);
+				}
+				else
+				{
+					NetworkLog("Reusing an existing lobby connection");
+					m_mapConnections[user_id].m_pRelayPeer = pExistingRelayPeer;
+				}
+
+
+				bFoundRelay = true;
+				break;
+			}
 		}
+	}
 
-		// TODO_RELAY: How do we want to handle m_peer?
-		//m_mapConnections[user_id].m_peer = m_pRelayPeer;
-		m_mapConnections[user_id].m_peer = nullptr;
-
-		// send challenge
-		// TODO_RELAY
-		////Net_ChallengePacket challengePacket;
-		////m_mapConnections[user_id].SendPacket(challengePacket, 2);
+	if (!bFoundRelay)
+	{
+		NetworkLog("We need a relay, but couldn't find a relay for user %lld, connection will fail.", user_id);
 	}
 }
 	
@@ -415,16 +453,24 @@ void NetworkMesh::Disconnect()
 			{
 				enet_peer_disconnect(peer, 0);
 				enet_peer_reset(peer);
-				peer = nullptr;
 			}
-		}
 
-		// disconnect from relay too
-		if (m_pRelayPeer != nullptr)
-		{
-			enet_peer_disconnect(m_pRelayPeer, 0);
-			enet_peer_reset(m_pRelayPeer);
-			m_pRelayPeer = nullptr;
+			// tear down all relay connections, because we are exiting
+			ENetPeer* relayPeer = connectionData.second.m_pRelayPeer;
+			if (relayPeer != nullptr)
+			{
+				// set any connections using this to null, relay peers can be shared across connections, but only need to shut things down once
+				for (auto& connectionDataInner : m_mapConnections)
+				{
+					if (connectionDataInner.second.m_pRelayPeer == relayPeer)
+					{
+						connectionDataInner.second.m_pRelayPeer = nullptr;
+					}
+				}
+
+				enet_peer_disconnect(relayPeer, 0);
+				enet_peer_reset(relayPeer);
+			}
 		}
 
 		m_mapConnections.clear();
@@ -970,11 +1016,7 @@ ENetPeer* PlayerConnection::GetPeerToUse()
 {
 	if (m_peer == nullptr)
 	{
-		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-		if (pMesh != nullptr)
-		{
-			return pMesh->GetRelayPeer();
-		}
+		return m_pRelayPeer;
 	}
 	
 	return m_peer;
@@ -1003,31 +1045,22 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	else if (m_State == EConnectionState::CONNECTING_RELAY || m_State == EConnectionState::CONNECTED_RELAY)
 	{
 		// use relay peer
-		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-		if (pMesh != nullptr)
-		{
-			// encrypt the game packet as normal
-			bitstream.Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+		// encrypt the game packet as normal
+		bitstream.Encrypt(currentLobby.EncKey, currentLobby.EncIV);
 
-			// repackage with relay header (unencrypted, 9 bytes) + use relay channel
-			// grow
-			bitstream.GetMemoryBuffer().ReAllocate(bitstream.GetMemoryBuffer().GetAllocatedSize() + 8 + 8 + 1);
-			bitstream.Write<int64_t>(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
-			bitstream.Write<int64_t>(m_userID);
-			bitstream.Write<uint8_t>(gameChannel);
+		// repackage with relay header (unencrypted, 9 bytes) + use relay channel
+		// grow
+		bitstream.GetMemoryBuffer().ReAllocate(bitstream.GetMemoryBuffer().GetAllocatedSize() + 8 + 8 + 1);
+		bitstream.Write<int64_t>(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
+		bitstream.Write<int64_t>(m_userID);
+		bitstream.Write<uint8_t>(gameChannel);
 
 
-			ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
 
-			// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
-			// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
-			return enet_peer_send(pMesh->GetRelayPeer(), 3, pENetPacket);
-		}
-		else
-		{
-			// TODO_RELAY: error
-			return -2;
-		}
+		// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
+		// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
+		return enet_peer_send(m_pRelayPeer, 3, pENetPacket);
 	}
 
 	return -3;
@@ -1060,55 +1093,43 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 
 		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
 
-		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-		if (pMesh != nullptr)
+		if (m_peer == m_pRelayPeer && m_pRelayPeer != nullptr)
 		{
-			if (m_peer == pMesh->GetRelayPeer())
+			NetworkLog("Unexpected!");
+
+			if (m_State == EConnectionState::CONNECTING_DIRECT)
 			{
-				NetworkLog("Unexpected!");
-
-				if (m_State == EConnectionState::CONNECTING_DIRECT)
-				{
-					m_State = EConnectionState::CONNECTING_RELAY;
-				}
-				else if (m_State == EConnectionState::CONNECTED_DIRECT)
-				{
-					m_State = EConnectionState::CONNECTED_RELAY;
-				}
-
-				return -4;
+				m_State = EConnectionState::CONNECTING_RELAY;
 			}
+			else if (m_State == EConnectionState::CONNECTED_DIRECT)
+			{
+				m_State = EConnectionState::CONNECTED_RELAY;
+			}
+
+			return -4;
 		}
+
 		return enet_peer_send(m_peer, channel, pENetPacket);
 	}
 	else if (m_State == EConnectionState::CONNECTING_RELAY || m_State == EConnectionState::CONNECTED_RELAY)
 	{
 		// use relay peer
-		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-		if (pMesh != nullptr)
-		{
-			// encrypt the game packet as normal
-			CBitStream* pBitStream = packet.Serialize();
-			pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+		// encrypt the game packet as normal
+		CBitStream* pBitStream = packet.Serialize();
+		pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
 
-			// repackage with relay header (unencrypted, 9 bytes) + use relay channel
-			// grow
-			pBitStream->GetMemoryBuffer().ReAllocate(pBitStream->GetMemoryBuffer().GetAllocatedSize() + 8 + 8 + 1);
-			pBitStream->Write<int64_t>(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
-			pBitStream->Write<int64_t>(m_userID);
-			pBitStream->Write<uint8_t>(channel);
+		// repackage with relay header (unencrypted, 9 bytes) + use relay channel
+		// grow
+		pBitStream->GetMemoryBuffer().ReAllocate(pBitStream->GetMemoryBuffer().GetAllocatedSize() + 8 + 8 + 1);
+		pBitStream->Write<int64_t>(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
+		pBitStream->Write<int64_t>(m_userID);
+		pBitStream->Write<uint8_t>(channel);
 
-			ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
+		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
 
-			// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
-			// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
-			return enet_peer_send(pMesh->GetRelayPeer(), 3, pENetPacket);
-		}
-		else
-		{
-			// TODO_RELAY: error
-			return -2;
-		}
+		// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
+		// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
+		return enet_peer_send(m_pRelayPeer, 3, pENetPacket);
 	}
 
 	return -3;
