@@ -15,8 +15,7 @@ enum ECapabilityState : uint8_t
 {
 	UNDETERMINED,
 	UNSUPPORTED,
-	SUPPORTED,
-	OVERRIDDEN
+	SUPPORTED
 };
 
 class PortMapper
@@ -30,12 +29,19 @@ public:
 	void Tick();
 	void StartNATCheck();
 
-	void BackgroundThreadRun();
-	std::thread* m_backgroundThread = nullptr;
+	enum class EMappingTech
+	{
+		NONE = -1,
+		MANUAL,
+		UPNP,
+		NATPMP
+	};
 
 	void DetermineLocalNetworkCapabilities(std::function<void(void)> callbackDeterminedCaps);
 
-	void TryForwardPreferredPorts();
+	void ForwardPort_UPnP();
+	void ForwardPort_NATPMP();
+
 	void CleanupPorts();
 
 	ECapabilityState HasDirectConnect()
@@ -43,26 +49,13 @@ public:
 		return m_directConnect;
 	}
 
-	ECapabilityState HasUPnP()
-	{
-		return m_capUPnP;
-	}
-
-	ECapabilityState HasNATPMP()
-	{
-		return m_capNATPMP;
-	}
-
-	bool HasPortOpen() const { return m_bHasPortOpenedViaUPNP || m_bHasPortOpenedViaNATPMP; }
-	bool HasPortOpenUPnP() const { return m_bHasPortOpenedViaUPNP; }
-	bool HasPortOpenNATPMP() const { return m_bHasPortOpenedViaNATPMP; }
-	int GetOpenPort() const { return m_PreferredPort; }
+	bool HasPortOpen() const { return m_bPortMapper_AnyMappingSuccess.load(); }
+	EMappingTech GetPortMappingTechnologyUsed() const { return m_bPortMapper_MappingTechUsed.load(); }
+	int GetOpenPort() const { return m_PreferredPort.load(); }
 
 	void UPnP_RemoveAllMappingsToThisMachine();
 
 private:
-	bool ForwardPreferredPort_UPnP();
-	bool ForwardPreferredPort_NATPMP();
 
 	void RemovePortMapping_UPnP();
 	void RemovePortMapping_NATPMP();
@@ -70,13 +63,8 @@ private:
 private:
 	std::function<void(void)> m_callbackDeterminedCaps = nullptr;
 	ECapabilityState m_directConnect = ECapabilityState::UNDETERMINED;
-	ECapabilityState m_capUPnP = ECapabilityState::UNDETERMINED;
-	ECapabilityState m_capNATPMP = ECapabilityState::UNDETERMINED;
 
-	bool m_bHasPortOpenedViaUPNP = false;
-	bool m_bHasPortOpenedViaNATPMP = false;
-
-	uint16_t m_PreferredPort = 0;
+	std::atomic<uint16_t> m_PreferredPort = 0;
 
 	SOCKET m_NATSocket = INVALID_SOCKET;
 	bool m_bNATCheckInProgress = false;
@@ -90,4 +78,13 @@ private:
 
 	// TODO_NGMP: Do we need to refresh this periodically? or just do it on login. It would be kinda weird if the local network device changed during gameplay...
 	struct UPNPDev* m_pCachedUPnPDevice = nullptr;
+
+	int64_t m_timeStartPortMapping = -1;
+	std::thread* m_backgroundThread_UPNP = nullptr;
+	std::thread* m_backgroundThread_NATPMP = nullptr;
+	bool m_bNATCheckStarted = false;
+	std::atomic<bool> m_bPortMapper_AnyMappingSuccess = false;
+	std::atomic<bool> m_bPortMapper_NATPMP_Complete = false;
+	std::atomic<bool> m_bPortMapper_UPNP_Complete = false;
+	std::atomic<EMappingTech> m_bPortMapper_MappingTechUsed = EMappingTech::NONE;
 };

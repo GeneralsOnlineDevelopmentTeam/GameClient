@@ -277,10 +277,10 @@ static void updateNumPlayersOnline(void)
 		
 		// record the game data to backend
 		{
-			ECapabilityState capUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP();
+
+			PortMapper::EMappingTech mappingTechUsed = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetPortMappingTechnologyUsed();
 			ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
 			bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
-			bool bHasPortMappedUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenUPnP();
 			int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 
 			AsciiString sentryMsg;
@@ -289,12 +289,8 @@ static void updateNumPlayersOnline(void)
 			// add info about how the game ended
 			sentry_set_extra("direct_connect", sentry_value_new_bool(NATDirectConnect == ECapabilityState::SUPPORTED));
 			sentry_set_extra("port_mapped", sentry_value_new_bool(bHasPortMapped));
-			sentry_set_extra("port_mapped_upnp", sentry_value_new_bool(bHasPortMappedUPnP));
-			sentry_set_extra("port_mapped_natpmp", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenNATPMP()));
+			sentry_set_extra("port_mapped_tech", sentry_value_new_int32((int)mappingTechUsed));
 			sentry_set_extra("preferred_port", sentry_value_new_int32(preferredPort));
-			sentry_set_extra("tech_natpmp_supported", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP()));
-			sentry_set_extra("tech_upnp_supported", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP()));
-			sentry_set_extra("port_override_set", sentry_value_new_bool(capUPnP == ECapabilityState::OVERRIDDEN));
 
 			// local player info
 			int64_t userID = -1;
@@ -1055,58 +1051,45 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 #if defined(GENERALS_ONLINE)
 				else if (controlID == buttonNetworkStatusID)
 				{
-					ECapabilityState capUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP();
-					ECapabilityState capNATPMP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP();
+					bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
+					PortMapper::EMappingTech mappingTechUsed = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetPortMappingTechnologyUsed();
 
-					std::string strUPnPState;
-					if (capUPnP == ECapabilityState::UNDETERMINED)
+
+					std::string strPortState;
+					if (!bHasPortMapped)
 					{
-						strUPnPState = "Still Determining...";
-					}
-					else if (capUPnP == ECapabilityState::SUPPORTED)
-					{
-						strUPnPState = "Supported";
-					}
-					else if (capUPnP == ECapabilityState::UNSUPPORTED)
-					{
-						strUPnPState = "Unsupported";
+						strPortState = "No Port Mapped";
 					}
 					else
 					{
-						strUPnPState = "User Overridden";
+						if (mappingTechUsed == PortMapper::EMappingTech::MANUAL)
+						{
+							strPortState = "Port Mapped Manually";
+						}
+						else if (mappingTechUsed == PortMapper::EMappingTech::NATPMP)
+						{
+							strPortState = "Port Mapped via NAT-PMP";
+						}
+						else if (mappingTechUsed == PortMapper::EMappingTech::UPNP)
+						{
+							strPortState = "Port Mapped via UPnP";
+						}
+						else
+						{
+							strPortState = "Error";
+						}
 					}
-
-					std::string strNATPMPState;
-					if (capNATPMP == ECapabilityState::UNDETERMINED)
-					{
-						strNATPMPState = "Still Determining...";
-					}
-					else if (capNATPMP == ECapabilityState::SUPPORTED)
-					{
-						strNATPMPState = "Supported";
-					}
-					else if (capNATPMP == ECapabilityState::UNSUPPORTED)
-					{
-						strNATPMPState = "Unsupported";
-					}
-					else
-					{
-						strNATPMPState = "User Overridden";
-					}
-
+					
 					UnicodeString headingStr;
 
 					ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
-					bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
-					bool bHasPortMappedUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenUPnP();
 					int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-					headingStr.format(L"Network Capabilities:\n\tUPnP: %hs\n\tNAT-PMP: %hs\n\tPort Mapped: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs\n\tRelayed Connect: %hs\n\tPreferred Server Region: %hs (%dms latency)",
-						strUPnPState.c_str(),
-						strNATPMPState.c_str(),
-						bHasPortMapped ? (bHasPortMappedUPnP ? "Yes (UPnP)" : "Yes (NAT-PMP)") : "No",
+					headingStr.format(L"Network Capabilities:\n\tPort Mapped: %hs\n\tMapping Technology: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs\n\tRelayed Connect: %hs\n\tPreferred Server Region: %hs (%dms latency)",
+						bHasPortMapped ? "Yes" : "No",
+						strPortState.c_str(),
 						preferredPort,
 						NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
-						capUPnP == ECapabilityState::OVERRIDDEN ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
+						(mappingTechUsed == PortMapper::EMappingTech::MANUAL) ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
 						"Supported",
 						NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionName().c_str(),
 						NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency()
