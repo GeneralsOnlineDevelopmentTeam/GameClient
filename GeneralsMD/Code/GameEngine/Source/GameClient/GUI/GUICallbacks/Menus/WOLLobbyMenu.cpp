@@ -1208,22 +1208,25 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 	}
 	
 	// do we need to update?
-	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
-	if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty() && !isShuttingDown && !buttonPushed && !pLobbyInterface->IsInLobby())
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
-		const bool bShouldAutoRefresh = true;
+		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
+		if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty() && !isShuttingDown && !buttonPushed && !pLobbyInterface->IsInLobby())
+		{
+			const bool bShouldAutoRefresh = true;
 
-		pLobbyInterface->ConsumeLobbyListDirtyFlag();
-		
-		if (bShouldAutoRefresh)
-		{
-			refreshGameList(true);
+			pLobbyInterface->ConsumeLobbyListDirtyFlag();
+
+			if (bShouldAutoRefresh)
+			{
+				refreshGameList(true);
+			}
+			else
+			{
+				GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Your lobby list is outdated. Hit refresh to see the latest servers."), GameMakeColor(255, 194, 15, 255), -1, -1);
+			}
+
 		}
-		else
-		{
-			GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Your lobby list is outdated. Hit refresh to see the latest servers."), GameMakeColor(255, 194, 15, 255), -1, -1);
-		}
-		
 	}
 
 	if (TheShell->isAnimFinished() && TheTransitionHandler->isFinished() && !buttonPushed && TheGameSpyPeerMessageQueue)
