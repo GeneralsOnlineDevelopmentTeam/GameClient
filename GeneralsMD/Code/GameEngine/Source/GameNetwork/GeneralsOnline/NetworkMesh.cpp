@@ -228,6 +228,17 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 	// relay details
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
 
+	// find our relay details
+	LobbyMemberEntry myLobbyEntry;
+	for (LobbyMemberEntry& member : currentLobby.members)
+	{
+		if (member.user_id == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
+		{
+			myLobbyEntry = member;
+			break;
+		}
+	}
+
 	// find member
 	bool bFoundRelay = false;
 	for (LobbyMemberEntry& member : currentLobby.members)
@@ -236,11 +247,29 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 		{
 			if (!member.strRelayIP.empty() && member.relayPort > 0)
 			{
-				ENetAddress addr;
-				enet_address_set_host(&addr, member.strRelayIP.c_str());
-				addr.port = member.relayPort;
+				std::string strRelayIPToUse = std::string();
+				uint16_t relayPortToUse = 0;
 
-				NetworkLog("Attempting to connect to relay. The relay for this lobby member is %s:%d.", member.strRelayIP.c_str(), member.relayPort);
+				// should we use our relay or theirs?
+				int slotIdToUseForRelay = m_mapConnectionSelection[myLobbyEntry.m_SlotIndex][member.m_SlotIndex];
+				if (slotIdToUseForRelay == myLobbyEntry.m_SlotIndex)
+				{
+					NetworkLog("Per the relay connection map, using my relay details for connection to %lld", user_id);
+					strRelayIPToUse = myLobbyEntry.strRelayIP;
+					relayPortToUse = myLobbyEntry.relayPort;
+				}
+				else
+				{
+					NetworkLog("Per the relay connection map, using the remote users relay details for connection to %lld", user_id);
+					strRelayIPToUse = member.strRelayIP;
+					relayPortToUse = member.relayPort;
+				}
+
+				ENetAddress addr;
+				enet_address_set_host(&addr, strRelayIPToUse.c_str());
+				addr.port = relayPortToUse;
+
+				NetworkLog("Attempting to connect to relay. The relay for this lobby pair is %s:%d.", strRelayIPToUse.c_str(), relayPortToUse);
 
 				// Do we already have a peer we can reuse?
 				ENetPeer* pExistingRelayPeer = nullptr;
@@ -249,12 +278,12 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 					if (connection.second.GetRelayPeer() != nullptr)
 					{
 						enet_uint16 port = connection.second.GetRelayPeer()->address.port;
-						if (port == member.relayPort)
+						if (port == relayPortToUse)
 						{
 							char existingRelayIP[INET_ADDRSTRLEN + 1] = { 0 };
 							enet_address_get_host_ip(&connection.second.GetRelayPeer()->address, existingRelayIP, sizeof(existingRelayIP));
 
-							if (strcmp(existingRelayIP, member.strRelayIP.c_str()) == 0)
+							if (strcmp(existingRelayIP, strRelayIPToUse.c_str()) == 0)
 							{
 								pExistingRelayPeer = connection.second.GetRelayPeer();
 								break;

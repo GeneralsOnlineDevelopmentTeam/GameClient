@@ -74,11 +74,6 @@ public:
 #endif
 	}
 
-	void SetRelayPeer(ENetPeer* pRelayPeer)
-	{
-		m_pRelayPeer = pRelayPeer;
-	}
-
 	ENetPeer* GetRelayPeer()
 	{
 		return m_pRelayPeer;
@@ -118,12 +113,70 @@ public:
 	NetworkMesh(ENetworkMeshType meshType)
 	{
 		m_meshType = meshType;
+
+		// generate the map
+		for (int src = 0; src < 8; ++src)
+		{
+			for (int target = 0; target < 8; ++target)
+			{
+				if (src == target) // no self connections
+				{
+					m_mapConnectionSelection[src][target] = -1;
+				}
+				else
+				{
+					// only if not set already
+					if (m_mapConnectionSelection[src][target] == -2 && m_mapConnectionSelection[target][src] == -2)
+					{
+						bool bUseSrcRelay = (src % 2 == 0);
+
+						m_mapConnectionSelection[src][target] = bUseSrcRelay ? src : target;
+						m_mapConnectionSelection[target][src] = bUseSrcRelay ? src : target;
+					}
+				}
+			}
+		}
+
+		// debug
+#if defined(_DEBUG)
+		for (int src = 0; src < 8; ++src)
+		{
+			for (int target = 0; target < 8; ++target)
+			{
+				if (m_mapConnectionSelection[src][target] == -2)
+				{
+					__debugbreak();
+				}
+
+				if (m_mapConnectionSelection[src][target] != m_mapConnectionSelection[target][src])
+				{
+					__debugbreak();
+				}
+			}
+		}
+#endif
 	}
 
 	~NetworkMesh()
 	{
 
 	}
+
+	// users need to use the SAME relay, this mapping ensures they connect to the same one.
+		// Which one is selected doesn't really matter for latency, but we need to do send/recv on the same route
+		// user slot ID to use is stored in each field, if its us, use ours, otherwise use the other persons
+	int m_mapConnectionSelection[8][8] =
+	{
+		//	  |0| |1| |2| |3| |4| |5| |6| |7| // player 0 to 7
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 0
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 1
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 2
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 3
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 4
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 5
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 6
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 7
+	};
 
 	std::function<void(int64_t, std::string, EConnectionState)> m_cbOnConnected = nullptr;
 	void RegisterForConnectionEvents(std::function<void(int64_t, std::string, EConnectionState)> cb)
