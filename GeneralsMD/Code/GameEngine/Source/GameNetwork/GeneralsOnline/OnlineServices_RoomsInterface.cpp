@@ -178,7 +178,7 @@ void WebSocket::Tick()
 	// do recv
 	size_t rlen = 0;
 	const struct curl_ws_frame* meta = nullptr;
-	char buffer[256] = { 0 };
+	char buffer[8196] = { 0 };
 
 	CURLcode ret = CURL_LAST;
 	ret = curl_ws_recv(m_pCurl, buffer, sizeof(buffer), &rlen, &meta);

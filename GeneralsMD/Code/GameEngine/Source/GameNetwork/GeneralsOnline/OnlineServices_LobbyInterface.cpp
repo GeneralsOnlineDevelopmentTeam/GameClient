@@ -612,6 +612,10 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							m_bPendingHostHasLeft = true;
 							// error msg
 
+							if (fnCallback != nullptr)
+							{
+								fnCallback();
+							}
 
 							LeaveCurrentLobby();
 							return;
@@ -820,7 +824,17 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					}
 					catch (...)
 					{
-
+						if (fnCallback != nullptr)
+						{
+							fnCallback();
+						}
+					}
+				}
+				else
+				{
+					if (fnCallback != nullptr)
+					{
+						fnCallback();
 					}
 				}
 		});
