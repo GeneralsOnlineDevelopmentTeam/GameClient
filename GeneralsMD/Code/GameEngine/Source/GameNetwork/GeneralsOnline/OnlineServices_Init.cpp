@@ -400,73 +400,6 @@ void WebSocket::SendData_LeaveNetworkRoom()
 
 void QoSManager::Tick()
 {
-	// do we need to send another?
-	bool bNeedsQoSProbe = true;
-	if (!m_lstQoSProbesInFlight.empty())
-	{
-		for (QoSProbe& probe : m_lstQoSProbesInFlight)
-		{
-			if (!probe.bDone && probe.bSent)
-			{
-				bNeedsQoSProbe = false;
-			}
-		}
-
-		if (bNeedsQoSProbe)
-		{
-			// find the first probe to send
-			for (QoSProbe& probe : m_lstQoSProbesInFlight)
-			{
-				if (!probe.bDone && !probe.bSent)
-				{
-					struct sockaddr_in probeAddr;
-
-					hostent* pEnt = gethostbyname(probe.strEndpoint.c_str());
-					if (pEnt != nullptr)
-					{
-						memcpy(&probeAddr.sin_addr, pEnt->h_addr_list[0], pEnt->h_length);
-						probeAddr.sin_family = AF_INET;
-						probeAddr.sin_port = htons(3075);
-
-						CBitStream bsProbe(6);
-						bsProbe.Write<BYTE>(0xFF);
-						bsProbe.Write<BYTE>(0xFF);
-						bsProbe.Write<BYTE>(0x01);
-						bsProbe.Write<BYTE>(0x02);
-						bsProbe.Write<BYTE>(0x03);
-						bsProbe.Write<BYTE>(0x04);
-						sendto(m_Socket_QoSProbing, (char*)bsProbe.GetRawBuffer(), (int)bsProbe.GetNumBytesUsed(), 0, (sockaddr*)&probeAddr, sizeof(sockaddr_in));
-
-						// add to in flight list
-						char szIpAddress[MAX_SIZE_IP_ADDR] = { 0 };
-						inet_ntop(AF_INET, &probeAddr.sin_addr, szIpAddress, MAX_SIZE_IP_ADDR);
-
-						probe.bSent = true;
-						probe.Port = probeAddr.sin_port;
-						probe.strIPAddr = std::string(szIpAddress);
-						probe.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-
-						NetworkLog("Sending QoS Probe %s (%s)", probe.strRegionName.c_str(), szIpAddress);
-
-						break;
-					}
-					else
-					{
-						// mark as done and failed
-						probe.bSent = true;
-						probe.bDone = true;
-						probe.Latency = -1;
-
-						NetworkLog("QoS: Failed to resolve hostname %s", probe.strEndpoint.c_str());
-						continue;
-					}
-				}
-			}
-
-		}
-	}
-
-
 	// are all probes done?
 	bool bAllDone = true;
 	for (QoSProbe& probe : m_lstQoSProbesInFlight)
@@ -657,12 +590,59 @@ void QoSManager::StartProbing(std::map<std::pair<std::string, EQoSRegions>, std:
 	// get ip from hostname
 	for (const auto& qosEndpoint : m_mapQoSEndpoints)
 	{
+		// keep ticking while we're in this loop, so we dont artificially add latency
+		Tick();
+
 		NetworkLog("Queueing QoS Probe %s", qosEndpoint.first.first.c_str());
 
 		QoSProbe newProbe;
 		newProbe.strEndpoint = qosEndpoint.second;
 		newProbe.strRegionName = qosEndpoint.first.first;
 		newProbe.regionID = qosEndpoint.first.second;
+		
+
+		struct sockaddr_in probeAddr;
+
+		hostent* pEnt = gethostbyname(newProbe.strEndpoint.c_str());
+		if (pEnt != nullptr)
+		{
+			memcpy(&probeAddr.sin_addr, pEnt->h_addr_list[0], pEnt->h_length);
+			probeAddr.sin_family = AF_INET;
+			probeAddr.sin_port = htons(3075);
+
+			CBitStream bsProbe(6);
+			bsProbe.Write<BYTE>(0xFF);
+			bsProbe.Write<BYTE>(0xFF);
+			bsProbe.Write<BYTE>(0x01);
+			bsProbe.Write<BYTE>(0x02);
+			bsProbe.Write<BYTE>(0x03);
+			bsProbe.Write<BYTE>(0x04);
+			sendto(m_Socket_QoSProbing, (char*)bsProbe.GetRawBuffer(), (int)bsProbe.GetNumBytesUsed(), 0, (sockaddr*)&probeAddr, sizeof(sockaddr_in));
+
+			// add to in flight list
+			char szIpAddress[MAX_SIZE_IP_ADDR] = { 0 };
+			inet_ntop(AF_INET, &probeAddr.sin_addr, szIpAddress, MAX_SIZE_IP_ADDR);
+
+			newProbe.bSent = true;
+			newProbe.Port = probeAddr.sin_port;
+			newProbe.strIPAddr = std::string(szIpAddress);
+			newProbe.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+			// keep ticking while we're in this loop, so we dont artificially add latency
+			Tick();
+
+			NetworkLog("Sending QoS Probe %s (%s)", newProbe.strRegionName.c_str(), szIpAddress);
+		}
+		else
+		{
+			// mark as done and failed
+			newProbe.bSent = true;
+			newProbe.bDone = true;
+			newProbe.Latency = -1;
+
+			NetworkLog("QoS: Failed to resolve hostname %s", newProbe.strEndpoint.c_str());
+		}
+
 		m_lstQoSProbesInFlight.push_back(newProbe);
 	}
 }
