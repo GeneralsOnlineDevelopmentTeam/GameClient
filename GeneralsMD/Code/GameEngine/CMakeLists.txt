@@ -1255,7 +1255,7 @@ Include/GameNetwork/GeneralsOnline/Vendor/libplum/net.h
 Include/GameNetwork/GeneralsOnline/Vendor/libplum/noprotocol.h
 Include/GameNetwork/GeneralsOnline/Vendor/libplum/pcp.h
 Include/GameNetwork/GeneralsOnline/Vendor/libplum/protocol.h
-Include/GameNetwork/GeneralsOnline/Vendor/libplum/random.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/lprandom.h
 Include/GameNetwork/GeneralsOnline/Vendor/libplum/socket.h
 Include/GameNetwork/GeneralsOnline/Vendor/libplum/tcp.h
 Include/GameNetwork/GeneralsOnline/Vendor/libplum/thread.h
