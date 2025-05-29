@@ -10,7 +10,7 @@
 #include "http.h"
 #include "log.h"
 #include "net.h"
-#include "random.h"
+#include "lprandom.h"
 #include "udp.h"
 #include "util.h"
 

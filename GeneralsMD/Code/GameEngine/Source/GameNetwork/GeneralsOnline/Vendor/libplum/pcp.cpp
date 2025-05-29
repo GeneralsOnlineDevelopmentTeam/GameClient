@@ -11,7 +11,7 @@
 #include "log.h"
 #include "libplum/natpmp.h"
 #include "net.h"
-#include "random.h"
+#include "lprandom.h"
 #include "udp.h"
 
 #include <stdlib.h>
