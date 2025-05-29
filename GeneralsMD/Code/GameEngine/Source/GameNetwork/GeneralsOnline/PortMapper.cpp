@@ -194,6 +194,29 @@ void PortMapper::StartNATCheck()
 		return;
 	}
 
+	// TODO_NAT: This would be a lot more effective if we knew the response port too
+	NetworkLog("[NAT Check]: Start Holepunch");
+	struct sockaddr_in punchAddr;
+	hostent* pEnt = gethostbyname("cloud.playgenerals.online");
+	if (pEnt != nullptr)
+	{
+		memcpy(&punchAddr.sin_addr, pEnt->h_addr_list[0], pEnt->h_length);
+		punchAddr.sin_family = AF_INET;
+		punchAddr.sin_port = htons(9000);
+
+		const char* punchMsg = "NATPUNCH";
+		for (int i = 0; i < 25; ++i)
+		{
+			int sent = sendto(m_NATSocket, punchMsg, static_cast<int>(strlen(punchMsg)), 0, (sockaddr*)&punchAddr, sizeof(punchAddr));
+			if (sent == SOCKET_ERROR)
+			{
+				NetworkLog("[NAT Check]: Failed to send NATPUNCH packet %d. Error: %d", i, WSAGetLastError());
+			}
+		}
+	}
+	NetworkLog("[NAT Check]: Finished Holepunch");
+
+
 	NetworkLog("[NAT Check]: Really starting");
 	// do NAT check
 	m_bNATCheckInProgress = true;
