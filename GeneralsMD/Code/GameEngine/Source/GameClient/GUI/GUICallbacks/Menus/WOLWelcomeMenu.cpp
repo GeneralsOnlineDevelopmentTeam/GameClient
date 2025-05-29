@@ -1064,15 +1064,19 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 					{
 						if (mappingTechUsed == PortMapper::EMappingTech::MANUAL)
 						{
-							strPortState = "Port Mapped Manually";
+							strPortState = "Manual";
+						}
+						else if (mappingTechUsed == PortMapper::EMappingTech::PCP)
+						{
+							strPortState = "PCP";
 						}
 						else if (mappingTechUsed == PortMapper::EMappingTech::NATPMP)
 						{
-							strPortState = "Port Mapped via NAT-PMP";
+							strPortState = "NAT-PMP";
 						}
 						else if (mappingTechUsed == PortMapper::EMappingTech::UPNP)
 						{
-							strPortState = "Port Mapped via UPnP";
+							strPortState = "UPnP";
 						}
 						else
 						{

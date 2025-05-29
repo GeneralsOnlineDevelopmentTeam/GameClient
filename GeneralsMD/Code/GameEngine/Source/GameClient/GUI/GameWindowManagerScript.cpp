@@ -2736,9 +2736,9 @@ GameWindow *GameWindowManager::winCreateFromScript( AsciiString filenameString,
 
 #if defined(GENERALS_ONLINE)
 	// check Generals Online first
-	char gofilepath[_MAX_PATH] = "GeneralsOnlineUI\\";
+	char gofilepath[_MAX_PATH] = "GeneralsOnlineGameData\\";
 	if (strchr(filename, '\\') == NULL)
-		sprintf(gofilepath, "GeneralsOnlineUI\\%s", filename);
+		sprintf(gofilepath, "GeneralsOnlineGameData\\%s", filename);
 	else
 		strcpy(gofilepath, filename);
 

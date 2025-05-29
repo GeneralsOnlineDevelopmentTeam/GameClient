@@ -25,7 +25,9 @@ struct IPCapsResult
 void PortMapper::Tick()
 {
 	// do we have work to do on main thread?
-	if (m_bPortMapper_AnyMappingSuccess.load())
+	bool bEverythingComplete = m_bPortMapper_PCP_Complete.load() && m_bPortMapper_UPNP_Complete.load() && m_bPortMapper_NATPMP_Complete.load();
+	// if one thing succeeded, bail, or if everything is done, also bail
+	if (m_bPortMapper_AnyMappingSuccess.load() || bEverythingComplete)
 	{
 		if (!m_bNATCheckStarted)
 		{
@@ -260,6 +262,9 @@ void PortMapper::DetermineLocalNetworkCapabilities(std::function<void(void)> cal
 	m_timeStartPortMapping = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
 	// background threads, network ops are blocking
+	m_backgroundThread_PCP = new std::thread(&PortMapper::ForwardPort_PCP, this);
+	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread_PCP->native_handle()), L"PortMapper Background Thread (PCP)");
+
 	m_backgroundThread_UPNP = new std::thread(&PortMapper::ForwardPort_UPnP, this);
 	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread_UPNP->native_handle()), L"PortMapper Background Thread (UPnP)");
 
@@ -269,6 +274,18 @@ void PortMapper::DetermineLocalNetworkCapabilities(std::function<void(void)> cal
 
 void PortMapper::ForwardPort_UPnP()
 {
+#if defined(DISABLE_UPNP)
+	bool bSucceeded = false;
+
+	// NOTE: dont hard fail here. not finding an exact match might be OK, some routers mangle data etc
+	NetworkLog("PortMapper: UPnP Mapping was not validated on router, this is likely OK");
+	if (!m_bPortMapper_AnyMappingSuccess.load() && bSucceeded) // dont overwrite a positive value with a negative
+	{
+		m_bPortMapper_AnyMappingSuccess.store(true);
+		m_bPortMapper_MappingTechUsed.store(EMappingTech::UPNP);
+	}
+	m_bPortMapper_UPNP_Complete.store(true);
+#else
 	const uint16_t port = m_PreferredPort.load();
 	int error = 0;
 
@@ -317,10 +334,23 @@ void PortMapper::ForwardPort_UPnP()
 		m_bPortMapper_MappingTechUsed.store(EMappingTech::UPNP);
 	}
 	m_bPortMapper_UPNP_Complete.store(true);
+#endif
 }
 
 void PortMapper::ForwardPort_NATPMP()
 {
+#if defined(DISABLE_NATPMP)
+	bool bSucceeded = false;
+
+	// store outcome
+	if (!m_bPortMapper_AnyMappingSuccess.load() && bSucceeded) // dont overwrite a positive value with a negative
+	{
+		m_bPortMapper_AnyMappingSuccess.store(true);
+		m_bPortMapper_MappingTechUsed.store(EMappingTech::NATPMP);
+	}
+	m_bPortMapper_NATPMP_Complete.store(true);
+#else
+
 	const uint16_t port = m_PreferredPort.load();
 	int r;
 	natpmp_t natpmp;
@@ -365,6 +395,7 @@ void PortMapper::ForwardPort_NATPMP()
 		m_bPortMapper_MappingTechUsed.store(EMappingTech::NATPMP);
 	}
 	m_bPortMapper_NATPMP_Complete.store(true);
+#endif
 }
 
 void PortMapper::CleanupPorts()
@@ -454,6 +485,17 @@ void PortMapper::UPnP_RemoveAllMappingsToThisMachine()
 	}
 }
 
+void PortMapper::StorePCPOutcome(bool bSucceeded)
+{
+	// store outcome
+	if (!m_bPortMapper_AnyMappingSuccess.load() && bSucceeded) // dont overwrite a positive value with a negative
+	{
+		m_bPortMapper_AnyMappingSuccess.store(true);
+		m_bPortMapper_MappingTechUsed.store(EMappingTech::PCP);
+	}
+	m_bPortMapper_PCP_Complete.store(true);
+}
+
 void PortMapper::RemovePortMapping_UPnP()
 {
 	NetworkLog("PortMapper: UPnP starting unmapping of port");
@@ -524,4 +566,57 @@ void PortMapper::RemovePortMapping_NATPMP()
 		NetworkLog("PortMapper: NAT-PMP unmapping of port succeeded");
 	}
 	closenatpmp(&natpmp);
+}
+
+void PortMapper::ForwardPort_PCP()
+{
+#if defined(DISABLE_PCP)
+	NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(false);
+	return;
+#else
+	const uint16_t port = m_PreferredPort.load();
+
+	// Initialize
+	plum_config_t config;
+	memset(&config, 0, sizeof(config));
+	config.log_level = PLUM_LOG_LEVEL_VERBOSE;
+	plum_init(&config);
+
+	// Create a first mapping
+	plum_mapping_t pcpMapping;
+	memset(&pcpMapping, 0, sizeof(pcpMapping));
+	pcpMapping.protocol = PLUM_IP_PROTOCOL_UDP;
+	pcpMapping.internal_port = port;
+	m_PCPMappingHandle = plum_create_mapping(&pcpMapping, [](int id, plum_state_t state, const plum_mapping_t* mapping)
+		{
+			NetworkLog("PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
+			switch (state) {
+			case PLUM_STATE_SUCCESS:
+			{
+				NetworkLog("PortMapper: PCP Mapping %d: success, internal=%hu, external=%s:%hu\n", id, mapping->internal_port,
+					mapping->external_host, mapping->external_port);
+
+				NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(true);
+				break;
+			}
+
+			case PLUM_STATE_FAILURE:
+				NetworkLog("PortMapper: PCP Mapping %d: failed\n", id);
+
+				NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(false);
+				break;
+
+			default:
+				break;
+			}
+		});
+#endif
+}
+
+void PortMapper::RemovePortMapping_PCP()
+{
+	if (m_PCPMappingHandle != -1)
+	{
+		plum_destroy_mapping(m_PCPMappingHandle);
+	}
 }

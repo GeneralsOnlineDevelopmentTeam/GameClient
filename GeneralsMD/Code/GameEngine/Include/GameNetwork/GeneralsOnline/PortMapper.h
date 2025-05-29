@@ -1,7 +1,13 @@
 #pragma once
 
+//#define DISABLE_UPNP 1
+//#define DISABLE_NATPMP 1
+//#define DISABLE_PCP 1
+
 #define NATPMP_STATICLIB 1
 #pragma comment(lib, "iphlpapi.lib")
+
+#include "GameNetwork/GeneralsOnline/Vendor/libplum/plum.h"
 
 #include "GameNetwork/GeneralsOnline/Vendor/libnatpmp/natpmp.h"
 #include "GameNetwork/GeneralsOnline/Vendor/miniupnpc/miniupnpc.h"
@@ -32,15 +38,17 @@ public:
 	enum class EMappingTech
 	{
 		NONE = -1,
-		MANUAL,
-		UPNP,
-		NATPMP
+		MANUAL = 0,
+		PCP = 1,
+		UPNP = 2,
+		NATPMP = 3,
 	};
 
 	void DetermineLocalNetworkCapabilities(std::function<void(void)> callbackDeterminedCaps);
 
 	void ForwardPort_UPnP();
 	void ForwardPort_NATPMP();
+	void ForwardPort_PCP();
 
 	void CleanupPorts();
 
@@ -55,10 +63,13 @@ public:
 
 	void UPnP_RemoveAllMappingsToThisMachine();
 
+	void StorePCPOutcome(bool bSucceeded);
+
 private:
 
 	void RemovePortMapping_UPnP();
 	void RemovePortMapping_NATPMP();
+	void RemovePortMapping_PCP();
 
 private:
 	std::function<void(void)> m_callbackDeterminedCaps = nullptr;
@@ -82,9 +93,15 @@ private:
 	int64_t m_timeStartPortMapping = -1;
 	std::thread* m_backgroundThread_UPNP = nullptr;
 	std::thread* m_backgroundThread_NATPMP = nullptr;
+	std::thread* m_backgroundThread_PCP = nullptr;
 	bool m_bNATCheckStarted = false;
 	std::atomic<bool> m_bPortMapper_AnyMappingSuccess = false;
 	std::atomic<bool> m_bPortMapper_NATPMP_Complete = false;
 	std::atomic<bool> m_bPortMapper_UPNP_Complete = false;
+	std::atomic<bool> m_bPortMapper_PCP_Complete = false;
 	std::atomic<EMappingTech> m_bPortMapper_MappingTechUsed = EMappingTech::NONE;
+
+	int m_PCPMappingHandle = -1;
 };
+
+// TODO_PORT: What if everything fails? does it still return?

@@ -1069,7 +1069,14 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 
 		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
 
-		return enet_peer_send(m_peer, gameChannel, pENetPacket);
+		if (m_peer != nullptr)
+		{
+			return enet_peer_send(m_peer, gameChannel, pENetPacket);
+		}
+		else
+		{
+			return -4;
+		}
 	}
 	else if (m_State == EConnectionState::CONNECTING_RELAY || m_State == EConnectionState::CONNECTED_RELAY)
 	{
@@ -1089,7 +1096,14 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 
 		// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
 		// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
-		return enet_peer_send(m_pRelayPeer, 3, pENetPacket);
+		if (m_pRelayPeer != nullptr)
+		{
+			return enet_peer_send(m_pRelayPeer, 3, pENetPacket);
+		}
+		else
+		{
+			return -5;
+		}
 	}
 
 	return -3;
@@ -1138,7 +1152,14 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 			return -4;
 		}
 
-		return enet_peer_send(m_peer, channel, pENetPacket);
+		if (m_peer != nullptr)
+		{
+			return enet_peer_send(m_peer, channel, pENetPacket);
+		}
+		else
+		{
+			return -5;
+		}
 	}
 	else if (m_State == EConnectionState::CONNECTING_RELAY || m_State == EConnectionState::CONNECTED_RELAY)
 	{
@@ -1158,7 +1179,14 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 
 		// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
 		// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
-		return enet_peer_send(m_pRelayPeer, 3, pENetPacket);
+		if (m_pRelayPeer != nullptr)
+		{
+			return enet_peer_send(m_pRelayPeer, 3, pENetPacket);
+		}
+		else
+		{
+			return -6;
+		}
 	}
 
 	return -3;
