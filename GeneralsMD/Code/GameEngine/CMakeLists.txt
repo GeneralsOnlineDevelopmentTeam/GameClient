@@ -1148,6 +1148,7 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/OnlineServices_RoomsInterface.h
     Include/GameNetwork/GeneralsOnline/OnlineServices_StatsInterface.h
     Include/GameNetwork/GeneralsOnline/PortMapper.h
+    Include/GameNetwork/GeneralsOnline/GeneralsOnline_Settings.h
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPManager.h
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h
     Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Lobby_StartGame.h
@@ -1321,6 +1322,7 @@ Source/GameNetwork/GeneralsOnline/Vendor/libplum/util.cpp
     Source/GameNetwork/GeneralsOnline/NGMP_Helpers.cpp
     Source/GameNetwork/GeneralsOnline/NGMPGame.cpp
     Source/GameNetwork/GeneralsOnline/PortMapper.cpp
+    Source/GameNetwork/GeneralsOnline/GeneralsOnline_Settings.cpp
     Source/GameNetwork/GeneralsOnline/Vendor/libnatpmp/natpmp.cpp
     Source/GameNetwork/GeneralsOnline/Vendor/libnatpmp/wingettimeofday.cpp
     Source/GameNetwork/GeneralsOnline/Vendor/libnatpmp/getgateway.cpp

@@ -29,6 +29,8 @@ struct VersionCheckResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result, patcher_name, patcher_path, patchfile_path, patcher_size, patchfile_size)
 };
 
+GenOnlineSettings NGMP_OnlineServicesManager::Settings;
+
 NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
 {
 	NetworkLog("[NGMP] Init");

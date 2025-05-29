@@ -17,6 +17,7 @@ class NGMP_OnlineServices_StatsInterface;
 #include "GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h"
 #include "GameNetwork/GeneralsOnline/Vendor/sentry/sentry.h"
 #include <chrono>
+#include "GeneralsOnline_Settings.h"
 
 enum EWebSocketMessageID
 {
@@ -175,6 +176,8 @@ private:
 	static NGMP_OnlineServicesManager* m_pOnlineServicesManager;
 
 public:
+
+	static GenOnlineSettings Settings;
 
 	NGMP_OnlineServicesManager();
 	

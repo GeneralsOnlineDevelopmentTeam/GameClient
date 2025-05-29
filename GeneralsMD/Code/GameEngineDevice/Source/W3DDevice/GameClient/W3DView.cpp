@@ -93,7 +93,9 @@
 
 #include "W3DDevice/GameClient/camerashakesystem.h"
 
-#include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
+#if defined(GENERALS_ONLINE)
+#include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
+#endif
 
 
 #include "WinMain.h"  /** @todo Remove this, it's only here because we
@@ -1924,10 +1926,17 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 
 	// TODO_NGMP: Better way of doing this
 #if defined(GENERALS_ONLINE)
-	TheWritableGlobalData->m_minCameraHeight = 100.f;
-	TheWritableGlobalData->m_maxCameraHeight = 650.f;
-	m_minHeightAboveGround = 100.f;
-	m_maxHeightAboveGround = 600.f;
+	if (TheGameLogic == nullptr || !TheGameLogic->isInShellGame()) // We check NOT shell map... when this func is called its actually just before the state changes, so not shell map means we're actually going to the shell map...
+	{
+		// safety for shellmap, etc
+		TheWritableGlobalData->m_minCameraHeight = 120.f;
+		TheWritableGlobalData->m_maxCameraHeight = 310.f;
+	}
+	else
+	{
+		TheWritableGlobalData->m_minCameraHeight = NGMP_OnlineServicesManager::Settings.Camera_GetMinHeight();
+		TheWritableGlobalData->m_maxCameraHeight = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight();
+	}
 	
 #endif
 
