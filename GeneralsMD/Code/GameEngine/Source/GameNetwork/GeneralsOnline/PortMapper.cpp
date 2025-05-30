@@ -329,7 +329,11 @@ void PortMapper::ForwardPort_UPnP()
 	else
 	{
 		NetworkLog("PortMapper: UPnP gateway not found (%d)", status);
-		m_bPortMapper_NATPMP_Complete.store(true);
+
+		// NOTE: dont hard fail here. not finding an exact match might be OK, some routers mangle data etc
+		m_bPortMapper_UPNP_Complete.store(true);
+
+		return;
 	}
 
 	std::string strPort = std::format("{}", port);
@@ -350,7 +354,6 @@ void PortMapper::ForwardPort_UPnP()
 	bool bSucceeded = !error;
 
 	// NOTE: dont hard fail here. not finding an exact match might be OK, some routers mangle data etc
-	NetworkLog("PortMapper: UPnP Mapping was not validated on router, this is likely OK");
 	if (!m_bPortMapper_AnyMappingSuccess.load() && bSucceeded) // dont overwrite a positive value with a negative
 	{
 		m_bPortMapper_AnyMappingSuccess.store(true);
@@ -521,6 +524,11 @@ void PortMapper::StorePCPOutcome(bool bSucceeded)
 
 void PortMapper::RemovePortMapping_UPnP()
 {
+	if (m_bPortMapper_MappingTechUsed.load() != EMappingTech::UPNP)
+	{
+		return;
+	}
+
 	NetworkLog("PortMapper: UPnP starting unmapping of port");
 	int error = 0;
 
@@ -561,12 +569,20 @@ void PortMapper::RemovePortMapping_UPnP()
 
 void PortMapper::RemovePortMapping_NATPMP()
 {
+	if (m_bPortMapper_MappingTechUsed.load() != EMappingTech::NATPMP)
+	{
+		return;
+	}
+
 	NetworkLog("PortMapper: NAT-PMP starting unmapping of port");
 
 	int r;
 	natpmp_t natpmp;
 	natpmpresp_t response;
 	initnatpmp(&natpmp, 0, 0);
+
+	const int timeoutMS = 1000;
+	int64_t startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
 	sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, m_PreferredPort.load(), m_PreferredPort, 0);
 	do
@@ -578,11 +594,15 @@ void PortMapper::RemovePortMapping_NATPMP()
 		getnatpmprequesttimeout(&natpmp, &timeout);
 		select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
 		r = readnatpmpresponseorretry(&natpmp, &response);
-	} while (r == NATPMP_TRYAGAIN);
+	} while (r == NATPMP_TRYAGAIN && ((std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count() - startTime) < timeoutMS));
 
 	if (r < 0)
 	{
 		NetworkLog("PortMapper: NAT-PMP unmapping of port failed");
+	}
+	else if ((std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count() - startTime) >= timeoutMS)
+	{
+		NetworkLog("PortMapper: NAT-PMP unmapping of port timed out");
 	}
 	else
 	{
@@ -640,6 +660,7 @@ void PortMapper::RemovePortMapping_PCP()
 {
 	if (m_PCPMappingHandle != -1)
 	{
+		NetworkLog("PortMapper: Removing PCP Mapping");
 		plum_destroy_mapping(m_PCPMappingHandle);
 	}
 }
