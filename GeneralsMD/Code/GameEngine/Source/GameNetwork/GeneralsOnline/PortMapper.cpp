@@ -366,24 +366,21 @@ void PortMapper::ForwardPort_UPnP()
 void PortMapper::ForwardPort_NATPMP()
 {
 #if defined(DISABLE_NATPMP)
-	bool bSucceeded = false;
-
-	// store outcome
-	if (!m_bPortMapper_AnyMappingSuccess.load() && bSucceeded) // dont overwrite a positive value with a negative
-	{
-		m_bPortMapper_AnyMappingSuccess.store(true);
-		m_bPortMapper_MappingTechUsed.store(EMappingTech::NATPMP);
-	}
 	m_bPortMapper_NATPMP_Complete.store(true);
 #else
 
-	const uint16_t port = m_PreferredPort.load();
-	int r;
+	NetworkLog("PortMapper: NAT-PMP started");
+
+	// check for NATPMP first, quicker than trying to port map directly
+	// NAT-PMP
+	int res;
 	natpmp_t natpmp;
 	natpmpresp_t response;
 	initnatpmp(&natpmp, 0, 0);
 
-	sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, port, port, 86400);
+	bool bSucceeded = false;
+
+	sendpublicaddressrequest(&natpmp);
 	do
 	{
 		fd_set fds;
@@ -392,27 +389,54 @@ void PortMapper::ForwardPort_NATPMP()
 		FD_SET(natpmp.s, &fds);
 		getnatpmprequesttimeout(&natpmp, &timeout);
 		select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
-		r = readnatpmpresponseorretry(&natpmp, &response);
-	} while (r == NATPMP_TRYAGAIN);
+		res = readnatpmpresponseorretry(&natpmp, &response);
+	} while (res == NATPMP_TRYAGAIN);
 
-	if (r >= 0)
+	if (res == NATPMP_RESPTYPE_PUBLICADDRESS)
 	{
-		NetworkLog("PortMapper: NAT-PMP mapped external port %hu to internal port %hu with lifetime %u",
-			response.pnu.newportmapping.mappedpublicport,
-			response.pnu.newportmapping.privateport,
-			response.pnu.newportmapping.lifetime);
+		const uint16_t port = m_PreferredPort.load();
+		int r;
+		natpmp_t natpmp;
+		natpmpresp_t response;
+		initnatpmp(&natpmp, 0, 0);
+
+		sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, port, port, 86400);
+		do
+		{
+			fd_set fds;
+			struct timeval timeout;
+			FD_ZERO(&fds);
+			FD_SET(natpmp.s, &fds);
+			getnatpmprequesttimeout(&natpmp, &timeout);
+			select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
+			r = readnatpmpresponseorretry(&natpmp, &response);
+		} while (r == NATPMP_TRYAGAIN);
+
+		if (r >= 0)
+		{
+			NetworkLog("PortMapper: NAT-PMP mapped external port %hu to internal port %hu with lifetime %u",
+				response.pnu.newportmapping.mappedpublicport,
+				response.pnu.newportmapping.privateport,
+				response.pnu.newportmapping.lifetime);
+
+			bSucceeded = true;
+		}
+		else
+		{
+			NetworkLog("PortMapper: NAT-PMP failed to map external port %hu to internal port %hu with lifetime %u",
+				response.pnu.newportmapping.mappedpublicport,
+				response.pnu.newportmapping.privateport,
+				response.pnu.newportmapping.lifetime);
+
+			bSucceeded = false;
+		}
 	}
-	else
+	else // no NAT-PMP capable device
 	{
-		NetworkLog("PortMapper: NAT-PMP failed to map external port %hu to internal port %hu with lifetime %u",
-			response.pnu.newportmapping.mappedpublicport,
-			response.pnu.newportmapping.privateport,
-			response.pnu.newportmapping.lifetime);
+		bSucceeded = false;
 	}
 
 	closenatpmp(&natpmp);
-
-	bool bSucceeded = r >= 0;
 
 	// store outcome
 	if (!m_bPortMapper_AnyMappingSuccess.load() && bSucceeded) // dont overwrite a positive value with a negative
