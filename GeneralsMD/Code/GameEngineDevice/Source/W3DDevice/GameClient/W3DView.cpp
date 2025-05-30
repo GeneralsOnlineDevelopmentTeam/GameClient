@@ -99,6 +99,7 @@
 
 
 #include "WinMain.h"  /** @todo Remove this, it's only here because we
+#include "../OnlineServices_LobbyInterface.h"
 													are using timeGetTime, but we can remove that
 													when we have our own timer */
 #ifdef RTS_INTERNAL
@@ -1918,7 +1919,11 @@ void W3DView::setAngleAndPitchToDefault( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
+#if defined(GENERALS_ONLINE)
+void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight, bool bForceDefaultCam)
+#else
 void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
+#endif
 {
 	// MDC - we no longer want to rotate maps (design made all of them right to begin with)
 	//	m_defaultAngle = angle * M_PI/180.0f;
@@ -1926,7 +1931,7 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 
 	// TODO_NGMP: Better way of doing this
 #if defined(GENERALS_ONLINE)
-	if (TheGameLogic == nullptr || !TheGameLogic->isInShellGame()) // We check NOT shell map... when this func is called its actually just before the state changes, so not shell map means we're actually going to the shell map...
+	if (bForceDefaultCam)
 	{
 		// safety for shellmap, etc
 		TheWritableGlobalData->m_minCameraHeight = 120.f;

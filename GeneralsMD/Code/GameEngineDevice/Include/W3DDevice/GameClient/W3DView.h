@@ -192,7 +192,11 @@ public:
 	virtual	void Add_Camera_Shake(const Coord3D & position,float radius, float duration, float power); //WST 10.18.2002
 	virtual Int	 getTimeMultiplier(void) {return m_timeMultiplier;};///< Get the time multiplier.
 	virtual void setTimeMultiplier(Int multiple) {m_timeMultiplier = multiple;}; ///< Set the time multiplier.
+#if defined(GENERALS_ONLINE)
+	virtual void setDefaultView(Real pitch, Real angle, Real maxHeight, bool bForceDefaultCam = true);
+#else
 	virtual void setDefaultView(Real pitch, Real angle, Real maxHeight);
+#endif
 	virtual void zoomCamera( Real finalZoom, Int milliseconds, Real easeIn, Real easeOut );
 	virtual void pitchCamera( Real finalPitch, Int milliseconds, Real easeIn, Real easeOut );
 

@@ -67,6 +67,7 @@ private:
 
 public:
 	NGMPGame();
+	virtual ~NGMPGame();
 	virtual void reset(void);
 
 	void SyncWithLobby(LobbyEntry& lobby);

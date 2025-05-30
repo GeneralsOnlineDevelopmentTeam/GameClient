@@ -11,6 +11,7 @@
 #include "GameNetwork/NetworkInterface.h"
 #include "Common/GlobalData.h"
 #include "GameClient/LanguageFilter.h"
+#include "GameClient/View.h"
 
 NGMPGameSlot::NGMPGameSlot()
 {
@@ -51,6 +52,12 @@ NGMPGame::NGMPGame()
 
 	// NGMP: Populate slots
 	UpdateSlotsFromCurrentLobby();
+}
+
+NGMPGame::~NGMPGame()
+{
+	// Force camera to update from config
+	TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f, true);
 }
 
 void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
@@ -401,6 +408,9 @@ void NGMPGame::launchGame(void)
 		PopBackToLobby();
 		return;
 	}
+
+	// Force camera to update from config
+	TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f, false);
 
 
 	// shutdown the top, but do not pop it off the stack
