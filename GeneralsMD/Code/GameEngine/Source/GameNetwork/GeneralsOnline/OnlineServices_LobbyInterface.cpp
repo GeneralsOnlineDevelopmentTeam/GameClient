@@ -612,9 +612,10 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							m_bPendingHostHasLeft = true;
 							// error msg
 
+							// TODO_NGMP: We still want to do this, but we need to send back that it failed and back out, proceeding to lobby crashes because mesh wasn't created
 							if (fnCallback != nullptr)
 							{
-								fnCallback();
+								//fnCallback();
 							}
 
 							LeaveCurrentLobby();
@@ -824,17 +825,19 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					}
 					catch (...)
 					{
+						// TODO_NGMP: We still want to do this, but we need to send back that it failed and back out, proceeding to lobby crashes because mesh wasn't created
 						if (fnCallback != nullptr)
 						{
-							fnCallback();
+							//fnCallback();
 						}
 					}
 				}
 				else
 				{
+					// TODO_NGMP: We still want to do this, but we need to send back that it failed and back out, proceeding to lobby crashes because mesh wasn't created
 					if (fnCallback != nullptr)
 					{
-						fnCallback();
+						//fnCallback();
 					}
 				}
 		});
