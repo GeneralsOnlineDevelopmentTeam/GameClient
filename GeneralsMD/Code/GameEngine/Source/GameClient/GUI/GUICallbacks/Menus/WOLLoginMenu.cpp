@@ -133,7 +133,7 @@ static AsciiString obfuscate( AsciiString in )
 			c++, c2++;
 	}
 	AsciiString out = buf;
-	delete buf;
+	delete[] buf;
 	return out;
 }
 
@@ -1306,7 +1306,7 @@ WindowMsgHandledType WOLLoginMenuSystem( GameWindow *window, UnsignedInt msg,
 
 							}
 
-							delete fileBuf;
+							delete[] fileBuf;
 							fileBuf = NULL;
 
 							theFile->close();
