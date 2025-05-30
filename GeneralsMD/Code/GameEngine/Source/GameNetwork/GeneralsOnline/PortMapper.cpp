@@ -380,6 +380,9 @@ void PortMapper::ForwardPort_NATPMP()
 
 	bool bSucceeded = false;
 
+	const int timeoutMS = 2000;
+	int64_t startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
 	sendpublicaddressrequest(&natpmp);
 	do
 	{
@@ -390,16 +393,14 @@ void PortMapper::ForwardPort_NATPMP()
 		getnatpmprequesttimeout(&natpmp, &timeout);
 		select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
 		res = readnatpmpresponseorretry(&natpmp, &response);
-	} while (res == NATPMP_TRYAGAIN);
+	} while (res == NATPMP_TRYAGAIN && ((std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count() - startTime) < timeoutMS));
 
 	if (res == NATPMP_RESPTYPE_PUBLICADDRESS)
 	{
 		const uint16_t port = m_PreferredPort.load();
 		int r;
-		natpmp_t natpmp;
-		natpmpresp_t response;
-		initnatpmp(&natpmp, 0, 0);
 
+		startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 		sendnewportmappingrequest(&natpmp, NATPMP_PROTOCOL_UDP, port, port, 86400);
 		do
 		{
@@ -410,7 +411,7 @@ void PortMapper::ForwardPort_NATPMP()
 			getnatpmprequesttimeout(&natpmp, &timeout);
 			select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
 			r = readnatpmpresponseorretry(&natpmp, &response);
-		} while (r == NATPMP_TRYAGAIN);
+		} while (r == NATPMP_TRYAGAIN && ((std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count() - startTime) < timeoutMS));
 
 		if (r >= 0)
 		{
