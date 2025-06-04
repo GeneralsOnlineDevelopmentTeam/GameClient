@@ -61,6 +61,7 @@ public:
 	std::string& GetPreferredRegionName() { return m_PreferredRegionName; }
 	EQoSRegions GetPreferredRegionID() { return m_PreferredRegionID; }
 	int GetPreferredRegionLatency() { return m_PreferredRegionLatency; }
+	std::map<EQoSRegions, int>& GetQoSData() { return m_mapQoSData; }
 
 private:
 	std::function<void(void)> m_cbCompletion = nullptr;
@@ -71,6 +72,8 @@ private:
 	std::map<std::pair<std::string, EQoSRegions>, std::string> m_mapQoSEndpoints;
 	SOCKET m_Socket_QoSProbing = -1;
 	int64_t m_timeStartQoS = -1;
+
+	std::map<EQoSRegions, int> m_mapQoSData;
 
 	class QoSProbe
 	{

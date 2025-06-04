@@ -411,6 +411,8 @@ void QoSManager::Tick()
 
 	if (!m_lstQoSProbesInFlight.empty() && bAllDone)
 	{
+		
+
 		int qosDuration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count() - m_timeStartQoS;
 		NetworkLog("QoS checks are done, took %d ms total", qosDuration);
 		// put into an ordered map so we get latency high to low
@@ -419,6 +421,7 @@ void QoSManager::Tick()
 		NetworkLog("==== START QOS RESULTS ====");
 		for (QoSProbe& probe : m_lstQoSProbesInFlight)
 		{
+			m_mapQoSData[probe.regionID] = probe.Latency;
 			NetworkLog("QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegionName.c_str(), probe.Latency);
 
 			if (probe.Latency > 0)

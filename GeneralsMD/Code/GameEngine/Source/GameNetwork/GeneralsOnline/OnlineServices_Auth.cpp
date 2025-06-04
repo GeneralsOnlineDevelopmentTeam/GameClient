@@ -366,10 +366,12 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 					// TODO_RELAY: The network caps stuff should wait on this finishing, they can run in parallel but should never go forward iwthout determining region
 					NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().StartProbing(mapQoSEndpoints, [this]()
 						{
+							std::map<EQoSRegions, int>& qosData = NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetQoSData();
+
 							// inform service of outcome
 							//
 							nlohmann::json j;
-							j["region"] = NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionID();
+							j["qos_data"] = qosData;
 							std::string strPostData = j.dump();
 
 							std::string strQoSURI = NGMP_OnlineServicesManager::GetAPIEndpoint("UserRegion", true);
