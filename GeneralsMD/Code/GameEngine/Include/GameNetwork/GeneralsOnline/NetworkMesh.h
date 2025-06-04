@@ -50,6 +50,7 @@ public:
 		enet_peer_timeout(m_peer, 5, 1000, 1000);
 	}
 
+	EConnectionState GetState() const { return m_State; }
 	ENetPeer* GetPeerToUse();
 	int SendPacket(NetworkPacket& packet, int channel);
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize);
@@ -161,6 +162,8 @@ public:
 	{
 
 	}
+
+	void OnRelayUpgrade(int64_t targetUserID);
 
 	// users need to use the SAME relay, this mapping ensures they connect to the same one.
 		// Which one is selected doesn't really matter for latency, but we need to do send/recv on the same route

@@ -15,6 +15,30 @@
 #include "GameLogic/GameLogic.h"
 
 
+void NetworkMesh::OnRelayUpgrade(int64_t targetUserID)
+{
+	NetworkLog("Performing relay upgrade for user %lld", targetUserID);
+	if (m_mapConnections.find(targetUserID) != m_mapConnections.end())
+	{
+		PlayerConnection& pConnection = m_mapConnections[targetUserID];
+		EConnectionState connState = pConnection.GetState();
+
+		if (connState == EConnectionState::NOT_CONNECTED || connState == EConnectionState::CONNECTING_DIRECT)
+		{
+			NetworkLog("Starting relay upgrade for real");
+			ConnectToUserViaRelay(targetUserID);
+		}
+		else
+		{
+			NetworkLog("Invalid connection state for relay upgrade (%d)", (int)connState);
+		}
+	}
+	else
+	{
+		NetworkLog("User was not found for relay upgrade");
+	}
+}
+
 void NetworkMesh::ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int64_t sendingUserID)
 {
 	int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
@@ -217,6 +241,7 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 	// TODO_RELAY: How do we want to handle m_peer?
 	//m_mapConnections[user_id].m_peer = nullptr;
 	//m_mapConnections[user_id].m_peer = m_pRelayPeer;
+	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_ConnectionRelayUpgrade(user_id);
 	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING_RELAY;
 	m_mapConnections[user_id].m_ConnectionAttempts = 0;
 	m_mapConnections[user_id].m_lastConnectionAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
@@ -1142,6 +1167,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 
 			if (m_State == EConnectionState::CONNECTING_DIRECT)
 			{
+				NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_ConnectionRelayUpgrade(m_userID);
 				m_State = EConnectionState::CONNECTING_RELAY;
 			}
 			else if (m_State == EConnectionState::CONNECTED_DIRECT)

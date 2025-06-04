@@ -29,6 +29,7 @@ enum EWebSocketMessageID
 	NETWORK_ROOM_MARK_READY = 5,
 	LOBBY_CURRENT_LOBBY_UPDATE = 6,
 	NETWORK_ROOM_LOBBY_LIST_UPDATE = 7,
+	PLAYER_CONNECTION_RELAY_UPGRADE = 8
 };
 
 enum class EQoSRegions
@@ -128,6 +129,7 @@ public:
 	void SendData_JoinNetworkRoom(int roomID);
 	void SendData_LeaveNetworkRoom();
 	void SendData_MarkReady(bool bReady);
+	void SendData_ConnectionRelayUpgrade(int64_t userID);
 
 	void Tick();
 

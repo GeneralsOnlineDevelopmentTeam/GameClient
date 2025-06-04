@@ -78,6 +78,17 @@ void WebSocket::SendData_RoomChatMessage(const char* szMessage)
 	Send(strBody.c_str());
 }
 
+void WebSocket::SendData_ConnectionRelayUpgrade(int64_t userID)
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::PLAYER_CONNECTION_RELAY_UPGRADE;
+	j["target_user_id"] = userID;
+	
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+}
+
 void WebSocket::SendData_MarkReady(bool bReady)
 {
 	nlohmann::json j;
@@ -151,6 +162,14 @@ public:
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message)
 };
 
+class WebSocketMessage_RelayUpgrade : public WebSocketMessageBase
+{
+public:
+	int64_t target_user_id = -1;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RelayUpgrade, msg_id, target_user_id)
+};
+
 class WebSocketMessage_NetworkRoomMemberListUpdate : public WebSocketMessageBase
 {
 public:
@@ -217,6 +236,18 @@ void WebSocket::Tick()
 							strChatMsg.format(L"%hs", chatData.message.c_str());
 
 							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg);
+						}
+						break;
+
+						case EWebSocketMessageID::PLAYER_CONNECTION_RELAY_UPGRADE:
+						{
+							WebSocketMessage_RelayUpgrade relayUpgrade = jsonObject.get<WebSocketMessage_RelayUpgrade>();
+							NetworkLog("Got relay upgrade for user %lld", relayUpgrade.target_user_id);
+							NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+							if (pMesh != nullptr)
+							{
+								pMesh->OnRelayUpgrade(relayUpgrade.target_user_id);
+							}
 						}
 						break;
 
