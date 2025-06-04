@@ -888,31 +888,6 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 			refreshPlayerList(true);
 		});
 
-	// upon entry, retrieve room list
-
-	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetRoomList([=]()
-		{
-			// attempt to join the first room
-			NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->JoinRoom(0, []()
-				{
-					//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
-				},
-				[]()
-				{
-					UnicodeString msg;
-					msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomDisplayName().str());
-					GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-
-					// refresh on join
-					refreshPlayerList(TRUE);
-
-					RefreshGameListBoxes();
-
-					populateGroupRoomListbox(comboLobbyGroupRooms);
-				});
-		});
-	
-
 	GrabWindowInfo();
 
 	// TODO_NGMP
@@ -972,6 +947,30 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 
 	//  NGMP: do a lobby search on init / first time into the gui
 	refreshGameList(true);
+
+	// upon entry, retrieve room list
+
+	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetRoomList([=]()
+		{
+			// attempt to join the first room
+			NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->JoinRoom(0, []()
+				{
+					//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
+				},
+				[]()
+				{
+					UnicodeString msg;
+					msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomDisplayName().str());
+					GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+					// refresh on join
+					refreshPlayerList(TRUE);
+
+					RefreshGameListBoxes();
+
+					populateGroupRoomListbox(comboLobbyGroupRooms);
+				});
+		});
 } // WOLLobbyMenuInit
 
 //-------------------------------------------------------------------------------------------------
