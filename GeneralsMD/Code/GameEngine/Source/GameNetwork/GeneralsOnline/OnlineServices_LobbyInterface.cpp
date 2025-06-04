@@ -1005,6 +1005,9 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, "", nullptr);
+
+	// reset local data
+	ResetCachedRoomData();
 }
 
 LobbyEntry NGMP_OnlineServices_LobbyInterface::GetLobbyFromIndex(int index)

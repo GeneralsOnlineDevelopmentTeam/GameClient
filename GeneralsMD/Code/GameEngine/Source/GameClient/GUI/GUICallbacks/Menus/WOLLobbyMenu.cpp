@@ -945,9 +945,6 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 		win->winHide(TRUE);
 	DontShowMainMenu = TRUE;
 
-	//  NGMP: do a lobby search on init / first time into the gui
-	refreshGameList(true);
-
 	// upon entry, retrieve room list
 
 	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetRoomList([=]()
@@ -1210,7 +1207,7 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
 		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
-		if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty() && !isShuttingDown && !buttonPushed && !pLobbyInterface->IsInLobby())
+		if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty() && !isShuttingDown && !buttonPushed && !pLobbyInterface->IsInLobby() && pLobbyInterface->GetLobbyTryingToJoin().lobbyID == -1)
 		{
 			const bool bShouldAutoRefresh = true;
 

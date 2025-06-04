@@ -979,6 +979,12 @@ void WOLDisplayGameOptions( void )
 		return;
 
 	NGMPGame* theGame = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
+
+	if (theGame == nullptr)
+	{
+		return;
+	}
+
 	const GameSlot *localSlot = NULL;
 	if (theGame->getLocalSlotNum() >= 0)
 		localSlot = theGame->getConstSlot(theGame->getLocalSlotNum());
@@ -1068,7 +1074,7 @@ void WOLDisplaySlotList( void )
 	//	return;
 
 	NGMPGame* game = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
-	if (!game->isInGame())
+	if (game == nullptr || !game->isInGame())
 		return;
 
 	DEBUG_ASSERTCRASH(!game->getConstSlot(0)->isOpen(), ("Open host!"));
