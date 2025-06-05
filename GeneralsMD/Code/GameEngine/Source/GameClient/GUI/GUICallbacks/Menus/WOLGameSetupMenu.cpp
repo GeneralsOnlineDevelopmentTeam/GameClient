@@ -1234,6 +1234,13 @@ void InitWOLGameGadgets( void )
 		NameKeyType labelID = TheNameKeyGenerator->nameToKey(AsciiString("GameSpyGameOptionsMenu.wnd:StartingCashLabel"));
 		TheWindowManager->winGetWindowFromId(parentWOLGameSetup, labelID)->winEnable( FALSE );
   }
+#if defined(GENERALS_ONLINE)
+  else
+  {
+	  checkBoxLimitSuperweapons->winEnable(true);
+	  comboBoxStartingCash->winEnable(true);
+  }
+#endif
 
 	if (isUsingStats)
 	{
@@ -1877,7 +1884,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bHostMigrated = false;
 
 		// If we are in-game, nothing to do here, the game handles it for us
-		if (!TheNGMPGame->isInGame())
+		if (!TheNGMPGame->isGameInProgress()) // in progress is in game, ingame is just in lobby
 		{
 			// TODO_NGMP: Make sure we did a lobby get first
 			// did we become the host?
@@ -1885,21 +1892,22 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 
 			if (bIsHost)
 			{
+				// re init our UI & enable host buttons
+				EnableSlotListUpdates(FALSE);
+				InitWOLGameGadgets();
+				EnableSlotListUpdates(TRUE);
+				buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
+				buttonStart->winEnable(TRUE);
+				buttonSelectMap->winEnable(TRUE);
+				initialAcceptEnable = TRUE;
+				WOLDisplaySlotList();
+				WOLDisplayGameOptions();
+
 				NetworkLog("Host left and server migrated the host to us...");
 
 				GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. You are now the host."), GameMakeColor(255, 255, 255, 255), -1, -1);
 
-				// enable host buttons
-				buttonSelectMap->winEnable(true);
-
-				// rename start button
-				buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
-
-				// mark myself as ready
-
 				// NOTE: don't need to mark ourselves ready, the service did it for us upon migration
-				// TODO_NGMP: Should probably force ready for host?
-				//InitWOLGameGadgets();
 			}
 			else
 			{
