@@ -1123,14 +1123,13 @@ void WOLDisplaySlotList( void )
 				genericPingWindow[i]->winHide(FALSE);
 
 				genericPingWindow[i]->winSetEnabledImage(0, pingImages[0]);
-				// TODO_NGMP
-				//Int ping = slot->getPingAsInt();
-				/*
-				if (ping < TheGameSpyConfig->getPingCutoffGood())
+
+				Int ping = slot->getPingAsInt();
+				if (ping < 100)
 				{
 					genericPingWindow[i]->winSetEnabledImage(0, pingImages[0]);
 				}
-				else if (ping < TheGameSpyConfig->getPingCutoffBad())
+				else if (ping < 200)
 				{
 					genericPingWindow[i]->winSetEnabledImage(0, pingImages[1]);
 				}
@@ -1138,7 +1137,6 @@ void WOLDisplaySlotList( void )
 				{
 					genericPingWindow[i]->winSetEnabledImage(0, pingImages[2]);
 				}
-				*/
 			}
 		}
 		else
