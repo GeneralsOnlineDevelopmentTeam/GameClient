@@ -957,6 +957,33 @@ void NetworkMesh::Tick()
 							pConnection->latency = currTime - pConnection->pingSent;
 							//pConnection->pingSent = -1;
 
+							// store it on the slot
+							int64_t connectionUserID = pConnection->m_userID;
+							
+							for (Int i = 0; i < MAX_SLOTS; i++)
+							{
+								NGMPGameSlot* pSlot = (NGMPGameSlot*)TheNGMPGame->getSlot(i);
+
+								if (pSlot != nullptr)
+								{
+									if (pSlot->m_userID == connectionUserID)
+									{
+										pSlot->UpdateLatencyFromConnection(AsciiString(""), pConnection->latency);
+										
+										// TODO_NGMP: Have a separate callback from this? or do we care? it's essentially a lobby update anyway
+										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
+										if (pLobbyInterface != nullptr)
+										{
+											if (pLobbyInterface->m_RosterNeedsRefreshCallback != nullptr)
+											{
+												// call the callback to update the roster
+												pLobbyInterface->m_RosterNeedsRefreshCallback();
+											}
+										}
+									}
+								}
+							}
+							
 							NetworkLog("Latency for connection to user %lld is %d (var %d)", pConnection->m_userID, pConnection->latency, l);
 						}
 					}
