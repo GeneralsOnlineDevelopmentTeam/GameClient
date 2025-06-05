@@ -149,7 +149,9 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 					PROCESS_JSON_STANDARD_RESULT(lastLadderPort);
 					PROCESS_JSON_STANDARD_RESULT(lastLadderHost);
 
+					NetworkLog("Cached stats for user %lld", userID);
 					m_mapCachedStats[userID] = stats;
+					m_mapStatsLastRefresh[userID] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
 					// cb
 					cb(true, stats);

@@ -68,6 +68,7 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include <ws2ipdef.h>
 #include <format>
+#include "../OnlineServices_Init.h"
 NGMPGame* TheNGMPGame = NULL;
 
 void WOLDisplaySlotList( void );
@@ -359,9 +360,6 @@ static void playerTooltip(GameWindow *window,
 													WinInstanceData *instData,
 													UnsignedInt mouse)
 {
-	// TODO_NGMP
-	return;
-
 	Int slotIdx = -1;
 	for (Int i=0; i<MAX_SLOTS; ++i)
 	{
@@ -401,112 +399,119 @@ static void playerTooltip(GameWindow *window,
 	// in that order.  got it?  good.
 
 	UnicodeString uName = slot->getName();
+// 
+// 	AsciiString aName;
+// 	aName.translate(uName);
+// 	PlayerInfoMap::iterator pmIt = TheGameSpyInfo->getPlayerInfoMap()->find(aName);
+// 	if (pmIt == TheGameSpyInfo->getPlayerInfoMap()->end())
+// 	{
+// 		TheMouse->setCursorTooltip( uName, -1, NULL, 1.5f );
+// 		return;
+// 	}
+	//Int profileID = pmIt->second.m_profileID;
 
-	AsciiString aName;
-	aName.translate(uName);
-	PlayerInfoMap::iterator pmIt = TheGameSpyInfo->getPlayerInfoMap()->find(aName);
-	if (pmIt == TheGameSpyInfo->getPlayerInfoMap()->end())
-	{
-		TheMouse->setCursorTooltip( uName, -1, NULL, 1.5f );
-		return;
-	}
-	Int profileID = pmIt->second.m_profileID;
+	int64_t profileID = slot->m_userID;
 
-	PSPlayerStats stats = TheGameSpyPSMessageQueue->findPlayerStatsByID(profileID);
-	if (stats.id == 0)
-	{
-		TheMouse->setCursorTooltip( uName, -1, NULL, 1.5f );
-		return;
-	}
+	//TheMouse->setCursorTooltip(UnicodeString(L"Retrieving User Stats..."), -1, NULL, 1.5f);
 
-	Bool isLocalPlayer = slot == game->getGameSpySlot(game->getLocalSlotNum());
-
-	AsciiString localeIdentifier;
-	localeIdentifier.format("WOL:Locale%2.2d", stats.locale);
-	UnicodeString	playerInfo;
-	Int totalWins = 0, totalLosses = 0, totalDiscons = 0;
-	PerGeneralMap::iterator it;
-
-	for (it = stats.wins.begin(); it != stats.wins.end(); ++it)
+	NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(profileID, [=](bool bSuccess, PSPlayerStats stats)
 	{
-		totalWins += it->second;
-	}
-	for (it = stats.losses.begin(); it != stats.losses.end(); ++it)
-	{
-		totalLosses += it->second;
-	}
-	for (it = stats.discons.begin(); it != stats.discons.end(); ++it)
-	{
-		totalDiscons += it->second;
-	}
-	for (it = stats.desyncs.begin(); it != stats.desyncs.end(); ++it)
-	{
-		totalDiscons += it->second;
-	}
-	UnicodeString favoriteSide;
-	Int numGames = 0;
-	Int favorite = 0;
-	for(it = stats.games.begin(); it != stats.games.end(); ++it)
-	{
-		if(it->second >= numGames)
-		{
-			numGames = it->second;
-			favorite = it->first;
-		}
-	}
-	if(numGames == 0)
-		favoriteSide = TheGameText->fetch("GUI:None");
-	else if( stats.gamesAsRandom >= numGames )
-		favoriteSide = TheGameText->fetch("GUI:Random");
-	else
-	{		
-		const PlayerTemplate *fac = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
-		if (fac)
-		{
-			AsciiString side;
-			side.format("SIDE:%s", fac->getSide().str());
-
-			favoriteSide = TheGameText->fetch(side);
-		}
-	}
-
-	playerInfo.format(TheGameText->fetch("TOOLTIP:StagingPlayerInfo"),
-		TheGameText->fetch(localeIdentifier).str(),
-		slot->getPingAsInt(),
-		totalWins, totalLosses, totalDiscons,
-		favoriteSide.str());
-
-	UnicodeString tooltip = UnicodeString::TheEmptyString;
-	if (isLocalPlayer)
-	{
-		tooltip.format(TheGameText->fetch("TOOLTIP:LocalPlayer"), uName.str());
-	}
-	else
-	{
-		// not us
-		if (TheGameSpyInfo->getBuddyMap()->find(profileID) != TheGameSpyInfo->getBuddyMap()->end())
-		{
-			// buddy
-			tooltip.format(TheGameText->fetch("TOOLTIP:BuddyPlayer"), uName.str());
-		}
-		else
-		{
-			if (profileID)
+			if (stats.id == 0)
 			{
-				// non-buddy profiled player
-				tooltip.format(TheGameText->fetch("TOOLTIP:ProfiledPlayer"), uName.str());
+				TheMouse->setCursorTooltip(uName, -1, NULL, 1.5f);
+				return;
+			}
+
+			Bool isLocalPlayer = slot == game->getGameSpySlot(game->getLocalSlotNum());
+
+			//AsciiString localeIdentifier;
+			//localeIdentifier.format("WOL:Locale%2.2d", stats.locale);
+			UnicodeString	playerInfo;
+			Int totalWins = 0, totalLosses = 0, totalDiscons = 0;
+			PerGeneralMap::iterator it;
+
+			for (it = stats.wins.begin(); it != stats.wins.end(); ++it)
+			{
+				totalWins += it->second;
+			}
+			for (it = stats.losses.begin(); it != stats.losses.end(); ++it)
+			{
+				totalLosses += it->second;
+			}
+			for (it = stats.discons.begin(); it != stats.discons.end(); ++it)
+			{
+				totalDiscons += it->second;
+			}
+			for (it = stats.desyncs.begin(); it != stats.desyncs.end(); ++it)
+			{
+				totalDiscons += it->second;
+			}
+			UnicodeString favoriteSide;
+			Int numGames = 0;
+			Int favorite = 0;
+			for (it = stats.games.begin(); it != stats.games.end(); ++it)
+			{
+				if (it->second >= numGames)
+				{
+					numGames = it->second;
+					favorite = it->first;
+				}
+			}
+			if (numGames == 0)
+				favoriteSide = TheGameText->fetch("GUI:None");
+			else if (stats.gamesAsRandom >= numGames)
+				favoriteSide = TheGameText->fetch("GUI:Random");
+			else
+			{
+				const PlayerTemplate* fac = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
+				if (fac)
+				{
+					AsciiString side;
+					side.format("SIDE:%s", fac->getSide().str());
+
+					favoriteSide = TheGameText->fetch(side);
+				}
+			}
+
+			playerInfo.format(L"\nLatency: %d ms\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+				slot->getPingAsInt(), totalWins, totalLosses, totalDiscons, favoriteSide.str());
+
+			UnicodeString tooltip = UnicodeString::TheEmptyString;
+			if (isLocalPlayer)
+			{
+				tooltip.format(TheGameText->fetch("TOOLTIP:LocalPlayer"), uName.str());
 			}
 			else
 			{
-				// non-profiled player
-				tooltip.format(TheGameText->fetch("TOOLTIP:GenericPlayer"), uName.str());
+				// not us
+				// TODO_NGMP: Impl friends again
+				bool bIsFriend = false;
+				if (bIsFriend)
+				//if (TheGameSpyInfo->getBuddyMap()->find(profileID) != TheGameSpyInfo->getBuddyMap()->end())
+				{
+					// buddy
+					tooltip.format(TheGameText->fetch("TOOLTIP:BuddyPlayer"), uName.str());
+				}
+				else
+				{
+					if (profileID)
+					{
+						// non-buddy profiled player
+						tooltip.format(TheGameText->fetch("TOOLTIP:ProfiledPlayer"), uName.str());
+					}
+					else
+					{
+						// non-profiled player
+						tooltip.format(TheGameText->fetch("TOOLTIP:GenericPlayer"), uName.str());
+					}
+				}
 			}
-		}
-	}
 
-	tooltip.concat(playerInfo);
+			tooltip.concat(playerInfo);
 
-	TheMouse->setCursorTooltip( tooltip, -1, NULL, 1.5f ); // the text and width are the only params used.  the others are the default values.
+			TheMouse->setCursorTooltip(tooltip, -1, NULL, 1.5f); // the text and width are the only params used.  the others are the default values.
+
+	}, EStatsRequestPolicy::RESPECT_CACHE_ALLOW_REQUEST);
 }
 
 void gameAcceptTooltip(GameWindow *window, WinInstanceData *instData, UnsignedInt mouse)
