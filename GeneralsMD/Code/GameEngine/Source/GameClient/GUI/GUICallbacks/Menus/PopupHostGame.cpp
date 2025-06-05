@@ -370,11 +370,14 @@ void PopupHostGameInit( WindowLayout *layout, void *userData )
 	Bool usingStats = customPref.getUseStats();
   GadgetCheckBoxSetChecked( checkBoxUseStats, usingStats );
 
-	// limit armies is disallowed in "use stats" games
   checkBoxLimitArmiesID = TheNameKeyGenerator->nameToKey(AsciiString("PopupHostGame.wnd:CheckBoxLimitArmies"));
   checkBoxLimitArmies = TheWindowManager->winGetWindowFromId(parentPopup, checkBoxLimitArmiesID);
+	
+#if !defined(GENERALS_ONLINE_ALLOW_ALL_SETTINGS_FOR_STATS_MATCHES)
+  // limit armies is disallowed in "use stats" games
 	checkBoxLimitArmies->winEnable(! usingStats );
   GadgetCheckBoxSetChecked( checkBoxLimitArmies, usingStats? FALSE : customPref.getFactionsLimited() );
+#endif
 
 	TheWindowManager->winSetFocus( parentPopup );
 	TheWindowManager->winSetModal( parentPopup );
@@ -387,6 +390,7 @@ void PopupHostGameInit( WindowLayout *layout, void *userData )
 //-------------------------------------------------------------------------------------------------
 void PopupHostGameUpdate( WindowLayout * layout, void *userData)
 {
+#if !defined(GENERALS_ONLINE_ALLOW_ALL_SETTINGS_FOR_STATS_MATCHES)
 	if (GadgetCheckBoxIsChecked( checkBoxUseStats ))
 	{
 		checkBoxLimitArmies->winEnable( FALSE );
@@ -396,6 +400,7 @@ void PopupHostGameUpdate( WindowLayout * layout, void *userData)
 	{
 		checkBoxLimitArmies->winEnable( TRUE );
 	}
+#endif
 }
 
 
