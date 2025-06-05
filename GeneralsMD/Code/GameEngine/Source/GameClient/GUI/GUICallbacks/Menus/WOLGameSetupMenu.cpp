@@ -933,10 +933,17 @@ static void StartPressed(void)
 
 		// we've started, there's no going back
 		// i.e. disable the back button.
-		buttonBack->winEnable(FALSE);
+		if (buttonBack != nullptr)
+		{
+			buttonBack->winEnable(FALSE);
+		}
+
 		GameWindow *buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
-		if (buttonBuddy)
+		if (buttonBuddy != nullptr)
+		{
 			buttonBuddy->winEnable(FALSE);
+		}
+
 		GameSpyCloseOverlay(GSOVERLAY_BUDDY);
 	}
 	else if (allHaveMap)
