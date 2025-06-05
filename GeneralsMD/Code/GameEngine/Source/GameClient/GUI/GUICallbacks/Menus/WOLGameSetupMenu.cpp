@@ -1252,6 +1252,8 @@ void InitWOLGameGadgets( void )
   }
 #endif
 
+
+#if !defined(GENERALS_ONLINE_ALLOW_ALL_SETTINGS_FOR_STATS_MATCHES)
 	if (isUsingStats)
 	{
 		// Recorded stats games can never limit superweapons, limit armies, or have inflated starting cash.
@@ -1262,6 +1264,7 @@ void InitWOLGameGadgets( void )
 		NameKeyType labelID = TheNameKeyGenerator->nameToKey(AsciiString("GameSpyGameOptionsMenu.wnd:StartingCashLabel"));
 		TheWindowManager->winGetWindowFromId(parentWOLGameSetup, labelID)->winEnable( FALSE );
 	}
+#endif
 
 	//Added By Sadullah Nader
 	//Tooltip Function set 
@@ -1640,13 +1643,20 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 #if !defined(GENERALS_ONLINE)
 		Int isUsingStats = TheGameSpyGame->getUseStats();
 #else
+#if !defined(GENERALS_ONLINE_ALLOW_ALL_SETTINGS_FOR_STATS_MATCHES)
 		Int isUsingStats = game->getUseStats();
 #endif
+#endif
 
+#if !defined(GENERALS_ONLINE_ALLOW_ALL_SETTINGS_FOR_STATS_MATCHES)
 		game->setStartingCash( isUsingStats? TheMultiplayerSettings->getDefaultStartingMoney() : customPref.getStartingCash() );
 		game->setSuperweaponRestriction( isUsingStats? 0 : customPref.getSuperweaponRestricted() ? 1 : 0 );
 		if (isUsingStats)
 			game->setOldFactionsOnly( 0 );
+#else
+		game->setStartingCash(customPref.getStartingCash());
+		game->setSuperweaponRestriction(customPref.getSuperweaponRestricted() ? 1 : 0);
+#endif
 
 		//game->setOldFactionsOnly( customPref.getFactionsLimited() );
     if ( game->oldFactionsOnly() )
