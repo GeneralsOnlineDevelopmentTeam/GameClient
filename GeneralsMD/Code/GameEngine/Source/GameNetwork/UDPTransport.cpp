@@ -1,5 +1,5 @@
 /*
-**	Command & Conquer Generals(tm)
+**	Command & Conquer Generals Zero Hour(tm)
 **	Copyright 2025 Electronic Arts Inc.
 **
 **	This program is free software: you can redistribute it and/or modify
@@ -25,8 +25,7 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file int the GameEngine
 
-#include "Common/CRC.h"
-#include "GameNetwork/UDPTransport.h"
+#include "Common/crc.h"
 #include "GameNetwork/Transport.h"
 #include "GameNetwork/NetworkInterface.h"
 
@@ -42,13 +41,13 @@
 // can be non-XOR'd.
 
 // This assumes the buf is a multiple of 4 bytes.  Extra is not encrypted.
-static inline void encryptBuf( unsigned char *buf, Int len )
+static inline void encryptBuf(unsigned char* buf, Int len)
 {
 	UnsignedInt mask = 0x0000Fade;
 
-	UnsignedInt *uintPtr = (UnsignedInt *) (buf);
+	UnsignedInt* uintPtr = (UnsignedInt*)(buf);
 
-	for (int i=0 ; i<len/4 ; i++) {
+	for (int i = 0; i < len / 4; i++) {
 		*uintPtr = (*uintPtr) ^ mask;
 		*uintPtr = htonl(*uintPtr);
 		uintPtr++;
@@ -57,13 +56,13 @@ static inline void encryptBuf( unsigned char *buf, Int len )
 }
 
 // This assumes the buf is a multiple of 4 bytes.  Extra is not encrypted.
-static inline void decryptBuf( unsigned char *buf, Int len )
+static inline void decryptBuf(unsigned char* buf, Int len)
 {
 	UnsignedInt mask = 0x0000Fade;
 
-	UnsignedInt *uintPtr = (UnsignedInt *) (buf);
+	UnsignedInt* uintPtr = (UnsignedInt*)(buf);
 
-	for (int i=0 ; i<len/4 ; i++) {
+	for (int i = 0; i < len / 4; i++) {
 		*uintPtr = htonl(*uintPtr);
 		*uintPtr = (*uintPtr) ^ mask;
 		uintPtr++;
@@ -84,12 +83,12 @@ UDPTransport::~UDPTransport(void)
 	reset();
 }
 
-Bool UDPTransport::init( AsciiString ip, UnsignedShort port )
+Bool UDPTransport::init(AsciiString ip, UnsignedShort port)
 {
 	return init(ResolveIP(ip), port);
 }
 
-Bool UDPTransport::init( UnsignedInt ip, UnsignedShort port )
+Bool UDPTransport::init(UnsignedInt ip, UnsignedShort port)
 {
 	// ----- Initialize Winsock -----
 	if (!m_winsockInit)
@@ -102,7 +101,7 @@ Bool UDPTransport::init( UnsignedInt ip, UnsignedShort port )
 			return false;
 		}
 
-		if ((LOBYTE(wsadata.wVersion) != 2) || (HIBYTE(wsadata.wVersion) !=2)) {
+		if ((LOBYTE(wsadata.wVersion) != 2) || (HIBYTE(wsadata.wVersion) != 2)) {
 			WSACleanup();
 			return false;
 		}
@@ -113,10 +112,10 @@ Bool UDPTransport::init( UnsignedInt ip, UnsignedShort port )
 	if (m_udpsock)
 		delete m_udpsock;
 	m_udpsock = NEW UDP();
-	
+
 	if (!m_udpsock)
 		return false;
-	
+
 	int retval = -1;
 	time_t now = timeGetTime();
 	while ((retval != 0) && ((timeGetTime() - now) < 1000)) {
@@ -132,7 +131,8 @@ Bool UDPTransport::init( UnsignedInt ip, UnsignedShort port )
 	}
 
 	// ------- Clear buffers --------
-	for (int i=0; i<MAX_MESSAGES; ++i)
+	int i = 0;
+	for (; i < MAX_MESSAGES; ++i)
 	{
 		m_outBuffer[i].length = 0;
 		m_inBuffer[i].length = 0;
@@ -140,7 +140,7 @@ Bool UDPTransport::init( UnsignedInt ip, UnsignedShort port )
 		m_delayedInBuffer[i].message.length = 0;
 #endif
 	}
-	for (int i=0; i<MAX_TRANSPORT_STATISTICS_SECONDS; ++i)
+	for (i = 0; i < MAX_TRANSPORT_STATISTICS_SECONDS; ++i)
 	{
 		m_incomingBytes[i] = 0;
 		m_outgoingBytes[i] = 0;
@@ -165,7 +165,7 @@ Bool UDPTransport::init( UnsignedInt ip, UnsignedShort port )
 	return true;
 }
 
-void UDPTransport::reset( void )
+void UDPTransport::reset(void)
 {
 	if (m_udpsock)
 	{
@@ -180,7 +180,7 @@ void UDPTransport::reset( void )
 	}
 }
 
-Bool UDPTransport::update( void )
+Bool UDPTransport::update(void)
 {
 	Bool retval = TRUE;
 	if (doRecv() == FALSE && m_udpsock && m_udpsock->GetStatus() == UDP::ADDRNOTAVAIL)
@@ -221,24 +221,25 @@ Bool UDPTransport::doSend() {
 
 	// Send all messages
 	int i;
-	for (i=0; i<MAX_MESSAGES; ++i)
+	for (i = 0; i < MAX_MESSAGES; ++i)
 	{
 		if (m_outBuffer[i].length != 0)
 		{
 			int bytesSent = 0;
+			int bytesToSend = m_outBuffer[i].length + sizeof(TransportMessageHeader);
 			// Send this message
-			if ((bytesSent = m_udpsock->Write((unsigned char *)(&m_outBuffer[i]), m_outBuffer[i].length + sizeof(TransportMessageHeader), m_outBuffer[i].addr, m_outBuffer[i].port)) > 0)
+			if ((bytesSent = m_udpsock->Write((unsigned char*)(&m_outBuffer[i]), bytesToSend, m_outBuffer[i].addr, m_outBuffer[i].port)) > 0)
 			{
-				//DEBUG_LOG(("Sending %d bytes to %d:%d\n", m_outBuffer[i].length + sizeof(TransportMessageHeader), m_outBuffer[i].addr, m_outBuffer[i].port));
+				//DEBUG_LOG(("Sending %d bytes to %d.%d.%d.%d:%d\n", bytesToSend, PRINTF_IP_AS_4_INTS(m_outBuffer[i].addr), m_outBuffer[i].port));
 				m_outgoingPackets[m_statisticsSlot]++;
 				m_outgoingBytes[m_statisticsSlot] += m_outBuffer[i].length + sizeof(TransportMessageHeader);
 				m_outBuffer[i].length = 0;  // Remove from queue
-//				DEBUG_LOG(("UDPTransport::doSend - sent %d butes to %d.%d.%d.%d:%d\n", bytesSent,
-//					(m_outBuffer[i].addr >> 24) & 0xff,
-//					(m_outBuffer[i].addr >> 16) & 0xff,
-//					(m_outBuffer[i].addr >> 8) & 0xff,
-//					m_outBuffer[i].addr & 0xff,
-//					m_outBuffer[i].port));
+				if (bytesSent != bytesToSend)
+				{
+					DEBUG_LOG(("UDPTransport::doSend - wanted to send %d bytes, only sent %d bytes to %d.%d.%d.%d:%d\n",
+						bytesToSend, bytesSent,
+						PRINTF_IP_AS_4_INTS(m_outBuffer[i].addr), m_outBuffer[i].port));
+				}
 			}
 			else
 			{
@@ -253,11 +254,11 @@ Bool UDPTransport::doSend() {
 	// Latency simulation - deliver anything we're holding on to that is ready
 	if (m_useLatency)
 	{
-		for (i=0; i<MAX_MESSAGES; ++i)
+		for (i = 0; i < MAX_MESSAGES; ++i)
 		{
 			if (m_delayedInBuffer[i].message.length != 0 && m_delayedInBuffer[i].deliveryTime <= now)
 			{
-				for (int j=0; j<MAX_MESSAGES; ++j)
+				for (int j = 0; j < MAX_MESSAGES; ++j)
 				{
 					if (m_inBuffer[j].length == 0)
 					{
@@ -274,7 +275,7 @@ Bool UDPTransport::doSend() {
 	return retval;
 }
 
-Bool UDPTransport::doRecv() 
+Bool UDPTransport::doRecv()
 {
 	if (!m_udpsock)
 	{
@@ -291,35 +292,36 @@ Bool UDPTransport::doRecv()
 #endif
 
 	TransportMessage incomingMessage;
-	unsigned char *buf = (unsigned char *)&incomingMessage;
+	unsigned char* buf = (unsigned char*)&incomingMessage;
 	int len = MAX_MESSAGE_LEN;
-//	DEBUG_LOG(("UDPTransport::doRecv - checking\n"));
-	while ( (len=m_udpsock->Read(buf, MAX_MESSAGE_LEN, &from)) > 0 )
+	//	DEBUG_LOG(("UDPTransport::doRecv - checking\n"));
+	while ((len = m_udpsock->Read(buf, MAX_MESSAGE_LEN, &from)) > 0)
 	{
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 		// Packet loss simulation
 		if (m_usePacketLoss)
 		{
-			if ( TheGlobalData->m_packetLoss >= GameClientRandomValue(0, 100) )
+			if (TheGlobalData->m_packetLoss >= GameClientRandomValue(0, 100))
 			{
 				continue;
 			}
 		}
 #endif
 
-//		DEBUG_LOG(("UDPTransport::doRecv - Got something! len = %d\n", len));
-		// Decrypt the packet
-//		DEBUG_LOG(("buffer = "));
-//		for (Int munkee = 0; munkee < len; ++munkee) {
-//			DEBUG_LOG(("%02x", *(buf + munkee)));
-//		}
-//		DEBUG_LOG(("\n"));
+		//		DEBUG_LOG(("UDPTransport::doRecv - Got something! len = %d\n", len));
+				// Decrypt the packet
+		//		DEBUG_LOG(("buffer = "));
+		//		for (Int munkee = 0; munkee < len; ++munkee) {
+		//			DEBUG_LOG(("%02x", *(buf + munkee)));
+		//		}
+		//		DEBUG_LOG(("\n"));
 		decryptBuf(buf, len);
 
 		incomingMessage.length = len - sizeof(TransportMessageHeader);
 
-		if (len <= sizeof(TransportMessageHeader) || !isGeneralsPacket( &incomingMessage ))
+		if (len <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
 		{
+			DEBUG_LOG(("UDPTransport::doRecv - unknownPacket! len = %d\n", len));
 			m_unknownPackets[m_statisticsSlot]++;
 			m_unknownBytes[m_statisticsSlot] += len;
 			continue;
@@ -330,7 +332,7 @@ Bool UDPTransport::doRecv()
 		m_incomingPackets[m_statisticsSlot]++;
 		m_incomingBytes[m_statisticsSlot] += len;
 
-		for (int i=0; i<MAX_MESSAGES; ++i)
+		for (int i = 0; i < MAX_MESSAGES; ++i)
 		{
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 			// Latency simulation
@@ -378,17 +380,18 @@ Bool UDPTransport::doRecv()
 	return retval;
 }
 
-Bool UDPTransport::queueSend(UnsignedInt addr, UnsignedShort port, const UnsignedByte *buf, Int len /*,
+Bool UDPTransport::queueSend(UnsignedInt addr, UnsignedShort port, const UnsignedByte* buf, Int len /*,
 						  NetMessageFlags flags, Int id */)
 {
 	int i;
 
 	if (len < 1 || len > MAX_PACKET_SIZE)
 	{
+		DEBUG_LOG(("UDPTransport::queueSend - Invalid Packet size\n"));
 		return false;
 	}
 
-	for (i=0; i<MAX_MESSAGES; ++i)
+	for (i = 0; i < MAX_MESSAGES; ++i)
 	{
 		if (m_outBuffer[i].length == 0)
 		{
@@ -397,22 +400,25 @@ Bool UDPTransport::queueSend(UnsignedInt addr, UnsignedShort port, const Unsigne
 			memcpy(m_outBuffer[i].data, buf, len);
 			m_outBuffer[i].addr = addr;
 			m_outBuffer[i].port = port;
-//			m_outBuffer[i].header.flags = flags;
-//			m_outBuffer[i].header.id = id;
+			//			m_outBuffer[i].header.flags = flags;
+			//			m_outBuffer[i].header.id = id;
 			m_outBuffer[i].header.magic = GENERALS_MAGIC_NUMBER;
 
 			CRC crc;
-			crc.computeCRC( (unsigned char *)(&(m_outBuffer[i].header.magic)), m_outBuffer[i].length + sizeof(TransportMessageHeader) - sizeof(UnsignedInt) );
-//			DEBUG_LOG(("About to assign the CRC for the packet\n"));
+			crc.computeCRC((unsigned char*)(&(m_outBuffer[i].header.magic)), m_outBuffer[i].length + sizeof(TransportMessageHeader) - sizeof(UnsignedInt));
+			//			DEBUG_LOG(("About to assign the CRC for the packet\n"));
 			m_outBuffer[i].header.crc = crc.get();
 
 			// Encrypt packet
 //			DEBUG_LOG(("buffer: "));
-			encryptBuf((unsigned char *)&m_outBuffer[i], len + sizeof(TransportMessageHeader));
-//			DEBUG_LOG(("\n"));
+			encryptBuf((unsigned char*)&m_outBuffer[i], len + sizeof(TransportMessageHeader));
+			//			DEBUG_LOG(("\n"));
 
 			return true;
 		}
 	}
+	DEBUG_LOG(("Send Queue is getting full, dropping packets\n"));
 	return false;
 }
+
+

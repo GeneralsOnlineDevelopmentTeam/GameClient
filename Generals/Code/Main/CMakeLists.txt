@@ -35,6 +35,16 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/GeneratedVersion.h
 )
 
 # Based on original binary values for these variables.
+if (IS_VS6_BUILD)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/BuildVersion.h
+"#pragma once
+
+#define VERSION_MAJOR 1
+#define VERSION_MINOR 7
+#define VERSION_BUILDNUM 601
+"
+)
+else()
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/BuildVersion.h
 "#pragma once
 
@@ -43,6 +53,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/BuildVersion.h
 #define VERSION_BUILDNUM 601
 "
 )
+endif()
 
 target_link_options(g_generals PRIVATE "/NODEFAULTLIB:libci.lib")
 
@@ -58,6 +69,13 @@ target_sources(g_generals PRIVATE
 )
 
 if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")
+    # VS2005 and later adds default manifest, we need to turn it off to prevent conflict with custom manifest
+    if(NOT IS_VS6_BUILD)
+        target_link_options(g_generals PRIVATE
+            "/MANIFEST:NO"
+        )
+    endif()
+
     target_sources(g_generals PRIVATE
         RTS.RC
     )
