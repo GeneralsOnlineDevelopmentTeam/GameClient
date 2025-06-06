@@ -420,6 +420,13 @@ StateReturnType StateMachine::resetToDefaultState()
  */
 StateReturnType StateMachine::updateStateMachine()
 {
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (TheGameLogic->getFrame() % 2 != 0)
+	{
+		return STATE_CONTINUE;
+	}
+#endif
+
 	UnsignedInt now = TheGameLogic->getFrame();
 	if (m_sleepTill != 0 && now < m_sleepTill)
 	{

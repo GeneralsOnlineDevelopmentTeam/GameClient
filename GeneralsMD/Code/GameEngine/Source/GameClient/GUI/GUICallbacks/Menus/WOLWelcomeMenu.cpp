@@ -1080,7 +1080,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 						}
 						else
 						{
-							strPortState = "Error";
+							strPortState = "No Port Mapped";
 						}
 					}
 					
@@ -1088,8 +1088,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 
 					ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
 					int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-					headingStr.format(L"Network Capabilities:\n\tPort Mapped: %hs\n\tMapping Technology: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs\n\tRelayed Connect: %hs\n\tPreferred Server Region: %hs (%dms latency)",
-						bHasPortMapped ? "Yes" : "No",
+					headingStr.format(L"Port Mapping Technology: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs\n\tRelayed Connect: %hs\n\tPreferred Server Region: %hs (%dms latency)",
 						strPortState.c_str(),
 						preferredPort,
 						NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
