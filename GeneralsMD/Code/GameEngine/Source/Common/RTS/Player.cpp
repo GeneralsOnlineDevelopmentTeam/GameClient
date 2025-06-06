@@ -2948,6 +2948,10 @@ Bool Player::canBuild(const ThingTemplate *tmplate) const
 			prereqsOK = true;
 #endif
 
+#if defined(GENERALS_ONLINE_BUILD_ANY)
+		prereqsOK = true;
+#endif
+
 		if (!prereqsOK)
 			return false;
 

@@ -2072,6 +2072,7 @@ void grabMultiPlayerInfo( void )
 	// Generals Online NOTE:
 	// We do our important end of game flow here, the populate results flow doesn't execute in certain situations (e.g. quickmatch, custom match with stats off)
 	// but this logic we always need to run at end of game
+	if (TheNetwork != nullptr)
 	{
 		UnsignedInt latestHumanInGame = 0;
 		UnsignedInt lastFrameOfGame = 0;
@@ -2226,7 +2227,7 @@ void grabMultiPlayerInfo( void )
 			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->MarkCurrentGameAsFinished();
 		}
 	}
-
+	
 	typedef std::map<Int, Player *> ScoreMap;
 	typedef ScoreMap::iterator ScoreMapIt;
 	typedef ScoreMap::reverse_iterator RevScoreMapIt;

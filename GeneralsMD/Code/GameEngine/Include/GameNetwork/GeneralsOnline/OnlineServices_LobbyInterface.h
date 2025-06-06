@@ -4,6 +4,9 @@
 #include "OnlineServices_RoomsInterface.h"
 #include "../GameInfo.h"
 #include <chrono>
+#include "Common/PlayerList.h"
+#include "Common/Player.h"
+#include "GameClient/InGameUI.h"
 
 extern NGMPGame* TheNGMPGame;
 
@@ -169,8 +172,48 @@ public:
 
 	// periodically force refresh the lobby for data accuracy
 	int64_t m_lastForceRefresh = 0;
+
 	void Tick()
 	{
+		// cheats
+#if defined(GENERALS_ONLINE_ALL_SCIENCES)
+		static bool GrantAllSciences = false;
+		if (GrantAllSciences)
+		{
+			GrantAllSciences = false;
+			Player* player = ThePlayerList->getLocalPlayer();
+			if (player)
+			{
+				// cheese festival: do NOT imitate this code. it is for debug purposes only.
+				std::vector<AsciiString> v = TheScienceStore->friend_getScienceNames();
+				for (int i = 0; i < v.size(); ++i)
+				{
+					ScienceType st = TheScienceStore->getScienceFromInternalName(v[i]);
+					if (st != SCIENCE_INVALID && TheScienceStore->isScienceGrantable(st))
+					{
+						player->grantScience(st);
+					}
+				}
+			}
+			TheInGameUI->message(UnicodeString(L"Granting all sciences!"));
+		}
+#endif
+
+#if defined(GENERALS_ONLINE_MAX_SCIENCES_POINTS)
+		static bool GrantSciencePoints = false;
+		if (GrantSciencePoints)
+		{
+			GrantSciencePoints = false;
+			Player* player2 = ThePlayerList->getLocalPlayer();
+			if (player2 && player2->isPlayerActive())
+			{
+				player2->setRankLevel(5);
+				player2->addSciencePurchasePoints(100);
+				TheInGameUI->message(UnicodeString(L"Adding a SciencePurchasePoint and setting to max general level"));
+			}
+		}
+#endif
+
 		if (m_pLobbyMesh != nullptr)
 		{
 			m_pLobbyMesh->Tick();

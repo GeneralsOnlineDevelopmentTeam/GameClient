@@ -39,6 +39,14 @@
 // useful for testing release builds with multiple logins
 //#define GENERALS_ONLINE_DONT_SAVE_CREDENTIALS 1
 
+#if defined(_DEBUG)
+#define GENERALS_ONLINE_INSTABUILD 1
+#define GENERALS_ONLINE_FREEBUILD 1
+#define GENERALS_ONLINE_BUILD_ANY 1
+#define GENERALS_ONLINE_ALL_SCIENCES 1
+#define GENERALS_ONLINE_MAX_SCIENCES_POINTS 1
+#endif
+
 #if !_DEBUG
 #define GENERALS_ONLINE_USE_SENTRY 1
 #endif

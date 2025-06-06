@@ -1532,6 +1532,10 @@ Bool ThingTemplate::isBuildableItem(void) const
 //-------------------------------------------------------------------------------------------------
 Int ThingTemplate::calcCostToBuild( const Player* player) const
 {
+#if defined(GENERALS_ONLINE_FREEBUILD)
+	return 0;
+#endif
+
 	if (!player)
 		return 0;
 
@@ -1548,6 +1552,10 @@ Int ThingTemplate::calcCostToBuild( const Player* player) const
 //-------------------------------------------------------------------------------------------------
 Int ThingTemplate::calcTimeToBuild( const Player* player) const
 {
+#if defined(GENERALS_ONLINE_INSTABUILD)
+	return 1;
+#endif
+
 	Int buildTime = getBuildTime() * LOGICFRAMES_PER_SECOND;
 	buildTime *= player->getHandicap()->getHandicap(Handicap::BUILDTIME, this);
 
