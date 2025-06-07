@@ -1091,9 +1091,9 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 
 					ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
 					int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-					headingStr.format(L"Port Mapping Technology: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs\n\tRelayed Connect: %hs\n\tPreferred Server Region: %hs (%dms latency)",
-						strPortState.c_str(),
+					headingStr.format(L"Network Port: %d (%hs)\nDirect Connect: %hs%hs\nRelayed Connect: %hs\nServer Region: %hs (%dms)",
 						preferredPort,
+						strPortState.c_str(),
 						NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
 #if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
 						(mappingTechUsed == PortMapper::EMappingTech::MANUAL) ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
