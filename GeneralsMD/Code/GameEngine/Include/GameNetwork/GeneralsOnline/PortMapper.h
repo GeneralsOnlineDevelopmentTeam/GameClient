@@ -38,10 +38,12 @@ public:
 	enum class EMappingTech
 	{
 		NONE = -1,
-		MANUAL = 0,
-		PCP = 1,
-		UPNP = 2,
-		NATPMP = 3,
+		PCP,
+		UPNP,
+		NATPMP,
+#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
+		MANUAL
+#endif
 	};
 
 	void DetermineLocalNetworkCapabilities(std::function<void(void)> callbackDeterminedCaps);

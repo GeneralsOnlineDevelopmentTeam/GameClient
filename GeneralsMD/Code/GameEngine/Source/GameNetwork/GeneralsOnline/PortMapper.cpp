@@ -254,16 +254,19 @@ void PortMapper::DetermineLocalNetworkCapabilities(std::function<void(void)> cal
 
 	if (TheGlobalData->m_firewallPortOverride != 0)
 	{
-		m_bPortMapper_AnyMappingSuccess.store(true);
-		m_bPortMapper_MappingTechUsed.store(EMappingTech::MANUAL);
 		m_PreferredPort.store(TheGlobalData->m_firewallPortOverride);
 
+#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
+		m_bPortMapper_AnyMappingSuccess.store(true);
+		m_bPortMapper_MappingTechUsed.store(EMappingTech::MANUAL);
+		
 		NetworkLog("[PortMapper] Firewall port override is set (%d), skipping port mapping and going straight to connection check", m_PreferredPort.load());
 		m_bPortMapperWorkComplete.store(true);
 
 		// dont trigger callbakc, just say we did the mapping, so we'll continue with direct connect check - this is still valid
 		
 		return;
+#endif
 	}
 	else
 	{

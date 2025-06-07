@@ -1062,11 +1062,14 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 					}
 					else
 					{
+#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
 						if (mappingTechUsed == PortMapper::EMappingTech::MANUAL)
 						{
 							strPortState = "Manual";
 						}
-						else if (mappingTechUsed == PortMapper::EMappingTech::PCP)
+						else
+#endif
+						if (mappingTechUsed == PortMapper::EMappingTech::PCP)
 						{
 							strPortState = "PCP";
 						}
@@ -1092,7 +1095,11 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 						strPortState.c_str(),
 						preferredPort,
 						NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
 						(mappingTechUsed == PortMapper::EMappingTech::MANUAL) ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
+#else
+						"",
+#endif
 						"Supported",
 						NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionName().c_str(),
 						NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency()
