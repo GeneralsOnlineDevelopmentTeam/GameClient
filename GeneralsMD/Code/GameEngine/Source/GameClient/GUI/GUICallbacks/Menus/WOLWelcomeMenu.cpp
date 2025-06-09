@@ -89,11 +89,6 @@ static NameKeyType buttonBuddiesID = NAMEKEY_INVALID;
 static NameKeyType buttonLadderID = NAMEKEY_INVALID;
 static NameKeyType buttonMyInfoID = NAMEKEY_INVALID;
 
-// GENERALS ONLINE UI CHANGES
-#if defined(GENERALS_ONLINE)
-static NameKeyType buttonNetworkStatusID = NAMEKEY_INVALID;
-#endif
-
 static NameKeyType listboxInfoID = NAMEKEY_INVALID;
 static NameKeyType buttonOptionsID = NAMEKEY_INVALID;
 // Window Pointers ------------------------------------------------------------------------
@@ -107,11 +102,6 @@ static GameWindow *buttonMyInfo = NULL;
 static GameWindow *buttonbuttonOptions = NULL;
 static WindowLayout *welcomeLayout = NULL;
 static GameWindow *listboxInfo = NULL;
-
-// GENERALS ONLINE UI CHANGES
-#if defined(GENERALS_ONLINE)
-static GameWindow *buttonNetworkStatus = nullptr;
-#endif
 
 static GameWindow *staticTextServerName = NULL;
 static GameWindow *staticTextLastUpdated = NULL;
@@ -329,6 +319,63 @@ static void updateNumPlayersOnline(void)
 		}
 		GadgetListBoxAddEntryText(listboxInfo, UnicodeString(L" "), GameSpyColor[GSCOLOR_MOTD_HEADING], -1, -1);
 
+		// NETWORK CAPS
+		bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
+		PortMapper::EMappingTech mappingTechUsed = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetPortMappingTechnologyUsed();
+
+
+		std::string strPortState;
+		if (!bHasPortMapped)
+		{
+			strPortState = "No Port Mapped";
+		}
+		else
+		{
+#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
+			if (mappingTechUsed == PortMapper::EMappingTech::MANUAL)
+			{
+				strPortState = "Manual";
+			}
+			else
+#endif
+				if (mappingTechUsed == PortMapper::EMappingTech::PCP)
+				{
+					strPortState = "PCP";
+				}
+				else if (mappingTechUsed == PortMapper::EMappingTech::NATPMP)
+				{
+					strPortState = "NAT-PMP";
+				}
+				else if (mappingTechUsed == PortMapper::EMappingTech::UPNP)
+				{
+					strPortState = "UPnP";
+				}
+				else
+				{
+					strPortState = "No Port Mapped";
+				}
+		}
+
+		AsciiString netCapStr;
+
+		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
+		int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+		netCapStr.format("Your Network Status:\nNetwork Port: %d (%s)\nDirect Connect: %hs%s\nRelayed Connect: %hs\nServer Region: %s (%dms)",
+			preferredPort,
+			strPortState.c_str(),
+			NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
+			(mappingTechUsed == PortMapper::EMappingTech::MANUAL) ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
+#else
+			"",
+#endif
+			"Supported",
+			NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionName().c_str(),
+			NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency()
+		);
+
+		// END NETWORK CAPS
+
 		while (aMotd.nextToken(&aLine, "\n"))
 		{
 			if (aLine.getCharAt(aLine.getLength()-1) == '\r')
@@ -362,6 +409,18 @@ static void updateNumPlayersOnline(void)
 
 			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
 		}
+
+		// add network caps
+		{
+			Color c = GameMakeColor(255, 194, 15, 255);
+			GadgetListBoxAddEntryText(listboxInfo, UnicodeString(L" "), c, -1, -1);
+			
+			//Color c = GameSpyColor[GSCOLOR_MOTD];
+			UnicodeString line;
+			line.format(L"%hs", netCapStr.str());
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+		}
+		
 	}
 }
 
@@ -645,12 +704,6 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	GadgetStaticTextSetText(staticTextHighscoreRank, questionMark);
 	*/
 
-	// GENERALS ONLINE UI CHANGES
-#if defined(GENERALS_ONLINE)
-	buttonNetworkStatusID = TheNameKeyGenerator->nameToKey(AsciiString("WOLWelcomeMenu.wnd:ButtonNetwork"));
-	buttonNetworkStatus = TheWindowManager->winGetWindowFromId(parentWOLWelcome, buttonNetworkStatusID);
-	buttonNetworkStatus->winSetText(UnicodeString(L"NETWORK STATUS"));
-#endif
 
 	//DEBUG_ASSERTCRASH(listboxInfo, ("No control found!"));
 
@@ -1047,70 +1100,6 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 					TheWOL->addCommand( WOL::WOLCOMMAND_REFRESH_CHANNELS );
 					*/
 				}// else if
-				// GENERALS ONLINE UI CHANGES
-#if defined(GENERALS_ONLINE)
-				else if (controlID == buttonNetworkStatusID)
-				{
-					bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
-					PortMapper::EMappingTech mappingTechUsed = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetPortMappingTechnologyUsed();
-
-
-					std::string strPortState;
-					if (!bHasPortMapped)
-					{
-						strPortState = "No Port Mapped";
-					}
-					else
-					{
-#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
-						if (mappingTechUsed == PortMapper::EMappingTech::MANUAL)
-						{
-							strPortState = "Manual";
-						}
-						else
-#endif
-						if (mappingTechUsed == PortMapper::EMappingTech::PCP)
-						{
-							strPortState = "PCP";
-						}
-						else if (mappingTechUsed == PortMapper::EMappingTech::NATPMP)
-						{
-							strPortState = "NAT-PMP";
-						}
-						else if (mappingTechUsed == PortMapper::EMappingTech::UPNP)
-						{
-							strPortState = "UPnP";
-						}
-						else
-						{
-							strPortState = "No Port Mapped";
-						}
-					}
-					
-					UnicodeString headingStr;
-
-					ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
-					int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-					headingStr.format(L"Network Port: %d (%hs)\nDirect Connect: %hs%hs\nRelayed Connect: %hs\nServer Region: %hs (%dms)",
-						preferredPort,
-						strPortState.c_str(),
-						NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
-#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
-						(mappingTechUsed == PortMapper::EMappingTech::MANUAL) ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
-#else
-						"",
-#endif
-						"Supported",
-						NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionName().c_str(),
-						NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency()
-					);
-
-					// show
-					ClearGSMessageBoxes();
-					GSMessageBoxOk(UnicodeString(L"Network Details"), headingStr);
-
-				}
-#endif
 				else if (controlID == buttonBuddiesID)
 				{
 					GameSpyToggleOverlay( GSOVERLAY_BUDDY );
