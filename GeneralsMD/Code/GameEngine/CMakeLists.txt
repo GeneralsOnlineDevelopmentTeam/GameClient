@@ -21,7 +21,6 @@ set(GAMEENGINE_SRC
     Include/Common/CDManager.h
     Include/Common/ClientUpdateModule.h
     Include/Common/CommandLine.h
-    Include/Common/CopyProtection.h
     Include/Common/crc.h
     Include/Common/CRCDebug.h
     Include/Common/CriticalSection.h
@@ -43,6 +42,7 @@ set(GAMEENGINE_SRC
     Include/Common/FunctionLexicon.h
     Include/Common/GameAudio.h
     Include/Common/GameCommon.h
+#    Include/Common/GameDefines.h
     Include/Common/GameEngine.h
     Include/Common/GameLOD.h
     Include/Common/GameMemory.h
@@ -632,7 +632,6 @@ set(GAMEENGINE_SRC
     Source/Common/System/AsciiString.cpp
     Source/Common/System/BuildAssistant.cpp
     Source/Common/System/CDManager.cpp
-    Source/Common/System/CopyProtection.cpp
     Source/Common/System/CriticalSection.cpp
     Source/Common/System/DataChunk.cpp
     Source/Common/System/Debug.cpp
@@ -1148,6 +1147,7 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/OnlineServices_RoomsInterface.h
     Include/GameNetwork/GeneralsOnline/OnlineServices_StatsInterface.h
     Include/GameNetwork/GeneralsOnline/PortMapper.h
+    Include/GameNetwork/GeneralsOnline/GeneralsOnline_Settings.h
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPManager.h
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h
     Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Lobby_StartGame.h
@@ -1244,6 +1244,25 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/mutex.h
     Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/softaes.h
     Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/private/sse2_64_32.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/plum.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/addr.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/client.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/dummytls.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/http.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/log.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/natpmp.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/net.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/noprotocol.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/pcp.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/protocol.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/lprandom.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/socket.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/tcp.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/thread.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/timestamp.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/udp.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/upnp.h
+Include/GameNetwork/GeneralsOnline/Vendor/libplum/util.h
     Include/GameNetwork/GeneralsOnline/Vendor/sentry/sentry.h
     Include/GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h
     Include/GameNetwork/GeneralsOnline/Vendor/libcurl/curlver.h
@@ -1283,9 +1302,26 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/upnpreplyparse.h
     Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc/win32_snprintf.h
 
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/addr.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/client.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/dummytls.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/http.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/log.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/natpmp.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/net.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/noprotocol.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/pcp.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/plum.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/random.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/tcp.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/timestamp.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/udp.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/upnp.cpp
+Source/GameNetwork/GeneralsOnline/Vendor/libplum/util.cpp
     Source/GameNetwork/GeneralsOnline/NGMP_Helpers.cpp
     Source/GameNetwork/GeneralsOnline/NGMPGame.cpp
     Source/GameNetwork/GeneralsOnline/PortMapper.cpp
+    Source/GameNetwork/GeneralsOnline/GeneralsOnline_Settings.cpp
     Source/GameNetwork/GeneralsOnline/Vendor/libnatpmp/natpmp.cpp
     Source/GameNetwork/GeneralsOnline/Vendor/libnatpmp/wingettimeofday.cpp
     Source/GameNetwork/GeneralsOnline/Vendor/libnatpmp/getgateway.cpp
@@ -1348,6 +1384,7 @@ target_include_directories(z_gameengine PUBLIC
     Include/GameNetwork/GeneralsOnline/Vendor/
     Include/GameNetwork/GeneralsOnline/Vendor/libnatpmp
     Include/GameNetwork/GeneralsOnline/Vendor/miniupnpc
+    Include/GameNetwork/GeneralsOnline/Vendor/libplum
 )
 
 target_link_directories(z_gameengine PUBLIC

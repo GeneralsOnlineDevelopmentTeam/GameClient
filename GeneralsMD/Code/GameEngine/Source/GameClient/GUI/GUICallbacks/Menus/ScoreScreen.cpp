@@ -56,7 +56,6 @@
 #include "Common/AudioEventRTS.h"
 #include "Common/AudioHandleSpecialValues.h"
 #include "Common/BattleHonors.h"
-#include "Common/CopyProtection.h"
 #include "Common/GameEngine.h"
 #include "Common/GameLOD.h"
 #include "Common/GameState.h"
@@ -245,8 +244,14 @@ void ScoreScreenEnableControls(Bool enable)
 		buttonContinue->winEnable(enable);
 	}
 
-	if ((buttonBuddies != NULL) && (buttonBuddies->winIsHidden() == FALSE)) {
+	if ((buttonBuddies != NULL) && (buttonBuddies->winIsHidden() == FALSE))
+	{
+#if defined(GENERALS_ONLINE)
+		// TODO_NGMP: enable social again
+		buttonBuddies->winEnable(false);
+#else
 		buttonBuddies->winEnable(enable);
+#endif
 	}
 
 	GameWindow *buttonSaveReplay = TheWindowManager->winGetWindowFromId( parent, buttonSaveReplayID );
@@ -386,6 +391,11 @@ void ScoreScreenInit( WindowLayout *layout, void *userData )
 		s_blankLayout->hide(FALSE);
 		s_blankLayout->bringForward();
 	}
+
+#if defined(GENERALS_ONLINE)
+	// TODO_NGMP: enable social again
+	buttonBuddies->winEnable(false);
+#endif
 	
 }
 
@@ -789,11 +799,7 @@ void displayChallengeWinLoss( const Image *imageGeneral, const UnicodeString str
 
 void finishSinglePlayerInit( void )
 {
-	Bool copyProtectOK = TRUE;
-#ifdef DO_COPY_PROTECTION
-	copyProtectOK = CopyProtect::validate();
-#endif
-	if(copyProtectOK && TheCampaignManager->isVictorious())
+	if(TheCampaignManager->isVictorious())
 	{
 		if (TheCampaignManager->getCurrentCampaign()
 		 && TheCampaignManager->getCurrentCampaign()->isChallengeCampaign())
@@ -939,9 +945,12 @@ void finishSinglePlayerInit( void )
 	TheInGameUI->freeMessageResources();
 
 	//
-	s_blankLayout->destroyWindows();
-	s_blankLayout->deleteInstance();
-	s_blankLayout = NULL;
+	if (s_blankLayout)
+	{
+		s_blankLayout->destroyWindows();
+		deleteInstance(s_blankLayout);
+		s_blankLayout = NULL;
+	}
 
 	// set keyboard focus to main parent
 	TheWindowManager->winSetFocus( parent );
@@ -1515,7 +1524,7 @@ void populatePlayerInfo( Player *player, Int pos)
 				AcademyAdviceInfo info;
 				if( player->getAcademyStats()->calculateAcademyAdvice( &info ) )
 				{
-					for( Int i = 0; i < info.numTips; i++ )
+					for( UnsignedInt i = 0; i < info.numTips; i++ )
 					{
 						GadgetListBoxAddEntryText( listboxAcademyWindowScoreScreen, info.advice[ i ],	GameSpyColor[GSCOLOR_DEFAULT], -1 );
 					}
@@ -2063,6 +2072,7 @@ void grabMultiPlayerInfo( void )
 	// Generals Online NOTE:
 	// We do our important end of game flow here, the populate results flow doesn't execute in certain situations (e.g. quickmatch, custom match with stats off)
 	// but this logic we always need to run at end of game
+	if (TheNetwork != nullptr)
 	{
 		UnsignedInt latestHumanInGame = 0;
 		UnsignedInt lastFrameOfGame = 0;
@@ -2167,7 +2177,8 @@ void grabMultiPlayerInfo( void )
 			AsciiString sentryMsg;
 			sentryMsg.format("Match Finished\nPlayers:\n");
 
-			for (int i = 0; i < MAX_SLOTS; ++i)
+			int numPlayers = ThePlayerList->getPlayerCount();
+			for (int i = 0; i < numPlayers; ++i)
 			{
 				Player* player = ThePlayerList->getNthPlayer(i);
 
@@ -2216,7 +2227,7 @@ void grabMultiPlayerInfo( void )
 			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->MarkCurrentGameAsFinished();
 		}
 	}
-
+	
 	typedef std::map<Int, Player *> ScoreMap;
 	typedef ScoreMap::iterator ScoreMapIt;
 	typedef ScoreMap::reverse_iterator RevScoreMapIt;

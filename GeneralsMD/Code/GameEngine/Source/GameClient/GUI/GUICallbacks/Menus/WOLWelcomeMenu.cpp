@@ -262,101 +262,25 @@ static void updateNumPlayersOnline(void)
 		//This was a Harvard initiated fix.
 		headingStr.format(TheGameText->fetch("MOTD:NumPlayersHeading"));
 
-		//headingStr.format(TheGameText->fetch("MOTD:NumPlayersHeading"), lastNumPlayersOnline);
-
-		/*
-		NGMP_ENATType natType = NGMP_OnlineServicesManager::GetInstance()->GetNATType();
-		AsciiString natTypeColor;
-		switch (natType)
-		{
-			case NGMP_ENATType::NAT_TYPE_UNDETERMINED:
-				natTypeColor = "FF5DE2E7";
-				break;
-
-			case NGMP_ENATType::NAT_TYPE_OPEN:
-				natTypeColor = "FF00FF00";
-				break;
-
-			case NGMP_ENATType::NAT_TYPE_MODERATE:
-				natTypeColor = "FFFFFD55";
-				break;
-
-			case NGMP_ENATType::NAT_TYPE_STRICT:
-				natTypeColor = "FFFF0000";
-				break;
-		}
-
-		headingStr.format(L"Welcome to Generals NextGen Multiplayer.\n\n<hexcol>%hsYour NAT type is %hs", natTypeColor.str(), natType == NGMP_ENATType::NAT_TYPE_UNDETERMINED ? "being determined" : NGMP_OnlineServicesManager::GetInstance()->GetNATTypeString().str());
-		*/
-
 
 		//<hexcol>%hs for colors
-		ECapabilityState capUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP();
-		ECapabilityState capNATPMP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP();
-
-		std::string strUPnPState;
-		if (capUPnP == ECapabilityState::UNDETERMINED)
-		{
-			strUPnPState = "Still Determining...";
-		}
-		else if (capUPnP == ECapabilityState::SUPPORTED)
-		{
-			strUPnPState = "Supported";
-		}
-		else if (capUPnP == ECapabilityState::UNSUPPORTED)
-		{
-			strUPnPState = "Unsupported";
-		}
-		else
-		{
-			strUPnPState = "User Overridden";
-		}
-
-		std::string strNATPMPState;
-		if (capNATPMP == ECapabilityState::UNDETERMINED)
-		{
-			strNATPMPState = "Still Determining...";
-		}
-		else if (capNATPMP == ECapabilityState::SUPPORTED)
-		{
-			strNATPMPState = "Supported";
-		}
-		else if (capNATPMP == ECapabilityState::UNSUPPORTED)
-		{
-			strNATPMPState = "Unsupported";
-		}
-		else
-		{
-			strNATPMPState = "User Overridden";
-		}
-
-		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
-		bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
-		bool bHasPortMappedUPnP = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenUPnP();
-		int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-		headingStr.format(L"Welcome to Generals Online for Zero Hour.\n \nNetwork Capabilities:\n\tUPnP: %hs\n\tNAT-PMP: %hs\n\tPort Mapped: %hs\n\tNetwork Port: %d\n\tDirect Connect: %hs%hs",
-			strUPnPState.c_str(),
-			strNATPMPState.c_str(),
-			bHasPortMapped ? (bHasPortMappedUPnP ? "Yes (UPnP)" : "Yes (NAT-PMP)") : "No",
-			preferredPort,
-			NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
-			capUPnP == ECapabilityState::OVERRIDDEN ? "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work." : ""
-		);
-
+		
 		// record the game data to backend
 		{
+
+			PortMapper::EMappingTech mappingTechUsed = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetPortMappingTechnologyUsed();
+			ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
+			bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
+			int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+
 			AsciiString sentryMsg;
 			sentryMsg.format("Determined Network Capabilities");
 
 			// add info about how the game ended
 			sentry_set_extra("direct_connect", sentry_value_new_bool(NATDirectConnect == ECapabilityState::SUPPORTED));
 			sentry_set_extra("port_mapped", sentry_value_new_bool(bHasPortMapped));
-			sentry_set_extra("port_mapped_upnp", sentry_value_new_bool(bHasPortMappedUPnP));
-			sentry_set_extra("port_mapped_natpmp", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpenNATPMP()));
+			sentry_set_extra("port_mapped_tech", sentry_value_new_int32((int)mappingTechUsed));
 			sentry_set_extra("preferred_port", sentry_value_new_int32(preferredPort));
-			sentry_set_extra("tech_natpmp_supported", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasNATPMP()));
-			sentry_set_extra("tech_upnp_supported", sentry_value_new_bool(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasUPnP()));
-			sentry_set_extra("port_override_set", sentry_value_new_bool(capUPnP == ECapabilityState::OVERRIDDEN));
 
 			// local player info
 			int64_t userID = -1;
@@ -395,6 +319,44 @@ static void updateNumPlayersOnline(void)
 		}
 		GadgetListBoxAddEntryText(listboxInfo, UnicodeString(L" "), GameSpyColor[GSCOLOR_MOTD_HEADING], -1, -1);
 
+		// NETWORK CAPS
+		bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
+		PortMapper::EMappingTech mappingTechUsed = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetPortMappingTechnologyUsed();
+
+
+		std::string strPortState;
+		if (!bHasPortMapped)
+		{
+			strPortState = "No Port Mapped";
+		}
+		else
+		{
+#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
+			if (mappingTechUsed == PortMapper::EMappingTech::MANUAL)
+			{
+				strPortState = "Manual";
+			}
+			else
+#endif
+				if (mappingTechUsed == PortMapper::EMappingTech::PCP)
+				{
+					strPortState = "PCP";
+				}
+				else if (mappingTechUsed == PortMapper::EMappingTech::NATPMP)
+				{
+					strPortState = "NAT-PMP";
+				}
+				else if (mappingTechUsed == PortMapper::EMappingTech::UPNP)
+				{
+					strPortState = "UPnP";
+				}
+				else
+				{
+					strPortState = "No Port Mapped";
+				}
+		}
+
+		// END NETWORK CAPS
 		while (aMotd.nextToken(&aLine, "\n"))
 		{
 			if (aLine.getCharAt(aLine.getLength()-1) == '\r')
@@ -428,6 +390,46 @@ static void updateNumPlayersOnline(void)
 
 			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
 		}
+
+		// add network caps
+
+		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
+		int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+		{
+			Color c = GameMakeColor(255, 194, 15, 255);
+			GadgetListBoxAddEntryText(listboxInfo, UnicodeString(L" "), c, -1, -1);
+
+			UnicodeString line;
+
+			// network status
+			GadgetListBoxAddEntryText(listboxInfo, UnicodeString(L"Your Network Status:"), c, -1, -1);
+
+			// network port
+			line.format(L"Network Port: %d (%hs)", preferredPort, strPortState.c_str());
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+
+			// direct connect
+			line.format(L"Direct Connect: %hs%hs",
+				NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
+				(mappingTechUsed == PortMapper::EMappingTech::MANUAL) ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
+#else
+				""
+#endif
+			);
+
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+
+			// relayed connect
+			line.format(L"Relayed Connect: %hs", "Supported");
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+
+			// server region
+			line.format(L"Server Region: %hs (%dms)", NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionName().c_str(),
+				NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency());
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+		}
+		
 	}
 }
 
@@ -711,6 +713,7 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	GadgetStaticTextSetText(staticTextHighscoreRank, questionMark);
 	*/
 
+
 	//DEBUG_ASSERTCRASH(listboxInfo, ("No control found!"));
 
 	buttonQuickMatchID = TheNameKeyGenerator->nameToKey( AsciiString( "WOLWelcomeMenu.wnd:ButtonQuickMatch" ) );
@@ -743,9 +746,9 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 		const char *keys[3] = { "locale", "wins", "losses" };
 		char valueStrings[3][20];
 		char *values[3] = { valueStrings[0], valueStrings[1], valueStrings[2] };
-		_snprintf(values[0], 20, "%s", TheGameSpyPlayerInfo->getLocale().str());
-		_snprintf(values[1], 20, "%d", TheGameSpyPlayerInfo->getWins());
-		_snprintf(values[2], 20, "%d", TheGameSpyPlayerInfo->getLosses());
+		snprintf(values[0], 20, "%s", TheGameSpyPlayerInfo->getLocale().str());
+		snprintf(values[1], 20, "%d", TheGameSpyPlayerInfo->getWins());
+		snprintf(values[2], 20, "%d", TheGameSpyPlayerInfo->getLosses());
 		peerSetGlobalKeys(TheGameSpyChat->getPeer(), 3, (const char **)keys, (const char **)values);
 		peerSetGlobalWatchKeys(TheGameSpyChat->getPeer(), GroupRoom,   3, keys, PEERFalse);
 		peerSetGlobalWatchKeys(TheGameSpyChat->getPeer(), StagingRoom, 3, keys, PEERFalse);

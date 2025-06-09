@@ -30,6 +30,10 @@
 
 #include "Common/Registry.h"
 
+#include "../NGMP_include.h"
+#include <format>
+#include <filesystem>
+
 #ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -173,7 +177,56 @@ AsciiString GetRegistryLanguage(void)
 		cached = TRUE;
 	}
 
+#if defined(GENERALS_ONLINE)
+	bool bExistsInRegistry = GetStringFromRegistry("", "Language", val);
+	
+	if (!bExistsInRegistry)
+	{
+		// This is a crash fix, Steam client lets people change language post-install/on-demand, but doesnt update registry until run.
+		// But its more reliable to just fall back and determine language from disk files instead of continuing and crashing because english (default) .big files don't exist
+
+		// get current process dir
+		char szProcessDir[MAX_PATH] = { 0 };
+		DWORD length = GetModuleFileNameA(NULL, szProcessDir, MAX_PATH);
+		if (length > 0 && length != MAX_PATH)
+		{
+			// Remove the executable name to get the directory
+			for (int i = length - 1; i >= 0; --i) {
+				if (szProcessDir[i] == '\\' || szProcessDir[i] == '/')
+				{
+					szProcessDir[i] = '\0';
+					break;
+				}
+			}
+
+			// now check which language exists
+			std::map<std::string, AsciiString> languageFiles = {
+				{"GermanZH", AsciiString("german")},
+				{"FrenchZH", AsciiString("french")},
+				{"KoreanZH", AsciiString("korean")},
+				{"ItalianZH", AsciiString("italian")},
+				{"SpanishZH", AsciiString("spanish")},
+				{"ChineseZH", AsciiString("chinese")},
+				{"PolishZH", AsciiString("polish")},
+				{"BrazilianZH", AsciiString("brazilian")},
+				{"EnglishZH", AsciiString("english")},
+			};
+
+			for (auto& kvPair : languageFiles)
+			{
+				std::string filePath = std::format("{}/{}.big", szProcessDir, kvPair.first);
+				if (std::filesystem::exists(filePath))
+				{
+					val = kvPair.second;
+					break;
+				}
+
+			}
+		}
+	}
+#else
 	GetStringFromRegistry("", "Language", val);
+#endif
 	return val;
 }
 

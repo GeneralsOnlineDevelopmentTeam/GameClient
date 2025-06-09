@@ -93,10 +93,13 @@
 
 #include "W3DDevice/GameClient/camerashakesystem.h"
 
-#include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
+#if defined(GENERALS_ONLINE)
+#include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
+#endif
 
 
 #include "WinMain.h"  /** @todo Remove this, it's only here because we
+#include "../OnlineServices_LobbyInterface.h"
 													are using timeGetTime, but we can remove that
 													when we have our own timer */
 #ifdef RTS_INTERNAL
@@ -563,6 +566,8 @@ void W3DView::getPickRay(const ICoord2D *screen, Vector3 *rayStart, Vector3 *ray
 //-------------------------------------------------------------------------------------------------
 void W3DView::setCameraTransform( void )
 {
+	if (TheGlobalData->m_headless)
+		return;
 	m_cameraHasMovedSinceRequest = true;
 	Matrix3D cameraTransform( 1 );
 	
@@ -619,7 +624,7 @@ void W3DView::setCameraTransform( void )
 	buildCameraTransform( &cameraTransform );
 	m_3DCamera->Set_Transform( cameraTransform );
 
-	if (TheTerrainRenderObject) 
+	if (TheTerrainRenderObject)
 	{
 		RefRenderObjListIterator *it = W3DDisplay::m_3DScene->createLightsIterator();
 		TheTerrainRenderObject->updateCenter(m_3DCamera, it);
@@ -1820,7 +1825,7 @@ void W3DView::scrollBy( Coord2D *delta )
 													  
 		start.X = getWidth();
 		start.Y = getHeight();
-		Real aspect = getWidth()/getHeight();
+		Real aspect = getHeight() == 0 ? 1 : getWidth()/getHeight();
 		end.X = start.X + delta->x * SCROLL_RESOLUTION;
 		end.Y = start.Y + delta->y * SCROLL_RESOLUTION*aspect;
 
@@ -1914,7 +1919,11 @@ void W3DView::setAngleAndPitchToDefault( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
+#if defined(GENERALS_ONLINE)
+void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight, bool bForceDefaultCam)
+#else
 void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
+#endif
 {
 	// MDC - we no longer want to rotate maps (design made all of them right to begin with)
 	//	m_defaultAngle = angle * M_PI/180.0f;
@@ -1922,10 +1931,17 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 
 	// TODO_NGMP: Better way of doing this
 #if defined(GENERALS_ONLINE)
-	TheWritableGlobalData->m_minCameraHeight = 100.f;
-	TheWritableGlobalData->m_maxCameraHeight = 650.f;
-	m_minHeightAboveGround = 100.f;
-	m_maxHeightAboveGround = 600.f;
+	if (bForceDefaultCam)
+	{
+		// safety for shellmap, etc
+		TheWritableGlobalData->m_minCameraHeight = 120.f;
+		TheWritableGlobalData->m_maxCameraHeight = 310.f;
+	}
+	else
+	{
+		TheWritableGlobalData->m_minCameraHeight = NGMP_OnlineServicesManager::Settings.Camera_GetMinHeight();
+		TheWritableGlobalData->m_maxCameraHeight = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight();
+	}
 	
 #endif
 

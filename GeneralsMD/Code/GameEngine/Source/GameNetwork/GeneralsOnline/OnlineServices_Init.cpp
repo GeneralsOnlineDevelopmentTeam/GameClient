@@ -6,6 +6,7 @@
 #include "Common/file.h"
 #include "realcrc.h"
 #include "../../DownloadManager.h"
+#include <ws2tcpip.h>
 
 NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager = nullptr;
 
@@ -28,6 +29,8 @@ struct VersionCheckResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result, patcher_name, patcher_path, patchfile_path, patcher_size, patchfile_size)
 };
 
+GenOnlineSettings NGMP_OnlineServicesManager::Settings;
+
 NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
 {
 	NetworkLog("[NGMP] Init");
@@ -49,7 +52,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 		}
 		else // PROD
 		{
-			return std::format("http://cloud.playgenerals.online:9000/cloud/env:prod:token:{}/{}", strToken, szEndpoint);
+			return std::format("https://cloud.playgenerals.online:9000/cloud/env:prod:token:{}/{}", strToken, szEndpoint);
 		}
 
 	}
@@ -61,7 +64,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 		}
 		else // PROD
 		{
-			return std::format("http://cloud.playgenerals.online:9000/cloud/env:prod/{}", szEndpoint);
+			return std::format("https://cloud.playgenerals.online:9000/cloud/env:prod/{}", szEndpoint);
 		}
 	}
 }
@@ -308,6 +311,8 @@ void NGMP_OnlineServicesManager::Init()
 
 void NGMP_OnlineServicesManager::Tick()
 {
+	m_qosMgr.Tick();
+
 	if (m_pWebSocket != nullptr)
 	{
 		m_pWebSocket->Tick();
@@ -393,4 +398,256 @@ void WebSocket::Shutdown()
 void WebSocket::SendData_LeaveNetworkRoom()
 {
 	SendData_JoinNetworkRoom(-1);
+}
+
+void QoSManager::Tick()
+{
+	// are all probes done?
+	bool bAllDone = true;
+	for (QoSProbe& probe : m_lstQoSProbesInFlight)
+	{
+		bAllDone &= probe.bDone && probe.bSent;
+	}
+
+	if (!m_lstQoSProbesInFlight.empty() && bAllDone)
+	{
+		
+
+		int qosDuration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count() - m_timeStartQoS;
+		NetworkLog("QoS checks are done, took %d ms total", qosDuration);
+		// put into an ordered map so we get latency high to low
+		QoSProbe* pBestRegion = nullptr;
+
+		NetworkLog("==== START QOS RESULTS ====");
+		for (QoSProbe& probe : m_lstQoSProbesInFlight)
+		{
+			m_mapQoSData[probe.regionID] = probe.Latency;
+			NetworkLog("QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegionName.c_str(), probe.Latency);
+
+			if (probe.Latency > 0)
+			{
+				if (pBestRegion == nullptr || probe.Latency < pBestRegion->Latency)
+				{
+					pBestRegion = &probe;
+				}
+			}
+		}
+
+		if (pBestRegion != nullptr)
+		{
+			NetworkLog("Best region is %s (%dms)", pBestRegion->strRegionName.c_str(), pBestRegion->Latency);
+			m_PreferredRegionName = pBestRegion->strRegionName.c_str();
+			m_PreferredRegionID = pBestRegion->regionID;
+			m_PreferredRegionLatency = pBestRegion->Latency;
+		}
+		NetworkLog("==== END QOS RESULTS ====");
+
+		// reset
+		m_lstQoSProbesInFlight.clear();
+
+		// invoke cb
+		if (m_cbCompletion != nullptr)
+		{
+			m_cbCompletion();
+		}
+	}
+
+	if (m_lstQoSProbesInFlight.empty() && bAllDone)
+	{
+		return;
+	}
+
+	static char szBuffer[1024];
+	memset(szBuffer, 0, sizeof(szBuffer));
+
+	// now wait
+	sockaddr_in addr;
+	memset(&addr, 0, sizeof(sockaddr_in));
+	int iFromLen = sizeof(sockaddr_in);
+
+	// does current probe need a timetout?
+	for (QoSProbe& probe : m_lstQoSProbesInFlight)
+	{
+		if (!probe.bDone && probe.HasTimedOut())
+		{
+			NetworkLog("[QoS] Probe for %s (%s) has timed out", probe.strRegionName.c_str(), probe.strEndpoint.c_str());
+			// mark as failed
+			probe.bDone = true;
+			probe.Latency = -1;
+		}
+	}
+
+	int iBytesRead = -1;
+	while ((iBytesRead = recvfrom(m_Socket_QoSProbing, szBuffer, sizeof(szBuffer), 0, (sockaddr*)&addr, &iFromLen)) != -1)
+	{
+		char szIpAddress[MAX_SIZE_IP_ADDR] = { 0 };
+		inet_ntop(AF_INET, &addr.sin_addr, szIpAddress, MAX_SIZE_IP_ADDR);
+		unsigned short usPort = addr.sin_port;
+
+		const int expectedLength = 6;
+		if (iBytesRead == expectedLength)
+		{
+			NetworkLog("GOOD QOS PACKET (CHECK 1)");
+
+			CBitStream bitStream(expectedLength, szBuffer, iBytesRead);
+
+			bitStream.ResetOffsetForLocalRead();
+
+			// first two should be flipped, rest should be same
+			BYTE b1 = bitStream.Read<BYTE>();
+			BYTE b2 = bitStream.Read<BYTE>();
+			BYTE b3 = bitStream.Read<BYTE>();
+			BYTE b4 = bitStream.Read<BYTE>();
+			BYTE b5 = bitStream.Read<BYTE>();
+			BYTE b6 = bitStream.Read<BYTE>();
+
+			if (b1 == 0x00 && b2 == 0x00
+				&& b3 == 0x01
+				&& b4 == 0x02
+				&& b5 == 0x03
+				&& b6 == 0x04)
+			{
+				NetworkLog("GOOD QOS PACKET (CHECK 2)");
+
+				
+
+				// find the associated one
+				bool bFound = false;
+				for (QoSProbe& probe : m_lstQoSProbesInFlight)
+				{
+					//if (memcmp(&probe.addr, &addr, sizeof(addr) == 0))
+					if (strcmp(szIpAddress, probe.strIPAddr.c_str()) == 0 && probe.Port == usPort)
+					{
+						NetworkLog("GOOD QOS PACKET (CHECK 3)");
+
+						int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+						int msTaken = currTime - probe.startTime;
+						probe.Latency = msTaken;
+						probe.bDone = true;
+
+						bFound = true;
+						NetworkLog("QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegionName.c_str(), msTaken);
+						break;
+					}
+				}
+
+				// TODO_RELAY: add a timeout for the overall process too?
+				if (!bFound)
+				{
+					NetworkLog("BAD QOS PACKET (CHECK 3), IP was %s", szIpAddress);
+
+					// find which probe is in flight and mark it as bad
+					for (QoSProbe& probe : m_lstQoSProbesInFlight)
+					{
+						if (!probe.bDone && probe.bSent)
+						{
+							probe.Latency = -1;
+							probe.bDone = true;
+							break;
+						}
+					}
+				}
+			}
+			else
+			{
+				NetworkLog("BAD QOS PACKET (CHECK 2)");
+				for (QoSProbe& probe : m_lstQoSProbesInFlight)
+				{
+					//if (memcmp(&probe.addr, &addr, sizeof(addr) == 0))
+					if (strcmp(szIpAddress, probe.strIPAddr.c_str()) == 0 && probe.Port == usPort)
+					{
+						probe.Latency = -1;
+						probe.bDone = true;
+						NetworkLog("BAD QOS PACKET (CHECK 1)");
+					}
+				}
+			}
+		}
+		else
+		{
+			for (QoSProbe& probe : m_lstQoSProbesInFlight)
+			{
+				//if (memcmp(&probe.addr, &addr, sizeof(addr) == 0))
+				if (strcmp(szIpAddress, probe.strIPAddr.c_str()) == 0 && probe.Port == usPort)
+				{
+					probe.Latency = -1;
+					probe.bDone = true;
+					NetworkLog("BAD QOS PACKET (CHECK 1)");
+				}
+			}
+		}
+	}
+}
+
+void QoSManager::StartProbing(std::map<std::pair<std::string, EQoSRegions>, std::string>& endpoints, std::function<void(void)> cbOnComplete)
+{
+	m_cbCompletion = cbOnComplete;
+
+	m_mapQoSEndpoints = endpoints;
+	m_timeStartQoS = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+	// create our socket
+	m_Socket_QoSProbing = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+	u_long sockopt = 1;
+	ioctlsocket(m_Socket_QoSProbing, FIONBIO, &sockopt);
+
+	// get ip from hostname
+	for (const auto& qosEndpoint : m_mapQoSEndpoints)
+	{
+		// keep ticking while we're in this loop, so we dont artificially add latency
+		Tick();
+
+		NetworkLog("Queueing QoS Probe %s", qosEndpoint.first.first.c_str());
+
+		QoSProbe newProbe;
+		newProbe.strEndpoint = qosEndpoint.second;
+		newProbe.strRegionName = qosEndpoint.first.first;
+		newProbe.regionID = qosEndpoint.first.second;
+		
+
+		struct sockaddr_in probeAddr;
+
+		hostent* pEnt = gethostbyname(newProbe.strEndpoint.c_str());
+		if (pEnt != nullptr)
+		{
+			memcpy(&probeAddr.sin_addr, pEnt->h_addr_list[0], pEnt->h_length);
+			probeAddr.sin_family = AF_INET;
+			probeAddr.sin_port = htons(3075);
+
+			CBitStream bsProbe(6);
+			bsProbe.Write<BYTE>(0xFF);
+			bsProbe.Write<BYTE>(0xFF);
+			bsProbe.Write<BYTE>(0x01);
+			bsProbe.Write<BYTE>(0x02);
+			bsProbe.Write<BYTE>(0x03);
+			bsProbe.Write<BYTE>(0x04);
+			sendto(m_Socket_QoSProbing, (char*)bsProbe.GetRawBuffer(), (int)bsProbe.GetNumBytesUsed(), 0, (sockaddr*)&probeAddr, sizeof(sockaddr_in));
+
+			// add to in flight list
+			char szIpAddress[MAX_SIZE_IP_ADDR] = { 0 };
+			inet_ntop(AF_INET, &probeAddr.sin_addr, szIpAddress, MAX_SIZE_IP_ADDR);
+
+			newProbe.bSent = true;
+			newProbe.Port = probeAddr.sin_port;
+			newProbe.strIPAddr = std::string(szIpAddress);
+			newProbe.startTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+			// keep ticking while we're in this loop, so we dont artificially add latency
+			Tick();
+
+			NetworkLog("Sending QoS Probe %s (%s)", newProbe.strRegionName.c_str(), szIpAddress);
+		}
+		else
+		{
+			// mark as done and failed
+			newProbe.bSent = true;
+			newProbe.bDone = true;
+			newProbe.Latency = -1;
+
+			NetworkLog("QoS: Failed to resolve hostname %s", newProbe.strEndpoint.c_str());
+		}
+
+		m_lstQoSProbesInFlight.push_back(newProbe);
+	}
 }

@@ -68,6 +68,7 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include <ws2ipdef.h>
 #include <format>
+#include "../OnlineServices_Init.h"
 NGMPGame* TheNGMPGame = NULL;
 
 void WOLDisplaySlotList( void );
@@ -89,9 +90,8 @@ void slotListDebugLog(const char *fmt, ...)
 	static char buf[1024];
 	va_list va;
 	va_start( va, fmt );
-	_vsnprintf(buf, 1024, fmt, va );
+	vsnprintf(buf, 1024, fmt, va );
 	va_end( va );
-	buf[1023] = 0;
 
 	DEBUG_LOG(("%s", buf));
 	if (g_debugSlots)
@@ -360,9 +360,6 @@ static void playerTooltip(GameWindow *window,
 													WinInstanceData *instData,
 													UnsignedInt mouse)
 {
-	// TODO_NGMP
-	return;
-
 	Int slotIdx = -1;
 	for (Int i=0; i<MAX_SLOTS; ++i)
 	{
@@ -402,112 +399,119 @@ static void playerTooltip(GameWindow *window,
 	// in that order.  got it?  good.
 
 	UnicodeString uName = slot->getName();
+// 
+// 	AsciiString aName;
+// 	aName.translate(uName);
+// 	PlayerInfoMap::iterator pmIt = TheGameSpyInfo->getPlayerInfoMap()->find(aName);
+// 	if (pmIt == TheGameSpyInfo->getPlayerInfoMap()->end())
+// 	{
+// 		TheMouse->setCursorTooltip( uName, -1, NULL, 1.5f );
+// 		return;
+// 	}
+	//Int profileID = pmIt->second.m_profileID;
 
-	AsciiString aName;
-	aName.translate(uName);
-	PlayerInfoMap::iterator pmIt = TheGameSpyInfo->getPlayerInfoMap()->find(aName);
-	if (pmIt == TheGameSpyInfo->getPlayerInfoMap()->end())
-	{
-		TheMouse->setCursorTooltip( uName, -1, NULL, 1.5f );
-		return;
-	}
-	Int profileID = pmIt->second.m_profileID;
+	int64_t profileID = slot->m_userID;
 
-	PSPlayerStats stats = TheGameSpyPSMessageQueue->findPlayerStatsByID(profileID);
-	if (stats.id == 0)
-	{
-		TheMouse->setCursorTooltip( uName, -1, NULL, 1.5f );
-		return;
-	}
+	//TheMouse->setCursorTooltip(UnicodeString(L"Retrieving User Stats..."), -1, NULL, 1.5f);
 
-	Bool isLocalPlayer = slot == game->getGameSpySlot(game->getLocalSlotNum());
-
-	AsciiString localeIdentifier;
-	localeIdentifier.format("WOL:Locale%2.2d", stats.locale);
-	UnicodeString	playerInfo;
-	Int totalWins = 0, totalLosses = 0, totalDiscons = 0;
-	PerGeneralMap::iterator it;
-
-	for (it = stats.wins.begin(); it != stats.wins.end(); ++it)
+	NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(profileID, [=](bool bSuccess, PSPlayerStats stats)
 	{
-		totalWins += it->second;
-	}
-	for (it = stats.losses.begin(); it != stats.losses.end(); ++it)
-	{
-		totalLosses += it->second;
-	}
-	for (it = stats.discons.begin(); it != stats.discons.end(); ++it)
-	{
-		totalDiscons += it->second;
-	}
-	for (it = stats.desyncs.begin(); it != stats.desyncs.end(); ++it)
-	{
-		totalDiscons += it->second;
-	}
-	UnicodeString favoriteSide;
-	Int numGames = 0;
-	Int favorite = 0;
-	for(it = stats.games.begin(); it != stats.games.end(); ++it)
-	{
-		if(it->second >= numGames)
-		{
-			numGames = it->second;
-			favorite = it->first;
-		}
-	}
-	if(numGames == 0)
-		favoriteSide = TheGameText->fetch("GUI:None");
-	else if( stats.gamesAsRandom >= numGames )
-		favoriteSide = TheGameText->fetch("GUI:Random");
-	else
-	{		
-		const PlayerTemplate *fac = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
-		if (fac)
-		{
-			AsciiString side;
-			side.format("SIDE:%s", fac->getSide().str());
-
-			favoriteSide = TheGameText->fetch(side);
-		}
-	}
-
-	playerInfo.format(TheGameText->fetch("TOOLTIP:StagingPlayerInfo"),
-		TheGameText->fetch(localeIdentifier).str(),
-		slot->getPingAsInt(),
-		totalWins, totalLosses, totalDiscons,
-		favoriteSide.str());
-
-	UnicodeString tooltip = UnicodeString::TheEmptyString;
-	if (isLocalPlayer)
-	{
-		tooltip.format(TheGameText->fetch("TOOLTIP:LocalPlayer"), uName.str());
-	}
-	else
-	{
-		// not us
-		if (TheGameSpyInfo->getBuddyMap()->find(profileID) != TheGameSpyInfo->getBuddyMap()->end())
-		{
-			// buddy
-			tooltip.format(TheGameText->fetch("TOOLTIP:BuddyPlayer"), uName.str());
-		}
-		else
-		{
-			if (profileID)
+			if (stats.id == 0)
 			{
-				// non-buddy profiled player
-				tooltip.format(TheGameText->fetch("TOOLTIP:ProfiledPlayer"), uName.str());
+				TheMouse->setCursorTooltip(uName, -1, NULL, 1.5f);
+				return;
+			}
+
+			Bool isLocalPlayer = slot == game->getGameSpySlot(game->getLocalSlotNum());
+
+			//AsciiString localeIdentifier;
+			//localeIdentifier.format("WOL:Locale%2.2d", stats.locale);
+			UnicodeString	playerInfo;
+			Int totalWins = 0, totalLosses = 0, totalDiscons = 0;
+			PerGeneralMap::iterator it;
+
+			for (it = stats.wins.begin(); it != stats.wins.end(); ++it)
+			{
+				totalWins += it->second;
+			}
+			for (it = stats.losses.begin(); it != stats.losses.end(); ++it)
+			{
+				totalLosses += it->second;
+			}
+			for (it = stats.discons.begin(); it != stats.discons.end(); ++it)
+			{
+				totalDiscons += it->second;
+			}
+			for (it = stats.desyncs.begin(); it != stats.desyncs.end(); ++it)
+			{
+				totalDiscons += it->second;
+			}
+			UnicodeString favoriteSide;
+			Int numGames = 0;
+			Int favorite = 0;
+			for (it = stats.games.begin(); it != stats.games.end(); ++it)
+			{
+				if (it->second >= numGames)
+				{
+					numGames = it->second;
+					favorite = it->first;
+				}
+			}
+			if (numGames == 0)
+				favoriteSide = TheGameText->fetch("GUI:None");
+			else if (stats.gamesAsRandom >= numGames)
+				favoriteSide = TheGameText->fetch("GUI:Random");
+			else
+			{
+				const PlayerTemplate* fac = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
+				if (fac)
+				{
+					AsciiString side;
+					side.format("SIDE:%s", fac->getSide().str());
+
+					favoriteSide = TheGameText->fetch(side);
+				}
+			}
+
+			playerInfo.format(L"\nLatency: %d ms\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+				slot->getPingAsInt(), totalWins, totalLosses, totalDiscons, favoriteSide.str());
+
+			UnicodeString tooltip = UnicodeString::TheEmptyString;
+			if (isLocalPlayer)
+			{
+				tooltip.format(TheGameText->fetch("TOOLTIP:LocalPlayer"), uName.str());
 			}
 			else
 			{
-				// non-profiled player
-				tooltip.format(TheGameText->fetch("TOOLTIP:GenericPlayer"), uName.str());
+				// not us
+				// TODO_NGMP: Impl friends again
+				bool bIsFriend = false;
+				if (bIsFriend)
+				//if (TheGameSpyInfo->getBuddyMap()->find(profileID) != TheGameSpyInfo->getBuddyMap()->end())
+				{
+					// buddy
+					tooltip.format(TheGameText->fetch("TOOLTIP:BuddyPlayer"), uName.str());
+				}
+				else
+				{
+					if (profileID)
+					{
+						// non-buddy profiled player
+						tooltip.format(TheGameText->fetch("TOOLTIP:ProfiledPlayer"), uName.str());
+					}
+					else
+					{
+						// non-profiled player
+						tooltip.format(TheGameText->fetch("TOOLTIP:GenericPlayer"), uName.str());
+					}
+				}
 			}
-		}
-	}
 
-	tooltip.concat(playerInfo);
+			tooltip.concat(playerInfo);
 
-	TheMouse->setCursorTooltip( tooltip, -1, NULL, 1.5f ); // the text and width are the only params used.  the others are the default values.
+			TheMouse->setCursorTooltip(tooltip, -1, NULL, 1.5f); // the text and width are the only params used.  the others are the default values.
+
+	}, EStatsRequestPolicy::RESPECT_CACHE_ALLOW_REQUEST);
 }
 
 void gameAcceptTooltip(GameWindow *window, WinInstanceData *instData, UnsignedInt mouse)
@@ -721,9 +725,14 @@ static void handleStartPositionSelection(Int player, int startPos)
 		//slot->setStartPos(startPos);
 
 		// NGMP: Update lobby (if local, for remote players we'll get it from the service)
+		//		 We also allow host to set AI here
 		if (player == myGame->getLocalSlotNum())
 		{
 			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_MyStartPos(startPos);
+		}
+		else if (myGame->amIHost() && slot->isAI()) // AI + Host
+		{
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_AIStartPos(player, startPos);
 		}
 	}
 }
@@ -916,15 +925,30 @@ static void StartPressed(void)
 		Lobby_StartGamePacket startGamePacket;
 		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendToMesh(startGamePacket);
 
+		// process locally too
+		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+		if (pMesh != nullptr)
+		{
+			Lobby_StartGamePacket startGamePacket2;
+			pMesh->ProcessGameStart(startGamePacket2);
+		}
+
 		// TODO_NGMP
 		//SendStatsToOtherPlayers(myGame);
 
 		// we've started, there's no going back
 		// i.e. disable the back button.
-		buttonBack->winEnable(FALSE);
+		if (buttonBack != nullptr)
+		{
+			buttonBack->winEnable(FALSE);
+		}
+
 		GameWindow *buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
-		if (buttonBuddy)
+		if (buttonBuddy != nullptr)
+		{
 			buttonBuddy->winEnable(FALSE);
+		}
+
 		GameSpyCloseOverlay(GSOVERLAY_BUDDY);
 	}
 	else if (allHaveMap)
@@ -967,6 +991,12 @@ void WOLDisplayGameOptions( void )
 		return;
 
 	NGMPGame* theGame = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
+
+	if (theGame == nullptr)
+	{
+		return;
+	}
+
 	const GameSlot *localSlot = NULL;
 	if (theGame->getLocalSlotNum() >= 0)
 		localSlot = theGame->getConstSlot(theGame->getLocalSlotNum());
@@ -1056,7 +1086,7 @@ void WOLDisplaySlotList( void )
 	//	return;
 
 	NGMPGame* game = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
-	if (!game->isInGame())
+	if (game == nullptr || !game->isInGame())
 		return;
 
 	DEBUG_ASSERTCRASH(!game->getConstSlot(0)->isOpen(), ("Open host!"));
@@ -1105,14 +1135,13 @@ void WOLDisplaySlotList( void )
 				genericPingWindow[i]->winHide(FALSE);
 
 				genericPingWindow[i]->winSetEnabledImage(0, pingImages[0]);
-				// TODO_NGMP
-				//Int ping = slot->getPingAsInt();
-				/*
-				if (ping < TheGameSpyConfig->getPingCutoffGood())
+
+				Int ping = slot->getPingAsInt();
+				if (ping < 100)
 				{
 					genericPingWindow[i]->winSetEnabledImage(0, pingImages[0]);
 				}
-				else if (ping < TheGameSpyConfig->getPingCutoffBad())
+				else if (ping < 200)
 				{
 					genericPingWindow[i]->winSetEnabledImage(0, pingImages[1]);
 				}
@@ -1120,7 +1149,6 @@ void WOLDisplaySlotList( void )
 				{
 					genericPingWindow[i]->winSetEnabledImage(0, pingImages[2]);
 				}
-				*/
 			}
 		}
 		else
@@ -1216,7 +1244,16 @@ void InitWOLGameGadgets( void )
 		NameKeyType labelID = TheNameKeyGenerator->nameToKey(AsciiString("GameSpyGameOptionsMenu.wnd:StartingCashLabel"));
 		TheWindowManager->winGetWindowFromId(parentWOLGameSetup, labelID)->winEnable( FALSE );
   }
+#if defined(GENERALS_ONLINE)
+  else
+  {
+	  checkBoxLimitSuperweapons->winEnable(true);
+	  comboBoxStartingCash->winEnable(true);
+  }
+#endif
 
+
+#if !defined(GENERALS_ONLINE_ALLOW_ALL_SETTINGS_FOR_STATS_MATCHES)
 	if (isUsingStats)
 	{
 		// Recorded stats games can never limit superweapons, limit armies, or have inflated starting cash.
@@ -1227,6 +1264,7 @@ void InitWOLGameGadgets( void )
 		NameKeyType labelID = TheNameKeyGenerator->nameToKey(AsciiString("GameSpyGameOptionsMenu.wnd:StartingCashLabel"));
 		TheWindowManager->winGetWindowFromId(parentWOLGameSetup, labelID)->winEnable( FALSE );
 	}
+#endif
 
 	//Added By Sadullah Nader
 	//Tooltip Function set 
@@ -1428,6 +1466,25 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			PopBackToLobby();
 		});
 
+	// connection events (for debug really)
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	pMesh->RegisterForConnectionEvents([](int64_t userID, std::string strDisplayName, EConnectionState connState)
+		{
+			std::string strConnectionType = "Unknown";
+			if (connState == EConnectionState::CONNECTED_DIRECT)
+			{
+				strConnectionType = "Direct Connection";
+			}
+			else
+			{
+				strConnectionType = "Relayed Connection";
+			}
+
+			UnicodeString strConnectionMessage;
+			strConnectionMessage.format(L"You are now connected to %hs using connection mechanism %hs", strDisplayName.c_str(), strConnectionType.c_str());
+			GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(0, 0, 255, 255), -1, -1);
+		});
+
 	// player doesnt have map events
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForPlayerDoesntHaveMapCallback([](LobbyMemberEntry lobbyMember)
 		{
@@ -1586,13 +1643,20 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 #if !defined(GENERALS_ONLINE)
 		Int isUsingStats = TheGameSpyGame->getUseStats();
 #else
+#if !defined(GENERALS_ONLINE_ALLOW_ALL_SETTINGS_FOR_STATS_MATCHES)
 		Int isUsingStats = game->getUseStats();
 #endif
+#endif
 
+#if !defined(GENERALS_ONLINE_ALLOW_ALL_SETTINGS_FOR_STATS_MATCHES)
 		game->setStartingCash( isUsingStats? TheMultiplayerSettings->getDefaultStartingMoney() : customPref.getStartingCash() );
 		game->setSuperweaponRestriction( isUsingStats? 0 : customPref.getSuperweaponRestricted() ? 1 : 0 );
 		if (isUsingStats)
 			game->setOldFactionsOnly( 0 );
+#else
+		game->setStartingCash(customPref.getStartingCash());
+		game->setSuperweaponRestriction(customPref.getSuperweaponRestricted() ? 1 : 0);
+#endif
 
 		//game->setOldFactionsOnly( customPref.getFactionsLimited() );
     if ( game->oldFactionsOnly() )
@@ -1649,9 +1713,13 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		std::map<AsciiString, MapMetaData>::iterator it = TheMapCache->find(asciiMap);
 		if (it != TheMapCache->end())
 		{
-			game->getSlot(game->getLocalSlotNum())->setMapAvailability(true);
-			game->setMapCRC(it->second.m_CRC);
-			game->setMapSize(it->second.m_filesize);
+			// TODO_NGMP: Urgent, this crashes when you join a 2/2 game as the 3rd player, because we shouldnt let you join...
+			if (game->getLocalSlotNum() != -1)
+			{
+				game->getSlot(game->getLocalSlotNum())->setMapAvailability(true);
+				game->setMapCRC(it->second.m_CRC);
+				game->setMapSize(it->second.m_filesize);
+			}
 		}
 		else
 		{
@@ -1776,7 +1844,7 @@ void WOLGameSetupMenuShutdown( WindowLayout *layout, void *userData )
 	if( WOLMapSelectLayout )
 	{
 		WOLMapSelectLayout->destroyWindows();
-		WOLMapSelectLayout->deleteInstance();
+		deleteInstance(WOLMapSelectLayout);
 		WOLMapSelectLayout = NULL;
 	}
 	parentWOLGameSetup = NULL;
@@ -1835,31 +1903,36 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 	{
 		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bHostMigrated = false;
 
-		// TODO_NGMP: Make sure we did a lobby get first
-		// did we become the host?
-		bool bIsHost = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost();
-
-		if (bIsHost)
+		// If we are in-game, nothing to do here, the game handles it for us
+		if (!TheNGMPGame->isGameInProgress()) // in progress is in game, ingame is just in lobby
 		{
-			NetworkLog("Host left and server migrated the host to us...");
+			// TODO_NGMP: Make sure we did a lobby get first
+			// did we become the host?
+			bool bIsHost = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost();
 
-			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. You are now the host."), GameMakeColor(255, 255, 255, 255), -1, -1);
+			if (bIsHost)
+			{
+				// re init our UI & enable host buttons
+				EnableSlotListUpdates(FALSE);
+				InitWOLGameGadgets();
+				EnableSlotListUpdates(TRUE);
+				buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
+				buttonStart->winEnable(TRUE);
+				buttonSelectMap->winEnable(TRUE);
+				initialAcceptEnable = TRUE;
+				WOLDisplaySlotList();
+				WOLDisplayGameOptions();
 
-			// enable host buttons
-			buttonSelectMap->winEnable(true);
+				NetworkLog("Host left and server migrated the host to us...");
 
-			// rename start button
-			buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
+				GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. You are now the host."), GameMakeColor(255, 255, 255, 255), -1, -1);
 
-			// mark myself as ready
-
-			// NOTE: don't need to mark ourselves ready, the service did it for us upon migration
-			// TODO_NGMP: Should probably force ready for host?
-			//InitWOLGameGadgets();
-		}
-		else
-		{
-			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. a new host has been selected."), GameMakeColor(255, 255, 255, 255), -1, -1);
+				// NOTE: don't need to mark ourselves ready, the service did it for us upon migration
+			}
+			else
+			{
+				GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. a new host has been selected."), GameMakeColor(255, 255, 255, 255), -1, -1);
+			}
 		}
 	}
 
@@ -2839,21 +2912,21 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 				strState = "Not Connected";
 				break;
 
-			case EConnectionState::CONNECTING:
-				strState = "Connecting";
+			case EConnectionState::CONNECTING_DIRECT:
+				strState = "Connecting (Direct)";
+				break;
+			case EConnectionState::CONNECTING_RELAY:
+				strState = "Connecting (Relay)";
 				break;
 
 			case EConnectionState::CONNECTED_DIRECT:
-				strState = "Connected Direct";
+				strState = "Connected (Direct)";
 				break;
 
-			case EConnectionState::CONNECTED_RELAY_1:
-				strState = "Connected Relay 1";
+			case EConnectionState::CONNECTED_RELAY:
+				strState = "Connected (Relay)";
 				break;
 
-			case EConnectionState::CONNECTED_RELAY_2:
-				strState = "Connected Relay 2";
-				break;
 
 			case EConnectionState::CONNECTION_FAILED:
 				strState = "Connection Failed";
@@ -3098,7 +3171,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 					if( WOLMapSelectLayout )
 					{
 						WOLMapSelectLayout->destroyWindows();
-						WOLMapSelectLayout->deleteInstance();
+						deleteInstance(WOLMapSelectLayout);
 						WOLMapSelectLayout = NULL;
 					}
 

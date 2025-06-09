@@ -16,6 +16,8 @@ class NGMP_OnlineServices_StatsInterface;
 
 #include "GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h"
 #include "GameNetwork/GeneralsOnline/Vendor/sentry/sentry.h"
+#include <chrono>
+#include "GeneralsOnline_Settings.h"
 
 enum EWebSocketMessageID
 {
@@ -27,6 +29,85 @@ enum EWebSocketMessageID
 	NETWORK_ROOM_MARK_READY = 5,
 	LOBBY_CURRENT_LOBBY_UPDATE = 6,
 	NETWORK_ROOM_LOBBY_LIST_UPDATE = 7,
+	PLAYER_CONNECTION_RELAY_UPGRADE = 8
+};
+
+enum class EQoSRegions
+{
+	UNKNOWN = -1,
+	WestUS = 0,
+	CentralUS = 1,
+	WestEurope = 2, 
+	SouthCentralUS = 3,
+	NorthEurope = 4,
+	NorthCentralUS = 5,
+	EastUS = 6,
+	BrazilSouth = 7,
+	AustraliaEast = 8,
+	JapanWest = 9,
+	AustraliaSoutheast = 10,
+	EastAsia = 11,
+	JapanEast = 12,
+	SoutheastAsia = 13,
+	SouthAfricaNorth = 14,
+	UaeNorth = 15
+};
+
+class QoSManager
+{
+public:
+	void Tick();
+	void StartProbing(std::map<std::pair<std::string, EQoSRegions>, std::string>& endpoints, std::function<void(void)> cbOnComplete);
+
+	std::string& GetPreferredRegionName() { return m_PreferredRegionName; }
+	EQoSRegions GetPreferredRegionID() { return m_PreferredRegionID; }
+	int GetPreferredRegionLatency() { return m_PreferredRegionLatency; }
+	std::map<EQoSRegions, int>& GetQoSData() { return m_mapQoSData; }
+
+private:
+	std::function<void(void)> m_cbCompletion = nullptr;
+	std::string m_PreferredRegionName = "Unknown";
+	EQoSRegions m_PreferredRegionID = EQoSRegions::UNKNOWN;
+	int m_PreferredRegionLatency = -1;
+
+	std::map<std::pair<std::string, EQoSRegions>, std::string> m_mapQoSEndpoints;
+	SOCKET m_Socket_QoSProbing = -1;
+	int64_t m_timeStartQoS = -1;
+
+	std::map<EQoSRegions, int> m_mapQoSData;
+
+	class QoSProbe
+	{
+	public:
+		EQoSRegions regionID;
+		std::string strRegionName;
+		std::string strEndpoint;
+
+		int64_t startTime = -1;
+
+		unsigned short Port = -1;
+		std::string strIPAddr;
+
+		bool bSent = false;
+		bool bDone = false;
+		int Latency = -1;
+
+		bool HasTimedOut()
+		{
+			if (startTime == -1)
+			{
+				return false;
+			}
+
+			const int timeoutMS = 1000;
+			int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+			return (currTime - startTime) >= timeoutMS;
+		}
+	};
+	std::vector<QoSProbe> m_lstQoSProbesInFlight;
+
+	const static int MAX_SIZE_IP_ADDR = 16;
+
 };
 
 class WebSocket
@@ -48,6 +129,7 @@ public:
 	void SendData_JoinNetworkRoom(int roomID);
 	void SendData_LeaveNetworkRoom();
 	void SendData_MarkReady(bool bReady);
+	void SendData_ConnectionRelayUpgrade(int64_t userID);
 
 	void Tick();
 
@@ -100,6 +182,8 @@ private:
 
 public:
 
+	static GenOnlineSettings Settings;
+
 	NGMP_OnlineServicesManager();
 	
 	enum EEnvironment
@@ -110,8 +194,10 @@ public:
 
 #if defined(_DEBUG)
 	const static EEnvironment g_Environment = EEnvironment::DEV;
+	#pragma message ("Building for DEV environment")
 #else
 	const static EEnvironment g_Environment = EEnvironment::PROD;
+	#pragma message ("Building for PROD environment")
 #endif
 	static std::string GetAPIEndpoint(const char* szEndpoint, bool bAttachToken);
 
@@ -194,6 +280,8 @@ public:
 	NGMP_OnlineServices_LobbyInterface* GetLobbyInterface() const { return m_pLobbyInterface; }
 	NGMP_OnlineServices_RoomsInterface* GetRoomsInterface() const { return m_pRoomInterface; }
 	NGMP_OnlineServices_StatsInterface* GetStatsInterface() const { return m_pStatsInterface; }
+	QoSManager& GetQoSManager() { return m_qosMgr; }
+	QoSManager m_qosMgr;
 
 	void OnLogin(bool bSuccess, const char* szWSAddr, const char* szWSToken);
 	

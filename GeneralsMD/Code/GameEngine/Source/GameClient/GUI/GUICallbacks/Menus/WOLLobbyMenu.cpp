@@ -832,7 +832,7 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	comboLobbyGroupRoomsID = TheNameKeyGenerator->nameToKey(AsciiString("WOLCustomLobby.wnd:ComboBoxGroupRooms"));
 	comboLobbyGroupRooms = TheWindowManager->winGetWindowFromId(parent, comboLobbyGroupRoomsID);
 
-	GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Welcome to Generals Online for Zero Hour!"), GameMakeColor(255, 194, 15, 255), -1, -1);
+	//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Welcome to Generals Online for Zero Hour!"), GameMakeColor(255, 194, 15, 255), -1, -1);
 
 	GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
 
@@ -887,31 +887,6 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 		{
 			refreshPlayerList(true);
 		});
-
-	// upon entry, retrieve room list
-
-	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetRoomList([=]()
-		{
-			// attempt to join the first room
-			NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->JoinRoom(0, []()
-				{
-					//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
-				},
-				[]()
-				{
-					UnicodeString msg;
-					msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomDisplayName().str());
-					GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-
-					// refresh on join
-					refreshPlayerList(TRUE);
-
-					RefreshGameListBoxes();
-
-					populateGroupRoomListbox(comboLobbyGroupRooms);
-				});
-		});
-	
 
 	GrabWindowInfo();
 
@@ -970,8 +945,29 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 		win->winHide(TRUE);
 	DontShowMainMenu = TRUE;
 
-	//  NGMP: do a lobby search on init / first time into the gui
-	refreshGameList(true);
+	// upon entry, retrieve room list
+
+	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetRoomList([=]()
+		{
+			// attempt to join the first room
+			NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->JoinRoom(0, []()
+				{
+					//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
+				},
+				[]()
+				{
+					UnicodeString msg;
+					msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomDisplayName().str());
+					GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+					// refresh on join
+					refreshPlayerList(TRUE);
+
+					RefreshGameListBoxes();
+
+					populateGroupRoomListbox(comboLobbyGroupRooms);
+				});
+		});
 } // WOLLobbyMenuInit
 
 //-------------------------------------------------------------------------------------------------
@@ -1208,22 +1204,25 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 	}
 	
 	// do we need to update?
-	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
-	if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty() && !isShuttingDown && !buttonPushed && !pLobbyInterface->IsInLobby())
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
-		const bool bShouldAutoRefresh = true;
+		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
+		if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty() && !isShuttingDown && !buttonPushed && !pLobbyInterface->IsInLobby() && pLobbyInterface->GetLobbyTryingToJoin().lobbyID == -1)
+		{
+			const bool bShouldAutoRefresh = true;
 
-		pLobbyInterface->ConsumeLobbyListDirtyFlag();
-		
-		if (bShouldAutoRefresh)
-		{
-			refreshGameList(true);
+			pLobbyInterface->ConsumeLobbyListDirtyFlag();
+
+			if (bShouldAutoRefresh)
+			{
+				refreshGameList(true);
+			}
+			else
+			{
+				GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Your lobby list is outdated. Hit refresh to see the latest servers."), GameMakeColor(255, 194, 15, 255), -1, -1);
+			}
+
 		}
-		else
-		{
-			GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Your lobby list is outdated. Hit refresh to see the latest servers."), GameMakeColor(255, 194, 15, 255), -1, -1);
-		}
-		
 	}
 
 	if (TheShell->isAnimFinished() && TheTransitionHandler->isFinished() && !buttonPushed && TheGameSpyPeerMessageQueue)
@@ -2076,6 +2075,9 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 
 				if( controlID == listboxLobbyPlayersID ) 
 				{
+					// TODO_NGMP: enable social again
+					break;
+
 					RightClickStruct *rc = (RightClickStruct *)mData2;
 					WindowLayout *rcLayout = NULL;
 					GameWindow *rcMenu;

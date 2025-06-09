@@ -3,33 +3,57 @@
 #include "NGMP_include.h"
 #include <ws2ipdef.h>
 
+/* NET CHANNELS:
+0 = genonline basic traffic - chat etc
+1 = generals game traffic
+2 = handshake
+3 = relay traffic
+*/
+
+class NetRoom_ChatMessagePacket;
+class Lobby_StartGamePacket;
+
 enum class EConnectionState
 {
 	NOT_CONNECTED,
-	CONNECTING,
+	CONNECTING_DIRECT,
+	CONNECTING_RELAY,
 	CONNECTED_DIRECT,
-	CONNECTED_RELAY_1,
-	CONNECTED_RELAY_2,
+	CONNECTED_RELAY,
 	CONNECTION_FAILED
 };
 
 class PlayerConnection
 {
 public:
+	// TODO_RELAY: Add destructor that shuts down peers etc, but only shut down relay peer if not being used by another connection
 	PlayerConnection()
 	{
 
 	}
 
 
-	PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* peer)
+	PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* peer, bool bStartSendingHellosAgain)
 	{
 		m_userID = userID;
 		m_address = addr;
 		m_peer = peer;
+		m_pRelayPeer = nullptr;
+
+		if (bStartSendingHellosAgain)
+		{
+			NetworkLog("Starting sending hellos 1");
+			m_bNeedsHelloSent = true;
+		}
+		// otherwise, keep whatever start we were in, its just a connection update
 
 		enet_peer_timeout(m_peer, 5, 1000, 1000);
 	}
+
+	EConnectionState GetState() const { return m_State; }
+	ENetPeer* GetPeerToUse();
+	int SendPacket(NetworkPacket& packet, int channel);
+	int SendGamePacket(void* pBuffer, uint32_t totalDataSize);
 
 	std::string GetIPAddrString(bool bForceReveal = false)
 	{
@@ -51,14 +75,26 @@ public:
 #endif
 	}
 
+	ENetPeer* GetRelayPeer()
+	{
+		return m_pRelayPeer;
+	}
+
+	void Tick();
+
 	
 	int64_t m_userID = -1;
 	ENetAddress m_address;
 	ENetPeer* m_peer = nullptr;
 
+	ENetPeer* m_pRelayPeer = nullptr;
+
 	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
 	int m_ConnectionAttempts = 0;
 	int64_t m_lastConnectionAttempt = -1;
+
+	int64_t lastHelloSent = -1;
+	bool m_bNeedsHelloSent = true;
 
 	int64_t pingSent = -1;
 	int latency = -1;
@@ -78,6 +114,48 @@ public:
 	NetworkMesh(ENetworkMeshType meshType)
 	{
 		m_meshType = meshType;
+
+		// generate the map
+		for (int src = 0; src < 8; ++src)
+		{
+			for (int target = 0; target < 8; ++target)
+			{
+				if (src == target) // no self connections
+				{
+					m_mapConnectionSelection[src][target] = -1;
+				}
+				else
+				{
+					// only if not set already
+					if (m_mapConnectionSelection[src][target] == -2 && m_mapConnectionSelection[target][src] == -2)
+					{
+						bool bUseSrcRelay = (src % 2 == 0);
+
+						m_mapConnectionSelection[src][target] = bUseSrcRelay ? src : target;
+						m_mapConnectionSelection[target][src] = bUseSrcRelay ? src : target;
+					}
+				}
+			}
+		}
+
+		// debug
+#if defined(_DEBUG)
+		for (int src = 0; src < 8; ++src)
+		{
+			for (int target = 0; target < 8; ++target)
+			{
+				if (m_mapConnectionSelection[src][target] == -2)
+				{
+					__debugbreak();
+				}
+
+				if (m_mapConnectionSelection[src][target] != m_mapConnectionSelection[target][src])
+				{
+					__debugbreak();
+				}
+			}
+		}
+#endif
 	}
 
 	~NetworkMesh()
@@ -85,12 +163,38 @@ public:
 
 	}
 
-	
+	void OnRelayUpgrade(int64_t targetUserID);
+
+	// users need to use the SAME relay, this mapping ensures they connect to the same one.
+		// Which one is selected doesn't really matter for latency, but we need to do send/recv on the same route
+		// user slot ID to use is stored in each field, if its us, use ours, otherwise use the other persons
+	int m_mapConnectionSelection[8][8] =
+	{
+		//	  |0| |1| |2| |3| |4| |5| |6| |7| // player 0 to 7
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 0
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 1
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 2
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 3
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 4
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 5
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 6
+			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 7
+	};
+
+	std::function<void(int64_t, std::string, EConnectionState)> m_cbOnConnected = nullptr;
+	void RegisterForConnectionEvents(std::function<void(int64_t, std::string, EConnectionState)> cb)
+	{
+		m_cbOnConnected = cb;
+	}
+
+	void ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int64_t sendingUserID);
+	void ProcessGameStart(Lobby_StartGamePacket& startGamePacket);
+
 	std::queue<QueuedGamePacket> m_queueQueuedGamePackets;
 
 	bool HasGamePacket();
 	QueuedGamePacket RecvGamePacket();
-	bool SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
+	int SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
 
 	void SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers);
 
@@ -98,13 +202,16 @@ public:
 
 	void ConnectToSingleUser(LobbyMemberEntry& member, bool bIsReconnect = false);
 	void ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect = false);
+
+	void ConnectToUserViaRelay(Int64 user_id);
+
 	void ConnectToMesh(LobbyEntry& lobby);
 
 	void Disconnect();
 
 	void Tick();
 
-	const int64_t m_thresoldToCheckConnected = 2000;
+	const int64_t m_thresoldToCheckConnected = 10000;
 	int64_t m_connectionCheckGracePeriodStart = -1;
 
 	int64_t m_lastPing = -1;
@@ -127,19 +234,26 @@ public:
 		return nullptr;
 	}
 
+
 private:
 	PlayerConnection* GetConnectionForPeer(ENetPeer* peer)
 	{
+		// TODO_RELAY: need to update how this works
 		for (auto& connection : m_mapConnections)
 		{
-			if (connection.second.m_peer->address.host == peer->address.host
-				&& connection.second.m_peer->address.port == peer->address.port)
+			if (connection.second.m_peer != nullptr)
 			{
-				return &connection.second;
+				if (connection.second.m_peer->address.host == peer->address.host
+					&& connection.second.m_peer->address.port == peer->address.port)
+				{
+					return &connection.second;
+				}
 			}
 		}
+
 		return nullptr;
 	}
+
 private:
 	ENetworkMeshType m_meshType;
 
@@ -147,4 +261,8 @@ private:
 	ENetHost* enetInstance = nullptr;
 
 	std::map<int64_t, PlayerConnection> m_mapConnections;
+
+#if defined(GENERALS_ONLINE_FORCE_RELAY_ONE_PLAYER_ONLY)
+	bool m_bDidOneTimeForceRelay = false;
+#endif
 };

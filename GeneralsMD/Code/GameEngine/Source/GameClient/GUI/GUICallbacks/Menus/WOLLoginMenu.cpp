@@ -43,6 +43,7 @@ void NGMP_WOLLoginMenu_LoginCallback(bool bSuccess);
 #include "Common/Registry.h"
 #include "Common/UserPreferences.h"
 #include "GameClient/AnimateWindowManager.h"
+#include "GameClient/ClientInstance.h"
 #include "GameClient/WindowLayout.h"
 #include "GameClient/Gadget.h"
 #include "GameClient/GameText.h"
@@ -94,8 +95,10 @@ static UnsignedInt loginAttemptTime = 0;
 class GameSpyLoginPreferences : public UserPreferences
 {
 public:
-	GameSpyLoginPreferences() { m_emailPasswordMap.clear(); m_emailNickMap.clear(); }
-	virtual ~GameSpyLoginPreferences() { m_emailPasswordMap.clear(); m_emailNickMap.clear(); }
+	GameSpyLoginPreferences();
+	virtual ~GameSpyLoginPreferences();
+
+	Bool loadFromIniFile();
 
 	virtual Bool load(AsciiString fname);
 	virtual Bool write(void);
@@ -133,9 +136,31 @@ static AsciiString obfuscate( AsciiString in )
 			c++, c2++;
 	}
 	AsciiString out = buf;
-	delete buf;
+	delete[] buf;
 	return out;
 }
+
+GameSpyLoginPreferences::GameSpyLoginPreferences()
+{
+	loadFromIniFile();
+}
+
+GameSpyLoginPreferences::~GameSpyLoginPreferences()
+{
+}
+
+Bool GameSpyLoginPreferences::loadFromIniFile()
+{
+	if (rts::ClientInstance::getInstanceId() > 1u)
+	{
+		AsciiString fname;
+		fname.format("GameSpyLogin_Instance%.2u.ini", rts::ClientInstance::getInstanceId());
+		return load(fname);
+	}
+
+	return load("GameSpyLogin.ini");
+}
+
 
 Bool GameSpyLoginPreferences::load( AsciiString fname )
 {
@@ -291,7 +316,6 @@ AsciiStringList GameSpyLoginPreferences::getEmails( void )
 	return theList;
 }
 
-static const char *PREF_FILENAME = "GameSpyLogin.ini";
 static GameSpyLoginPreferences *loginPref = NULL;
 
 static void startPings( void )
@@ -442,7 +466,6 @@ void WOLLoginMenuInit( WindowLayout *layout, void *userData )
 	if (!loginPref)
 	{
 		loginPref = NEW GameSpyLoginPreferences;
-		loginPref->load(PREF_FILENAME);
 	}
 	
 	// if the ESRB warning is blank (other country) hide the box
@@ -506,7 +529,7 @@ void WOLLoginMenuInit( WindowLayout *layout, void *userData )
 	TheTransitionHandler->setGroup("GameSpyLoginProfileFade");
 
 	// NGMP
-	GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Authenticating.\n\nYou may need to interact with your web browser to complete this step."), true);
+	GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Authenticating.\n\nYou may need to interact with your web browser."), true);
 
 } // WOLLoginMenuInit
 
@@ -1306,7 +1329,7 @@ WindowMsgHandledType WOLLoginMenuSystem( GameWindow *window, UnsignedInt msg,
 
 							}
 
-							delete fileBuf;
+							delete[] fileBuf;
 							fileBuf = NULL;
 
 							theFile->close();

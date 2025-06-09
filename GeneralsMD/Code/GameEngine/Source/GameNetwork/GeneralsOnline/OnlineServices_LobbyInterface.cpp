@@ -64,7 +64,8 @@ enum class ELobbyUpdateField
 	HOST_ACTION_SET_SLOT_STATE = 12,
 	AI_SIDE = 13,
 	AI_COLOR = 14,
-	AI_TEAM = 15
+	AI_TEAM = 15,
+	AI_START_POS = 16
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -243,6 +244,27 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AITeam(int slot, int
 		});
 }
 
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AIStartPos(int slot, int startpos)
+{
+	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
+	ClearAutoReadyCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::AI_START_POS;
+	j["slot"] = slot;
+	j["start_pos"] = startpos;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+
+		});
+}
+
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AIColor(int slot, int color)
 {
 	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
@@ -409,6 +431,9 @@ void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeSt
 
 	NetRoom_ChatMessagePacket chatPacket(strChatMsg, false, false);
 
+	// fake send / process locally too
+	m_pLobbyMesh->ProcessChatMessage(chatPacket, NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
+
 	// TODO_NGMP: Move to uint64 for user id
 	std::vector<int64_t> vecUsersToSend;
 	for (auto kvPair : m_CurrentLobby.members)
@@ -429,6 +454,9 @@ void NGMP_OnlineServices_LobbyInterface::SendAnnouncementMessageToCurrentLobby(U
 	strChatMsg.translate(strAnnouncementMsgUnicode);
 
 	NetRoom_ChatMessagePacket chatPacket(strChatMsg, true, bShowToHost);
+
+	// fake send / process locally too
+	m_pLobbyMesh->ProcessChatMessage(chatPacket, NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
 
 	std::vector<int64_t> vecUsersToSend;
 	if (m_pLobbyMesh != nullptr)
@@ -584,6 +612,11 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							m_bPendingHostHasLeft = true;
 							// error msg
 
+							// TODO_NGMP: We still want to do this, but we need to send back that it failed and back out, proceeding to lobby crashes because mesh wasn't created
+							if (fnCallback != nullptr)
+							{
+								//fnCallback();
+							}
 
 							LeaveCurrentLobby();
 							return;
@@ -607,6 +640,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryJSON["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
 						lobbyEntryJSON["track_stats"].get_to(lobbyEntry.track_stats);
 						lobbyEntryJSON["passworded"].get_to(lobbyEntry.passworded);
+						lobbyEntryJSON["rng_seed"].get_to(lobbyEntry.rng_seed);
 
 						// correct map path
 						if (lobbyEntry.map_official)
@@ -683,6 +717,8 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							memberEntryIter["has_map"].get_to(memberEntry.has_map);
 							memberEntryIter["slot_index"].get_to(memberEntry.m_SlotIndex);
 							memberEntryIter["slot_state"].get_to(memberEntry.m_SlotState);
+							memberEntryIter["relay_ip"].get_to(memberEntry.strRelayIP);
+							memberEntryIter["relay_port"].get_to(memberEntry.relayPort);
 
 							lobbyEntry.members.push_back(memberEntry);
 
@@ -789,7 +825,19 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					}
 					catch (...)
 					{
-
+						// TODO_NGMP: We still want to do this, but we need to send back that it failed and back out, proceeding to lobby crashes because mesh wasn't created
+						if (fnCallback != nullptr)
+						{
+							//fnCallback();
+						}
+					}
+				}
+				else
+				{
+					// TODO_NGMP: We still want to do this, but we need to send back that it failed and back out, proceeding to lobby crashes because mesh wasn't created
+					if (fnCallback != nullptr)
+					{
+						//fnCallback();
 					}
 				}
 		});
@@ -835,13 +883,17 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 			// TODO_NGMP: Dont do extra get here, just return it in the put...
 			EJoinLobbyResult JoinResult = EJoinLobbyResult::JoinLobbyResult_JoinFailed;
 
-			if (statusCode == 200)
+			if (statusCode == 200 && bSuccess)
 			{
 				JoinResult = EJoinLobbyResult::JoinLobbyResult_Success;
 			}
 			else if (statusCode == 401)
 			{
 				JoinResult = EJoinLobbyResult::JoinLobbyResult_BadPassword;
+			}
+			else if (statusCode == 406)
+			{
+				JoinResult = EJoinLobbyResult::JoinLobbyResult_FullRoom;
 			}
 			// TODO_NGMP: Handle room full error (JoinLobbyResult_FullRoom, can we even get that?
 
@@ -908,6 +960,10 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 			{
 				NetworkLog("[NGMP] Failed to join lobby: Lobby not found");
 			}
+			else if (statusCode == 406)
+			{
+				NetworkLog("[NGMP] Failed to join lobby: Lobby is full");
+			}
 			
 
 			if (JoinResult != EJoinLobbyResult::JoinLobbyResult_Success)
@@ -949,6 +1005,9 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, "", nullptr);
+
+	// reset local data
+	ResetCachedRoomData();
 }
 
 LobbyEntry NGMP_OnlineServices_LobbyInterface::GetLobbyFromIndex(int index)

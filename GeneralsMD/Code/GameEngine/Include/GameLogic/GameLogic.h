@@ -116,7 +116,9 @@ public:
 	virtual void reset( void );															///< Reset the logic system
 	virtual void update( void );														///< update the world
 
-bool IsStartNewgame() const { return m_startNewGame; }
+	bool IsStartNewgame() const { return m_startNewGame; }
+	void preUpdate();
+
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	Int getNumberSleepyUpdates() const {return m_sleepyUpdates.size();} //For profiling, so not in Release.
 #endif
@@ -189,6 +191,13 @@ bool IsStartNewgame() const { return m_startNewGame; }
 	Bool isInShellGame( void );
 	Bool isInMultiplayerGame( void );
 
+//#if defined(GENERALS_ONLINE_USE_NEW_RNG_LOGIC)
+	uint32_t m_numRNGs = 0;
+	void ResetNumRNGs();
+	void IncrementNumRNGS();
+	uint32_t GetNumRNGS();
+//#endif
+
 	//Kris: Cut isLoadingGame() and replaced with isLoadingMap() and isLoadingSave() -- reason: nomenclature
 	//Bool isLoadingGame() const { return m_loadingScene; }		// This is the old function that isn't very clear on it's definition.
 	Bool isLoadingMap() const { return m_loadingMap; }			// Whenever a map is in the process of loading.
@@ -223,9 +232,11 @@ bool IsStartNewgame() const { return m_startNewGame; }
 
 	void bindObjectAndDrawable(Object* obj, Drawable* draw);
 
-	void setGamePaused( Bool paused, Bool pauseMusic = TRUE );
+	void setGamePausedInFrame( UnsignedInt frame );
+	UnsignedInt getGamePauseFrame() const { return m_pauseFrame; }
+	void setGamePaused( Bool paused, Bool pauseMusic = TRUE, Bool pauseInput = TRUE );
 	Bool isGamePaused( void );
-	Bool getInputEnabledMemory( void ) { return m_inputEnabledMemory; }
+	Bool getInputEnabledMemory( void ) const { return m_inputEnabledMemory; }
 
 	void processProgress(Int playerId, Int percentage);
 	void processProgressComplete(Int playerId);
@@ -271,6 +282,11 @@ protected:
 	virtual void loadPostProcess( void );
 
 private:
+
+	void pauseGameLogic(Bool paused);
+	void pauseGameSound(Bool paused);
+	void pauseGameMusic(Bool paused);
+	void pauseGameInput(Bool paused);
 
 	void pushSleepyUpdate(UpdateModulePtr u);
 	UpdateModulePtr peekSleepyUpdate() const;
@@ -363,7 +379,12 @@ private:
 
 	LoadScreen *getLoadScreen( Bool loadSaveGame );
 	LoadScreen *m_loadScreen;
+
+	UnsignedInt m_pauseFrame;
 	Bool m_gamePaused;
+	Bool m_pauseSound;
+	Bool m_pauseMusic;
+	Bool m_pauseInput;
 	Bool m_inputEnabledMemory;// Latches used to remember what to restore to after we unpause
 	Bool m_mouseVisibleMemory;
 
@@ -403,6 +424,12 @@ inline Real GameLogic::getWidth( void ) { return m_width; }
 inline void GameLogic::setHeight( Real height ) { m_height = height; }
 inline Real GameLogic::getHeight( void ) { return m_height; }
 inline UnsignedInt GameLogic::getFrame( void ) { return m_frame; }
+
+//#if defined(GENERALS_ONLINE_USE_NEW_RNG_LOGIC)
+inline void GameLogic::ResetNumRNGs() { m_numRNGs = 0; }
+inline void GameLogic::IncrementNumRNGS() { ++m_numRNGs; }
+inline uint32_t GameLogic::GetNumRNGS() { return m_numRNGs; }
+//#endif
 
 #if defined(GENERALS_ONLINE_RUN_FAST)
 inline void GameLogic::setFrame(UnsignedInt frame) { m_frame = frame; }

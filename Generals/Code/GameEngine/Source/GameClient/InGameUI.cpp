@@ -594,7 +594,7 @@ Bool InGameUI::removeSuperweapon(Int playerIndex, const AsciiString& powerName, 
 			{
 				SuperweaponInfo *info = *listIt;
 				swList.erase(listIt);
-				info->deleteInstance();
+				deleteInstance(info);
 				if (swList.size() == 0)
 				{
 					m_superweapons[playerIndex].erase(mapIt);
@@ -734,7 +734,7 @@ void InGameUI::removeNamedTimer( const AsciiString& timerName )
 	if (mapIt != m_namedTimers.end())
 	{
 		TheDisplayStringManager->freeDisplayString( mapIt->second->displayString );
-		mapIt->second->deleteInstance();
+		deleteInstance(mapIt->second);
 		m_namedTimers.erase(mapIt);
 		return;
 	}
@@ -1876,7 +1876,7 @@ void InGameUI::reset( void )
 			for (SuperweaponList::iterator listIt = mapIt->second.begin(); listIt != mapIt->second.end(); ++listIt)
 			{
 				SuperweaponInfo *info = *listIt;
-				info->deleteInstance();
+				deleteInstance(info);
 			}
 			mapIt->second.clear();
 		}
@@ -1887,7 +1887,7 @@ void InGameUI::reset( void )
 	{
 		NamedTimerInfo *info = timerIt->second;
 		TheDisplayStringManager->freeDisplayString(info->displayString);
-		info->deleteInstance();
+		deleteInstance(info);
 	}
 	m_namedTimers.clear();
 	m_namedTimerLastFlashFrame = 0;
@@ -1968,16 +1968,21 @@ void InGameUI::message( AsciiString stringManagerLabel, ... )
 
 	// construct the final text after formatting
 	va_list args;
-  va_start( args, stringManagerLabel );
+	va_start( args, stringManagerLabel );
 	WideChar buf[ UnicodeString::MAX_FORMAT_BUF_LEN ];
-  if( _vsnwprintf(buf, sizeof( buf )/sizeof( WideChar ) - 1, stringManagerString.str(), args ) < 0 )
-			throw ERROR_OUT_OF_MEMORY;
-	formattedMessage.set( buf );
-  va_end(args);
+	int result = vswprintf(buf, sizeof( buf )/sizeof( WideChar ), stringManagerString.str(), args );
+	va_end(args);
 
-	// add the text to the ui
-	addMessageText( formattedMessage );
-
+	if( result >= 0 )
+	{
+		formattedMessage.set( buf );
+		// add the text to the ui
+		addMessageText( formattedMessage );
+	}
+	else
+	{
+		DEBUG_CRASH(("InGameUI::message failed with code:%d", result));
+	}
 }  // end 
 
 //-------------------------------------------------------------------------------------------------
@@ -1990,16 +1995,21 @@ void InGameUI::message( UnicodeString format, ... )
 
 	// construct the final text after formatting
 	va_list args;
-  va_start( args, format );
+	va_start( args, format );
 	WideChar buf[ UnicodeString::MAX_FORMAT_BUF_LEN ];
-  if( _vsnwprintf(buf, sizeof( buf )/sizeof( WideChar ) - 1, format.str(), args ) < 0 )
-			throw ERROR_OUT_OF_MEMORY;
-	formattedMessage.set( buf );
-  va_end(args);
+	int result = vswprintf(buf, sizeof( buf )/sizeof( WideChar ), format.str(), args );
+	va_end(args);
 
-	// add the text to the ui
-	addMessageText( formattedMessage );
-
+	if( result >= 0 )
+	{
+		formattedMessage.set( buf );
+		// add the text to the ui
+		addMessageText( formattedMessage );
+	}
+	else
+	{
+		DEBUG_CRASH(("InGameUI::message failed with code:%d", result));
+	}
 }  // end message
 
 //-------------------------------------------------------------------------------------------------
@@ -2012,16 +2022,21 @@ void InGameUI::messageColor( const RGBColor *rgbColor, UnicodeString format, ...
 
 	// construct the final text after formatting
 	va_list args;
-  va_start( args, format );
+	va_start( args, format );
 	WideChar buf[ UnicodeString::MAX_FORMAT_BUF_LEN ];
-  if( _vsnwprintf(buf, sizeof( buf )/sizeof( WideChar ) - 1, format.str(), args ) < 0 )
-			throw ERROR_OUT_OF_MEMORY;
-	formattedMessage.set( buf );
-  va_end(args);
+	int result = vswprintf(buf, sizeof( buf )/sizeof( WideChar ), format.str(), args );
+	va_end(args);
 
-	// add the text to the ui
-	addMessageText( formattedMessage, rgbColor );
-
+	if( result >= 0 )
+	{
+		formattedMessage.set( buf );
+		// add the text to the ui
+		addMessageText( formattedMessage, rgbColor );
+	}
+	else
+	{
+		DEBUG_CRASH(("InGameUI::messageColor failed with code:%d", result));
+	}
 }  // end message
 
 //-------------------------------------------------------------------------------------------------
@@ -3021,7 +3036,7 @@ const ThingTemplate *InGameUI::getPendingPlaceType( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-const ObjectID InGameUI::getPendingPlaceSourceObjectID( void )
+ObjectID InGameUI::getPendingPlaceSourceObjectID( void )
 {
 
 	return m_pendingPlaceSourceObjectID;
@@ -3401,7 +3416,7 @@ void InGameUI::postDraw( void )
 		UnsignedByte r, g, b, a;
 		GameGetColorComponents( m_militarySubtitle->color, &r, &g, &b, &a );
 		dropColor = GameMakeColor( 0, 0, 0, a );
-		for(Int i = 0; i <= m_militarySubtitle->currentDisplayString; i++)
+		for(UnsignedInt i = 0; i <= m_militarySubtitle->currentDisplayString; i++)
 		{
 			m_militarySubtitle->displayStrings[i]->draw(pos.x,pos.y, m_militarySubtitle->color,dropColor );
 			Int height;
@@ -3969,7 +3984,7 @@ void InGameUI::removeMilitarySubtitle( void )
 	TheInGameUI->clearTooltipsDisabled();
 
 	// loop through and free up the display strings
-	for(Int i = 0; i <= m_militarySubtitle->currentDisplayString; i ++)
+	for(UnsignedInt i = 0; i <= m_militarySubtitle->currentDisplayString; i ++)
 	{
 		TheDisplayStringManager->freeDisplayString(m_militarySubtitle->displayStrings[i]);
 		m_militarySubtitle->displayStrings[i] = NULL;
@@ -4916,7 +4931,7 @@ void InGameUI::updateFloatingText( void )
 			if( a <= 0)
 			{
 				it = m_floatingTextList.erase(it);
-				ftd->deleteInstance();
+				deleteInstance(ftd);
 				continue; // don't do the ++it below
 			}
 
@@ -4978,7 +4993,7 @@ void InGameUI::clearFloatingText( void )
 	{
 		ftd = *it;
 		it = m_floatingTextList.erase(it);
-		ftd->deleteInstance();
+		deleteInstance(ftd);
 	}
 	
 }
@@ -5043,12 +5058,12 @@ void InGameUI::clearPopupMessageData( void )
 	if(m_popupMessageData->layout)
 	{
 		m_popupMessageData->layout->destroyWindows();
-		m_popupMessageData->layout->deleteInstance();
+		deleteInstance(m_popupMessageData->layout);
 		m_popupMessageData->layout = NULL;
 	}
 	if( m_popupMessageData->pause )
 		TheGameLogic->setGamePaused(FALSE, m_popupMessageData->pauseMusic);
-	m_popupMessageData->deleteInstance();
+	deleteInstance(m_popupMessageData);
 	m_popupMessageData = NULL;
 	
 }
@@ -5155,7 +5170,7 @@ void InGameUI::clearWorldAnimations( void )
 		{
 
 			// delete the animation instance
-			wad->m_anim->deleteInstance();
+			deleteInstance(wad->m_anim);
 
 			// delete the world animation data
 			delete wad;
@@ -5198,7 +5213,7 @@ void InGameUI::updateAndDrawWorldAnimations( void )
 			{
 
 				// delete this element and continue
-				wad->m_anim->deleteInstance();
+				deleteInstance(wad->m_anim);
 				delete wad;
 				it = m_worldAnimationList.erase( it );
 				continue;
@@ -5469,7 +5484,7 @@ void InGameUI::recreateControlBar( void )
 {
 	GameWindow *win = TheWindowManager->winGetWindowFromId(NULL, TheNameKeyGenerator->nameToKey(AsciiString("ControlBar.wnd")));
 	if(win)
-		win->deleteInstance();
+		deleteInstance(win);
 	
 	m_idleWorkerWin = NULL;	
 	

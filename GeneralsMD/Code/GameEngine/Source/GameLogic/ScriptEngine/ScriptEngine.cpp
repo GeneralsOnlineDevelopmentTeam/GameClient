@@ -130,9 +130,14 @@ enum { K_SCRIPTS_DATA_VERSION_1 = 1 };
 enum { MAX_SPIN_COUNT = 20 };
 #define NONE_STRING "<none>"
 
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+static const Int FRAMES_TO_SHOW_WIN_LOSE_MESSAGE = 120 * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER;
+static const Int FRAMES_TO_FADE_IN_AT_START = 33 * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER;
+#else
 static const Int FRAMES_TO_SHOW_WIN_LOSE_MESSAGE = 120;
-
 static const Int FRAMES_TO_FADE_IN_AT_START = 33;
+#endif
+
 
 
 //------------------------------------------------------------------------------ Performance Timers 
@@ -5709,9 +5714,24 @@ void ScriptEngine::startQuickEndGameTimer( void )
 //-------------------------------------------------------------------------------------------------
 /** startEndGameTimer */
 //-------------------------------------------------------------------------------------------------
+#if defined(GENERALS_ONLINE)
+void ScriptEngine::startEndGameTimer(bool bExtendForErrorMsg)
+#else
 void ScriptEngine::startEndGameTimer( void )
+#endif
 {
+#if defined(GENERALS_ONLINE)
+	if (bExtendForErrorMsg)
+	{
+		m_endGameTimer = FRAMES_TO_SHOW_WIN_LOSE_MESSAGE * 5;
+	}
+	else
+	{
+		m_endGameTimer = FRAMES_TO_SHOW_WIN_LOSE_MESSAGE;
+	}
+#else
 	m_endGameTimer = FRAMES_TO_SHOW_WIN_LOSE_MESSAGE;
+#endif
 }  // end startEndGameTimer
 
 //-------------------------------------------------------------------------------------------------
@@ -6592,7 +6612,7 @@ void ScriptEngine::setPriorityThing( ScriptAction *pAction )
 	{
 		// Found a list by this name, so we have a bunch of things
 
-		for( Int typeIndex = 0; typeIndex < types->getListSize(); typeIndex ++ )
+		for( size_t typeIndex = 0; typeIndex < types->getListSize(); typeIndex ++ )
 		{
 			AsciiString thisTypeName = types->getNthInList(typeIndex);
 			const ThingTemplate *thisType = TheThingFactory->findTemplate(thisTypeName);
@@ -6706,7 +6726,7 @@ void ScriptEngine::removeObjectTypes(ObjectTypes *typesToRemove)
 	}
 
 	// delete it.
-	typesToRemove->deleteInstance();
+	deleteInstance(typesToRemove);
 
 	// remove it from the main array of stuff
 	m_allObjectTypeLists.erase(it);
@@ -8077,14 +8097,14 @@ ScriptEngine::VecSequentialScriptPtrIt ScriptEngine::cleanupSequentialScript(Vec
 		while (seqScript) {
 			scriptToDelete = seqScript;
 			seqScript = seqScript->m_nextScriptInSequence;
-			scriptToDelete->deleteInstance();
+			deleteInstance(scriptToDelete);
 			scriptToDelete = NULL;
 		}
 		(*it) = NULL;
 	} else {
 		// we want to make sure to not delete any dangling scripts.
 		(*it) = scriptToDelete->m_nextScriptInSequence;
-		scriptToDelete->deleteInstance();
+		deleteInstance(scriptToDelete);
 		scriptToDelete = NULL;
 	}
 

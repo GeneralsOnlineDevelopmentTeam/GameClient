@@ -11,6 +11,8 @@ public:
 
 	int64_t GetUserID() const { return m_userID; }
 
+	void GoToDetermineNetworkCaps();
+
 	void BeginLogin();
 
 	void Tick();

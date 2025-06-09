@@ -10,6 +10,8 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "Common/GlobalData.h"
+#include "GameClient/LanguageFilter.h"
+#include "GameClient/View.h"
 
 NGMPGameSlot::NGMPGameSlot()
 {
@@ -52,6 +54,12 @@ NGMPGame::NGMPGame()
 	UpdateSlotsFromCurrentLobby();
 }
 
+NGMPGame::~NGMPGame()
+{
+	// Force camera to update from config
+	TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f, true);
+}
+
 void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 {
 	// map
@@ -65,6 +73,9 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 
 	// stats
 	setUseStats(lobby.track_stats);
+
+	// rng seed
+	setSeed(lobby.rng_seed);
 
 	// starting cash
 	Money startingCash;
@@ -338,6 +349,9 @@ void NGMPGame::launchGame(void)
 
 	setGameInProgress(TRUE);
 
+	// disable language filter
+	TheLanguageFilter->reset();
+
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
 		const NGMPGameSlot* slot = getGameSpySlot(i);
@@ -395,6 +409,9 @@ void NGMPGame::launchGame(void)
 		return;
 	}
 
+	// Force camera to update from config
+	TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f, false);
+
 
 	// shutdown the top, but do not pop it off the stack
 //		TheShell->hideShell();
@@ -412,11 +429,8 @@ void NGMPGame::launchGame(void)
 	//TheWritableGlobalData->m_useFpsLimit = false;
 
 	// Set the random seed
-	// TODO_NGMP: revisit this
-	//InitGameLogicRandom(getSeed());
-	//DEBUG_LOG(("InitGameLogicRandom( %d )\n", getSeed()));
-	InitGameLogicRandom(123);
-	DEBUG_LOG(("InitGameLogicRandom( %d )\n", 123));
+	InitGameLogicRandom(getSeed());
+	DEBUG_LOG(("InitGameLogicRandom( %d )\n", getSeed()));
 
 	// mark us as "Loading" in the buddy list
 	// TODO_NGMP

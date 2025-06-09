@@ -94,10 +94,8 @@ void UnicodeString::ensureUniqueBufferOfSize(int numCharsNeeded, Bool preserveDa
 		return;
 	}
 
+	DEBUG_ASSERTCRASH(numCharsNeeded <= MAX_LEN, ("UnicodeString::ensureUniqueBufferOfSize exceeds max string length %d with requested length %d", MAX_LEN, numCharsNeeded));
 	int minBytes = sizeof(UnicodeStringData) + numCharsNeeded*sizeof(WideChar);
-	if (minBytes > MAX_LEN)
-		throw ERROR_OUT_OF_MEMORY;
-
 	int actualBytes = TheDynamicMemoryAllocator->getActualAllocationSize(minBytes);
 	UnicodeStringData* newData = (UnicodeStringData*)TheDynamicMemoryAllocator->allocateBytesDoNotZero(actualBytes, "STR_UnicodeString::ensureUniqueBufferOfSize");
 	newData->m_refCount = 1;
@@ -316,7 +314,7 @@ void UnicodeString::format_va(const WideChar* format, va_list args)
 {
 	validate();
 	WideChar buf[MAX_FORMAT_BUF_LEN];
-	const int result = _vsnwprintf(buf, sizeof(buf)/sizeof(WideChar)-1, format, args);
+	const int result = vswprintf(buf, sizeof(buf)/sizeof(WideChar), format, args);
 	if (result >= 0)
 	{
 		set(buf);
@@ -324,7 +322,7 @@ void UnicodeString::format_va(const WideChar* format, va_list args)
 	}
 	else
 	{
-		DEBUG_ASSERTCRASH(false, ("UnicodeString::format_va failed with code:%d", result));
+		DEBUG_CRASH(("UnicodeString::format_va failed with code:%d", result));
 	}
 }
 

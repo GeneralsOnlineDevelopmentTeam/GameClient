@@ -482,8 +482,15 @@ void ResetBattleHonorInsertion(void)
 }
 void InsertBattleHonor(GameWindow *list, const Image *image, Bool enabled, Int itemData, Int& row, Int& column, UnicodeString text = UnicodeString::TheEmptyString, Int extra = 0)
 {
+#if !defined(GENERALS_ONLINE_WIDESCREEN)
 	Int width = MAX_BATTLE_HONOR_IMAGE_WIDTH * (TheDisplay->getWidth() / 800.0f);
 	Int height = MAX_BATTLE_HONOR_IMAGE_HEIGHT * (TheDisplay->getHeight() / 600.0f);
+#else
+	Int width = MAX_BATTLE_HONOR_IMAGE_WIDTH * (TheDisplay->getWidth() / GENERALS_ONLINE_WIDESCREEN_X_SCALE);
+	Int height = MAX_BATTLE_HONOR_IMAGE_HEIGHT * (TheDisplay->getHeight() / GENERALS_ONLINE_WIDESCREEN_Y_SCALE);
+#endif
+
+	
 
 	static Int enabledColor = 0xFFFFFFFF;
 	static Int disabledColor = GameMakeColor(80, 80, 80, 255);
@@ -1326,7 +1333,8 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 	{
 		//buttonbuttonOptions->winHide(FALSE);
 		buttonSetLocale->winHide(TRUE);
-		buttonDeleteAccount->winHide(FALSE); // set back to false when we have this worked out.
+		// TODO_NGMP: What should this do? reset stats? but not delete account?
+		buttonDeleteAccount->winHide(TRUE); // set back to false when we have this worked out.
 		checkBoxAsianFont->winHide(TRUE);
 		checkBoxNonAsianFont->winHide(TRUE);
 	}
@@ -1338,6 +1346,11 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 		checkBoxAsianFont->winHide(TRUE);
 		checkBoxNonAsianFont->winHide(TRUE);
 	}
+
+#if defined(GENERALS_ONLINE)
+	// TODO_NGMP: re-enable social
+	buttonBuddies->winHide(true);
+#endif
 
 	// set the asian check boxes
 	CustomMatchPreferences pref;

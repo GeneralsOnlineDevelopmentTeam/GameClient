@@ -327,7 +327,7 @@ TurretAI::~TurretAI()
 	stopRotOrPitchSound();
 
 	if (m_turretStateMachine)
-		m_turretStateMachine->deleteInstance();
+		deleteInstance(m_turretStateMachine);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -687,6 +687,13 @@ void TurretAI::friend_notifyStateMachineChanged()
 DECLARE_PERF_TIMER(TurretAI)
 UpdateSleepTime TurretAI::updateTurretAI()
 {
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (TheGameLogic->getFrame() % 2 != 0)
+	{
+		return UPDATE_SLEEP_FOREVER;
+	}
+#endif
+
 	USE_PERF_TIMER(TurretAI)
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)

@@ -7,8 +7,6 @@
 enum EPacketID
 {
 	PACKET_ID_NONE = -1,
-	PACKET_ID_CHALLENGE,
-	PACKET_ID_CHALLENGE_RESP,
 	PACKET_ID_NET_ROOM_HELLO,
 	PACKET_ID_NET_ROOM_HELLO_ACK,
 	PACKET_ID_NET_ROOM_CHAT_MSG,
@@ -140,7 +138,7 @@ public:
 	template<typename T>
 	T Read()
 	{
-		T outVar;
+		T outVar = T();
 
 		// safety
 		if (m_Offset >= m_memBuffer.GetAllocatedSize())

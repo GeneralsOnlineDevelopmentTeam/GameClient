@@ -29,6 +29,12 @@ public:
 
 	int64_t m_userID = -1;
 
+	void UpdateLatencyFromConnection(AsciiString pingStr, int ping)
+	{
+		m_pingStr = pingStr;
+		m_pingInt = ping;
+	}
+
 protected:
 	Int m_profileID;
 	AsciiString m_gameSpyLogin;
@@ -67,6 +73,7 @@ private:
 
 public:
 	NGMPGame();
+	virtual ~NGMPGame();
 	virtual void reset(void);
 
 	void SyncWithLobby(LobbyEntry& lobby);

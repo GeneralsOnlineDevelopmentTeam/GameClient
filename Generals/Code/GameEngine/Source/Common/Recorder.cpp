@@ -439,8 +439,17 @@ void RecorderClass::update() {
  * Do the update for the next frame of this playback.
  */
 void RecorderClass::updatePlayback() {
-	cullBadCommands();	// Remove any bad commands that have been inserted by the local user that shouldn't be
-											// executed during playback.
+	// Remove any bad commands that have been inserted by the local user that shouldn't be
+	// executed during playback.
+	CullBadCommandsResult result = cullBadCommands();
+
+	if (result.hasClearGameDataMessage) {
+		// TheSuperHackers @bugfix Stop appending more commands if the replay playback is about to end.
+		// Previously this would be able to append more commands, which could have unintended consequences,
+		// such as crashing the game when a MSG_PLACE_BEACON is appended after MSG_CLEAR_GAME_DATA.
+		// MSG_CLEAR_GAME_DATA is supposed to be processed later this frame, which will then stop this playback.
+		return;
+	}
 
 	if (m_nextFrame == -1) {
 		// This is reached if there are no more commands to be executed.
@@ -777,7 +786,7 @@ void RecorderClass::writeToFile(GameMessage * msg) {
 		writeArgument(msg->getArgumentDataType(i), *(msg->getArgument(i)));
 	}
 
-	parser->deleteInstance();
+	deleteInstance(parser);
 	parser = NULL;
 
 	fflush(m_file); ///< @todo should this be in the final release?
@@ -1041,6 +1050,12 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 			// the mismatch first happened in case the NetCRCInterval is set to 1 during the game.
 			DEBUG_CRASH(("Replay has gone out of sync!  All bets are off!\nInGame:%8.8X Replay:%8.8X\nFrame:%d",
 				playbackCRC, newCRC, TheGameLogic->getFrame()-m_crcInfo->GetQueueSize()-1));
+
+			// TheSuperHackers @tweak Pause the game on mismatch.
+			Bool pause = TRUE;
+			Bool pauseMusic = FALSE;
+			Bool pauseInput = FALSE;
+			TheGameLogic->setGamePaused(pause, pauseMusic, pauseInput);
 		}
 		return;
 	}
@@ -1049,19 +1064,22 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 }
 
 /**
- * Return true if this version of the file is the same as our version of the game
+ * Returns true if this version of the file is the same as our version of the game
  */
-Bool RecorderClass::testVersionPlayback(AsciiString filename)
+Bool RecorderClass::replayMatchesGameVersion(AsciiString filename)
 {
-
 	ReplayHeader header;
 	header.forPlayback = TRUE;
 	header.filename = filename;
-	Bool success = readReplayHeader( header );
-	if (!success)
+	if ( readReplayHeader( header ) )
 	{
-		return FALSE;
+		return replayMatchesGameVersion( header );
 	}
+	return FALSE;
+}
+
+Bool RecorderClass::replayMatchesGameVersion(const ReplayHeader& header)
+{
 	Bool versionStringDiff = header.versionString != TheVersion->getUnicodeVersion();
 	Bool versionTimeStringDiff = header.versionTimeString != TheVersion->getUnicodeBuildTime();
 	Bool versionNumberDiff = header.versionNumber != TheVersion->getVersionNumber();
@@ -1071,10 +1089,9 @@ Bool RecorderClass::testVersionPlayback(AsciiString filename)
 
 	if(exeDifferent || iniDifferent)
 	{
-		return TRUE;
+		return FALSE;
 	}
-	return FALSE;
-
+	return TRUE;
 }
 
 /**
@@ -1366,17 +1383,17 @@ void RecorderClass::appendNextCommand() {
 
 	if (type == GameMessage::MSG_CLEAR_GAME_DATA || type == GameMessage::MSG_BEGIN_NETWORK_MESSAGES)
 	{
-		msg->deleteInstance();
+		deleteInstance(msg);
 		msg = NULL;
 	}
 
 	if (m_doingAnalysis)
 	{
-		msg->deleteInstance();
+		deleteInstance(msg);
 		msg = NULL;
 	}
 
-	parser->deleteInstance();
+	deleteInstance(parser);
 	parser = NULL;
 }
 
@@ -1498,9 +1515,11 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 /**
  * This needs to be called for every frame during playback. Basically it prevents the user from inserting.
  */
-void RecorderClass::cullBadCommands() {
+RecorderClass::CullBadCommandsResult RecorderClass::cullBadCommands() {
+	CullBadCommandsResult result;
+
 	if (m_doingAnalysis)
-		return;
+		return result;
 
 	GameMessage *msg = TheCommandList->getFirstMessage();
 	GameMessage *next = NULL;
@@ -1511,11 +1530,17 @@ void RecorderClass::cullBadCommands() {
 				(msg->getType() < GameMessage::MSG_END_NETWORK_MESSAGES) &&
 				(msg->getType() != GameMessage::MSG_LOGIC_CRC)) {
 
-			msg->deleteInstance();
+			deleteInstance(msg);
+		}
+		else if (msg->getType() == GameMessage::MSG_CLEAR_GAME_DATA)
+		{
+			result.hasClearGameDataMessage = true;
 		}
 
 		msg = next;
 	}
+
+	return result;
 }
 
 /**

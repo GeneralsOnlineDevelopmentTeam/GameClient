@@ -7,7 +7,7 @@ permissions:
 on:
   push:
     branches:
-      [main, develop, secrets]
+      [main, develop, citest]
   pull_request:
     branches:
       [main, develop]
@@ -116,16 +116,16 @@ jobs:
 #            tools: true
 #            extras: true
           - preset: "win32"
-            tools: true
+            tools: false
             extras: true
           - preset: "win32-profile"
-            tools: true
+            tools: false
             extras: true
           - preset: "win32-internal"
-            tools: true
+            tools: false
             extras: true
           - preset: "win32-debug"
-            tools: true
+            tools: false
             extras: true
       fail-fast: true
     uses: ./.github/workflows/build-toolchain.yml

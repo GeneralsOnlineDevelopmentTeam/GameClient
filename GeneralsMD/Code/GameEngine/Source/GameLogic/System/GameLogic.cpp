@@ -32,7 +32,6 @@
 #include "Common/AudioAffect.h"
 #include "Common/AudioHandleSpecialValues.h"
 #include "Common/BuildAssistant.h"
-#include "Common/CopyProtection.h"
 #include "Common/CRCDebug.h"
 #include "Common/GameAudio.h"
 #include "Common/GameEngine.h"
@@ -259,7 +258,11 @@ GameLogic::GameLogic( void )
 	m_startNewGame = FALSE;
 	m_gameMode = GAME_NONE;
 	m_rankLevelLimit = 1000;
+	m_pauseFrame = 0;
 	m_gamePaused = FALSE;
+	m_pauseSound = FALSE;
+	m_pauseMusic = FALSE;
+	m_pauseInput = FALSE;
 	m_inputEnabledMemory = TRUE;
 	m_mouseVisibleMemory = TRUE;
 	m_loadScreen = NULL;
@@ -316,9 +319,18 @@ Bool GameLogic::isInSinglePlayerGame( void )
 //-------------------------------------------------------------------------------------------------
 void GameLogic::destroyAllObjectsImmediate()
 {
-	// destroy all remaining objects
 	Object *obj;
 	Object *nextObj;
+
+	// TheSuperHackers @bugfix xezon 22/05/2025 Set all remaining objects effectively dead to avoid triggering their
+	// death modules that eventually would spawn new objects, such as debris, which could then crash the game.
+	// See https://github.com/TheSuperHackers/GeneralsGameCode/issues/896
+	for( obj = m_objList; obj; obj = obj->getNextObject() )
+	{
+		obj->setEffectivelyDead(true);
+	}
+
+	// destroy all remaining objects
 	for( obj = m_objList; obj; obj = nextObj )
 	{
 		nextObj = obj->getNextObject();
@@ -344,7 +356,7 @@ GameLogic::~GameLogic()
 	if (m_background)
 	{
 		m_background->destroyWindows();
-		m_background->deleteInstance();
+		deleteInstance(m_background);
 		m_background = NULL;
 	}
 
@@ -415,7 +427,11 @@ void GameLogic::init( void )
 	//ThePlayerList->setLocalPlayer(0);
 
 	m_CRC = 0;
+	m_pauseFrame = 0;
 	m_gamePaused = FALSE;
+	m_pauseSound = FALSE;
+	m_pauseMusic = FALSE;
+	m_pauseInput = FALSE;
 	m_inputEnabledMemory = TRUE;
 	m_mouseVisibleMemory = TRUE;
 	for(Int i = 0; i < MAX_SLOTS; ++i)
@@ -450,7 +466,11 @@ void GameLogic::reset( void )
 	m_objVector.clear();
 	m_objVector.resize(OBJ_HASH_SIZE, NULL);
 
+	m_pauseFrame = 0;
 	m_gamePaused = FALSE;
+	m_pauseSound = FALSE;
+	m_pauseMusic = FALSE;
+	m_pauseInput = FALSE;
 	m_inputEnabledMemory = TRUE;
 	m_mouseVisibleMemory = TRUE;
 	setFPMode();
@@ -744,6 +764,9 @@ static void populateRandomSideAndColor( GameInfo *game )
 		// Prevent from selecting the disabled Generals.
 		// This is also enforced at GUI setup (GUIUtil.cpp).
 		// @todo: unlock these when something rad happens
+
+		// TheSuperHackers @logic-client-separation helmutbuhler 11/04/2025
+		// TheChallengeGenerals belongs to client, we shouldn't depend on that here.
 		Bool disallowLockedGenerals = TRUE;
 		const GeneralPersona *general = TheChallengeGenerals->getGeneralByTemplateName(ptTest->getName());
 		Bool startsLocked = general ? !general->isStartingEnabled() : FALSE;
@@ -772,7 +795,7 @@ static void populateRandomSideAndColor( GameInfo *game )
 			// get a few values at random to get rid of the dreck.
 			// there's no mathematical basis for this, but empirically, it helps a lot.
 			UnsignedInt silly = GetGameLogicRandomSeed() % 7;
-			for (Int poo = 0; poo < silly; ++poo) 
+			for (UnsignedInt poo = 0; poo < silly; ++poo) 
 			{
 				GameLogicRandomValue(0, 1);	// ignore result
 			}
@@ -814,6 +837,8 @@ static void populateRandomSideAndColor( GameInfo *game )
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
+static const WaypointMap s_emptyWaypoints = WaypointMap();
+
 static void populateRandomStartPosition( GameInfo *game )
 {
 	if(!game)
@@ -834,12 +859,13 @@ static void populateRandomStartPosition( GameInfo *game )
 		{
 			if (i != j && (i<numPlayers && j<numPlayers))
 			{
+				const WaypointMap& waypoints = md ? md->m_waypoints : s_emptyWaypoints;
 				AsciiString w1, w2;
 				w1.format("Player_%d_Start", i+1);
 				w2.format("Player_%d_Start", j+1);
-				WaypointMap::const_iterator c1 = md->m_waypoints.find(w1);
-				WaypointMap::const_iterator c2 = md->m_waypoints.find(w2);
-				if (c1 == md->m_waypoints.end() || c2 == md->m_waypoints.end())
+				WaypointMap::const_iterator c1 = waypoints.find(w1);
+				WaypointMap::const_iterator c2 = waypoints.find(w2);
+				if (c1 == waypoints.end() || c2 == waypoints.end())
 				{
 					// couldn't find a waypoint.  must be kinda far away.
 					startSpotDistance[i][j] = 1000000.0f;
@@ -1159,7 +1185,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 				if(m_background)
 				{
 					m_background->destroyWindows();
-					m_background->deleteInstance();
+					deleteInstance(m_background);
 					m_background = NULL;
 				}
 				m_loadScreen = getLoadScreen( loadingSaveGame );
@@ -1276,7 +1302,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	//****************************//
 
 	// Get the m_loadScreen for this kind of game
-	if(!m_loadScreen)
+	if(!m_loadScreen && !TheGlobalData->m_headless)
 	{
 		m_loadScreen = getLoadScreen( loadingSaveGame );
 		if(m_loadScreen)
@@ -1291,7 +1317,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	if(m_background)
 	{
 		m_background->destroyWindows();
-		m_background->deleteInstance();
+		deleteInstance(m_background);
 		m_background = NULL;
 	}
 	setFPMode();
@@ -1558,17 +1584,20 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 				if (count)
 				{
 					ScriptList *pSL = TheSidesList->getSideInfo(0)->getScriptList();
-					Script *next = scripts[0]->getScript();
-					while (next)
+					if (pSL != NULL)
 					{
-						Script *dupe = next->duplicate();
-						pSL->addScript(dupe, 0);
-						next = next->getNext();
+						Script *next = scripts[0]->getScript();
+						while (next)
+						{
+							Script *dupe = next->duplicate();
+							pSL->addScript(dupe, 0);
+							next = next->getNext();
+						}
 					}
 				}
 				for (Int i=0; i<count; ++i)
 				{
-					scripts[i]->deleteInstance();
+					deleteInstance(scripts[i]);
 				}
 			}
 		}
@@ -1991,6 +2020,9 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 				// The game will start, but the cheater will be instantly defeated because he has no troops.
 				// This is also enforced at GUI setup (GUIUtil.cpp and UserPreferences.cpp).
 				// @todo: unlock these when something rad happens
+				
+				// TheSuperHackers @logic-client-separation helmutbuhler 11/04/2025
+				// TheChallengeGenerals belongs to client, we shouldn't depend on that here.
 				Bool disallowLockedGenerals = TRUE;
 				const GeneralPersona *general = TheChallengeGenerals->getGeneralByTemplateName(pt->getName());
 				Bool startsLocked = general ? !general->isStartingEnabled() : FALSE;
@@ -2196,7 +2228,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	}
 
 	// if we're in a load game, don't fade yet
-	if( loadingSaveGame == FALSE )
+	if(loadingSaveGame == FALSE && TheTransitionHandler != NULL)
 	{
 		TheTransitionHandler->setGroup("FadeWholeScreen");
 		while(!TheTransitionHandler->isFinished())
@@ -2236,14 +2268,17 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 
 	if(m_gameMode == GAME_SHELL)
 	{
-		if(TheShell->getScreenCount() == 0)
-			TheShell->push( AsciiString("Menus/MainMenu.wnd") );
-		else if (TheShell->top())
+		if (!TheGlobalData->m_headless)
 		{
-			TheShell->top()->hide(FALSE);
-			TheShell->top()->bringForward();
+			if(TheShell->getScreenCount() == 0)
+				TheShell->push( AsciiString("Menus/MainMenu.wnd") );
+			else if (TheShell->top())
+			{
+				TheShell->top()->hide(FALSE);
+				TheShell->top()->bringForward();
+			}
+			HideControlBar();
 		}
-		HideControlBar();
 	}
 	else
 	{
@@ -2547,7 +2582,7 @@ void GameLogic::processDestroyList( void )
 		// remove object from lookup table
 		removeObjectFromLookupTable( currentObject );
 
-		currentObject->friend_deleteInstance();//actual delete
+		Object::friend_deleteInstance(currentObject);//actual delete
 	}
 
 	m_objectsToDestroy.clear();//list full of bad pointers now, clear it.  If anyone's deletion resulted
@@ -2612,23 +2647,73 @@ void GameLogic::processCommandList( CommandList *list )
 
 		if (sawCRCMismatch)
 		{
+#ifdef DEBUG_LOGGING
+			DEBUG_LOG(("CRC Mismatch - saw %d CRCs from %d players\n", m_cachedCRCs.size(), numPlayers));
+			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+			{
+				Player *player = ThePlayerList->getNthPlayer(crcIt->first);
+				DEBUG_LOG(("CRC from player %d (%ls) = %X\n", crcIt->first,
+					player?player->getPlayerDisplayName().str():L"<NONE>", crcIt->second));
+			}
+#endif // DEBUG_LOGGING
+
+#if defined(GENERALS_ONLINE)
+			// provide more details
+			UnicodeString strMismatchDetails;
+			strMismatchDetails.format(L"GameLogic frame %d, latest frame %d, GetGameLogicRandomSeedCRC was %d\nHad %d CRCs from %d players\nNum RNG Calls %ull\nAll Player CRCs:\n",
+				TheGameLogic->getFrame(),
+				TheGameLogic->getFrame() - TheNetwork->getRunAhead() - 1,
+				GetGameLogicRandomSeedCRC(),
+				m_cachedCRCs.size(),
+				numPlayers,
+				TheGameLogic->GetNumRNGS());
+
+			// determine who is at fault
+			std::map<UnsignedInt, int> mapCRCOccurences;
+			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+			{
+				// data to determine who mismatched
+				if (mapCRCOccurences.contains(crcIt->second))
+				{
+					++mapCRCOccurences[crcIt->second];
+				}
+				else
+				{
+					mapCRCOccurences[crcIt->second] = 1;
+				}
+			}
+
+			// determine who mismatched
+			// take the 'most frequent' CRC as the correct one, everyone else is to blame
+			int biggestCRCCount = -1;
+			UnsignedInt biggestCRC = -1;
+			for (auto& crcIter : mapCRCOccurences)
+			{
+				if (crcIter.second > biggestCRCCount)
+				{
+					biggestCRC = crcIter.first;
+					biggestCRCCount = crcIter.second;
+				}
+			}
+
+			// show all players
+			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+			{
+				Player* player = ThePlayerList->getNthPlayer(crcIt->first);
+				UnicodeString strPlayerInfo;
+				strPlayerInfo.format(L"player %d (%s) = %X [%s]\n", crcIt->first, player ? player->getPlayerDisplayName().str() : L"<NONE>", crcIt->second,
+					crcIt->second == biggestCRC ? L"OK" : L"MISMATCH");
+
+				strMismatchDetails.concat(strPlayerInfo);
+			}
+
+			// TODO_NGMP: Handle missing CRCs, although that doesnt seem common
+
+			TheNetwork->setSawCRCMismatch(strMismatchDetails);
+
 #if defined(GENERALS_ONLINE_USE_SENTRY)
 			if (TheNGMPGame != nullptr)
 			{
-				AsciiString sentryMsg;
-				sentryMsg.format("CRC Mismatch - saw %d CRCs from %d players\nMap was %s\n", m_cachedCRCs.size(), numPlayers, TheNGMPGame->getMap().str());
-
-				for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
-				{
-					Player* player = ThePlayerList->getNthPlayer(crcIt->first);
-
-					AsciiString sentryMsgPlayer;
-					sentryMsgPlayer.format("CRC from player %d (%ls) = %X\n", crcIt->first,
-						player ? player->getPlayerDisplayName().str() : L"<NONE>", crcIt->second);
-
-					sentryMsg.concat(sentryMsgPlayer);
-				}
-
 				// local player info
 				int64_t userID = -1;
 				std::string strDisplayname = "Unknown";
@@ -2642,6 +2727,9 @@ void GameLogic::processCommandList( CommandList *list )
 				sentry_set_extra("user_id", sentry_value_new_int32(userID));
 				sentry_set_extra("user_displayname", sentry_value_new_string(strDisplayname.c_str()));
 
+				AsciiString sentryMsg;
+				sentryMsg.translate(strMismatchDetails);
+
 				// send event to sentry
 				sentry_capture_event(sentry_value_new_message_event(
 					SENTRY_LEVEL_ERROR,
@@ -2650,17 +2738,9 @@ void GameLogic::processCommandList( CommandList *list )
 				));
 			}
 #endif
-
-#ifdef DEBUG_LOGGING
-			DEBUG_LOG(("CRC Mismatch - saw %d CRCs from %d players\n", m_cachedCRCs.size(), numPlayers));
-			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
-			{
-				Player *player = ThePlayerList->getNthPlayer(crcIt->first);
-				DEBUG_LOG(("CRC from player %d (%ls) = %X\n", crcIt->first,
-					player?player->getPlayerDisplayName().str():L"<NONE>", crcIt->second));
-			}
-#endif // DEBUG_LOGGING
+#else
 			TheNetwork->setSawCRCMismatch();
+#endif
 		}
 	}
 
@@ -3731,6 +3811,13 @@ void GameLogic::update( void )
 		m_CRC = getCRC( CRC_RECALC );
 		if (isMPGameOrReplay)
 		{
+#if defined(GENERALS_ONLINE)
+			bool bForceArtificialMismatch = false;
+			if (bForceArtificialMismatch)
+			{
+				m_CRC = 1234567890;
+			}
+#endif
 			GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_LOGIC_CRC );
 			msg->appendIntegerArgument( m_CRC );
 			msg->appendBooleanArgument( (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK) ); // playback CRC
@@ -3864,18 +3951,6 @@ void GameLogic::update( void )
 	TheLocomotorStore->UPDATE();	
 	TheVictoryConditions->UPDATE();
 
-#ifdef DO_COPY_PROTECTION
-	if (!isInShellGame() && isInGame())
-	{
-		if ((m_frame == 1024) && !CopyProtect::validate())
-		{
-			DEBUG_LOG(("Copy protection failed - bailing"));
-			GameMessage *msg = TheMessageStream->appendMessage(GameMessage::MSG_SELF_DESTRUCT);
-			msg->appendBooleanArgument(FALSE);
-		}
-	}
-#endif
-
 	{
 		//Handle disabled statii (and re-enable objects once frame matches)
 		for( Object *obj = m_objList; obj; obj = obj->getNextObject() )
@@ -3897,6 +3972,20 @@ void GameLogic::update( void )
 #if !defined(GENERALS_ONLINE_RUN_FAST)
 		m_frame++;
 #endif
+	}
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+void GameLogic::preUpdate()
+{
+	if (m_pauseFrame == m_frame && m_pauseFrame != 0)
+	{
+		m_pauseFrame = 0;
+		Bool pause = TRUE;
+		Bool pauseMusic = FALSE;
+		Bool pauseInput = FALSE;
+		TheGameLogic->setGamePaused(pause, pauseMusic, pauseInput);
 	}
 }
 
@@ -4266,7 +4355,17 @@ Bool GameLogic::isGamePaused( void )
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-void GameLogic::setGamePaused( Bool paused, Bool pauseMusic )
+void GameLogic::setGamePausedInFrame( UnsignedInt frame )
+{
+	if (frame >= m_frame)
+	{
+		m_pauseFrame = frame;
+	}
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+void GameLogic::setGamePaused( Bool paused, Bool pauseMusic, Bool pauseInput )
 {
 	// We need to ignore an unpause called when we are unpaused or else:
 	// Mouse is hidden for some reason (script or something)
@@ -4280,29 +4379,32 @@ void GameLogic::setGamePaused( Bool paused, Bool pauseMusic )
 
 	// GameUnpaused
 	// Set mouse the way it "was" <--- Was counting on right answer being set in Pause.
-	if( paused == m_gamePaused )
+
+	pauseGameLogic(paused);
+	pauseGameSound(paused);
+	pauseGameMusic(paused && pauseMusic);
+	pauseGameInput(paused && pauseInput);
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+void GameLogic::pauseGameLogic(Bool paused)
+{
+	m_gamePaused = paused;
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+void GameLogic::pauseGameSound(Bool paused)
+{
+	if(m_pauseSound == paused)
 		return;
 
-	m_gamePaused = paused; 
+	m_pauseSound = paused;
 
-	AudioAffect audToAffect = (AudioAffect)(pauseMusic ? AudioAffect_All : (AudioAffect_All & ~AudioAffect_Music));
-	
 	if(paused)
 	{
-		// remember the state of the mouse/input so we can return to the same state once we "unpause"
-		m_inputEnabledMemory = TheInGameUI->getInputEnabled();
-		m_mouseVisibleMemory = TheMouse->getVisibility();
-		
-		// Make sure the mouse is visible and the cursor is an arrow
-		TheMouse->setVisibility(TRUE);
-		TheMouse->setCursor( Mouse::ARROW );
-		
-		// if Input is enabled, disable it
-		if(m_inputEnabledMemory)
-		{
-			TheInGameUI->setInputEnabled(FALSE);
-		}
-		TheAudio->pauseAudio(audToAffect);
+		TheAudio->pauseAudio((AudioAffect)(AudioAffect_All & ~AudioAffect_Music));
 
 #if 0 // Kris added this code some time ago. I'm not sure why -- the pauseAudio should stop the 
       // ambients by itself. Everything seems to work fine without it and it's messing up my 
@@ -4320,11 +4422,7 @@ void GameLogic::setGamePaused( Bool paused, Bool pauseMusic )
 	}
 	else
 	{
-		// set the mouse/input states to what they were before we paused.
-		TheMouse->setVisibility(m_mouseVisibleMemory);
-		if(m_inputEnabledMemory)
-			TheInGameUI->setInputEnabled(TRUE);
-		TheAudio->resumeAudio(audToAffect);
+		TheAudio->resumeAudio((AudioAffect)(AudioAffect_All & ~AudioAffect_Music));
 
 #if 0
 		//Start all ambient sounds!
@@ -4335,6 +4433,61 @@ void GameLogic::setGamePaused( Bool paused, Bool pauseMusic )
 			drawable = drawable->getNextDrawable();
 		}
 #endif
+	}
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+void GameLogic::pauseGameMusic(Bool paused)
+{
+	if(m_pauseMusic == paused)
+		return;
+
+	m_pauseMusic = paused;
+
+	if(paused)
+	{
+		TheAudio->pauseAudio(AudioAffect_Music);
+	}
+	else
+	{
+		TheAudio->resumeAudio(AudioAffect_Music);
+	}
+}
+
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+void GameLogic::pauseGameInput(Bool paused)
+{
+	if(m_pauseInput == paused)
+		return;
+
+	m_pauseInput = paused;
+
+	if(paused)
+	{
+		// remember the state of the mouse/input so we can return to the same state once we "unpause"
+		m_inputEnabledMemory = TheInGameUI->getInputEnabled();
+		m_mouseVisibleMemory = TheMouse->getVisibility();
+		
+		// Make sure the mouse is visible and the cursor is an arrow
+		TheMouse->setVisibility(TRUE);
+		TheMouse->setCursor( Mouse::ARROW );
+		
+		// if Input is enabled, disable it
+		if(m_inputEnabledMemory)
+		{
+			TheInGameUI->setInputEnabled(FALSE);
+		}
+	}
+	else
+	{
+		// set the mouse/input states to what they were before we paused.
+		TheMouse->setVisibility(m_mouseVisibleMemory);
+		if(m_inputEnabledMemory)
+		{
+			TheInGameUI->setInputEnabled(TRUE);
+		}
 	}
 }
 

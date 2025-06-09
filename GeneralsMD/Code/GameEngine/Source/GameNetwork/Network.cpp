@@ -168,7 +168,11 @@ public:
 	void attachTransport(Transport *transport);
 	void initTransport();
 
-	void setSawCRCMismatch( void );
+#if defined(GENERALS_ONLINE)
+	void setSawCRCMismatch(UnicodeString& strMismatchDetails);
+#else
+	void setSawCRCMismatch(void);
+#endif
 	Bool sawCRCMismatch( void ) { return m_sawCRCMismatch; }
 	Bool isPlayerConnected( Int playerID );
 
@@ -369,14 +373,27 @@ void Network::init()
 	return;
 }
 
+#if defined(GENERALS_ONLINE)
+void Network::setSawCRCMismatch(UnicodeString& strMismatchDetails)
+#else
 void Network::setSawCRCMismatch( void )
+#endif
 {
 	m_sawCRCMismatch = TRUE;
 
 	TheScriptActions->closeWindows( TRUE );
+#if defined(GENERALS_ONLINE)
+	m_messageWindow = MessageBoxOk(UnicodeString(L"Mismatch Occurred"), strMismatchDetails, nullptr);
+#else
 	m_messageWindow = TheWindowManager->winCreateFromScript("Menus/CRCMismatch.wnd");
-	TheScriptEngine->startEndGameTimer();
+#endif
 
+#if defined(GENERALS_ONLINE)
+	TheScriptEngine->startEndGameTimer(true);
+#else
+	TheScriptEngine->startEndGameTimer();
+#endif
+	
 	TheRecorder->logCRCMismatch();
 
 	// dump GameLogic random seed
@@ -476,11 +493,11 @@ void Network::GetCommandsFromCommandList() {
 				m_conMgr->sendLocalGameMessage(msg, getExecutionFrame());
 			}
 			TheCommandList->removeMessage(msg); // This does not destroy msg's prev and next pointers, so they should still be valid.
-			msg->deleteInstance();
+			deleteInstance(msg);
 		} else {
 			if (processCommand(msg)) {
 				TheCommandList->removeMessage(msg);
-				msg->deleteInstance();
+				deleteInstance(msg);
 			}
 		}
 		msg = next;
@@ -518,7 +535,7 @@ Bool Network::processCommand(GameMessage *msg)
 #endif
 				m_localStatus = NETLOCALSTATUS_INGAME;
 				NetCommandList *netcmdlist = m_conMgr->getFrameCommandList(0); // clear out frame 0 since we skipped it
-				netcmdlist->deleteInstance();
+				deleteInstance(netcmdlist);
 			} else {
 				return FALSE;
 			}
@@ -615,7 +632,7 @@ void Network::RelayCommandsToCommandList(UnsignedInt frame) {
 	}
 	m_playersToDisconnect.clear();
 
-	netcmdlist->deleteInstance();
+	deleteInstance(netcmdlist);
 }
 
 /**
@@ -721,7 +738,7 @@ void Network::update( void )
 
 	liteupdate();
 
-	if ((m_localStatus == NETLOCALSTATUS_LEFT)) {// || (m_localStatus == NETLOCALSTATUS_LEAVING)) {
+	if (m_localStatus == NETLOCALSTATUS_LEFT) {// || (m_localStatus == NETLOCALSTATUS_LEAVING)) {
 		endOfGameCheck();
 	}
 
