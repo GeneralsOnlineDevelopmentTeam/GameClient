@@ -356,26 +356,7 @@ static void updateNumPlayersOnline(void)
 				}
 		}
 
-		AsciiString netCapStr;
-
-		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
-		int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-		netCapStr.format("Your Network Status:\nNetwork Port: %d (%s)\nDirect Connect: %hs%s\nRelayed Connect: %hs\nServer Region: %s (%dms)",
-			preferredPort,
-			strPortState.c_str(),
-			NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
-#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
-			(mappingTechUsed == PortMapper::EMappingTech::MANUAL) ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
-#else
-			"",
-#endif
-			"Supported",
-			NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionName().c_str(),
-			NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency()
-		);
-
 		// END NETWORK CAPS
-
 		while (aMotd.nextToken(&aLine, "\n"))
 		{
 			if (aLine.getCharAt(aLine.getLength()-1) == '\r')
@@ -411,13 +392,41 @@ static void updateNumPlayersOnline(void)
 		}
 
 		// add network caps
+
+		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
+		int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 		{
 			Color c = GameMakeColor(255, 194, 15, 255);
 			GadgetListBoxAddEntryText(listboxInfo, UnicodeString(L" "), c, -1, -1);
-			
-			//Color c = GameSpyColor[GSCOLOR_MOTD];
+
 			UnicodeString line;
-			line.format(L"%hs", netCapStr.str());
+
+			// network status
+			GadgetListBoxAddEntryText(listboxInfo, UnicodeString(L"Your Network Status:"), c, -1, -1);
+
+			// network port
+			line.format(L"Network Port: %d (%hs)", preferredPort, strPortState.c_str());
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+
+			// direct connect
+			line.format(L"Direct Connect: %hs%hs",
+				NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+#if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
+				(mappingTechUsed == PortMapper::EMappingTech::MANUAL) ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
+#else
+				""
+#endif
+			);
+
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+
+			// relayed connect
+			line.format(L"Relayed Connect: %hs", "Supported");
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+
+			// server region
+			line.format(L"Server Region: %hs (%dms)", NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionName().c_str(),
+				NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency());
 			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
 		}
 		
