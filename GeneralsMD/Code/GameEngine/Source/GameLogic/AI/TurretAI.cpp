@@ -687,10 +687,23 @@ void TurretAI::friend_notifyStateMachineChanged()
 DECLARE_PERF_TIMER(TurretAI)
 UpdateSleepTime TurretAI::updateTurretAI()
 {
+	// NGMP_TODO: Replace this hack, it's to fix firewall, but we should be tweaking the rotation logic instead. Also string compare is really expensive and horrible.
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	if (TheGameLogic->getFrame() % 2 != 0)
 	{
-		return UPDATE_SLEEP_FOREVER;
+		if (m_turretStateMachine && m_turretStateMachine->getOwner() != nullptr)
+		{
+			WeaponSlotType currentWeaponSlot;
+			Weapon* pWeapon = m_turretStateMachine->getOwner()->getCurrentWeapon(&currentWeaponSlot);
+			if (pWeapon != nullptr)
+			{
+				if (pWeapon->getName() == "DragonTankFireWallWeapon" && currentWeaponSlot == SECONDARY_WEAPON)
+				{
+					return UPDATE_SLEEP_FOREVER;
+				}
+			}
+		}
+		
 	}
 #endif
 
