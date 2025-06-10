@@ -56,12 +56,12 @@ void GenOnlineSettings::Load(void)
 
 				if (cameraSettings.contains(SETTINGS_KEY_CAMERA_MIN_HEIGHT))
 				{
-					m_Camera_MinHeight = cameraSettings[SETTINGS_KEY_CAMERA_MIN_HEIGHT];
+					m_Camera_MinHeight = std::max<float>(static_cast<float>(cameraSettings[SETTINGS_KEY_CAMERA_MIN_HEIGHT]), m_Camera_MinHeight_default);
 				}
 
 				if (cameraSettings.contains(SETTINGS_KEY_CAMERA_MAX_HEIGHT))
 				{
-					m_Camera_MaxHeight = cameraSettings[SETTINGS_KEY_CAMERA_MAX_HEIGHT];
+					m_Camera_MaxHeight = std::min<float>(static_cast<float>(cameraSettings[SETTINGS_KEY_CAMERA_MAX_HEIGHT]), m_Camera_MaxHeight_default);
 				}
 			}
 		}

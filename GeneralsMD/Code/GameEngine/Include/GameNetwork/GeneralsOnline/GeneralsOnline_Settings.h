@@ -23,7 +23,7 @@ private:
 	const float m_Camera_MinHeight_default = 100.f;
 	float m_Camera_MinHeight = m_Camera_MinHeight_default;
 
-	const float m_Camera_MaxHeight_default = 600.f;
+	const float m_Camera_MaxHeight_default = 450.f;
 	float m_Camera_MaxHeight = m_Camera_MaxHeight_default;
 
 	bool m_bInitialized = false;
