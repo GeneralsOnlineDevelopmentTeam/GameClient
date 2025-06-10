@@ -2,14 +2,7 @@
 
 HTTPManager::HTTPManager() noexcept
 {
-	m_pCurl = curl_multi_init();
-
-	// HTTP background thread
-	m_backgroundThread = new std::thread(&HTTPManager::BackgroundThreadRun, this);
-
-	m_bProxyEnabled = DeterminePlatformProxySettings();
-
-	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread->native_handle()), L"HTTP Background Thread");
+	
 }
 
 void HTTPManager::SendGETRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback)
@@ -141,6 +134,17 @@ HTTPRequest* HTTPManager::PlatformCreateRequest(EHTTPVerb httpVerb, EIPProtocolV
 HTTPManager::~HTTPManager()
 {
 	Shutdown();
+}
+
+void HTTPManager::Initialize()
+{
+	m_pCurl = curl_multi_init();
+
+	m_bProxyEnabled = DeterminePlatformProxySettings();
+
+	// HTTP background thread
+	m_backgroundThread = new std::thread(&HTTPManager::BackgroundThreadRun, this);
+	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread->native_handle()), L"HTTP Background Thread");
 }
 
 void HTTPManager::MainThreadTick()

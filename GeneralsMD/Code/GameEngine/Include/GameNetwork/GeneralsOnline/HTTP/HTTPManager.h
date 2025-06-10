@@ -30,6 +30,8 @@ public:
 	HTTPManager() noexcept;
 	~HTTPManager();
 
+	void Initialize();
+
 	void MainThreadTick();
 
 	void SendGETRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback = nullptr);

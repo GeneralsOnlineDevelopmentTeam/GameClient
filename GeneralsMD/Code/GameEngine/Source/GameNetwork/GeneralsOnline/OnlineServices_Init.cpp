@@ -305,6 +305,7 @@ void NGMP_OnlineServicesManager::Init()
 	m_pStatsInterface = new NGMP_OnlineServices_StatsInterface();
 
 	m_pHTTPManager = new HTTPManager();
+	m_pHTTPManager->Initialize();
 }
 
 
