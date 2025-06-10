@@ -854,6 +854,13 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index, const char* szPass
 
 void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const char* szPassword)
 {
+	if (m_bAttemptingToJoinLobby)
+	{
+		NetworkLog("Not attempting to join lobby because a join attempt is already in progress");
+		return;
+	}
+
+	m_bAttemptingToJoinLobby = true;
 	m_CurrentLobby = LobbyEntry();
 
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), lobbyInfo.lobbyID);
@@ -945,6 +952,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 					{
 						OnJoinedOrCreatedLobby(false, [=]()
 							{
+								m_bAttemptingToJoinLobby = false;
 								if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby != nullptr)
 								{
 									NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(JoinResult);
@@ -972,6 +980,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 				{
 					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(JoinResult);
 				}
+				m_bAttemptingToJoinLobby = false;
 			}
 
 			

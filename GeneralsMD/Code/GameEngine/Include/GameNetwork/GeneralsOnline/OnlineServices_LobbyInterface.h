@@ -412,6 +412,7 @@ private:
 
 	int64_t m_timeStartAutoReadyCountdown = -1;
 
+	bool m_bAttemptingToJoinLobby = false;
 	LobbyEntry m_LobbyTryingToJoin;
 
 	bool m_bSearchInProgress = false;
