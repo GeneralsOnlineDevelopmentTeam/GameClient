@@ -2074,7 +2074,7 @@ void grabMultiPlayerInfo( void )
 	// but this logic we always need to run at end of game
 	if (TheNetwork != nullptr)
 	{
-		NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
+		NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
 		if (pOnlineServicesMgr != nullptr)
 		{
 			UnsignedInt latestHumanInGame = 0;
@@ -2227,7 +2227,12 @@ void grabMultiPlayerInfo( void )
 			// NGMP: mark the game done, everyone makes this call for safety (host can have left)
 			if (sawEndOfGame)
 			{
-				pOnlineServicesMgr->MarkCurrentGameAsFinished();
+				NGMP_OnlineServices_LobbyInterface* pLobbyInterface = pOnlineServicesMgr->GetLobbyInterface();
+
+				if (pLobbyInterface != nullptr)
+				{
+					pLobbyInterface->MarkCurrentGameAsFinished();
+				}
 			}
 		}
 	}
