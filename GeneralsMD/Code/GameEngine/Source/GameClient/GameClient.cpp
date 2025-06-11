@@ -115,6 +115,11 @@ GameClient::GameClient()
 
 	m_frame = 0;
 
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_frameLegacy = 0;
+	m_frameLegacyLast = 0;
+#endif
+
 	m_drawableList = NULL;
 	
 	m_nextDrawableID = (DrawableID)1;
@@ -658,7 +663,11 @@ void GameClient::update( void )
 
 	// hack to let client spin fast in network games but still do effects at the same pace. -MDC
 	static UnsignedInt lastFrame = ~0;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	freezeTime = freezeTime || (lastFrame == m_frame) || !HasLegacyFrameAdvanced();
+#else
 	freezeTime = freezeTime || (lastFrame == m_frame);
+#endif
 	lastFrame = m_frame;
 
 	if (!freezeTime)
@@ -785,6 +794,19 @@ void GameClient::update( void )
 		// update the in game UI 
 		TheInGameUI->UPDATE();
 	}
+#endif
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+#if !defined(GENERALS_ONLINE_RUN_FAST)
+	if (m_frame % 2 == 0)
+	{
+		m_frameLegacy++;
+	}
+	else
+	{
+		m_frameLegacyLast = m_frameLegacy;
+	}
+#endif
 #endif
 }  // end update
 

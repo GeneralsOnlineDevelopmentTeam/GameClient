@@ -699,7 +699,9 @@ UpdateSleepTime TurretAI::updateTurretAI()
 			{
 				if (pWeapon->getName() == "DragonTankFireWallWeapon" && currentWeaponSlot == SECONDARY_WEAPON)
 				{
-					return UPDATE_SLEEP_FOREVER;
+					int x = 0;
+					x = 1;
+					//return UPDATE_SLEEP_FOREVER;
 				}
 			}
 		}

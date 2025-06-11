@@ -356,6 +356,13 @@ it's sortKey */
 //=============================================================================
 void W3DTreeBuffer::updateSway(const BreezeInfo& info)
 {
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (TheGameLogic && TheGameLogic->HasLegacyFrameAdvanced())
+	{
+		return;
+	}
+
+#endif
 	Int i;
 	for	(i=0; i<NUM_SWAY_ENTRIES; i++) {
 		Real factor = Cos(i*2.0f*PI/(NUM_SWAY_ENTRIES+1.0f));
@@ -1561,14 +1568,6 @@ void W3DTreeBuffer::drawTrees(CameraClass* camera, RefRenderObjListIterator* pDy
 	Vector3 swayFactor[MAX_SWAY_TYPES];
 	for (i=0; i<MAX_SWAY_TYPES; i++) {
 		if (!pause) {
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-			UnsignedInt currLogicFrame = 0;
-
-			if (TheGameLogic)
-				currLogicFrame = TheGameLogic->getFrame();
-
-			if (currLogicFrame % 2 != 0)
-#endif
 			{
 				m_curSwayOffset[i] += m_curSwayStep[i];
 				if (m_curSwayOffset[i] > NUM_SWAY_ENTRIES - 1)

@@ -289,7 +289,11 @@ Particle::Particle( ParticleSystem *system, const ParticleInfo *info )
 #if defined(GENERALS_ONLINE_RUN_FAST)
 	m_createTimestamp = TheGameLogic->getFrame();
 #else
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_createTimestamp = TheGameClient->getFrameLegacy();
+#else
 	m_createTimestamp = TheGameClient->getFrame();
+#endif
 #endif
 	m_personality = 0;
 
@@ -420,7 +424,11 @@ Bool Particle::update( void )
 #if defined(GENERALS_ONLINE_RUN_FAST)
 			if (TheGameLogic->getFrame() - m_createTimestamp >= m_alphaKey[ m_alphaTargetKey ].frame)
 #else
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			if (TheGameClient->getFrameLegacy() - m_createTimestamp >= m_alphaKey[m_alphaTargetKey].frame)
+#else
 			if (TheGameClient->getFrame() - m_createTimestamp >= m_alphaKey[m_alphaTargetKey].frame)
+#endif
 #endif
 			{
 				m_alpha = m_alphaKey[ m_alphaTargetKey ].value;
@@ -451,7 +459,11 @@ Bool Particle::update( void )
 #if defined(GENERALS_ONLINE_RUN_FAST)
 		if (TheGameLogic->getFrame() - m_createTimestamp >= m_colorKey[ m_colorTargetKey ].frame)
 #else
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+		if (TheGameClient->getFrameLegacy() - m_createTimestamp >= m_colorKey[m_colorTargetKey].frame)
+#else
 		if (TheGameClient->getFrame() - m_createTimestamp >= m_colorKey[m_colorTargetKey].frame)
+#endif
 #endif
 		{
 			// can't set, because of colorscale
@@ -1129,7 +1141,11 @@ ParticleSystem::ParticleSystem( const ParticleSystemTemplate *sysTemplate,
 #if defined(GENERALS_ONLINE_RUN_FAST)
 	m_startTimestamp = TheGameLogic->getFrame();
 #else
-	m_startTimestamp = TheGameClient->getFrame();
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_startTimestamp = TheGameClient->getFrameLegacy();
+#else
+	m_startTimestamp = TheGameClient->getFrameLegacy();
+#endif
 #endif
 	m_systemLifetimeLeft = sysTemplate->m_systemLifetime;
 	if (sysTemplate->m_systemLifetime)
@@ -1885,7 +1901,11 @@ Bool ParticleSystem::update( Int localPlayerIndex  )
 #if defined(GENERALS_ONLINE_RUN_FAST)
 			m_startTimestamp = TheGameLogic->getFrame();
 #else
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			m_startTimestamp = TheGameClient->getFrameLegacy();
+#else
 			m_startTimestamp = TheGameClient->getFrame();
+#endif
 #endif
 
 		return true;
@@ -2956,17 +2976,18 @@ void ParticleSystemManager::reset( void )
 void ParticleSystemManager::update( void )
 {
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	if (TheGameLogic->getFrame() % 2 != 0)
-	{
+	if (!TheGameClient->HasLegacyFrameAdvanced()) {
 		return;
 	}
 #endif
-	if (m_lastLogicFrameUpdate == TheGameLogic->getFrame()) {
-		return;
-	}
 
 	// update the last logic frame.
-	m_lastLogicFrameUpdate = TheGameLogic->getFrame();
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_lastLogicFrameUpdate = TheGameClient->getFrameLegacy();
+#else
+	m_lastLogicFrameUpdate = TheGameClient->getFrame();
+#endif
+
 
 	//USE_PERF_TIMER(ParticleSystemManager)
 	ParticleSystemListIt it = m_allParticleSystemList.begin(); 

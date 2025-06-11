@@ -1224,7 +1224,7 @@ void WaterRenderObjClass::update( void )
 
 	// 60fps... only update the water at the original game speed
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	if (lastLogicFrame != currLogicFrame && currLogicFrame % 2 != 0)
+	if (!TheGameLogic->HasLegacyFrameAdvanced())
 	{
 		return;
 	}
