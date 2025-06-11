@@ -358,7 +358,7 @@ void NGMPGame::launchGame(void)
 		if (slot->isHuman())
 		{
 			// TODO_NGMP:
-			bool bPreordered = true;
+			bool bPreordered = false;
 			if (bPreordered)
 				markPlayerAsPreorder(i);
 		}
