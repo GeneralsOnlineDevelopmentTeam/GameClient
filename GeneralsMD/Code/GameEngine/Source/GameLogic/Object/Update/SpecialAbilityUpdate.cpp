@@ -743,7 +743,11 @@ void SpecialAbilityUpdate::startPacking(Bool success)
   const SpecialAbilityUpdateModuleData* data = getSpecialAbilityUpdateModuleData();
   m_packingState = STATE_PACKING;
   Real variation = GameLogicRandomValueReal( 1.0f - data->m_packUnpackVariationFactor, 1.0f + data->m_packUnpackVariationFactor );
-  m_animFrames = data->m_packTime * variation;
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+  m_animFrames = (data->m_unpackTime * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER) * variation;
+#else
+  m_animFrames = data->m_unpackTime * variation;
+#endif
 
   //Set the animation state
   getObject()->clearAndSetModelConditionFlags( 
@@ -796,7 +800,11 @@ void SpecialAbilityUpdate::startUnpacking()
   const SpecialAbilityUpdateModuleData* data = getSpecialAbilityUpdateModuleData();
   m_packingState = STATE_UNPACKING;
   Real variation = GameLogicRandomValueReal( 1.0f - data->m_packUnpackVariationFactor, 1.0f + data->m_packUnpackVariationFactor );
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+  m_animFrames = (data->m_unpackTime * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER) * variation;
+#else
   m_animFrames = data->m_unpackTime * variation;
+#endif
 
   //Set the animation state
   getObject()->clearAndSetModelConditionFlags( 
@@ -1035,7 +1043,11 @@ void SpecialAbilityUpdate::startPreparation()
                                                    MAKE_MODELCONDITION_MASK( MODELCONDITION_RAISING_FLAG ) );
       Drawable* draw = getObject()->getDrawable();
       if (draw)
-        draw->setAnimationCompletionTime(data->m_preparationFrames);
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+            draw->setAnimationCompletionTime(data->m_preparationFrames * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER);
+#else
+          draw->setAnimationCompletionTime(data->m_preparationFrames * 2);
+#endif
 
       //Warn the victim so he might have a chance to react!
       if( target && target->isLocallyControlled() )
@@ -1226,7 +1238,11 @@ Bool SpecialAbilityUpdate::continuePreparation()
           
           Real denominator = MAX(1, data->m_preparationFrames);
           Real increment = 1.0f - ((Real)m_prepFrames / denominator );
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+          m_captureFlashPhase += increment / (3.0f * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER);
+#else
           m_captureFlashPhase += increment / 3.0f;
+#endif
 
           Bool thisPhase = ( ((Int)m_captureFlashPhase) & 1 );// are we in a flashy phase this frame?
 
