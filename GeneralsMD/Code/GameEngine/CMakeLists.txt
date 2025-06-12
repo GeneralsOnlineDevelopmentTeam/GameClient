@@ -1407,5 +1407,6 @@ target_link_libraries(z_gameengine PUBLIC
 
 target_precompile_headers(z_gameengine PRIVATE Include/Precompiled/PreRTS.h)
 
+add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 add_compile_definitions(GENERALS_ONLINE)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:strict")
