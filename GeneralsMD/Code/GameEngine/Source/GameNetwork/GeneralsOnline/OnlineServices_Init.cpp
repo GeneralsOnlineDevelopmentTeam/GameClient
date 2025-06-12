@@ -8,6 +8,12 @@
 #include "../../DownloadManager.h"
 #include <ws2tcpip.h>
 
+extern "C"
+{
+	__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
+	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager = nullptr;
 
 enum class EVersionCheckResponseResult : int
