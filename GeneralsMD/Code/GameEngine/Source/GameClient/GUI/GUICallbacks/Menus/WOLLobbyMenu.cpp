@@ -164,15 +164,34 @@ Bool handleLobbySlashCommands(UnicodeString uText)
 
 	if (token == "host")
 	{
+		// TODO_NGMP
+		/*
 		UnicodeString s;
 		s.format(L"Hosting qr2:%d thread:%d", getQR2HostingStatus(), isThreadHosting);
 		TheGameSpyInfo->addText(s, GameSpyColor[GSCOLOR_DEFAULT], NULL);
+		*/
 		return TRUE; // was a slash command
 	}
 	else if (token == "me" && uText.getLength()>4)
 	{
 		UnicodeString msg = UnicodeString(uText.str() + 4); // skip the /me
 		NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->SendChatMessageToCurrentRoom(msg, true);
+		return TRUE; // was a slash command
+	}
+	else if ((token == "name" && uText.getLength() > 6) || (token == "nick" && uText.getLength() > 4))
+	{
+		AsciiString newName;
+		newName.translate(UnicodeString(uText.str() + 6)); // skip the /name or nick
+
+		if (newName.getLength() < 3 || newName.getLength() > 16)
+		{
+			GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Your new name must be between 3 and 16 characters."), GameMakeColor(255, 0, 0, 255), -1, -1);
+		}
+		else
+		{
+			NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_ChangeName(newName.str());
+		}
+		
 		return TRUE; // was a slash command
 	}
 	else if (token == "refresh")

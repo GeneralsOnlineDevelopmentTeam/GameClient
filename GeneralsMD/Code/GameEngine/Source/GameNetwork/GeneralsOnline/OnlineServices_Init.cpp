@@ -402,6 +402,16 @@ void WebSocket::Shutdown()
 	Disconnect();
 }
 
+void WebSocket::SendData_ChangeName(const char* szNewName)
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::PLAYER_NAME_CHANGE;
+	j["name"] = szNewName;
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+}
+
 void WebSocket::SendData_LeaveNetworkRoom()
 {
 	SendData_JoinNetworkRoom(-1);

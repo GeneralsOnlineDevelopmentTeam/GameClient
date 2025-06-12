@@ -29,7 +29,8 @@ enum EWebSocketMessageID
 	NETWORK_ROOM_MARK_READY = 5,
 	LOBBY_CURRENT_LOBBY_UPDATE = 6,
 	NETWORK_ROOM_LOBBY_LIST_UPDATE = 7,
-	PLAYER_CONNECTION_RELAY_UPGRADE = 8
+	PLAYER_CONNECTION_RELAY_UPGRADE = 8,
+	PLAYER_NAME_CHANGE = 9,
 };
 
 enum class EQoSRegions
@@ -125,6 +126,7 @@ public:
 
 	void Shutdown();
 
+	void SendData_ChangeName(const char* szMessage);
 	void SendData_RoomChatMessage(const char* szMessage, bool bIsAction);
 	void SendData_JoinNetworkRoom(int roomID);
 	void SendData_LeaveNetworkRoom();
