@@ -1154,7 +1154,16 @@ void ExitState()
 
 	SetLobbyAttemptHostJoin(TRUE); // pretend, since we don't want to queue up another action
 	buttonPushed = true;
-	nextScreen = "Menus/WOLWelcomeMenu.wnd";
+
+	if (NGMP_OnlineServicesManager::GetInstance()->IsPendingFullTeardown()) // go back to the front end
+	{
+		nextScreen = nullptr;
+	}
+	else // user backed out, go back to welcome menu
+	{
+		nextScreen = "Menus/WOLWelcomeMenu.wnd";
+	}
+	
 	TheShell->pop();
 }
 
