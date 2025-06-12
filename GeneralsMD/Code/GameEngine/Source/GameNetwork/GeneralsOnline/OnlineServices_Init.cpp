@@ -89,7 +89,7 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck", false);
 
 	// NOTE: Generals 'CRCs' are not true CRC's, its a custom algorithm. This is fine for lobby comparisons, but its not good for patch comparisons.
-	NetworkLog("Starting version check to endpoint %s", strURI.c_str());
+	//NetworkLog("Starting version check to endpoint %s", strURI.c_str());
 	// exe crc
 	Char filePath[_MAX_PATH];
 	GetModuleFileName(NULL, filePath, sizeof(filePath));

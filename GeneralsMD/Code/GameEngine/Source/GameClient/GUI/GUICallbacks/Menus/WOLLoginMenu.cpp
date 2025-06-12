@@ -457,6 +457,10 @@ void WOLLoginMenuInit( WindowLayout *layout, void *userData )
 	isShuttingDown = false;
 	loginAttemptTime = 0;
 
+	// NGMP
+	ClearGSMessageBoxes();
+	GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please wait..."), true);
+
 	// NGMP: Register for login callback
 	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->RegisterForLoginCallback(NGMP_WOLLoginMenu_LoginCallback);
 	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->BeginLogin();
@@ -527,9 +531,6 @@ void WOLLoginMenuInit( WindowLayout *layout, void *userData )
 	// Set Keyboard to Main Parent
 	RaiseGSMessageBox();
 	TheTransitionHandler->setGroup("GameSpyLoginProfileFade");
-
-	// NGMP
-	GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Authenticating.\n\nYou may need to interact with your web browser."), true);
 
 } // WOLLoginMenuInit
 

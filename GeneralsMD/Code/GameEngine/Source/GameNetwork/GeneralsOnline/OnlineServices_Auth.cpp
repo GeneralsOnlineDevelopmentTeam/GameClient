@@ -65,7 +65,7 @@ void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 {
 	// move on to network capabilities section
 	ClearGSMessageBoxes();
-	GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining local network capabilities... this may take a few seconds"), true);
+	GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining local network capabilities... this could take a few seconds"), true);
 
 	// NOTE: This is partially blocking and partially async...
 	NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().DetermineLocalNetworkCapabilities([this]()
@@ -213,6 +213,9 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 							if (authResp.result == EAuthResponseResult::SUCCEEDED)
 							{
+								ClearGSMessageBoxes();
+								GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Logged in!"), true);
+
 								NetworkLog("LOGIN: Logged in");
 								m_bWaitingLogin = false;
 
@@ -228,6 +231,9 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 							}
 							else if (authResp.result == EAuthResponseResult::FAILED)
 							{
+								ClearGSMessageBoxes();
+								GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);
+
 								NetworkLog("LOGIN: Login failed, trying to re-auth");
 
 								// do normal login flow, token is bad or expired etc
@@ -254,6 +260,9 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 				m_strCode = GenerateGamecode();
 
 				std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+
+				ClearGSMessageBoxes();
+				GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);
 
 				ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
 			}
@@ -338,7 +347,7 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 
 		// move on to network capabilities section
 		ClearGSMessageBoxes();
-		GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining best server region... this may take a few seconds"), true);
+		GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining best server region... this could take a few seconds"), true);
 
 		// Get QoS endpoints
 		std::string strQoSURI = NGMP_OnlineServicesManager::GetAPIEndpoint("QOS", true);
