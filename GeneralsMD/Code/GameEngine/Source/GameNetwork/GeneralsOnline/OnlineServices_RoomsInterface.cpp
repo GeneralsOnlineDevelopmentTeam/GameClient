@@ -208,7 +208,7 @@ void WebSocket::Tick()
 
 	if (ret != CURLE_RECV_ERROR && ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
 	{
-		NetworkLog("Got websocket msg: %s", buffer);
+		//NetworkLog("Got websocket msg: %s", buffer);
 
 		// what type of message?
 		if (meta != nullptr)

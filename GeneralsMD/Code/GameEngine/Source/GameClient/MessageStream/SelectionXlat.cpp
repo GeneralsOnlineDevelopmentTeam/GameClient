@@ -1213,9 +1213,34 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 						TheInGameUI->deselectAllDrawables();
 					}
 
+#if defined(GENERALS_ONLINE)
+					// NGMP_CHANGE: Check every object in the group we are merging with if we are NOT a structure, and the target group includes a structure, do not merge. (solves SCUD bug)
+					Player* player = ThePlayerList->getLocalPlayer();
+					if (player)
+					{
+						Squad* selectedSquad = player->getHotkeySquad(group);
+						if (selectedSquad != NULL)
+						{
+							VecObjectPtr objlist = selectedSquad->getLiveObjects();
+							Int numObjs = objlist.size();
+							for (Int i = 0; i < numObjs; ++i)
+							{
+								if (objlist[i]->getDrawable()->isKindOf(KINDOF_STRUCTURE))
+								{
+									TheInGameUI->deselectAllDrawables();
+									break;
+								}
+
+							}
+						}
+					}
+#endif
+
 					// no need to send two messages for selecting the same group.
 					TheMessageStream->appendMessage((GameMessage::Type)(GameMessage::MSG_ADD_TEAM0 + group));
+#if !defined(GENERALS_ONLINE)
 					Player *player = ThePlayerList->getLocalPlayer();
+#endif
 					if (player)
 					{
 						Squad *selectedSquad = player->getHotkeySquad(group);
