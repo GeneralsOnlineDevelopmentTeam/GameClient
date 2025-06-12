@@ -132,7 +132,7 @@ public:
 	UnicodeString GetCurrentLobbyMapDisplayName();
 	AsciiString GetCurrentLobbyMapPath();
 
-	void SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode);
+	void SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode, bool bIsAction);
 	void SendAnnouncementMessageToCurrentLobby(UnicodeString& strAnnouncementMsgUnicode, bool bShowToHost);
 
 	void InvokeCreateLobbyCallback(bool bSuccess)
@@ -308,8 +308,8 @@ public:
 			m_OnCannotConnectToLobbyCallback = cb;
 	}
 
-	std::function<void(UnicodeString strMessage)> m_OnChatCallback = nullptr;
-	void RegisterForChatCallback(std::function<void(UnicodeString strMessage)> cb)
+	std::function<void(UnicodeString strMessage, GameSpyColors color)> m_OnChatCallback = nullptr;
+	void RegisterForChatCallback(std::function<void(UnicodeString strMessage, GameSpyColors color)> cb)
 	{
 		m_OnChatCallback = cb;
 	}

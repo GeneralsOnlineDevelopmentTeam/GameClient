@@ -125,7 +125,7 @@ public:
 
 	void Shutdown();
 
-	void SendData_RoomChatMessage(const char* szMessage);
+	void SendData_RoomChatMessage(const char* szMessage, bool bIsAction);
 	void SendData_JoinNetworkRoom(int roomID);
 	void SendData_LeaveNetworkRoom();
 	void SendData_MarkReady(bool bReady);

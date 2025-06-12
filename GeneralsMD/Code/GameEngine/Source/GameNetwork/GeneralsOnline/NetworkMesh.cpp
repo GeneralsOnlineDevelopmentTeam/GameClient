@@ -13,6 +13,7 @@
 #include "../../NetworkDefs.h"
 #include "../../NetworkInterface.h"
 #include "GameLogic/GameLogic.h"
+#include "../OnlineServices_RoomsInterface.h"
 
 
 void NetworkMesh::OnRelayUpgrade(int64_t targetUserID)
@@ -41,6 +42,9 @@ void NetworkMesh::OnRelayUpgrade(int64_t targetUserID)
 
 void NetworkMesh::ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int64_t sendingUserID)
 {
+	GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatPacket.IsAction());
+
+	// TODO_NGMP: Dont make one string per iter
 	int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 	auto lobbyUsers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
 	for (const auto& lobbyUser : lobbyUsers)
@@ -55,14 +59,14 @@ void NetworkMesh::ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int6
 				{
 					UnicodeString str;
 					str.format(L"%hs", chatPacket.GetMsg().c_str());
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
 				}
 			}
 			else
 			{
 				UnicodeString str;
-				str.format(L"%hs: %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str);
+				str.format(L"[%hs] %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
+				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
 			}
 
 

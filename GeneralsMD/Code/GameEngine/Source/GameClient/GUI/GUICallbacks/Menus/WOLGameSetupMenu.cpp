@@ -1449,9 +1449,9 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		buttonBuddy->winEnable(FALSE);
 
 	// register for chat events
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForChatCallback([](UnicodeString strMessage)
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->RegisterForChatCallback([](UnicodeString strMessage, GameSpyColors color)
 		{
-			GadgetListBoxAddEntryText(listboxGameSetupChat, strMessage, GameMakeColor(255, 255, 255, 255), -1, -1);
+			GadgetListBoxAddEntryText(listboxGameSetupChat, strMessage, GameSpyColor[color], -1, -1);
 		});
 
 	// cannot connect to the lobby we joined
@@ -2872,7 +2872,8 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	}
 	else if (token == "me" && uText.getLength()>4)
 	{
-		TheGameSpyInfo->sendChat(UnicodeString(uText.str()+4), TRUE, NULL);
+		UnicodeString msg = UnicodeString(uText.str() + 4); // skip the /me
+		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendChatMessageToCurrentLobby(msg, true);
 		return TRUE; // was a slash command
 	}
 
@@ -3195,7 +3196,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 					// Echo the user's input to the chat window
 					if (!txtInput.isEmpty())
 					{
-						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendChatMessageToCurrentLobby(txtInput);
+						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendChatMessageToCurrentLobby(txtInput, false);
 					}
 				} //if ( controlID == buttonEmote )
 				else if ( controlID == buttonSelectMapID )
@@ -3351,7 +3352,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 					{
 						if (!handleGameSetupSlashCommands(txtInput))
 						{
-							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendChatMessageToCurrentLobby(txtInput);
+							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendChatMessageToCurrentLobby(txtInput, false);
 						}
 					}
 

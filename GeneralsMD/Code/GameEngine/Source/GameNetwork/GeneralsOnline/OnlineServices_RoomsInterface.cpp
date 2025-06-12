@@ -8,6 +8,8 @@
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "../OnlineServices_Init.h"
 #include "../HTTP/HTTPManager.h"
+#include "../../GameSpy/PeerDefs.h"
+
 
 WebSocket::WebSocket()
 {
@@ -68,11 +70,12 @@ void WebSocket::Connect(const char* url)
 	}
 }
 
-void WebSocket::SendData_RoomChatMessage(const char* szMessage)
+void WebSocket::SendData_RoomChatMessage(const char* szMessage, bool bIsAction)
 {
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_CLIENT;
 	j["message"] = szMessage;
+	j["action"] = bIsAction;
 	std::string strBody = j.dump();
 
 	Send(strBody.c_str());
@@ -158,8 +161,9 @@ class WebSocketMessage_RoomChatIncoming : public WebSocketMessageBase
 {
 public:
 	std::string message;
+	bool action;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message, action)
 };
 
 class WebSocketMessage_RelayUpgrade : public WebSocketMessageBase
@@ -235,7 +239,8 @@ void WebSocket::Tick()
 							UnicodeString strChatMsg;
 							strChatMsg.format(L"%hs", chatData.message.c_str());
 
-							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg);
+							GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action);
+							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg, color);
 						}
 						break;
 
@@ -392,13 +397,13 @@ std::map<uint64_t, NetworkRoomMember>& NGMP_OnlineServices_RoomsInterface::GetMe
 	return m_mapMembers;
 }
 
-void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeString& strChatMsgUnicode)
+void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
 	// TODO_NGMP: Support unicode again
 	AsciiString strChatMsg;
 	strChatMsg.translate(strChatMsgUnicode);
 
-	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(strChatMsg.str());
+	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(strChatMsg.str(), bIsAction);
 }
 
 void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string> vecNames, std::vector<int64_t> vecIDs)

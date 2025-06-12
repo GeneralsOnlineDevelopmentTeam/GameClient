@@ -171,7 +171,8 @@ Bool handleLobbySlashCommands(UnicodeString uText)
 	}
 	else if (token == "me" && uText.getLength()>4)
 	{
-		TheGameSpyInfo->sendChat(UnicodeString(uText.str()+4), TRUE, listboxLobbyPlayers);
+		UnicodeString msg = UnicodeString(uText.str() + 4); // skip the /me
+		NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->SendChatMessageToCurrentRoom(msg, true);
 		return TRUE; // was a slash command
 	}
 	else if (token == "refresh")
@@ -877,9 +878,9 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	// TODO_NGMP: player list change callbacks
 	
 	// register for chat events
-	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->RegisterForChatCallback([](UnicodeString strMessage)
+	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->RegisterForChatCallback([](UnicodeString strMessage, GameSpyColors color)
 		{
-			GadgetListBoxAddEntryText(listboxLobbyChat, strMessage, GameMakeColor(255, 255, 255, 255), -1, -1);
+			GadgetListBoxAddEntryText(listboxLobbyChat, strMessage, GameSpyColor[color], -1, -1);
 		});
 
 	// register for roster events
@@ -1968,10 +1969,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					if (!txtInput.isEmpty())
 					{
 						// Send the message
-						NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->SendChatMessageToCurrentRoom(txtInput);
-						
-						// TODO_NGMP: Support this functionality again
-						//TheGameSpyInfo->sendChat( txtInput, FALSE, listboxLobbyPlayers ); // 'emote' button now just sends text
+						NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->SendChatMessageToCurrentRoom(txtInput, false);
 					}
 				}
 				
@@ -2217,7 +2215,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					{
 						AsciiString txtInputAscii;
 						txtInputAscii.translate(txtInput);
-						NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(txtInputAscii.str());
+						NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(txtInputAscii.str(), false);
 						// TODO_NGMP: Support private message again
 						//TheGameSpyInfo->sendChat( txtInput, false, listboxLobbyPlayers );
 					}

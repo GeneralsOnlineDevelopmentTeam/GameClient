@@ -422,14 +422,14 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 		});
 }
 
-void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode)
+void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
 	// TODO_NGMP: Custom
 	// TODO_NGMP: Support unicode again
 	AsciiString strChatMsg;
 	strChatMsg.translate(strChatMsgUnicode);
 
-	NetRoom_ChatMessagePacket chatPacket(strChatMsg, false, false);
+	NetRoom_ChatMessagePacket chatPacket(strChatMsg, false, false, bIsAction);
 
 	// fake send / process locally too
 	m_pLobbyMesh->ProcessChatMessage(chatPacket, NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
@@ -453,7 +453,7 @@ void NGMP_OnlineServices_LobbyInterface::SendAnnouncementMessageToCurrentLobby(U
 	AsciiString strChatMsg;
 	strChatMsg.translate(strAnnouncementMsgUnicode);
 
-	NetRoom_ChatMessagePacket chatPacket(strChatMsg, true, bShowToHost);
+	NetRoom_ChatMessagePacket chatPacket(strChatMsg, true, bShowToHost, false);
 
 	// fake send / process locally too
 	m_pLobbyMesh->ProcessChatMessage(chatPacket, NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());

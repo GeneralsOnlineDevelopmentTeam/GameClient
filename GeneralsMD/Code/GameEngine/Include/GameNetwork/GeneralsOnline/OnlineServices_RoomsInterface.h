@@ -2,6 +2,45 @@
 
 #include "NGMP_include.h"
 #include "NetworkMesh.h"
+#include "../GameSpy/PeerDefs.h"
+
+enum class EChatMessageType
+{
+	CHAT_MESSAGE_TYPE_NETWORK_ROOM,
+	CHAT_MESSAGE_TYPE_LOBBY
+};
+static GameSpyColors DetermineColorForChatMessage(EChatMessageType chatMessageType, Bool isPublic, Bool isAction)
+{
+	GameSpyColors style;
+
+	// TODO_NGMP: Support owner chat again
+	Bool isOwner = false;
+
+	if (isPublic && isAction)
+	{
+		style = (isOwner) ? GSCOLOR_CHAT_OWNER_EMOTE : GSCOLOR_CHAT_EMOTE;
+	}
+	else if (isPublic)
+	{
+		style = (isOwner) ? GSCOLOR_CHAT_OWNER : GSCOLOR_CHAT_NORMAL;
+	}
+	else if (isAction)
+	{
+		style = (isOwner) ? GSCOLOR_CHAT_PRIVATE_OWNER_EMOTE : GSCOLOR_CHAT_PRIVATE_EMOTE;
+	}
+	else
+	{
+		style = (isOwner) ? GSCOLOR_CHAT_PRIVATE_OWNER : GSCOLOR_CHAT_PRIVATE;
+	}
+
+	// filters language
+//  if( TheGlobalData->m_languageFilterPref )
+//  {
+	//TheLanguageFilter->filterLine(msg);
+	//	}
+
+	return style;
+}
 
 struct NGMP_RoomInfo
 {
@@ -29,8 +68,8 @@ public:
 		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LeaveNetworkRoom();
 	}
 
-	std::function<void(UnicodeString strMessage)> m_OnChatCallback = nullptr;
-	void RegisterForChatCallback(std::function<void(UnicodeString strMessage)> cb)
+	std::function<void(UnicodeString strMessage, GameSpyColors color)> m_OnChatCallback = nullptr;
+	void RegisterForChatCallback(std::function<void(UnicodeString strMessage, GameSpyColors color)> cb)
 	{
 		m_OnChatCallback = cb;
 	}
@@ -66,7 +105,7 @@ public:
 	std::map<uint64_t, NetworkRoomMember>& GetMembersListForCurrentRoom();
 
 	// Chat
-	void SendChatMessageToCurrentRoom(UnicodeString& strChatMsg);
+	void SendChatMessageToCurrentRoom(UnicodeString& strChatMsg, bool bIsAction);
 
 	void ResetCachedRoomData()
 	{

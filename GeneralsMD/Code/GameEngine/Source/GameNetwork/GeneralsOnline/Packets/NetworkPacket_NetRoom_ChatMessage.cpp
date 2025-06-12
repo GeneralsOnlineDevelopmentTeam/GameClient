@@ -1,11 +1,12 @@
 #include "GameNetwork/GeneralsOnline/NetworkPacket.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.h"
 
-NetRoom_ChatMessagePacket::NetRoom_ChatMessagePacket(AsciiString& strMessage, bool bIsAnnouncement, bool bShowAnnounceToHost) : NetworkPacket(EPacketReliability::PACKET_RELIABILITY_RELIABLE_ORDERED)
+NetRoom_ChatMessagePacket::NetRoom_ChatMessagePacket(AsciiString& strMessage, bool bIsAnnouncement, bool bShowAnnounceToHost, bool bIsAction) : NetworkPacket(EPacketReliability::PACKET_RELIABILITY_RELIABLE_ORDERED)
 {
 	m_strMessage = strMessage.str();
 	m_bIsAnnouncement = bIsAnnouncement;
 	m_bShowAnnounceToHost = bShowAnnounceToHost;
+	m_bIsAction = bIsAction;
 }
 
 NetRoom_ChatMessagePacket::NetRoom_ChatMessagePacket(CBitStream& bitstream) : NetworkPacket(bitstream)
@@ -13,6 +14,7 @@ NetRoom_ChatMessagePacket::NetRoom_ChatMessagePacket(CBitStream& bitstream) : Ne
 	m_strMessage = bitstream.ReadString();
 	m_bIsAnnouncement = bitstream.Read<bool>();
 	m_bShowAnnounceToHost = bitstream.Read<bool>();
+	m_bIsAction = bitstream.Read<bool>();
 }
 
 CBitStream* NetRoom_ChatMessagePacket::Serialize()
@@ -21,5 +23,6 @@ CBitStream* NetRoom_ChatMessagePacket::Serialize()
 	pBitstream->WriteString(m_strMessage.c_str());
 	pBitstream->Write<bool>(m_bIsAnnouncement);
 	pBitstream->Write<bool>(m_bShowAnnounceToHost);
+	pBitstream->Write<bool>(m_bIsAction);
 	return pBitstream;
 }
