@@ -76,6 +76,7 @@
 #include "../NextGenMP_defines.h"
 #include "../OnlineServices_Init.h"
 #include "../OnlineServices_LobbyInterface.h"
+#include "../OnlineServices_Auth.h"
 #include "GameClient/MapUtil.h"
 
 //-----------------------------------------------------------------------------
@@ -561,7 +562,7 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 				name.trim();
 				if(name.getLength() <= 0)
 				{
-					name.translate(TheGameSpyInfo->getLocalName());
+					name.translate(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName());
 					GadgetTextEntrySetText(textEntryGameName, name);
 				}
 				createGame();
