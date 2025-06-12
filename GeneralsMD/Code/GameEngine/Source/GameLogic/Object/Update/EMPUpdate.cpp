@@ -141,7 +141,12 @@ UpdateSleepTime EMPUpdate::update( void )
 	Drawable *dr = obj->getDrawable();
 	UnsignedInt now = TheGameLogic->getFrame();
 	
-	m_currentScale += ( m_targetScale - m_currentScale ) * 0.05f;
+	// TODO_NGMP: We should actually use a frame time delta here, not assume we're hitting 60
+#if defined(GENERALS_ONLINE)
+	m_currentScale += ( m_targetScale - m_currentScale ) * (0.05f / GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER);
+#else
+	m_currentScale += (m_targetScale - m_currentScale) * 0.05f;
+#endif
 	dr->setInstanceScale( m_currentScale );
 
 	if ( now < m_tintEnvPlayFrame)
