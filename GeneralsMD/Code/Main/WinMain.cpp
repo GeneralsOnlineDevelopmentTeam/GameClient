@@ -325,6 +325,14 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 		// handle all window messages
 		switch( message ) 
 		{
+#if defined(GENERALS_ONLINE)
+		case WM_MOVE:
+		{
+			if (TheMouse)
+				TheMouse->setMouseLimits();
+			break;
+		}
+#endif
 			//-------------------------------------------------------------------------
 			case WM_NCHITTEST:
 			// Prevent the user from selecting the menu in fullscreen mode
@@ -414,6 +422,10 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 				if (TheWin32Mouse)
 					TheWin32Mouse->lostFocus(FALSE);
 
+#if defined(GENERALS_ONLINE)
+				if (TheMouse)
+					TheMouse->setMouseLimits();
+#endif
 				break;
 
 			}  // end set focus
@@ -423,6 +435,13 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 				// When W3D initializes, it resizes the window.  So stop repainting.
 				if (!gInitializing) 
 					gDoPaint = false;
+
+#if defined(GENERALS_ONLINE)
+				if (TheMouse)
+					TheMouse->setMouseLimits();
+#endif
+				
+
 				break;
 
 			//-------------------------------------------------------------------------
@@ -589,6 +608,18 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 			{
 				if (TheWin32Mouse && (HWND)wParam == ApplicationHWnd)
 					TheWin32Mouse->setCursor(TheWin32Mouse->getMouseCursor());
+
+#if defined(GENERALS_ONLINE)
+				if (TheMouse)
+				{
+					if ((HWND)wParam == ApplicationHWnd)
+					{
+						TheMouse->setMouseLimits();
+					}
+				}
+#endif
+					
+
 				return TRUE;	//tell Windows not to reset mouse cursor image to default.
 			}
 

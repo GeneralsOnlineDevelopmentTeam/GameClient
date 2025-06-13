@@ -47,6 +47,10 @@
 
 #include "GameLogic/ScriptEngine.h"
 
+#if defined(GENERALS_ONLINE)
+#include <GameNetwork/GeneralsOnline/OnlineServices_Init.h>
+#endif
+
 #ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -962,6 +966,38 @@ void Mouse::setMouseLimits( void )
 		m_maxY = TheDisplay->getHeight();
 	
 	}  // end if
+
+#if defined(GENERALS_ONLINE)
+	if (!TheDisplay->getWindowed())
+	{
+		extern HWND ApplicationHWnd;
+		if (ApplicationHWnd == GetForegroundWindow())
+		{
+
+			if (NGMP_OnlineServicesManager::Settings.Input_LockCursorToGameWindow())
+			{
+				// usable rect
+				RECT rcClient;
+				GetClientRect(ApplicationHWnd, &rcClient);
+
+				// client area to screen coords
+				POINT ptUpperLeft = { rcClient.left, rcClient.top };
+				POINT ptLowerRight = { rcClient.right, rcClient.bottom };
+				ClientToScreen(ApplicationHWnd, &ptUpperLeft);
+				ClientToScreen(ApplicationHWnd, &ptLowerRight);
+
+				// now restrict the cursor
+				RECT rcClip;
+				SetRect(&rcClip, ptUpperLeft.x, ptUpperLeft.y, ptLowerRight.x, ptLowerRight.y);
+				ClipCursor(&rcClip);
+			}
+		}
+		else
+		{
+			ClipCursor(nullptr);
+		}
+	}
+#endif
 
 }  // end setMouseLimits
 

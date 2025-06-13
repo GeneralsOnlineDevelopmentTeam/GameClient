@@ -5,6 +5,9 @@
 #define SETTINGS_KEY_CAMERA_MIN_HEIGHT "min_height"
 #define SETTINGS_KEY_CAMERA_MAX_HEIGHT "max_height"
 
+#define SETTINGS_KEY_INPUT "input"
+#define SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW "lock_cursor_to_game_window"
+
 #define SETTINGS_FILENAME "GeneralsOnline_settings.json"
 
 GenOnlineSettings::GenOnlineSettings()
@@ -64,6 +67,16 @@ void GenOnlineSettings::Load(void)
 					m_Camera_MaxHeight = std::min<float>(static_cast<float>(cameraSettings[SETTINGS_KEY_CAMERA_MAX_HEIGHT]), m_Camera_MaxHeight_default);
 				}
 			}
+
+			if (jsonSettings.contains(SETTINGS_KEY_INPUT))
+			{
+				auto inputSettings = jsonSettings[SETTINGS_KEY_INPUT];
+
+				if (inputSettings.contains(SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW))
+				{
+					m_Input_LockCursorToGameWindow = inputSettings[SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW];
+				}
+			}
 		}
 		
 	}
@@ -76,6 +89,7 @@ void GenOnlineSettings::Load(void)
 	{
 		m_Camera_MinHeight = m_Camera_MinHeight_default;
 		m_Camera_MaxHeight = m_Camera_MaxHeight_default;
+		m_Input_LockCursorToGameWindow = true;
 	}
 	
 	// Always save so we re-serialize anything new or missing
@@ -91,10 +105,15 @@ void GenOnlineSettings::Save()
 
 	nlohmann::json root = {
 		  {
-			SETTINGS_KEY_CAMERA,
+				SETTINGS_KEY_CAMERA,
 				{
 					{SETTINGS_KEY_CAMERA_MIN_HEIGHT, m_Camera_MinHeight},
 					{SETTINGS_KEY_CAMERA_MAX_HEIGHT, m_Camera_MaxHeight},
+				},
+
+				SETTINGS_KEY_INPUT,
+				{
+					{SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW, m_Input_LockCursorToGameWindow},
 				}
 		  }
 	};
