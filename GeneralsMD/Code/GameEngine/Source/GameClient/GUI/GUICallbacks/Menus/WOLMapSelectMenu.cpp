@@ -81,8 +81,12 @@ extern NGMPGame* TheNGMPGame;
 static void NullifyControls(void)
 {
 	parent = NULL;
-	winMapPreview = NULL;
 	mapList = NULL;
+	if (winMapPreview)
+	{
+		winMapPreview->winSetUserData(NULL);
+		winMapPreview = NULL;
+	}
 	for (Int i=0; i<MAX_SLOTS; ++i)
 	{
 		buttonMapStartPosition[i] = NULL;

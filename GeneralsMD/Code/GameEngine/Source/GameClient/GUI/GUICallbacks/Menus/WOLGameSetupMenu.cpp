@@ -1414,7 +1414,11 @@ void DeinitWOLGameGadgets( void )
 	listboxGameSetupChat = NULL;
 	textEntryChat = NULL;
 	textEntryMapDisplay = NULL;
-	windowMap = NULL;
+	if (windowMap)
+	{
+		windowMap->winSetUserData(NULL);
+		windowMap = NULL;
+	}
 	checkBoxUseStats = NULL;
   checkBoxLimitSuperweapons = NULL;
   comboBoxStartingCash = NULL;
@@ -3054,6 +3058,9 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 		//-------------------------------------------------------------------------------------------------
 		case GWM_DESTROY:
 			{
+				if (windowMap)
+					windowMap->winSetUserData(NULL);
+
 				break;
 			} // case GWM_DESTROY:
 		//-------------------------------------------------------------------------------------------------
