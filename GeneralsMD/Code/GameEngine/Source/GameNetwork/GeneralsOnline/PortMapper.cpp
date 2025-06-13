@@ -289,13 +289,14 @@ void PortMapper::DetermineLocalNetworkCapabilities(std::function<void(void)> cal
 
 	// background threads, network ops are blocking
 	m_backgroundThread_PCP = new std::thread(&PortMapper::ForwardPort_PCP, this);
-	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread_PCP->native_handle()), L"PortMapper Background Thread (PCP)");
-
 	m_backgroundThread_UPNP = new std::thread(&PortMapper::ForwardPort_UPnP, this);
-	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread_UPNP->native_handle()), L"PortMapper Background Thread (UPnP)");
-
 	m_backgroundThread_NATPMP = new std::thread(&PortMapper::ForwardPort_NATPMP, this);
+
+#if defined(_DEBUG)
+	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread_PCP->native_handle()), L"PortMapper Background Thread (PCP)");
+	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread_UPNP->native_handle()), L"PortMapper Background Thread (UPnP)");
 	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread_NATPMP->native_handle()), L"PortMapper Background Thread (NAT-PMP)");
+#endif
 }
 
 void PortMapper::ForwardPort_UPnP()

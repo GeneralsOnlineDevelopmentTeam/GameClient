@@ -144,7 +144,10 @@ void HTTPManager::Initialize()
 
 	// HTTP background thread
 	m_backgroundThread = new std::thread(&HTTPManager::BackgroundThreadRun, this);
+
+#if defined(_DEBUG)
 	SetThreadDescription(static_cast<HANDLE>(m_backgroundThread->native_handle()), L"HTTP Background Thread");
+#endif
 }
 
 void HTTPManager::MainThreadTick()
