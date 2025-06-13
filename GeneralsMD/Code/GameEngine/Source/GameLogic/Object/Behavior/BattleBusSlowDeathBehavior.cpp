@@ -169,7 +169,12 @@ void BattleBusSlowDeathBehavior::beginSlowDeath( const DamageInfo *damageInfo )
 			Coord3D throwForce;
 			throwForce.x = 0;
 			throwForce.y = 0;
+
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			throwForce.z = data->m_throwForce / 2.f;
+#else
 			throwForce.z = data->m_throwForce;
+#endif
 			me->getPhysics()->applyShock(&throwForce);
 			me->getPhysics()->applyRandomRotation();
 		}

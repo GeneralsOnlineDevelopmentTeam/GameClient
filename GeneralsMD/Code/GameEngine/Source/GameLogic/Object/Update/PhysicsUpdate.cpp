@@ -386,6 +386,17 @@ void PhysicsBehavior::applyRandomRotation()
 
 	Real randomModifier;
 
+
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
+	m_yawRate += (getPhysicsBehaviorModuleData()->m_shockMaxYaw/2.f) * randomModifier;
+
+	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
+	m_pitchRate += (getPhysicsBehaviorModuleData()->m_shockMaxPitch / 2.f) * randomModifier;
+
+	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
+	m_rollRate += (getPhysicsBehaviorModuleData()->m_shockMaxRoll / 2.f) * randomModifier;
+#else
 	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
 	m_yawRate += getPhysicsBehaviorModuleData()->m_shockMaxYaw * randomModifier;
 
@@ -394,6 +405,7 @@ void PhysicsBehavior::applyRandomRotation()
 
 	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
 	m_rollRate += getPhysicsBehaviorModuleData()->m_shockMaxRoll * randomModifier;
+#endif
 
 #ifdef SLEEPY_PHYSICS
 	if (getFlag(IS_IN_UPDATE))

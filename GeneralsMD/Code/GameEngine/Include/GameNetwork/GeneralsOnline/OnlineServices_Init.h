@@ -147,13 +147,20 @@ private:
 	int64_t m_timeBetweenUserPings = 5000;
 };
 
+enum class ERoomFlags : int
+{
+	ROOM_FLAGS_DEFAULT = 0,
+	ROOM_FLAGS_SHOW_ALL_MATCHES = 1
+};
+
 class NetworkRoom
 {
 public:
-	NetworkRoom(int roomID, std::string strRoomName)
+	NetworkRoom(int roomID, std::string strRoomName, ERoomFlags roomFlags)
 	{
 		m_RoomID = roomID;
 		m_strRoomDisplayName.translate(AsciiString(strRoomName.c_str()));
+		m_RoomFlags = roomFlags;
 	}
 
 	~NetworkRoom()
@@ -163,10 +170,12 @@ public:
 
 	int GetRoomID() const { return m_RoomID; }
 	UnicodeString GetRoomDisplayName() const { return m_strRoomDisplayName; }
+	ERoomFlags GetRoomFlags() const { return m_RoomFlags; }
 
 private:
 	int m_RoomID;
 	UnicodeString m_strRoomDisplayName;
+	ERoomFlags m_RoomFlags = ERoomFlags::ROOM_FLAGS_DEFAULT;
 };
 
 enum NGMP_ENATType : uint8_t

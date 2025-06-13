@@ -565,27 +565,98 @@ void PopulateLobbyPlayerListbox(void)
 	{
 		NetworkRoomMember& netRoomMember = kvPair.second;
 
-		// TODO_NGMP: fill out more
-		PlayerInfo pi;
-		pi.m_name = AsciiString(netRoomMember.display_name.c_str());
 
-		// NGMP: Color by connection state
+		// TODO_NGMP: Add a timeout to this where we just add the person with no stats
+		NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(netRoomMember.user_id, [=](bool bSuccess, PSPlayerStats stats)
+			{
+				PlayerInfo pi;
+				pi.m_name = AsciiString(netRoomMember.display_name.c_str());
 
-		Color connectionStateColor = GameSpyColor[GSCOLOR_PLAYER_NORMAL];
-		if (netRoomMember.m_connectionState == ENetworkConnectionState::NOT_CONNECTED)
-		{
-			connectionStateColor = GameMakeColor(255, 0, 0, 255);
-		}
-		else if (netRoomMember.m_connectionState == ENetworkConnectionState::CONNECTED_DIRECT)
-		{
-			connectionStateColor = GameMakeColor(0, 255, 0, 255);
-		}
-		else if (netRoomMember.m_connectionState == ENetworkConnectionState::CONNECTED_RELAYED)
-		{
-			connectionStateColor = GameMakeColor(255, 253, 85, 255);
-		}
+				// if we don't have the stats from the server, just add us without any stats
+				if (bSuccess)
+				{
+					Int currentRank = 0;
+					Int rankPoints = CalculateRank(stats);
+					Int i = 0;
+					while (rankPoints >= TheRankPointValues->m_ranks[i + 1])
+						++i;
+					currentRank = i;
 
-		insertPlayerInListbox(pi, connectionStateColor);
+					PerGeneralMap::iterator it;
+					Int numWins = 0;
+					Int numLosses = 0;
+					Int numDiscons = 0;
+					Int numGamesTotal = 0;
+					for (it = stats.wins.begin(); it != stats.wins.end(); ++it)
+					{
+						numWins += it->second;
+					}
+					for (it = stats.losses.begin(); it != stats.losses.end(); ++it)
+					{
+						numLosses += it->second;
+					}
+					for (it = stats.discons.begin(); it != stats.discons.end(); ++it)
+					{
+						numDiscons += it->second;
+					}
+					for (it = stats.desyncs.begin(); it != stats.desyncs.end(); ++it)
+					{
+						numDiscons += it->second;
+					}
+
+					numDiscons += GetAdditionalDisconnectsFromUserFile(netRoomMember.user_id);
+
+					numGamesTotal = numWins + numLosses + numDiscons;
+
+					// determine favorite army
+					Int numGamesThisArmy = 0;
+					Int favorite = 0;
+					for (it = stats.games.begin(); it != stats.games.end(); ++it)
+					{
+						if (it->second >= numGamesThisArmy)
+						{
+							numGamesThisArmy = it->second;
+							favorite = it->first;
+						}
+					}
+
+					int favoriteSide = PLAYERTEMPLATE_RANDOM;
+					if (numGamesThisArmy == 0)
+					{
+						favoriteSide = 0; // this isnt a real army, but they also havent played any games so they cant possibly have a rank
+					}
+					else if (stats.gamesAsRandom >= numGamesThisArmy)
+					{
+						favoriteSide = PLAYERTEMPLATE_RANDOM;
+					}
+					else
+					{
+						favoriteSide = favorite;
+
+						/*
+						const PlayerTemplate* fac = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
+						if (fac)
+						{
+							AsciiString side;
+							side.format("SIDE:%s", fac->getSide().str());
+
+							favoriteSide = TheGameText->fetch(side);
+						}
+						*/
+					}
+
+					// store on playerinfo object
+					pi.m_wins = numWins;
+					pi.m_losses = numLosses;
+					pi.m_profileID = netRoomMember.user_id; // TODO_NGMP: Downcast... we need to use int64_t everywhere really
+					pi.m_flags = 0;
+					pi.m_rankPoints = rankPoints;
+					pi.m_side = favorite;
+					pi.m_preorder = 0;
+				}
+
+				insertPlayerInListbox(pi, GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
+			}, EStatsRequestPolicy::RESPECT_CACHE_ALLOW_REQUEST);
 
 		// TODO_NGMP: Support ignored again
 		//insertPlayerInListbox(pi, pi.isIgnored() ? GameSpyColor[GSCOLOR_PLAYER_IGNORED] : GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
@@ -976,9 +1047,19 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 				},
 				[]()
 				{
+					GadgetListBoxReset(listboxLobbyChat);
+
 					UnicodeString msg;
 					msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomDisplayName().str());
 					GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+					// process flag related info messages
+					ERoomFlags flags = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomFlags();
+					if (flags == ERoomFlags::ROOM_FLAGS_SHOW_ALL_MATCHES)
+					{
+						GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: This is a special room where the lobby list shows lobbies from ALL rooms, not just the current room, to make it easier to find a match without room hopping."), GameMakeColor(255, 194, 15, 255), -1, -1);
+						GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: Lobbies created here will only show in here. The members list & chat will also only show players in this room."), GameMakeColor(255, 194, 15, 255), -1, -1);
+					}
 
 					// refresh on join
 					refreshPlayerList(TRUE);
@@ -2032,9 +2113,21 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 								},
 								[=]()
 								{
+									// TODO_NGMP: There are two cb lamdas for this, flatten them
+									GadgetListBoxReset(listboxLobbyChat);
+
 									UnicodeString msg;
 									msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(groupID).GetRoomDisplayName().str());
 									GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+
+									// process flag related info messages
+									ERoomFlags flags = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(groupID).GetRoomFlags();
+									if (flags == ERoomFlags::ROOM_FLAGS_SHOW_ALL_MATCHES)
+									{
+										GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: This is a special room where the lobby list shows lobbies from ALL rooms, not just the current room, to make it easier to find a match without room hopping."), GameMakeColor(255, 194, 15, 255), -1, -1);
+										GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: Lobbies created here will only show in here. The members list & chat will also only show players in this room."), GameMakeColor(255, 194, 15, 255), -1, -1);
+									}
 
 									// refresh on join
 									refreshPlayerList(TRUE);

@@ -1486,7 +1486,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 			UnicodeString strConnectionMessage;
 			strConnectionMessage.format(L"You are now connected to %hs using connection mechanism %hs", strDisplayName.c_str(), strConnectionType.c_str());
-			GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(0, 0, 255, 255), -1, -1);
+			GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(255, 194, 15, 255), -1, -1);
 		});
 
 	// player doesnt have map events

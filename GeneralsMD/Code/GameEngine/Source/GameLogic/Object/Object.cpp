@@ -1843,6 +1843,12 @@ void Object::attemptDamage( DamageInfo *damageInfo )
 			shockWaveForce.scale( damageInfo->in.m_shockWaveAmount * shockTaperMult );
 			shockWaveForce.z = shockWaveForce.length(); // Apply up force equal to the lateral force for dramatic effect
 
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			shockWaveForce.x /= 2.f;
+			shockWaveForce.y /= 2.f;
+			shockWaveForce.z /= 2.f;
+#endif
+
 			// Apply the shock to the object
 			behavior->applyShock(&shockWaveForce);
 

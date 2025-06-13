@@ -355,11 +355,13 @@ void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> c
 				{
 					int id = 0;
 					std::string strName;
+					ERoomFlags flags;
 
 					
 					roomEntryIter["id"].get_to(id);
 					roomEntryIter["name"].get_to(strName);
-					NetworkRoom roomEntry(id, strName);
+					roomEntryIter["flags"].get_to(flags);
+					NetworkRoom roomEntry(id, strName, flags);
 
 					m_vecRooms.push_back(roomEntry);
 				}
