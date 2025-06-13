@@ -78,6 +78,7 @@
 #include "../OnlineServices_LobbyInterface.h"
 #include "../OnlineServices_Auth.h"
 #include "GameClient/MapUtil.h"
+#include "GameClient/GameWindow.h"
 
 //-----------------------------------------------------------------------------
 // DEFINES ////////////////////////////////////////////////////////////////////
@@ -383,6 +384,20 @@ void PopupHostGameInit( WindowLayout *layout, void *userData )
 	TheWindowManager->winSetFocus( parentPopup );
 	TheWindowManager->winSetModal( parentPopup );
 
+#if defined(GENERALS_ONLINE)
+	int xStats = 0;
+	int yStats = 0;
+	checkBoxUseStats->winGetPosition(&xStats, &yStats);
+
+	int xObs = 0;
+	int yObs = 0;
+	checkBoxAllowObservers->winGetPosition(&xObs, &yObs);
+
+	checkBoxAllowObservers->winSetPosition(xStats, yObs);
+	checkBoxAllowObservers->winHide(false);
+	GadgetCheckBoxSetChecked(checkBoxAllowObservers, false);
+#endif
+
 }
 
 
@@ -598,6 +613,7 @@ void createGame( void )
 
 	Bool limitArmies = GadgetCheckBoxIsChecked(checkBoxLimitArmies);
 	Bool useStats = GadgetCheckBoxIsChecked(checkBoxUseStats);
+	Bool bAllowObservers = GadgetCheckBoxIsChecked(checkBoxAllowObservers);
 
 	UnicodeString gameName = GadgetTextEntryGetText(textEntryGameName);
 
@@ -606,7 +622,7 @@ void createGame( void )
 
 
 	// NGMP:NOTE: We count money here because mods etc sometimes change the starting money, so we dont want to hard code it, just create with whatever the client is telling us is a sensible amount
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->CreateLobby(gameName, md->m_displayName, md->m_fileName, md->m_isOfficial, md->m_numPlayers, limitArmies, useStats, TheGlobalData->m_defaultStartingCash.countMoney(), passwd.isNotEmpty(), passwd.str());
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->CreateLobby(gameName, md->m_displayName, md->m_fileName, md->m_isOfficial, md->m_numPlayers, limitArmies, useStats, TheGlobalData->m_defaultStartingCash.countMoney(), passwd.isNotEmpty(), passwd.str(), bAllowObservers);
 
 	GSMessageBoxCancel(UnicodeString(L"Creating Lobby"), UnicodeString(L"Lobby Creation is in progress..."), nullptr);
 

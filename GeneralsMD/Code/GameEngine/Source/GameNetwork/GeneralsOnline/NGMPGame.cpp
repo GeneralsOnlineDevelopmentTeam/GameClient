@@ -77,6 +77,9 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 	// rng seed
 	setSeed(lobby.rng_seed);
 
+	// observers
+	setAllowObservers(lobby.allow_observers);
+
 	// starting cash
 	Money startingCash;
 	startingCash.deposit(lobby.starting_cash, FALSE);

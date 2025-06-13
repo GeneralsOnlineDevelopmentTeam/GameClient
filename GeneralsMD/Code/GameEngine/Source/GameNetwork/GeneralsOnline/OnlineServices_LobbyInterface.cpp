@@ -506,6 +506,7 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				lobbyEntryIter["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
 				lobbyEntryIter["track_stats"].get_to(lobbyEntry.track_stats);
 				lobbyEntryIter["passworded"].get_to(lobbyEntry.passworded);
+				lobbyEntryIter["allow_observers"].get_to(lobbyEntry.allow_observers);
 
 				// correct map path
 				if (lobbyEntry.map_official)
@@ -639,6 +640,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryJSON["starting_cash"].get_to(lobbyEntry.starting_cash);
 						lobbyEntryJSON["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
 						lobbyEntryJSON["track_stats"].get_to(lobbyEntry.track_stats);
+						lobbyEntryJSON["allow_observers"].get_to(lobbyEntry.allow_observers);
 						lobbyEntryJSON["passworded"].get_to(lobbyEntry.passworded);
 						lobbyEntryJSON["rng_seed"].get_to(lobbyEntry.rng_seed);
 
@@ -941,7 +943,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 					/*
 					TheNGMPGame.setExeCRC(info->getExeCRC());
 					TheNGMPGame.setIniCRC(info->getIniCRC());
-					TheNGMPGame.setAllowObservers(info->getAllowObservers());
+					
 					TheNGMPGame.setHasPassword(info->getHasPassword());
 					TheNGMPGame.setGameName(info->getGameName());
 					*/
@@ -1039,7 +1041,7 @@ struct CreateLobbyResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateLobbyResponse, result, lobby_id)
 };
 
-void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword)
+void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword, bool bAllowObservers)
 {
 	m_CurrentLobby = LobbyEntry();	
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies", true);
@@ -1073,6 +1075,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 	j["starting_cash"] = startingCash;
 	j["passworded"] = bPassworded;
 	j["password"] = szPassword;
+	j["allow_observers"] = bAllowObservers;
 	std::string strPostData = j.dump();
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
