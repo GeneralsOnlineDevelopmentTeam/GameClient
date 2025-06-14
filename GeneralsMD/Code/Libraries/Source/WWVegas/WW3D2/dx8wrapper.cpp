@@ -321,6 +321,7 @@ bool DX8Wrapper::Init(void * hwnd, bool lite)
 
 	if (!lite) {
 #if defined(GENERALS_ONLINE)
+		LoadLibrary("dxwrapper.dll");
 		D3D8Lib = LoadLibraryEx("D3D8.DLL", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32); // dont load the local hooked d3d8
 #else
 		D3D8Lib = LoadLibrary("D3D8.DLL");
