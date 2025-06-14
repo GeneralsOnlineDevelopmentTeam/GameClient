@@ -108,14 +108,16 @@ void GenOnlineSettings::Save()
 				SETTINGS_KEY_CAMERA,
 				{
 					{SETTINGS_KEY_CAMERA_MIN_HEIGHT, m_Camera_MinHeight},
-					{SETTINGS_KEY_CAMERA_MAX_HEIGHT, m_Camera_MaxHeight},
-				},
-
-				SETTINGS_KEY_INPUT,
-				{
-					{SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW, m_Input_LockCursorToGameWindow},
+					{SETTINGS_KEY_CAMERA_MAX_HEIGHT, m_Camera_MaxHeight}
 				}
-		  }
+		  },
+
+			{
+				SETTINGS_KEY_INPUT,
+					{
+						{SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW, m_Input_LockCursorToGameWindow},
+					}
+			}
 	};
 	
 	std::string strData = root.dump(1);
