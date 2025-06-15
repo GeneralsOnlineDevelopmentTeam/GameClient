@@ -95,6 +95,7 @@
 
 #if defined(GENERALS_ONLINE)
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
+class NGMP_OnlineServices_LobbyInterface;
 #endif
 
 
@@ -1940,7 +1941,7 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 	else
 	{
 		TheWritableGlobalData->m_minCameraHeight = NGMP_OnlineServicesManager::Settings.Camera_GetMinHeight();
-		TheWritableGlobalData->m_maxCameraHeight = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight();
+		TheWritableGlobalData->m_maxCameraHeight = NGMP_OnlineServicesManager::Settings.DetermineCameraMaxHeight();
 	}
 	
 #endif

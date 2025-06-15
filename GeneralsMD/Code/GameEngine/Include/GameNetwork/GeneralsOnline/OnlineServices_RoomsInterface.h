@@ -3,6 +3,7 @@
 #include "NGMP_include.h"
 #include "NetworkMesh.h"
 #include "../GameSpy/PeerDefs.h"
+#include "OnlineServices_Init.h"
 
 enum class EChatMessageType
 {

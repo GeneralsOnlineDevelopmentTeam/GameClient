@@ -65,7 +65,8 @@ enum class ELobbyUpdateField
 	AI_SIDE = 13,
 	AI_COLOR = 14,
 	AI_TEAM = 15,
-	AI_START_POS = 16
+	AI_START_POS = 16,
+	MAX_CAMERA_HEIGHT = 17
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -263,6 +264,33 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AIStartPos(int slot,
 		{
 
 		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobbyMaxCameraHeight(uint16_t maxCameraHeight)
+{
+	if (IsHost())
+	{
+		UnicodeString strInform;
+		strInform.format(L"The host has set the maximum camera height to %lu.", maxCameraHeight);
+		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform, true);
+
+		// reset autostart if host changes anything (because ready flag will reset too)
+		ClearAutoReadyCountdown();
+
+		std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+		std::map<std::string, std::string> mapHeaders;
+
+		nlohmann::json j;
+		j["field"] = ELobbyUpdateField::MAX_CAMERA_HEIGHT;
+		j["max_camera_height"] = maxCameraHeight;
+		std::string strPostData = j.dump();
+
+		// convert
+		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+			{
+
+			});
+	}
 }
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AIColor(int slot, int color)
@@ -507,6 +535,7 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				lobbyEntryIter["track_stats"].get_to(lobbyEntry.track_stats);
 				lobbyEntryIter["passworded"].get_to(lobbyEntry.passworded);
 				lobbyEntryIter["allow_observers"].get_to(lobbyEntry.allow_observers);
+				lobbyEntryIter["max_cam_height"].get_to(lobbyEntry.max_cam_height);
 
 				// correct map path
 				if (lobbyEntry.map_official)
@@ -643,6 +672,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryJSON["allow_observers"].get_to(lobbyEntry.allow_observers);
 						lobbyEntryJSON["passworded"].get_to(lobbyEntry.passworded);
 						lobbyEntryJSON["rng_seed"].get_to(lobbyEntry.rng_seed);
+						lobbyEntryJSON["max_cam_height"].get_to(lobbyEntry.max_cam_height);
 
 						// correct map path
 						if (lobbyEntry.map_official)
@@ -1076,6 +1106,8 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 	j["passworded"] = bPassworded;
 	j["password"] = szPassword;
 	j["allow_observers"] = bAllowObservers;
+	j["max_cam_height"] = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight_WhenLobbyHost();
+
 	std::string strPostData = j.dump();
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)

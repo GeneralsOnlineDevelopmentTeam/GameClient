@@ -1,9 +1,11 @@
 #include "GameNetwork/GeneralsOnline/GeneralsOnline_Settings.h"
 #include "../json.hpp"
+#include "../OnlineServices_LobbyInterface.h"
+#include "../OnlineServices_Init.h"
 
 #define SETTINGS_KEY_CAMERA "camera"
 #define SETTINGS_KEY_CAMERA_MIN_HEIGHT "min_height"
-#define SETTINGS_KEY_CAMERA_MAX_HEIGHT "max_height"
+#define SETTINGS_KEY_CAMERA_MAX_HEIGHT_WHEN_LOBBY_HOST "max_height_when_lobby_host"
 
 #define SETTINGS_KEY_INPUT "input"
 #define SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW "lock_cursor_to_game_window"
@@ -13,6 +15,28 @@
 GenOnlineSettings::GenOnlineSettings()
 {
 	Initialize();
+}
+
+float GenOnlineSettings::DetermineCameraMaxHeight()
+{
+	// Are we in a lobby? use it's settings
+	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+	if (pOnlineServicesMgr != nullptr)
+	{
+		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = pOnlineServicesMgr->GetLobbyInterface();
+
+		if (pLobbyInterface != nullptr)
+		{
+			if (pLobbyInterface->IsInLobby())
+			{
+				LobbyEntry& theLobby = pLobbyInterface->GetCurrentLobby();
+
+				return (float)theLobby.max_cam_height;;
+			}
+		}
+	}
+
+	return (float)GENERALS_ONLINE_DEFAULT_LOBBY_CAMERA_ZOOM;
 }
 
 void GenOnlineSettings::Load(void)
@@ -62,9 +86,9 @@ void GenOnlineSettings::Load(void)
 					m_Camera_MinHeight = std::max<float>(static_cast<float>(cameraSettings[SETTINGS_KEY_CAMERA_MIN_HEIGHT]), m_Camera_MinHeight_default);
 				}
 
-				if (cameraSettings.contains(SETTINGS_KEY_CAMERA_MAX_HEIGHT))
+				if (cameraSettings.contains(SETTINGS_KEY_CAMERA_MAX_HEIGHT_WHEN_LOBBY_HOST))
 				{
-					m_Camera_MaxHeight = std::min<float>(static_cast<float>(cameraSettings[SETTINGS_KEY_CAMERA_MAX_HEIGHT]), m_Camera_MaxHeight_default);
+					m_Camera_MaxHeight_LobbyHost = std::clamp<float>(static_cast<float>(cameraSettings[SETTINGS_KEY_CAMERA_MAX_HEIGHT_WHEN_LOBBY_HOST]), GENERALS_ONLINE_MIN_LOBBY_CAMERA_ZOOM, GENERALS_ONLINE_MAX_LOBBY_CAMERA_ZOOM);
 				}
 			}
 
@@ -88,7 +112,7 @@ void GenOnlineSettings::Load(void)
 	if (bApplyDefaults)
 	{
 		m_Camera_MinHeight = m_Camera_MinHeight_default;
-		m_Camera_MaxHeight = m_Camera_MaxHeight_default;
+		m_Camera_MaxHeight_LobbyHost = m_Camera_MaxHeight_LobbyHost;
 		m_Input_LockCursorToGameWindow = true;
 	}
 	
@@ -108,7 +132,7 @@ void GenOnlineSettings::Save()
 				SETTINGS_KEY_CAMERA,
 				{
 					{SETTINGS_KEY_CAMERA_MIN_HEIGHT, m_Camera_MinHeight},
-					{SETTINGS_KEY_CAMERA_MAX_HEIGHT, m_Camera_MaxHeight}
+					{SETTINGS_KEY_CAMERA_MAX_HEIGHT_WHEN_LOBBY_HOST, m_Camera_MaxHeight_LobbyHost}
 				}
 		  },
 

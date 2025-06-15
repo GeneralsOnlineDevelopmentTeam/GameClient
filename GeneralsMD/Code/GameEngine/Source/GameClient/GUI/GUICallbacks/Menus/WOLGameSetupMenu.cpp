@@ -1796,6 +1796,44 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 	TheWindowManager->winSetFocus( textEntryChat );
 	raiseMessageBoxes = true;
 	TheTransitionHandler->setGroup("GameSpyGameOptionsMenuFade");
+
+	// NGMP: Did we just enter a lobby with modified camera height?
+	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+	if (pOnlineServicesMgr != nullptr)
+	{
+		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = pOnlineServicesMgr->GetLobbyInterface();
+
+		if (pLobbyInterface != nullptr)
+		{
+			if (pLobbyInterface->IsInLobby())
+			{
+				LobbyEntry& theLobby = pLobbyInterface->GetCurrentLobby();
+
+				if (theLobby.max_cam_height != GENERALS_ONLINE_DEFAULT_LOBBY_CAMERA_ZOOM)
+				{
+					
+
+					if (!pLobbyInterface->IsHost())
+					{
+						UnicodeString strInform;
+						strInform.format(L"NOTE: This lobby has a customized maximum camera height / zoom level of %lu set by the host.", theLobby.max_cam_height);
+						GadgetListBoxAddEntryText(listboxGameSetupChat, strInform, GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+					}
+					else
+					{
+						UnicodeString strInform;
+						UnicodeString strInform2;
+						strInform.format(L"NOTE: This lobby has a customized maximum camera height / zoom level of %lu set as per your preference.", theLobby.max_cam_height);
+						strInform2.format(L"\tDo /maxcameraheight <val> to change this (e.g. /maxcameraheight 450).", theLobby.max_cam_height);
+					
+						GadgetListBoxAddEntryText(listboxGameSetupChat, strInform, GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+						GadgetListBoxAddEntryText(listboxGameSetupChat, strInform2, GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+					}
+						
+				}
+			}
+		}
+	}
 }// void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 //-------------------------------------------------------------------------------------------------
@@ -2882,6 +2920,74 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	}
 
 #if defined(GENERALS_ONLINE)
+	else if (token == "maxcameraheight" && uText.getLength() > 17)
+	{
+		NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+		if (pOnlineServicesMgr != nullptr)
+		{
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = pOnlineServicesMgr->GetLobbyInterface();
+
+			if (pLobbyInterface != nullptr)
+			{
+				if (pLobbyInterface->IsInLobby())
+				{
+					if (pLobbyInterface->IsHost())
+					{
+						UnicodeString val = UnicodeString(uText.str() + 17); // skip the command
+						
+						AsciiString asciiVal;
+						asciiVal.translate(val);
+
+						bool bIsNumber = true;
+
+						for (int i = 0; i < asciiVal.getLength(); ++i)
+						{
+							char thisChar = asciiVal.getCharAt(i);
+							if (!std::isdigit(thisChar))
+							{
+								bIsNumber = false;
+								break;
+							}
+						}
+
+						if (bIsNumber)
+						{
+							int newCameraHeight = atoi(asciiVal.str());
+
+							if (newCameraHeight < GENERALS_ONLINE_MIN_LOBBY_CAMERA_ZOOM || newCameraHeight > GENERALS_ONLINE_MAX_LOBBY_CAMERA_ZOOM)
+							{
+								UnicodeString msg;
+								msg.format(L"The camera height must be between %d and %d.", GENERALS_ONLINE_MIN_LOBBY_CAMERA_ZOOM, GENERALS_ONLINE_MAX_LOBBY_CAMERA_ZOOM);
+								GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+								return TRUE; // was a slash command
+							}
+							else
+							{
+								// save locally
+								NGMP_OnlineServicesManager::Settings.Save_Camera_MaxHeight_WhenLobbyHost((float)newCameraHeight);
+
+								// update lobby
+								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobbyMaxCameraHeight((uint16_t)newCameraHeight);
+							}
+						}
+						else
+						{
+							GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The camera height must be a number."), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+							return TRUE; // was a slash command
+						}
+						
+					}
+					else
+					{
+						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"You must be the lobby host to modify the maximum camera height."), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+						return TRUE; // was a slash command
+					}
+				}
+			}
+		}
+
+		return TRUE; // was a slash command
+	}
 	else if (token == "leave")
 	{
 		PopBackToLobby();

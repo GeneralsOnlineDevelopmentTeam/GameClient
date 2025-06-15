@@ -52,6 +52,7 @@ struct LobbyEntry
 	bool limit_superweapons;
 	bool track_stats;
 	bool allow_observers;
+	uint16_t max_cam_height;
 
 	int rng_seed = -1;
 
@@ -98,6 +99,8 @@ public:
 	void UpdateCurrentLobby_AISide(int slot, int side, int updatedStartPos);
 	void UpdateCurrentLobby_AITeam(int slot, int team);
 	void UpdateCurrentLobby_AIStartPos(int slot, int startpos);
+
+	void UpdateCurrentLobbyMaxCameraHeight(uint16_t maxCameraHeight);
 
 	void UpdateCurrentLobby_KickUser(int64_t userID, UnicodeString name);
 	void UpdateCurrentLobby_SetSlotState(uint16_t slotIndex, uint16_t slotState);
