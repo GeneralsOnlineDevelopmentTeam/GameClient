@@ -1615,15 +1615,22 @@ Int PathfindCell::releaseClosedList( PathfindCell *list )
 		DEBUG_ASSERTCRASH(list->m_info->m_closed==TRUE && list->m_info->m_open==FALSE, ("Serious error - Invalid flags. jba"));
 		PathfindCell *cur = list;
 		PathfindCellInfo *curInfo = list->m_info;
-		if (curInfo->m_nextOpen) {
-			list = curInfo->m_nextOpen->m_cell;
-		}	else {
-			list = NULL;
+
+		// NGMP_CHANGE: Safety check
+		// NGMP_BACKPORT: Port this to SH once verified
+		if (curInfo != nullptr)
+		{
+			if (curInfo->m_nextOpen) {
+				list = curInfo->m_nextOpen->m_cell;
+			}
+			else {
+				list = NULL;
+			}
+			DEBUG_ASSERTCRASH(cur == curInfo->m_cell, ("Bad backpointer in PathfindCellInfo"));
+			curInfo->m_nextOpen = NULL;
+			curInfo->m_prevOpen = NULL;
+			curInfo->m_closed = FALSE;
 		}
-		DEBUG_ASSERTCRASH(cur == curInfo->m_cell, ("Bad backpointer in PathfindCellInfo"));
-		curInfo->m_nextOpen = NULL;
-		curInfo->m_prevOpen = NULL;
-		curInfo->m_closed = FALSE;
 		cur->releaseInfo();
 	}
 	return count;
