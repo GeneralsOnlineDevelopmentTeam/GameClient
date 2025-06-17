@@ -178,6 +178,12 @@ Bool handleLobbySlashCommands(UnicodeString uText)
 		NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->SendChatMessageToCurrentRoom(msg, true);
 		return TRUE; // was a slash command
 	}
+	else if (token == "help" || token == "commands")
+	{
+		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"The following commands are available:"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"/name <value> - Changes your display name - Example: /name General Granger"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		return TRUE; // was a slash command
+	}
 	else if ((token == "name" && uText.getLength() > 6) || (token == "nick" && uText.getLength() > 4))
 	{
 		AsciiString newName;

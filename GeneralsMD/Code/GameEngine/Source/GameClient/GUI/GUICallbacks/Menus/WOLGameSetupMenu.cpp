@@ -2920,6 +2920,12 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	}
 
 #if defined(GENERALS_ONLINE)
+	else if (token == "help" || token == "commands")
+	{
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The following commands are available:"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/maxcameraheight <value> - Sets the maximum camera zoom out level - Example: /maxcameraheight 650"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		return TRUE; // was a slash command
+	}
 	else if (token == "maxcameraheight" && uText.getLength() > 17)
 	{
 		NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
