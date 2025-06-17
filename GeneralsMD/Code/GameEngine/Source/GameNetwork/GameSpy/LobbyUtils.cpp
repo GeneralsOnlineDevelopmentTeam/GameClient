@@ -552,17 +552,14 @@ struct GameSortStruct
 
 static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 {
-	// TODO_NGMP
-	//game->cleanUpSlotPointers();
 	Color gameColor = GameSpyColor[GSCOLOR_GAME];
 
-	// TODO_NGMP: Support full again
+
 	if (lobbyInfo.current_players == lobbyInfo.max_players || lobbyInfo.current_players == MAX_SLOTS)
 	{
 		gameColor = GameSpyColor[GSCOLOR_GAME_FULL];
 	}
 
-	// TODO_NGMP: Support crc check again
 	if (lobbyInfo.exe_crc != TheGlobalData->m_exeCRC || lobbyInfo.ini_crc != TheGlobalData->m_iniCRC)
 	{
 		gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
