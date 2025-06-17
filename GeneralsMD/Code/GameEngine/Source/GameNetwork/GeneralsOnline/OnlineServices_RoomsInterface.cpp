@@ -215,7 +215,7 @@ void WebSocket::Tick()
 		{
 			if (meta->flags & CURLWS_PONG) // PONG
 			{
-				NetworkLog("Got websocket pong");
+				//NetworkLog("Got websocket pong");
 			}
 			else if (meta->flags & CURLWS_TEXT)
 			{
@@ -308,7 +308,7 @@ void WebSocket::Tick()
 			}
 			else if (meta->flags & CURLWS_PING)
 			{
-				NetworkLog("Got websocket ping");
+				//NetworkLog("Got websocket ping");
 				// TODO_NGMP: Handle this
 			}
 			else if (meta->flags & CURLWS_OFFSET)

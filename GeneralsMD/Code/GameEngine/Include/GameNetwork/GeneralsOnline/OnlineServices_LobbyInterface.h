@@ -54,6 +54,9 @@ struct LobbyEntry
 	bool allow_observers;
 	uint16_t max_cam_height;
 
+	uint32_t exe_crc;
+	uint32_t ini_crc;
+
 	int rng_seed = -1;
 
 	bool passworded;

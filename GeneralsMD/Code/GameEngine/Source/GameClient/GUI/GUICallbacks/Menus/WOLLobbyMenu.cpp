@@ -1962,9 +1962,18 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 						//Int selectedID = (Int)GadgetListBoxGetItemData(GetGameListBox(), selected);
 						//if (selectedID > 0)
 						{
+							auto Lobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyFromIndex(selected);
+
+							// CRC Check
+							if (Lobby.exe_crc != TheGlobalData->m_exeCRC || Lobby.ini_crc != TheGlobalData->m_iniCRC)
+							{
+								GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"), TheGameText->fetch("GUI:JoinFailedCRCMismatch"));
+								break;
+							}
+
 							// TODO_NGMP: Enforce this on the host too, vanilla game did not...
 
-							auto Lobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyFromIndex(selected);
+							
 							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SetLobbyTryingToJoin(Lobby);
 
 							if (Lobby.passworded)

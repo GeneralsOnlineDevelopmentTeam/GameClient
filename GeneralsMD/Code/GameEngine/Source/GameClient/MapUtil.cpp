@@ -353,7 +353,11 @@ void WaypointMap::update( void )
 	m_numStartSpots = max(1, m_numStartSpots);
 }
 
-const char * MapCache::m_mapCacheName = "MapCache.ini";
+#if defined(GENERALS_ONLINE)
+const char * MapCache::m_mapCacheName = "MapCacheGO.ini";
+#else
+const char* MapCache::m_mapCacheName = "MapCache.ini";
+#endif
 
 
 AsciiString MapCache::getMapDir(bool bCustomMapDebug) const

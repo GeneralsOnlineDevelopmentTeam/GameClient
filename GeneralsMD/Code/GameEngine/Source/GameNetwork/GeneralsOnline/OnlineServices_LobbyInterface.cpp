@@ -536,6 +536,8 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				lobbyEntryIter["passworded"].get_to(lobbyEntry.passworded);
 				lobbyEntryIter["allow_observers"].get_to(lobbyEntry.allow_observers);
 				lobbyEntryIter["max_cam_height"].get_to(lobbyEntry.max_cam_height);
+				lobbyEntryIter["exe_crc"].get_to(lobbyEntry.exe_crc);
+				lobbyEntryIter["ini_crc"].get_to(lobbyEntry.ini_crc);
 
 				// correct map path
 				if (lobbyEntry.map_official)
@@ -673,6 +675,8 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryJSON["passworded"].get_to(lobbyEntry.passworded);
 						lobbyEntryJSON["rng_seed"].get_to(lobbyEntry.rng_seed);
 						lobbyEntryJSON["max_cam_height"].get_to(lobbyEntry.max_cam_height);
+						lobbyEntryJSON["exe_crc"].get_to(lobbyEntry.exe_crc);
+						lobbyEntryJSON["ini_crc"].get_to(lobbyEntry.ini_crc);
 
 						// correct map path
 						if (lobbyEntry.map_official)
@@ -1106,6 +1110,8 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 	j["passworded"] = bPassworded;
 	j["password"] = szPassword;
 	j["allow_observers"] = bAllowObservers;
+	j["exe_crc"] = TheGlobalData->m_exeCRC;
+	j["ini_crc"] = TheGlobalData->m_iniCRC;
 	j["max_cam_height"] = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight_WhenLobbyHost();
 
 	std::string strPostData = j.dump();
@@ -1132,17 +1138,6 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					if (TheNGMPGame == nullptr)
 					{
 						TheNGMPGame = new NGMPGame();
-
-
-						// TODO_NGMP: Rest of these
-						/*
-						TheNGMPGame.setLocalName(m_localName);
-						TheNGMPGame.setExeCRC(info->getExeCRC());
-						TheNGMPGame.setIniCRC(info->getIniCRC());
-						TheNGMPGame.setAllowObservers(info->getAllowObservers());
-						TheNGMPGame.setHasPassword(info->getHasPassword());
-						TheNGMPGame.setGameName(info->getGameName());
-						*/
 					}
 
 					// reset before copy

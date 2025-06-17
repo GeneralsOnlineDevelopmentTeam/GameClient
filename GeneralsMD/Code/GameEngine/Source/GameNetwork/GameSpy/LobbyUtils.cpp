@@ -557,15 +557,15 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	Color gameColor = GameSpyColor[GSCOLOR_GAME];
 
 	// TODO_NGMP: Support full again
-	//if (game->getNumNonObserverPlayers() == game->getMaxPlayers() || game->getNumPlayers() == MAX_SLOTS)
+	if (lobbyInfo.current_players == lobbyInfo.max_players || lobbyInfo.current_players == MAX_SLOTS)
 	{
-		//gameColor = GameSpyColor[GSCOLOR_GAME_FULL];
+		gameColor = GameSpyColor[GSCOLOR_GAME_FULL];
 	}
 
 	// TODO_NGMP: Support crc check again
-	//if (game->getExeCRC() != TheGlobalData->m_exeCRC || game->getIniCRC() != TheGlobalData->m_iniCRC)
+	if (lobbyInfo.exe_crc != TheGlobalData->m_exeCRC || lobbyInfo.ini_crc != TheGlobalData->m_iniCRC)
 	{
-		//gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
+		gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
 	}
 
 	std::string strOwnerName = "";
@@ -590,9 +590,10 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 
 	bool bHasPassword = lobbyInfo.passworded;
 
-	// TODO_NGMP
 	bool bAllowSpectators = lobbyInfo.allow_observers;
 	bool bTrackStats = lobbyInfo.track_stats;
+
+	// TODO_NGMP
 	int latency = 5;
 
 	// TODO_NGMP: Asian text

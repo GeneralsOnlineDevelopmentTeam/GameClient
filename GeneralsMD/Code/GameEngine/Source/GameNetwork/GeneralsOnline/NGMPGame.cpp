@@ -79,6 +79,18 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 	// observers
 	setAllowObservers(lobby.allow_observers);
 
+	setHasPassword(lobby.passworded);
+
+	AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
+	TheNGMPGame->setLocalName(localName);
+
+	setExeCRC(lobby.exe_crc);
+	setIniCRC(lobby.ini_crc);
+
+	UnicodeString lobbyName;
+	lobbyName.format(L"%hs", lobby.name.c_str());
+	setGameName(lobbyName);
+
 	// starting cash
 	Money startingCash;
 	startingCash.deposit(lobby.starting_cash, FALSE);
