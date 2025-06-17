@@ -72,6 +72,20 @@
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 // Note: if you add more columns, you must modify the .wnd files and change the listbox properties (yuck!)
+
+// TODO_NGMP: We probably need to modify this in the WND... they set the width for observer to 0, for now we dont show ping, but we should show box
+#if defined(GENERALS_ONLINE)
+enum {
+	COLUMN_NAME = 0,
+	COLUMN_MAP,
+	COLUMN_LADDER,
+	COLUMN_NUMPLAYERS,
+	COLUMN_PASSWORD,
+	COLUMN_PING,
+  COLUMN_USE_STATS,
+  COLUMN_OBSERVER,
+};
+#else
 enum {
 	COLUMN_NAME = 0,
 	COLUMN_MAP,
@@ -79,9 +93,10 @@ enum {
 	COLUMN_NUMPLAYERS,
 	COLUMN_PASSWORD,
 	COLUMN_OBSERVER,
-  COLUMN_USE_STATS,
+	COLUMN_USE_STATS,
 	COLUMN_PING,
 };
+#endif
 
 static NameKeyType buttonSortAlphaID = NAMEKEY_INVALID;
 static NameKeyType buttonSortPingID = NAMEKEY_INVALID;
@@ -576,7 +591,8 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	bool bHasPassword = lobbyInfo.passworded;
 
 	// TODO_NGMP
-	bool bAllowSpectators = true;
+	bool bAllowSpectators = lobbyInfo.allow_observers;
+	bool bTrackStats = lobbyInfo.track_stats;
 	int latency = 5;
 
 	// TODO_NGMP: Asian text
@@ -688,11 +704,17 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	if (bAllowSpectators)
 	{
 		const Image* img = TheMappedImageCollection->findImageByName("Observer");
-		GadgetListBoxAddEntryImage(win, img, index, COLUMN_OBSERVER);
+		GadgetListBoxAddEntryImage(win, img, index, COLUMN_OBSERVER, img->getImageHeight()/2, img->getImageWidth()/2);
 	}
 	else
 	{
 		GadgetListBoxAddEntryText(win, UnicodeString(L" "), gameColor, index, COLUMN_OBSERVER);
+	}
+
+	if (bTrackStats)
+	{
+		const Image* img = TheMappedImageCollection->findImageByName("GoodStatsIcon");
+		GadgetListBoxAddEntryImage(win, img, index, COLUMN_USE_STATS, img->getImageHeight(), img->getImageWidth());
 	}
 
 	s.format(L"%d", latency);
