@@ -426,8 +426,18 @@ void NGMPGame::launchGame(void)
 	msg->appendIntegerArgument(GAME_INTERNET);
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	TheWritableGlobalData->m_framesPerSecondLimit = GENERALS_ONLINE_HIGH_FPS_LIMIT;
-	TheWritableGlobalData->m_useFpsLimit = true;
+
+	if (NGMP_OnlineServicesManager::Settings.Graphics_LimitFramerate())
+	{
+		TheWritableGlobalData->m_framesPerSecondLimit = NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit();
+		TheWritableGlobalData->m_useFpsLimit = true;
+	}
+	else
+	{
+		TheWritableGlobalData->m_framesPerSecondLimit = 30000; // game does this... it's not great
+		TheWritableGlobalData->m_useFpsLimit = false;
+	}
+	
 #endif
 	//TheWritableGlobalData->m_useFpsLimit = false;
 

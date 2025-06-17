@@ -7,6 +7,10 @@
 #include "realcrc.h"
 #include "../../DownloadManager.h"
 #include <ws2tcpip.h>
+#include "GameClient/DisplayStringManager.h"
+#include "../../NetworkInterface.h"
+
+extern NetworkInterface* TheNetwork;
 
 extern "C"
 {
@@ -44,6 +48,11 @@ NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
 	m_pOnlineServicesManager = this;
 
 	InitSentry();
+}
+
+void NGMP_OnlineServicesManager::DrawUI()
+{
+	m_HUD.Render();
 }
 
 std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, bool bAttachToken)
@@ -666,5 +675,31 @@ void QoSManager::StartProbing(std::map<std::pair<std::string, EQoSRegions>, std:
 		}
 
 		m_lstQoSProbesInFlight.push_back(newProbe);
+	}
+}
+
+void NetworkHUD::Render()
+{
+	if (NGMP_OnlineServicesManager::Settings.Graphics_DrawStatsOverlay())
+	{
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		if (currTime - lastFPSUpdate >= 1000)
+		{
+			lastFPSUpdate = currTime;
+			m_lastFPS = m_currentFPS;
+			m_currentFPS = 0;
+		}
+		++m_currentFPS;
+
+		if (m_DisplayString && TheNetwork != nullptr)
+		{
+			UnicodeString unibuffer;
+			unibuffer.format(L"FPS: Render: %d Logic: %ld",
+				m_lastFPS,
+				TheNetwork->getFrameRate());
+
+			m_DisplayString->setText(unibuffer);
+			m_DisplayString->draw(0, 0, GameMakeColor(255, 255, 255, 255), GameMakeColor(0, 0, 0, 255));
+		}
 	}
 }

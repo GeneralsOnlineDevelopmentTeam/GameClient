@@ -770,7 +770,7 @@ void GameEngine::update(void)
 			VERIFY_CRC
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-				m_maxFPS = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+				m_maxFPS = NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit();
 #endif
 				TheRadar->UPDATE();
 

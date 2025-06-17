@@ -18,6 +18,36 @@ class NGMP_OnlineServices_StatsInterface;
 #include "GameNetwork/GeneralsOnline/Vendor/sentry/sentry.h"
 #include <chrono>
 #include "GeneralsOnline_Settings.h"
+#include "GameClient/DisplayStringManager.h"
+#include "Common/GameEngine.h"
+
+class NetworkHUD
+{
+public:
+	NetworkHUD()
+	{
+		m_DisplayString = TheDisplayStringManager->newDisplayString();
+		m_DisplayString->reset();
+		m_DisplayString->setFont(TheFontLibrary->getFont("FixedSys", 8, false));
+		m_DisplayString->setText(UnicodeString::TheEmptyString);
+	}
+
+	void Render();
+
+	~NetworkHUD()
+	{
+		if (m_DisplayString)
+			TheDisplayStringManager->freeDisplayString(m_DisplayString);
+		m_DisplayString = NULL;
+	}
+
+private:
+	DisplayString* m_DisplayString = nullptr;
+
+	int m_lastFPS = -1;
+	int m_currentFPS = -1;
+	int64_t lastFPSUpdate = -1;
+};
 
 enum EWebSocketMessageID
 {
@@ -202,6 +232,9 @@ public:
 		DEV,
 		PROD
 	};
+
+	NetworkHUD m_HUD;
+	void DrawUI();
 
 #if defined(_DEBUG)
 	const static EEnvironment g_Environment = EEnvironment::DEV;

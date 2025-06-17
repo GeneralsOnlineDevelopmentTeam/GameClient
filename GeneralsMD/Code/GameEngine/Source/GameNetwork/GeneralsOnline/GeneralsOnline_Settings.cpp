@@ -10,6 +10,11 @@
 #define SETTINGS_KEY_INPUT "input"
 #define SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW "lock_cursor_to_game_window"
 
+#define SETTINGS_KEY_RENDER "render"
+#define SETTINGS_KEY_RENDER_LIMIT_FRAMERATE "limit_framerate"
+#define SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL "fps_limit"
+#define SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY "stats_overlay"
+
 #define SETTINGS_FILENAME "GeneralsOnline_settings.json"
 
 GenOnlineSettings::GenOnlineSettings()
@@ -101,6 +106,26 @@ void GenOnlineSettings::Load(void)
 					m_Input_LockCursorToGameWindow = inputSettings[SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW];
 				}
 			}
+
+			if (jsonSettings.contains(SETTINGS_KEY_RENDER))
+			{
+				auto renderSettings = jsonSettings[SETTINGS_KEY_RENDER];
+
+				if (renderSettings.contains(SETTINGS_KEY_RENDER_LIMIT_FRAMERATE))
+				{
+					m_Render_LimitFramerate = renderSettings[SETTINGS_KEY_RENDER_LIMIT_FRAMERATE];
+				}
+
+				if (renderSettings.contains(SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL))
+				{
+					m_Render_FramerateLimit_FPSVal = renderSettings[SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL];
+				}
+
+				if (renderSettings.contains(SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY))
+				{
+					m_Render_DrawStatsOverlay = renderSettings[SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY];
+				}
+			}
 		}
 		
 	}
@@ -114,6 +139,9 @@ void GenOnlineSettings::Load(void)
 		m_Camera_MinHeight = m_Camera_MinHeight_default;
 		m_Camera_MaxHeight_LobbyHost = m_Camera_MaxHeight_LobbyHost;
 		m_Input_LockCursorToGameWindow = true;
+		m_Render_LimitFramerate = true;
+		m_Render_FramerateLimit_FPSVal = 60;
+		m_Render_DrawStatsOverlay = true;
 	}
 	
 	// Always save so we re-serialize anything new or missing
@@ -139,9 +167,18 @@ void GenOnlineSettings::Save()
 			{
 				SETTINGS_KEY_INPUT,
 					{
-						{SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW, m_Input_LockCursorToGameWindow},
+						{SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW, m_Input_LockCursorToGameWindow}
 					}
-			}
+			},
+
+		{
+			SETTINGS_KEY_RENDER,
+				{
+					{SETTINGS_KEY_RENDER_LIMIT_FRAMERATE, m_Render_LimitFramerate},
+					{SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL, m_Render_FramerateLimit_FPSVal},
+					{SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY, m_Render_DrawStatsOverlay}
+				}
+		}
 	};
 	
 	std::string strData = root.dump(1);

@@ -85,6 +85,7 @@
 #include "GameLogic/ScriptEngine.h"		// For TheScriptEngine - jkmcd
 
 #include "../NextGenMP_defines.h"
+#include <chrono>
 
 #ifdef RTS_INTERNAL
 // for occasional debugging...
@@ -116,6 +117,7 @@ GameClient::GameClient()
 	m_frame = 0;
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_legacyFrameMSAccured = 0;
 	m_frameLegacy = 0;
 	m_frameLegacyLast = 0;
 #endif
@@ -798,8 +800,14 @@ void GameClient::update( void )
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 #if !defined(GENERALS_ONLINE_RUN_FAST)
-	if (m_frame % 2 == 0)
+	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	m_legacyFrameMSAccured += currTime - m_LegacyFrameEndLastFrame;
+	m_LegacyFrameEndLastFrame = currTime;
+
+	// TODO_NGMP: This should really use partial frame intervals instead of a fixed 60hz update
+	if (m_legacyFrameMSAccured >= 33)
 	{
+		m_legacyFrameMSAccured = 0;
 		m_frameLegacy++;
 	}
 	else

@@ -21,6 +21,10 @@ public:
 		}
 	}
 
+	bool Graphics_DrawStatsOverlay() const { return m_Render_DrawStatsOverlay; }
+	bool Graphics_LimitFramerate() const { return m_Render_LimitFramerate; }
+	int Graphics_GetFPSLimit() const { return std::max<int>(m_Render_FramerateLimit_FPSVal, 60); }
+
 	void Initialize()
 	{
 		m_bInitialized = true;
@@ -41,4 +45,8 @@ private:
 	bool m_Input_LockCursorToGameWindow = true;
 
 	bool m_bInitialized = false;
+
+	bool m_Render_DrawStatsOverlay = true;
+	bool m_Render_LimitFramerate = true;
+	int m_Render_FramerateLimit_FPSVal = 60;
 };

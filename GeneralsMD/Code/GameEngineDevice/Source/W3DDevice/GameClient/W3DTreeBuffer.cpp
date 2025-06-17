@@ -87,6 +87,7 @@ enum
 #include "WW3D2/mesh.h"
 #include "WW3D2/meshmdl.h"
 #include "d3dx8tex.h"
+#include "GameClient/GameClient.h"
 
 #ifdef RTS_INTERNAL
 // for occasional debugging...
@@ -356,13 +357,6 @@ it's sortKey */
 //=============================================================================
 void W3DTreeBuffer::updateSway(const BreezeInfo& info)
 {
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	if (TheGameLogic && TheGameLogic->HasLegacyFrameAdvanced())
-	{
-		return;
-	}
-
-#endif
 	Int i;
 	for	(i=0; i<NUM_SWAY_ENTRIES; i++) {
 		Real factor = Cos(i*2.0f*PI/(NUM_SWAY_ENTRIES+1.0f));
@@ -1558,6 +1552,15 @@ void W3DTreeBuffer::drawTrees(CameraClass* camera, RefRenderObjListIterator* pDy
 	if (TheGameLogic && TheGameLogic->isGamePaused()) {
 		pause = true;
 	}
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (TheGameClient && !TheGameClient->HasLegacyFrameAdvanced())
+	{
+		pause = true;
+	}
+
+#endif
+
 	Int i;
 	if (!pause) {
 		if (info.m_breezeVersion != m_curSwayVersion) 

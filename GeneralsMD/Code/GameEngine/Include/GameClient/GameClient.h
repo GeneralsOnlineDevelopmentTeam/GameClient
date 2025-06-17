@@ -171,6 +171,8 @@ protected:
 	UnsignedInt m_frame;																				///< Simulation frame number from server
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	int64_t m_LegacyFrameEndLastFrame = 0;
+	int64_t m_legacyFrameMSAccured = 0;
 	UnsignedInt m_frameLegacy;
 	UnsignedInt m_frameLegacyLast;
 #endif

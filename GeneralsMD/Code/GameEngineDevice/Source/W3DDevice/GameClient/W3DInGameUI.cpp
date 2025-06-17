@@ -52,6 +52,8 @@
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.		 
 
+#include "../OnlineServices_Init.h"
+
 #ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -435,6 +437,12 @@ void W3DInGameUI::draw( void )
 #endif
 
 	postDraw();
+
+	// draw ngmp too
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+	{
+		NGMP_OnlineServicesManager::GetInstance()->DrawUI();
+	}
 
 	TheWindowManager->winRepaint();
 	
