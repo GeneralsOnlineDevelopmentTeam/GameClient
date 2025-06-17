@@ -385,11 +385,19 @@ UpdateSleepTime HelicopterSlowDeathBehavior::update( void )
 		// forward angle & speed we are keeping track of to make our downward circle (that forward angle
 		// is *NOT* the angle the object is facing
 		//
+
 		Coord3D force;
-		force.x = DOUBLE_TO_REAL( Cos( m_forwardAngle ) ) * m_forwardSpeed;
-		force.y = DOUBLE_TO_REAL( Sin( m_forwardAngle ) ) * m_forwardSpeed;
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+		force.x = DOUBLE_TO_REAL( Cos( m_forwardAngle ) ) * m_forwardSpeed/2.f;
+		force.y = DOUBLE_TO_REAL( Sin( m_forwardAngle ) ) * m_forwardSpeed/2.f;
+#else
+		Coord3D force;
+		force.x = DOUBLE_TO_REAL(Cos(m_forwardAngle)) * m_forwardSpeed;
+		force.y = DOUBLE_TO_REAL(Sin(m_forwardAngle)) * m_forwardSpeed;
+#endif
 		force.z = 0.0f;
 		physics->applyMotiveForce( &force );
+
 
 		// update our forward angle for travelling along the large spiral downward circle
 		m_forwardAngle += (modData->m_spiralOrbitTurnRate * m_orbitDirection);

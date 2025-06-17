@@ -591,7 +591,10 @@ UpdateSleepTime StealthUpdate::calcSleepTime() const
 //-------------------------------------------------------------------------------------------------
 UpdateSleepTime StealthUpdate::update( void )
 {
-
+	if (TheGameLogic && !TheGameLogic->HasLegacyFrameAdvanced())
+	{
+		return UPDATE_SLEEP_NONE;
+	}
 	// restore disguise if we need to from a game load
 	if( m_xferRestoreDisguise == TRUE )
 	{
@@ -633,7 +636,7 @@ UpdateSleepTime StealthUpdate::update( void )
 		}
 	}
 
-	UnsignedInt now = TheGameLogic->getFrame();
+	UnsignedInt now = TheGameLogic->getFrameLegacy();
 
 /// @todo srj -- improve sleeping behavior. we currently just sleep when not enabled,
 // and demand every-frame attention when enabled. this could probably be smartened.
