@@ -201,6 +201,13 @@ void WOLMapSelectMenuInit( WindowLayout *layout, void *userData )
 	AsciiString listString( "WOLMapSelectMenu.wnd:ListboxMap" );
 	NameKeyType mapListID = TheNameKeyGenerator->nameToKey( listString );
 	mapList = TheWindowManager->winGetWindowFromId( parent, mapListID );
+
+#if defined(GENERALS_ONLINE)
+	// NGMP_CHANGE: Show all the maps in the folder, not just the first 1200. This change could be made in the .WND instead, but code is cleaner.
+	// NGMP_BACKPORT: Port this to SH once verified
+	GadgetListBoxSetListLength(mapList, TheMapCache->size());
+#endif
+	
 	if( mapList )
 	{
 		if (TheMapCache)
