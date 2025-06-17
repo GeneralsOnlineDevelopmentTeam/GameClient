@@ -64,68 +64,64 @@ std::string GenerateGamecode()
 void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 {
 	// move on to network capabilities section
-	ClearGSMessageBoxes();
-	GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining local network capabilities... this could take a few seconds"), true);
+	// this is done in the background, but we'll update the MOTD when done to show the latest status
+	NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().DetermineLocalNetworkCapabilities();
 
-	// NOTE: This is partially blocking and partially async...
-	NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().DetermineLocalNetworkCapabilities([this]()
+	// GET MOTD
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("MOTD", true);
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
-			// GET MOTD
-			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("MOTD", true);
-			std::map<std::string, std::string> mapHeaders;
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+			try
+			{
+				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+				MOTDResponse motdResp = jsonObject.get<MOTDResponse>();
+
+				NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD(motdResp.MOTD.c_str());
+
+				bool bResult = true;
+
+				// WS should be connected by this point
+				bool bWSConnected = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->IsConnected();
+				if (!bWSConnected)
 				{
-					try
-					{
-						nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-						MOTDResponse motdResp = jsonObject.get<MOTDResponse>();
+					bResult = bWSConnected;
+				}
 
-						NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD(motdResp.MOTD.c_str());
+				// NOTE: Don't need to get stats here, PopulatePlayerInfoWindows is called as part of going to MP...
+				// cache our local stats 
+				// 
+				// go to next screen
+				ClearGSMessageBoxes();
 
-						bool bResult = true;
-
-						// WS should be connected by this point
-						bool bWSConnected = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->IsConnected();
-						if (!bWSConnected)
-						{
-							bResult = bWSConnected;
-						}
-
-						// NOTE: Don't need to get stats here, PopulatePlayerInfoWindows is called as part of going to MP...
-						// cache our local stats 
-						// 
-						// go to next screen
-						ClearGSMessageBoxes();
-
-						for (auto cb : m_vecLogin_PendingCallbacks)
-						{
-							// TODO_NGMP: Support failure
-							cb(bResult);
-						}
-						m_vecLogin_PendingCallbacks.clear();
+				for (auto cb : m_vecLogin_PendingCallbacks)
+				{
+					// TODO_NGMP: Support failure
+					cb(bResult);
+				}
+				m_vecLogin_PendingCallbacks.clear();
 
 
-					}
-					catch (...)
-					{
-						NetworkLog("LOGIN: Failed to parse response");
+			}
+			catch (...)
+			{
+				NetworkLog("MOTD: Failed to parse response");
 
-						// if MOTD was bad, still proceed, its a soft error
-						NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD("Error retrieving MOTD");
+				// if MOTD was bad, still proceed, its a soft error
+				NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD("Error retrieving MOTD");
 
-						// go to next screen
-						ClearGSMessageBoxes();
+				// go to next screen
+				ClearGSMessageBoxes();
 
-						for (auto cb : m_vecLogin_PendingCallbacks)
-						{
-							// TODO_NGMP: Support failure
-							cb(false);
-						}
-						m_vecLogin_PendingCallbacks.clear();
+				for (auto cb : m_vecLogin_PendingCallbacks)
+				{
+					// TODO_NGMP: Support failure
+					cb(false);
+				}
+				m_vecLogin_PendingCallbacks.clear();
 
-						TheShell->pop();
-					}
-				});
+				TheShell->pop();
+			}
 		});
 }
 

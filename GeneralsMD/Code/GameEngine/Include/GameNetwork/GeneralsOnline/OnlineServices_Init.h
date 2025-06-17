@@ -208,14 +208,6 @@ private:
 	ERoomFlags m_RoomFlags = ERoomFlags::ROOM_FLAGS_DEFAULT;
 };
 
-enum NGMP_ENATType : uint8_t
-{
-	NAT_TYPE_UNDETERMINED,
-	NAT_TYPE_OPEN,
-	NAT_TYPE_MODERATE,
-	NAT_TYPE_STRICT
-};
-
 class NGMP_OnlineServicesManager
 {
 private:
@@ -340,41 +332,8 @@ public:
 		m_strMOTD = std::string(szMOTD);
 	}
 
-	std::function<void(NGMP_ENATType previousNATType, NGMP_ENATType newNATType)> m_cbNATTypeChanged = nullptr;
-	void RegisterForNATTypeChanges(std::function<void(NGMP_ENATType previousNATType, NGMP_ENATType newNATType)> cbNATTypeChanged) { m_cbNATTypeChanged = cbNATTypeChanged; }
-
-	void CacheNATType(NGMP_ENATType natType)
-	{
-		NGMP_ENATType oldNATType = m_NATType;
-		
-		m_NATType = natType;
-
-		if (m_cbNATTypeChanged != nullptr)
-		{
-			m_cbNATTypeChanged(oldNATType, m_NATType);
-		}
-	}
-	NGMP_ENATType GetNATType() const { return m_NATType; }
-	AsciiString GetNATTypeString() const
-	{
-		switch (m_NATType)
-		{
-		default:
-		case NGMP_ENATType::NAT_TYPE_UNDETERMINED:
-			return AsciiString("Undetermined");
-
-		case NGMP_ENATType::NAT_TYPE_OPEN:
-			return AsciiString("Open");
-
-		case NGMP_ENATType::NAT_TYPE_MODERATE:
-			return AsciiString("Moderate");
-
-		case NGMP_ENATType::NAT_TYPE_STRICT:
-			return AsciiString("Strict");
-		}
-
-		return AsciiString("Undetermined");
-	}
+	std::function<void()> m_cbPortMapperCallback = nullptr;
+	void RegisterForPortMapperChanges(std::function<void()> cbPortMapper) { m_cbPortMapperCallback = cbPortMapper; }
 
 	std::string& GetMOTD() { return m_strMOTD; }
 
@@ -387,9 +346,6 @@ public:
 		void ShutdownSentry();
 
 private:
-	NGMP_ENATType m_NATType = NGMP_ENATType::NAT_TYPE_UNDETERMINED;
-
-
 	NGMP_OnlineServices_AuthInterface* m_pAuthInterface = nullptr;
 	NGMP_OnlineServices_LobbyInterface* m_pLobbyInterface = nullptr;
 	NGMP_OnlineServices_RoomsInterface* m_pRoomInterface = nullptr;

@@ -228,7 +228,7 @@ static UnsignedByte grabUByte(const char *s)
 
 static void updateNumPlayersOnline(void)
 {
-	NGMP_OnlineServicesManager::GetInstance()->RegisterForNATTypeChanges([=](NGMP_ENATType previousNATType, NGMP_ENATType newNATType)
+	NGMP_OnlineServicesManager::GetInstance()->RegisterForPortMapperChanges([=]()
 		{
 			updateNumPlayersOnline(); // UI refresh
 		});
@@ -327,7 +327,14 @@ static void updateNumPlayersOnline(void)
 		std::string strPortState;
 		if (!bHasPortMapped)
 		{
-			strPortState = "No Port Mapped";
+			if (!NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().IsFullyDone())
+			{
+				strPortState = "Port Mapping In progress...";
+			}
+			else
+			{
+				strPortState = "No Port Mapped";
+			}
 		}
 		else
 		{
@@ -410,7 +417,7 @@ static void updateNumPlayersOnline(void)
 
 			// direct connect
 			line.format(L"Direct Connect: %hs%hs",
-				NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Determining..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
+				NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Being Determined..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
 #if !defined(GENERALS_ONLINE_PORT_MAP_FIREWALL_OVERRIDE_PORT)
 				(mappingTechUsed == PortMapper::EMappingTech::MANUAL) ? (NATDirectConnect == ECapabilityState::SUPPORTED ? "" : "\n\tWARNING: You have manually set a firewall port which does not appear to be open. Direct connectivity may not work.") : "",
 #else

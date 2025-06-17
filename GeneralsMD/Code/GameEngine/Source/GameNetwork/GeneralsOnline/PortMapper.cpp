@@ -14,6 +14,7 @@
 #include <chrono>
 #include <winsock.h>
 #include "GameNetwork/GameSpyOverlay.h"
+#include "../OnlineServices_Init.h"
 
 struct IPCapsResult
 {
@@ -59,8 +60,7 @@ void PortMapper::Tick()
 			m_directConnect = ECapabilityState::SUPPORTED;
 
 			// callback
-			m_callbackDeterminedCaps();
-			m_callbackDeterminedCaps = nullptr;
+			InvokeCallback();
 
 			if (m_NATSocket != INVALID_SOCKET)
 			{
@@ -78,8 +78,7 @@ void PortMapper::Tick()
 			m_directConnect = ECapabilityState::UNSUPPORTED;
 
 			// callback
-			m_callbackDeterminedCaps();
-			m_callbackDeterminedCaps = nullptr;
+			InvokeCallback();
 
 			if (m_NATSocket != INVALID_SOCKET)
 			{
@@ -146,8 +145,7 @@ void PortMapper::StartNATCheck()
 	{
 		NetworkLog("[NAT Check]: Failed to initialize Winsock. Error: %d", WSAGetLastError());
 		m_directConnect = ECapabilityState::UNSUPPORTED;
-		m_callbackDeterminedCaps();
-		m_callbackDeterminedCaps = nullptr;
+		InvokeCallback();
 		return;
 	}
 
@@ -158,8 +156,7 @@ void PortMapper::StartNATCheck()
 		NetworkLog("[NAT Check]: Socket creation failed. Error: %d", WSAGetLastError());
 		WSACleanup();
 		m_directConnect = ECapabilityState::UNSUPPORTED;
-		m_callbackDeterminedCaps();
-		m_callbackDeterminedCaps = nullptr;
+		InvokeCallback();
 		return;
 	}
 
@@ -172,8 +169,7 @@ void PortMapper::StartNATCheck()
 		m_NATSocket = INVALID_SOCKET;
 		WSACleanup();
 		m_directConnect = ECapabilityState::UNSUPPORTED;
-		m_callbackDeterminedCaps();
-		m_callbackDeterminedCaps = nullptr;
+		InvokeCallback();
 		return;
 	}
 
@@ -189,8 +185,7 @@ void PortMapper::StartNATCheck()
 		m_NATSocket = INVALID_SOCKET;
 		WSACleanup();
 		m_directConnect = ECapabilityState::UNSUPPORTED;
-		m_callbackDeterminedCaps();
-		m_callbackDeterminedCaps = nullptr;
+		InvokeCallback();
 		return;
 	}
 
@@ -239,19 +234,15 @@ void PortMapper::StartNATCheck()
 			{
 				// return immediately, wont work
 				m_directConnect = ECapabilityState::UNSUPPORTED;
-				m_callbackDeterminedCaps();
-				m_callbackDeterminedCaps = nullptr;
+				InvokeCallback();
 
 				NetworkLog("[NAT Checker]: Error code %d", statusCode);
 			}
 		});
 }
 
-void PortMapper::DetermineLocalNetworkCapabilities(std::function<void(void)> callbackDeterminedCaps)
+void PortMapper::DetermineLocalNetworkCapabilities()
 {
-	// store callback
-	m_callbackDeterminedCaps = callbackDeterminedCaps;
-
 	if (TheGlobalData->m_firewallPortOverride != 0)
 	{
 		m_PreferredPort.store(TheGlobalData->m_firewallPortOverride);
@@ -691,5 +682,13 @@ void PortMapper::RemovePortMapping_PCP()
 	{
 		NetworkLog("PortMapper: Removing PCP Mapping");
 		plum_destroy_mapping(m_PCPMappingHandle);
+	}
+}
+
+void PortMapper::InvokeCallback()
+{
+	if (NGMP_OnlineServicesManager::GetInstance()->m_cbPortMapperCallback != nullptr)
+	{
+		NGMP_OnlineServicesManager::GetInstance()->m_cbPortMapperCallback();
 	}
 }

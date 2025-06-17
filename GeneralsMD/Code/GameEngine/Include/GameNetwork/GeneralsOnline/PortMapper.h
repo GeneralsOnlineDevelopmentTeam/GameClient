@@ -46,7 +46,7 @@ public:
 #endif
 	};
 
-	void DetermineLocalNetworkCapabilities(std::function<void(void)> callbackDeterminedCaps);
+	void DetermineLocalNetworkCapabilities();
 
 	void ForwardPort_UPnP();
 	void ForwardPort_NATPMP();
@@ -58,6 +58,8 @@ public:
 	{
 		return m_directConnect;
 	}
+
+	bool IsFullyDone() const { return m_bPortMapper_NATPMP_Complete.load() && m_bPortMapper_UPNP_Complete.load() && m_bPortMapper_PCP_Complete.load(); }
 
 	bool HasPortOpen() const { return m_bPortMapper_AnyMappingSuccess.load(); }
 	EMappingTech GetPortMappingTechnologyUsed() const { return m_bPortMapper_MappingTechUsed.load(); }
@@ -73,8 +75,9 @@ private:
 	void RemovePortMapping_NATPMP();
 	void RemovePortMapping_PCP();
 
+	void InvokeCallback();
+
 private:
-	std::function<void(void)> m_callbackDeterminedCaps = nullptr;
 	ECapabilityState m_directConnect = ECapabilityState::UNDETERMINED;
 
 	std::atomic<uint16_t> m_PreferredPort = 0;

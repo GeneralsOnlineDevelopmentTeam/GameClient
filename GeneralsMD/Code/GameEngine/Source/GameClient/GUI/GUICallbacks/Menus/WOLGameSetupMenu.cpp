@@ -3011,8 +3011,6 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		msg.format(L"Displaying %d network connection(s) to this lobby:", connections.size());
 		GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 
-		int64_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-
 		auto lobbyMembers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
 
 		int highestLatency = 0;
