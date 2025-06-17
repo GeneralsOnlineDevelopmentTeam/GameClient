@@ -15,6 +15,9 @@
 #define SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL "fps_limit"
 #define SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY "stats_overlay"
 
+#define SETTINGS_KEY_CHAT "chat"
+#define SETTINGS_KEY_CHAT_LIFE_SECONDS "duration_seconds_until_fade_out"
+
 #define SETTINGS_FILENAME "GeneralsOnline_settings.json"
 
 GenOnlineSettings::GenOnlineSettings()
@@ -126,6 +129,16 @@ void GenOnlineSettings::Load(void)
 					m_Render_DrawStatsOverlay = renderSettings[SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY];
 				}
 			}
+
+			if (jsonSettings.contains(SETTINGS_KEY_CHAT))
+			{
+				auto chatSettings = jsonSettings[SETTINGS_KEY_CHAT];
+
+				if (chatSettings.contains(SETTINGS_KEY_CHAT_LIFE_SECONDS))
+				{
+					m_Chat_LifeSeconds = chatSettings[SETTINGS_KEY_CHAT_LIFE_SECONDS];
+				}
+			}
 		}
 		
 	}
@@ -142,6 +155,7 @@ void GenOnlineSettings::Load(void)
 		m_Render_LimitFramerate = true;
 		m_Render_FramerateLimit_FPSVal = 60;
 		m_Render_DrawStatsOverlay = true;
+		m_Chat_LifeSeconds = 30;
 	}
 	
 	// Always save so we re-serialize anything new or missing
@@ -176,7 +190,14 @@ void GenOnlineSettings::Save()
 				{
 					{SETTINGS_KEY_RENDER_LIMIT_FRAMERATE, m_Render_LimitFramerate},
 					{SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL, m_Render_FramerateLimit_FPSVal},
-					{SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY, m_Render_DrawStatsOverlay}
+					{SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY, m_Render_DrawStatsOverlay},
+				}
+		},
+
+		{
+			SETTINGS_KEY_CHAT,
+				{
+					{SETTINGS_KEY_CHAT_LIFE_SECONDS, m_Chat_LifeSeconds}
 				}
 		}
 	};

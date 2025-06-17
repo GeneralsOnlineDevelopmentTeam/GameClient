@@ -89,6 +89,7 @@
 #include "GameLogic/Module/MobMemberSlavedUpdate.h"//ML
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.		 
+#include "../OnlineServices_Init.h"
 
 #ifdef RTS_INTERNAL
 // for occasional debugging...
@@ -1657,7 +1658,7 @@ void InGameUI::update( void )
 
 	// GeneralsOnline NOTE: Increasing this, it's short + we increased framerate which is tied into the calc elsewhere
 #if defined(GENERALS_ONLINE)
-	const int messageTimeout = 15 * LOGICFRAMES_PER_SECOND;
+	const int messageTimeout = NGMP_OnlineServicesManager::Settings.GetChatLifeSeconds() * LOGICFRAMES_PER_SECOND;
 #else
 	const int messageTimeout = m_messageDelayMS / LOGICFRAMES_PER_SECOND / 1000;
 #endif
