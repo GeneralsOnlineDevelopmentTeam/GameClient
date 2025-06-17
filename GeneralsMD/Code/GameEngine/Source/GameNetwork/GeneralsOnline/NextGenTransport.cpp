@@ -151,18 +151,7 @@ Bool NextGenTransport::doSend(void)
 			// TODO_NGMP: Get this from game info, not the lobby, we should tear lobby down probably
 			// addr is actually player index...
 			// TODO: What if it's empty?
-			//LobbyMemberEntry lobbyMember = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromIndex(m_outBuffer[i].addr);
 			NGMPGameSlot* pSlot = (NGMPGameSlot*)NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame()->getSlot(m_outBuffer[i].addr);
-
-			if (pSlot->m_userID == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
-			{
-				NetworkLog("Sending to self...");
-				__debugbreak();
-			}
-			else
-			{
-				NetworkLog("Sending to remote...");
-			}
 
 			if (pSlot != nullptr)
 			{
