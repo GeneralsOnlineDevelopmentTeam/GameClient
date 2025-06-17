@@ -563,8 +563,11 @@ static Int insertPlayerInListbox(const PlayerInfo& info, Color color)
 	return index;
 }
 
+std::vector<int64_t> m_vecUsersProcessed;
+
 void PopulateLobbyPlayerListbox(void)
 {
+	m_vecUsersProcessed.clear();
 	GadgetListBoxReset(listboxLobbyPlayers);
 
 	for (auto kvPair: NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetMembersListForCurrentRoom())
@@ -572,9 +575,17 @@ void PopulateLobbyPlayerListbox(void)
 		NetworkRoomMember& netRoomMember = kvPair.second;
 
 
+		// TODO_NGMP: Add a batched request
 		// TODO_NGMP: Add a timeout to this where we just add the person with no stats
 		NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(netRoomMember.user_id, [=](bool bSuccess, PSPlayerStats stats)
 			{
+				// safety, this is async so we could in theory get delayed callbacks resulting in dupes
+				if (std::find(m_vecUsersProcessed.begin(), m_vecUsersProcessed.end(), netRoomMember.user_id) != m_vecUsersProcessed.end())
+				{
+					return;
+				}
+
+				m_vecUsersProcessed.push_back(netRoomMember.user_id);
 				PlayerInfo pi;
 				pi.m_name = AsciiString(netRoomMember.display_name.c_str());
 

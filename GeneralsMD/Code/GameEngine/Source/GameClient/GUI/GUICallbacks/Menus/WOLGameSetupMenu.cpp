@@ -3008,12 +3008,14 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
 
 		UnicodeString msg;
-		msg.format(L"Dumping %d network connection(s) to this lobby:", connections.size());
+		msg.format(L"Displaying %d network connection(s) to this lobby:", connections.size());
 		GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 
 		int64_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 
 		auto lobbyMembers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
+
+		int highestLatency = 0;
 
 		int i = 0;
 		for (auto& kvPair : connections)
@@ -3064,23 +3066,23 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 				}
 			}
 
-			std::string strConnectionType = "Unknown";
-			if (localUserID == kvPair.first)
-			{
-				strConnectionType = "Local";
-			}
-			else
-			{
-				strConnectionType = "Remote";
-			}
-
 			UnicodeString msg;
-			msg.format(L"        Connection %d (%hs) - user %lld - name %hs - addr %hs:%d - State: %hs - Attempts: %d - Latency: %d",
-				i, strConnectionType.c_str(), kvPair.first, strDisplayName.c_str(), strIPAddr.c_str(), conn.m_address.port, strState.c_str(), conn.m_ConnectionAttempts, conn.latency);
+			msg.format(L"        Connection %d - user %lld - name %hs - addr %hs:%d - State: %hs - Attempts: %d - Latency: %d frames (%d ms)",
+				i, kvPair.first, strDisplayName.c_str(), strIPAddr.c_str(), conn.m_address.port, strState.c_str(), conn.m_ConnectionAttempts, (int)ceil(conn.latency / GENERALS_ONLINE_HIGH_FPS_LIMIT), conn.latency);
 			GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+			if (conn.latency > highestLatency)
+			{
+				highestLatency = conn.latency;
+			}
 
 			++i;
 		}
+
+		// show overall latency expectations
+		UnicodeString msgOverall;
+		msgOverall.format(L"Based on the current lobby players, the game latency will be %d frames (%d ms):", (int)ceil(highestLatency / GENERALS_ONLINE_HIGH_FPS_LIMIT), highestLatency);
+		GadgetListBoxAddEntryText(listboxGameSetupChat, msgOverall, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 
 		return TRUE; // was a slash command
 	}
