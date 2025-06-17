@@ -693,10 +693,21 @@ void NetworkHUD::Render()
 
 		if (m_DisplayString && TheNetwork != nullptr)
 		{
+			// TODO_NGMP: Cache this in a stats interface
+			int highestLatency = 0;
+			std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+			for (auto& kvPair : connections)
+			{
+				PlayerConnection& conn = kvPair.second;
+				if (conn.latency > highestLatency)
+				{
+					highestLatency = conn.latency;
+				}
+			}
+
 			UnicodeString unibuffer;
-			unibuffer.format(L"FPS: Render: %d Logic: %ld",
-				m_lastFPS,
-				TheNetwork->getFrameRate());
+			unibuffer.format(L"FPS: Render: %d Logic: %ld\nLatency: %d frames (%d ms)",m_lastFPS,
+				TheNetwork->getFrameRate(), (int)ceil(highestLatency/GENERALS_ONLINE_HIGH_FPS_LIMIT), highestLatency);
 
 			m_DisplayString->setText(unibuffer);
 			m_DisplayString->draw(0, 0, GameMakeColor(255, 255, 255, 255), GameMakeColor(0, 0, 0, 255));
