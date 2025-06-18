@@ -540,6 +540,8 @@ void WOLLoginMenuInit( WindowLayout *layout, void *userData )
 static Bool loggedInOK = false;
 void WOLLoginMenuShutdown( WindowLayout *layout, void *userData )
 {
+	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->DeregisterForLoginCallback();
+
 	isShuttingDown = true;
 	loggedInOK = false;
 	TheWindowManager->clearTabList();

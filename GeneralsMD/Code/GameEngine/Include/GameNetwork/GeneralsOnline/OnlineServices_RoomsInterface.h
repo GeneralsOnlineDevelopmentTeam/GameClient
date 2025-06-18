@@ -75,10 +75,20 @@ public:
 		m_OnChatCallback = cb;
 	}
 
+	void DeregisterForChatCallback()
+	{
+		m_OnChatCallback = nullptr;
+	}
+
 	std::function<void()> m_RosterNeedsRefreshCallback = nullptr;
 	void RegisterForRosterNeedsRefreshCallback(std::function<void()> cb)
 	{
 		m_RosterNeedsRefreshCallback = cb;
+	}
+
+	void DeregisterForRosterNeedsRefreshCallback()
+	{
+		m_RosterNeedsRefreshCallback = nullptr;
 	}
 
 	NetworkRoomMember* GetRoomMemberFromIndex(int index)

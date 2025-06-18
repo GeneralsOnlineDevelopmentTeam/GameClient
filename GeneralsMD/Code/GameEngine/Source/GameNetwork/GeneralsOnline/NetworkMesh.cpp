@@ -59,14 +59,22 @@ void NetworkMesh::ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int6
 				{
 					UnicodeString str;
 					str.format(L"%hs", chatPacket.GetMsg().c_str());
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
+
+					if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback != nullptr)
+					{
+						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
+					}
 				}
 			}
 			else
 			{
 				UnicodeString str;
 				str.format(L"[%hs] %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
+
+				if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback != nullptr)
+				{
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
+				}
 			}
 
 
@@ -77,7 +85,10 @@ void NetworkMesh::ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int6
 
 void NetworkMesh::ProcessGameStart(Lobby_StartGamePacket& startGamePacket)
 {
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
+	if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket != nullptr)
+	{
+		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
+	}
 
 	// increase our timeout, Generals has its own timeout code and allows reconnecting, so just set an extremely long value and let the game handle it.
 	for (auto& connectionInfo : m_mapConnections)
@@ -646,7 +657,10 @@ void NetworkMesh::Tick()
 							));
 						}
 
-						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback();
+						if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback != nullptr)
+						{
+							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnCannotConnectToLobbyCallback();
+						}
 						return;
 					}
 				}
@@ -874,7 +888,10 @@ void NetworkMesh::Tick()
 									}
 								}
 
-								m_cbOnConnected(ackPacket.GetUserID(), strDisplayName, EConnectionState::CONNECTED_RELAY);
+								if (m_cbOnConnected != nullptr)
+								{
+									m_cbOnConnected(ackPacket.GetUserID(), strDisplayName, EConnectionState::CONNECTED_RELAY);
+								}
 							}
 						}
 						else
@@ -894,7 +911,10 @@ void NetworkMesh::Tick()
 									}
 								}
 
-								m_cbOnConnected(ackPacket.GetUserID(), strDisplayName, EConnectionState::CONNECTED_DIRECT);
+								if (m_cbOnConnected != nullptr)
+								{
+									m_cbOnConnected(ackPacket.GetUserID(), strDisplayName, EConnectionState::CONNECTED_DIRECT);
+								}
 							}
 						}
 

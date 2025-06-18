@@ -94,12 +94,10 @@ void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 				// go to next screen
 				ClearGSMessageBoxes();
 
-				for (auto cb : m_vecLogin_PendingCallbacks)
+				if (m_cb_LoginPendingCallback != nullptr)
 				{
-					// TODO_NGMP: Support failure
-					cb(bResult);
+					m_cb_LoginPendingCallback(bResult);
 				}
-				m_vecLogin_PendingCallbacks.clear();
 
 
 			}
@@ -113,12 +111,10 @@ void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 				// go to next screen
 				ClearGSMessageBoxes();
 
-				for (auto cb : m_vecLogin_PendingCallbacks)
+				if (m_cb_LoginPendingCallback != nullptr)
 				{
-					// TODO_NGMP: Support failure
-					cb(false);
+					m_cb_LoginPendingCallback(false);
 				}
-				m_vecLogin_PendingCallbacks.clear();
 
 				TheShell->pop();
 			}
@@ -399,12 +395,10 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 	}
 	else
 	{
-		for (auto cb : m_vecLogin_PendingCallbacks)
+		if (m_cb_LoginPendingCallback != nullptr)
 		{
-			// TODO_NGMP: Support failure
-			cb(false);
+			m_cb_LoginPendingCallback(false);
 		}
-		m_vecLogin_PendingCallbacks.clear();
 
 		TheShell->pop();
 	}

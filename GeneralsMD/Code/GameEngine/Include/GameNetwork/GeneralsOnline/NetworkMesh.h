@@ -187,6 +187,11 @@ public:
 		m_cbOnConnected = cb;
 	}
 
+	void DeregisterForConnectionEvents()
+	{
+		m_cbOnConnected = nullptr;
+	}
+
 	void ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int64_t sendingUserID);
 	void ProcessGameStart(Lobby_StartGamePacket& startGamePacket);
 

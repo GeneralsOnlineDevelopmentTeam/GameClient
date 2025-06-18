@@ -21,7 +21,12 @@ public:
 
 	void RegisterForLoginCallback(std::function<void(bool)> callback)
 	{
-		m_vecLogin_PendingCallbacks.push_back(callback);
+		m_cb_LoginPendingCallback = callback;
+	}
+
+	void DeregisterForLoginCallback()
+	{
+		m_cb_LoginPendingCallback = nullptr;
 	}
 
 	std::string& GetAuthToken() { return m_strToken; }
@@ -49,5 +54,5 @@ private:
 	int64_t m_userID = -1;
 	std::string m_strDisplayName = "NO_USER";
 
-	std::vector<std::function<void(bool)>> m_vecLogin_PendingCallbacks = std::vector<std::function<void(bool)>>();
+	std::function<void(bool)> m_cb_LoginPendingCallback = nullptr;
 };

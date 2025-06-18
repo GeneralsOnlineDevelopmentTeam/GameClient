@@ -334,6 +334,7 @@ public:
 
 	std::function<void()> m_cbPortMapperCallback = nullptr;
 	void RegisterForPortMapperChanges(std::function<void()> cbPortMapper) { m_cbPortMapperCallback = cbPortMapper; }
+	void DeregisterForPortMapperChanges() { m_cbPortMapperCallback = nullptr; }
 
 	std::string& GetMOTD() { return m_strMOTD; }
 

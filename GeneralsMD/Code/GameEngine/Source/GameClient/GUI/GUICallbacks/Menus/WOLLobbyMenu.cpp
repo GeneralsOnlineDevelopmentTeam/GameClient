@@ -1116,6 +1116,11 @@ static void shutdownComplete( WindowLayout *layout )
 //-------------------------------------------------------------------------------------------------
 void WOLLobbyMenuShutdown( WindowLayout *layout, void *userData )
 {
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->DeregisterForCreateLobbyCallback();
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->DeregisterForJoinLobbyCallback();
+	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->DeregisterForChatCallback();
+	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->DeregisterForRosterNeedsRefreshCallback();
+
 	CustomMatchPreferences pref;
 //	GameWindow *slider = TheWindowManager->winGetWindowFromId(parent, sliderChatAdjustID);
 //	if (slider)
@@ -1978,7 +1983,18 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 							// CRC Check
 							if (Lobby.exe_crc != TheGlobalData->m_exeCRC || Lobby.ini_crc != TheGlobalData->m_iniCRC)
 							{
-								GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"), TheGameText->fetch("GUI:JoinFailedCRCMismatch"));
+								if (TheGlobalData->m_iniCRC != VANILLA_INI_CRC)
+								{
+									GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"), UnicodeString(L"You have modified INI files or a modification."));
+								}
+								else if (Lobby.ini_crc != VANILLA_INI_CRC)
+								{
+									GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"), UnicodeString(L"The host has modified INI files or a modification."));
+								}
+								else
+								{
+									GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"), TheGameText->fetch("GUI:JoinFailedCRCMismatch"));
+								}
 								break;
 							}
 

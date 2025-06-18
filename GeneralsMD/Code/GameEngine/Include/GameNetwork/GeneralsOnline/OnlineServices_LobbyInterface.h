@@ -144,12 +144,10 @@ public:
 
 	void InvokeCreateLobbyCallback(bool bSuccess)
 	{
-		for (auto cb : m_vecCreateLobby_PendingCallbacks)
+		if (m_cb_CreateLobbyPendingCallback != nullptr)
 		{
-			// TODO_NGMP: Support failure
-			cb(bSuccess);
+			m_cb_CreateLobbyPendingCallback(bSuccess);
 		}
-		m_vecCreateLobby_PendingCallbacks.clear();
 	}
 
 
@@ -170,11 +168,21 @@ public:
 		m_RosterNeedsRefreshCallback = cb;
 	}
 
+	void DeregisterForRosterNeedsRefreshCallback()
+	{
+		m_RosterNeedsRefreshCallback = nullptr;
+	}
+
 	// TODO_NGMP: Better support for packet callbacks
 	std::function<void()> m_callbackStartGamePacket = nullptr;
 	void RegisterForGameStartPacket(std::function<void()> cb)
 	{
 		m_callbackStartGamePacket = cb;
+	}
+
+	void DeregisterForGameStartPacket()
+	{
+		m_callbackStartGamePacket = nullptr;
 	}
 
 	// periodically force refresh the lobby for data accuracy
@@ -289,7 +297,12 @@ public:
 
 	void RegisterForCreateLobbyCallback(std::function<void(bool)> callback)
 	{
-		m_vecCreateLobby_PendingCallbacks.push_back(callback);
+		m_cb_CreateLobbyPendingCallback = callback;
+	}
+
+	void DeregisterForCreateLobbyCallback()
+	{
+		m_cb_CreateLobbyPendingCallback = nullptr;
 	}
 
 	void ApplyLocalUserPropertiesToCurrentNetworkRoom();
@@ -309,10 +322,20 @@ public:
 		m_cbPlayerDoesntHaveMap = cb;
 	}
 
+	void DeregisterForPlayerDoesntHaveMapCallback()
+	{
+		m_cbPlayerDoesntHaveMap = nullptr;
+	}
+
 	std::function<void(void)> m_OnCannotConnectToLobbyCallback = nullptr;
 	void RegisterForCannotConnectToLobbyCallback(std::function<void(void)> cb)
 	{
 			m_OnCannotConnectToLobbyCallback = cb;
+	}
+
+	void DeregisterForCannotConnectToLobbyCallback()
+	{
+		m_OnCannotConnectToLobbyCallback = nullptr;
 	}
 
 	std::function<void(UnicodeString strMessage, GameSpyColors color)> m_OnChatCallback = nullptr;
@@ -321,9 +344,19 @@ public:
 		m_OnChatCallback = cb;
 	}
 
+	void DeregisterForChatCallback()
+	{
+		m_OnChatCallback = nullptr;
+	}
+
 	void RegisterForJoinLobbyCallback(std::function<void(EJoinLobbyResult)> cb)
 	{
 		m_callbackJoinedLobby = cb;
+	}
+
+	void DeregisterForJoinLobbyCallback()
+	{
+		m_callbackJoinedLobby = nullptr;
 	}
 
 	void ResetCachedRoomData()
@@ -406,7 +439,7 @@ public:
 	}
 
 private:
-	std::vector<std::function<void(bool)>> m_vecCreateLobby_PendingCallbacks = std::vector<std::function<void(bool)>>();
+	std::function<void(bool)> m_cb_CreateLobbyPendingCallback = nullptr;
 
 	std::function<void(EJoinLobbyResult)> m_callbackJoinedLobby = nullptr;
 

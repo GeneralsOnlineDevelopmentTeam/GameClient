@@ -228,11 +228,6 @@ static UnsignedByte grabUByte(const char *s)
 
 static void updateNumPlayersOnline(void)
 {
-	NGMP_OnlineServicesManager::GetInstance()->RegisterForPortMapperChanges([=]()
-		{
-			updateNumPlayersOnline(); // UI refresh
-		});
-
 	GameWindow *playersOnlineWindow = TheWindowManager->winGetWindowFromId(
 		NULL, NAMEKEY("WOLWelcomeMenu.wnd:StaticTextNumPlayersOnline") );
 
@@ -601,6 +596,8 @@ static Bool raiseMessageBoxes = FALSE;
 //-------------------------------------------------------------------------------------------------
 void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 {
+	NGMP_OnlineServicesManager::GetInstance()->RegisterForPortMapperChanges(updateNumPlayersOnline);
+
 	nextScreen = NULL;
 	buttonPushed = FALSE;
 	isShuttingDown = FALSE;
@@ -777,6 +774,8 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 //-------------------------------------------------------------------------------------------------
 void WOLWelcomeMenuShutdown( WindowLayout *layout, void *userData )
 {
+	NGMP_OnlineServicesManager::GetInstance()->DeregisterForPortMapperChanges();
+
 	listboxInfo = NULL;
 
 	if (TheFirewallHelper != NULL) {

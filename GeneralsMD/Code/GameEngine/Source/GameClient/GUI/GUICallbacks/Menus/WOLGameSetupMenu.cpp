@@ -1881,6 +1881,18 @@ static void shutdownComplete( WindowLayout *layout )
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuShutdown( WindowLayout *layout, void *userData )
 {
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->DeregisterForChatCallback();
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->DeregisterForCannotConnectToLobbyCallback();
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->DeregisterForPlayerDoesntHaveMapCallback();
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->DeregisterForRosterNeedsRefreshCallback();
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->DeregisterForGameStartPacket();
+	
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	if (pMesh != nullptr)
+	{
+		pMesh->DeregisterForConnectionEvents();
+	}
+
 	//TheGameSpyInfo->unregisterTextWindow(listboxGameSetupChat);
 
 	if( WOLMapSelectLayout )
