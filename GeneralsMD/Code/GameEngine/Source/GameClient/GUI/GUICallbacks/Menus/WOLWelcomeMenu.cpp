@@ -265,44 +265,6 @@ static void updateNumPlayersOnline(void)
 
 		//<hexcol>%hs for colors
 		
-		// record the game data to backend
-		{
-
-			PortMapper::EMappingTech mappingTechUsed = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetPortMappingTechnologyUsed();
-			ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
-			bool bHasPortMapped = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasPortOpen();
-			int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-
-			AsciiString sentryMsg;
-			sentryMsg.format("Determined Network Capabilities");
-
-			// add info about how the game ended
-			sentry_set_extra("direct_connect", sentry_value_new_bool(NATDirectConnect == ECapabilityState::SUPPORTED));
-			sentry_set_extra("port_mapped", sentry_value_new_bool(bHasPortMapped));
-			sentry_set_extra("port_mapped_tech", sentry_value_new_int32((int)mappingTechUsed));
-			sentry_set_extra("preferred_port", sentry_value_new_int32(preferredPort));
-
-			// local player info
-			int64_t userID = -1;
-			std::string strDisplayname = "Unknown";
-			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-			{
-				userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-				strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str();
-			}
-			std::string strUserID = std::format("{}", userID);
-
-			sentry_set_extra("user_id", sentry_value_new_int32(userID));
-			sentry_set_extra("user_displayname", sentry_value_new_string(strDisplayname.c_str()));
-
-			// send event to sentry
-			sentry_capture_event(sentry_value_new_message_event(
-				SENTRY_LEVEL_INFO,
-				"NETWORK_CAPS",
-				sentryMsg.str()
-			));
-		}
-
 		while (headingStr.nextToken(&line, UnicodeString(L"\n")))
 		{
 			if (line.getCharAt(line.getLength()-1) == '\r')
