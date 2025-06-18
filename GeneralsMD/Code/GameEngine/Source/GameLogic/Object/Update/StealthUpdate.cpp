@@ -591,10 +591,6 @@ UpdateSleepTime StealthUpdate::calcSleepTime() const
 //-------------------------------------------------------------------------------------------------
 UpdateSleepTime StealthUpdate::update( void )
 {
-	if (TheGameLogic && !TheGameLogic->HasLegacyFrameAdvanced())
-	{
-		return UPDATE_SLEEP_NONE;
-	}
 	// restore disguise if we need to from a game load
 	if( m_xferRestoreDisguise == TRUE )
 	{
@@ -636,7 +632,7 @@ UpdateSleepTime StealthUpdate::update( void )
 		}
 	}
 
-	UnsignedInt now = TheGameLogic->getFrameLegacy();
+	UnsignedInt now = TheGameLogic->getFrame();
 
 /// @todo srj -- improve sleeping behavior. we currently just sleep when not enabled,
 // and demand every-frame attention when enabled. this could probably be smartened.
@@ -698,7 +694,11 @@ UpdateSleepTime StealthUpdate::update( void )
 		{
 			draw->setEffectiveOpacity( 0.5f + ( Sin( m_pulsePhase ) * 0.5f ) );
 			// between one half and full opacity
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			m_pulsePhase += (m_pulsePhaseRate / GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER);
+#else
 			m_pulsePhase += m_pulsePhaseRate;
+#endif
 		}
 	}
 
