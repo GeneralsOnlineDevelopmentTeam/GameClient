@@ -1110,7 +1110,11 @@ protected:
 				objUp->setExtraFriction(m_extraFriction);
 
 				Coord3D force;
+#if defined(GENERALS_ONLINE)
+				Real horizForce = 2.0f * m_dispositionIntensity;		// 2
+#else
 				Real horizForce = 4.0f * m_dispositionIntensity;		// 2
+#endif
 				force.x = GameLogicRandomValueReal( -horizForce, horizForce );
 				force.y = GameLogicRandomValueReal( -horizForce, horizForce );
 				force.z = 0;
@@ -1202,6 +1206,13 @@ protected:
 					DUMPREAL(m_maxPitch);
 					DUMPCOORD3D(&force);
 				}
+
+#if defined(GENERALS_ONLINE)
+				force.x /= 2.f;
+				force.y /= 2.f;
+				force.z /= 2.f;
+#endif
+
 				objUp->applyForce(&force);
 				if (m_orientInForceDirection)
 				{
@@ -1209,9 +1220,15 @@ protected:
 				}
 				DUMPREAL(orientation);
 				objUp->setAngles(orientation, 0, 0);
+#if defined(GENERALS_ONLINE)
+				objUp->setYawRate(yaw/2.f);
+				objUp->setRollRate(roll / 2.f);
+				objUp->setPitchRate(pitch / 2.f);
+#else
 				objUp->setYawRate(yaw);
 				objUp->setRollRate(roll);
 				objUp->setPitchRate(pitch);
+#endif
 				DUMPCOORD3D(objUp->getAcceleration());
 				DUMPCOORD3D(objUp->getVelocity());
 				DUMPMATRIX3D(obj->getTransformMatrix());
