@@ -257,7 +257,8 @@ void NGMP_OnlineServicesManager::LaunchPatcher()
 	else
 	{
 		// show msg
-		MessageBoxOk(UnicodeString(L"Update Failed"), UnicodeString(L"Could not run the updater. Please visit www.playgenerals.online and install the latest version manually."), nullptr);
+		MessageBoxOk(UnicodeString(L"Update Failed"), UnicodeString(L"Could not run the updater."), nullptr);
+		ShellExecuteA(NULL, "open", "https://www.playgenerals.online/updatefailed", NULL, NULL, SW_SHOWNORMAL);
 	}
 }
 
