@@ -293,16 +293,8 @@ void PortMapper::DetermineLocalNetworkCapabilities()
 void PortMapper::ForwardPort_UPnP()
 {
 #if defined(DISABLE_UPNP)
-	bool bSucceeded = false;
-
-	// NOTE: dont hard fail here. not finding an exact match might be OK, some routers mangle data etc
-	NetworkLog("PortMapper: UPnP Mapping was not validated on router, this is likely OK");
-	if (!m_bPortMapper_AnyMappingSuccess.load() && bSucceeded) // dont overwrite a positive value with a negative
-	{
-		m_bPortMapper_AnyMappingSuccess.store(true);
-		m_bPortMapper_MappingTechUsed.store(EMappingTech::UPNP);
-	}
 	m_bPortMapper_UPNP_Complete.store(true);
+	return;
 #else
 	const uint16_t port = m_PreferredPort.load();
 	int error = 0;
@@ -362,6 +354,7 @@ void PortMapper::ForwardPort_NATPMP()
 {
 #if defined(DISABLE_NATPMP)
 	m_bPortMapper_NATPMP_Complete.store(true);
+	return;
 #else
 
 	NetworkLog("PortMapper: NAT-PMP started");

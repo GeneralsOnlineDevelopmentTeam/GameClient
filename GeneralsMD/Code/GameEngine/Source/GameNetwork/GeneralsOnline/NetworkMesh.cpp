@@ -458,7 +458,7 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 // TODO_NGMP: enet_host_destroy(server);
 // TODO_NGMP: enet_host_destroy(client);
 static bool m_bEnetInitialized = false;
-void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
+bool NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 {
 	// TODO_NGMP: Cleanup properly
 	m_mapConnections.clear();
@@ -470,7 +470,7 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 			// TODO_NGMP: Handle error
 			NetworkLog("Network Init Failed!");
 			m_bEnetInitialized = false;
-			return;
+			return false;
 		}
 		else
 		{
@@ -482,6 +482,8 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 	// create server
 	if (enetInstance == nullptr)
 	{
+		NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().ForceReleaseNATPort();
+
 		server_address.host = ENET_HOST_ANY;
 		server_address.port = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 		NetworkLog("Network Listening on port %d!", server_address.port);
@@ -497,7 +499,7 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 			// TODO_NGMP: Handle error
 			NetworkLog("Network Listen Failed!");
 			m_bEnetInitialized = false;
-			return;
+			return false;
 		}
 	}
 
@@ -509,6 +511,8 @@ void NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 			ConnectToSingleUser(lobbyMember);
 		}
 	}
+
+	return true;
 }
 
 void NetworkMesh::Disconnect()

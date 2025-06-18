@@ -210,7 +210,7 @@ public:
 
 	void ConnectToUserViaRelay(Int64 user_id);
 
-	void ConnectToMesh(LobbyEntry& lobby);
+	bool ConnectToMesh(LobbyEntry& lobby);
 
 	void Disconnect();
 

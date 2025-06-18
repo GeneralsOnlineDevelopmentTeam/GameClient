@@ -32,6 +32,16 @@ public:
 		CleanupPorts();
 	}
 
+	void ForceReleaseNATPort()
+	{
+		if (m_NATSocket != INVALID_SOCKET)
+		{
+			closesocket(m_NATSocket);
+			WSACleanup();
+			m_NATSocket = INVALID_SOCKET;
+		}
+	}
+
 	void Tick();
 	void StartNATCheck();
 
