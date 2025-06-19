@@ -520,6 +520,7 @@ void RecorderClass::updateRecord()
 				lastFrame = -1;
 				writeToFile(msg);
 				stopRecording();
+				needFlush = FALSE;
 			}
 			m_fileName.clear();
 		} else {
@@ -536,6 +537,7 @@ void RecorderClass::updateRecord()
 	}
 
 	if (needFlush) {
+		DEBUG_ASSERTCRASH(m_file != NULL, ("RecorderClass::updateRecord() - unexpected call to fflush(m_file)\n"));
 		fflush(m_file);
 	}
 }
@@ -799,7 +801,6 @@ void RecorderClass::writeToFile(GameMessage * msg) {
 	deleteInstance(parser);
 	parser = NULL;
 
-	fflush(m_file); ///< @todo should this be in the final release?
 }
 
 void RecorderClass::writeArgument(GameMessageArgumentDataType type, const GameMessageArgumentType arg) {
