@@ -245,7 +245,8 @@ void NGMP_OnlineServicesManager::LaunchPatcher()
 	std::string strPatcherDir = std::format("{}/{}", CurDir, strPatchDir);
 	std::string strPatcherPath = std::format("{}/{}", strPatcherDir, m_patcher_name);
 
-	if (CreateProcessA(strPatcherPath.c_str(), nullptr, nullptr, nullptr, FALSE, 0, nullptr, strPatcherDir.c_str(), &si, &pi))
+	char params[] = "/VERYSILENT";
+	if (CreateProcessA(strPatcherPath.c_str(), params, nullptr, nullptr, FALSE, 0, nullptr, strPatcherDir.c_str(), &si, &pi))
 	{
 		// Successfully launched the process, close handles  
 		CloseHandle(pi.hProcess);
