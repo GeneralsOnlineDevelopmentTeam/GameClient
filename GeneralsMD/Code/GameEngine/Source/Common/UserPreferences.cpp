@@ -251,11 +251,12 @@ void UserPreferences::setAsciiString(AsciiString key, AsciiString val)
 QuickMatchPreferences::QuickMatchPreferences()
 {
 	AsciiString userPrefFilename;
-	Int localProfile = TheGameSpyInfo->getLocalProfileID();
-
+	
 #if defined(GENERALS_ONLINE)
-	userPrefFilename.format("GeneralsOnlineNG\\QMPref%d.ini", localProfile);
+	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	userPrefFilename.format("GeneralsOnlineNG\\QMPref%lld.ini", localProfile);
 #else
+	Int localProfile = TheGameSpyInfo->getLocalProfileID();
 	userPrefFilename.format("GeneralsOnline\\QMPref%d.ini", profileID);
 #endif
 	load(userPrefFilename);
@@ -806,10 +807,12 @@ void CustomMatchPreferences::setUseStats( Bool useStats )
 GameSpyMiscPreferences::GameSpyMiscPreferences()
 {
 	AsciiString userPrefFilename;
-	Int localProfile = TheGameSpyInfo->getLocalProfileID();
+	
 #if defined(GENERALS_ONLINE)
-	userPrefFilename.format("GeneralsOnlineNG\\GSMiscPref%d.ini", localProfile);
+	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	userPrefFilename.format("GeneralsOnlineNG\\GSMiscPref%lld.ini", localProfile);
 #else
+	Int localProfile = TheGameSpyInfo->getLocalProfileID();
 	userPrefFilename.format("GeneralsOnline\\GSMiscPref%d.ini", localProfile);
 #endif
 	load(userPrefFilename);
@@ -856,10 +859,12 @@ IgnorePreferences::IgnorePreferences()
 {
 	AsciiString userPrefFilename;
 //	if(!TheGameSpyInfo)
-	Int localProfile = TheGameSpyInfo->getLocalProfileID();
+	
 #if defined(GENERALS_ONLINE)
-	userPrefFilename.format("GeneralsOnlineNG\\IgnorePref%d.ini", localProfile);
+	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	userPrefFilename.format("GeneralsOnlineNG\\IgnorePref%lld.ini", localProfile);
 #else
+	Int localProfile = TheGameSpyInfo->getLocalProfileID();
 	userPrefFilename.format("GeneralsOnline\\IgnorePref%d.ini", localProfile);
 #endif
 	load(userPrefFilename);

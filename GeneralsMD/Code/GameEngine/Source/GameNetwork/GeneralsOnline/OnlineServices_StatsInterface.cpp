@@ -6,10 +6,14 @@
 #include "../HTTP/HTTPManager.h"
 
 #include "Common/PlayerTemplate.h"
+#include "../../GameSpy/LadderDefs.h"
 
 NGMP_OnlineServices_StatsInterface::NGMP_OnlineServices_StatsInterface()
 {
 	TheRankPointValues = NEW RankPoints;
+
+	// TODO_NGMP: Better location
+	TheLadderList = NEW LadderList;
 }
 
 void NGMP_OnlineServices_StatsInterface::GetGlobalStats(std::function<void(GlobalStats)> cb)

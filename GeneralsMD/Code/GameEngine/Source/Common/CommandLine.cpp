@@ -64,17 +64,17 @@ extern Bool g_useStringFile;
 #endif
 
 // Retval is number of cmd-line args eaten
-typedef Int (*FuncPtr)( char *args[], int num );
+typedef Int(*FuncPtr)(char* args[], int num);
 
 static const UnsignedByte F_NOCASE = 1; // Case-insensitive
 
 struct CommandLineParam
 {
-	const char *name;
+	const char* name;
 	FuncPtr func;
 };
 
-static void ConvertShortMapPathToLongMapPath(AsciiString &mapName)
+static void ConvertShortMapPathToLongMapPath(AsciiString& mapName)
 {
 	AsciiString path = mapName;
 	AsciiString token;
@@ -113,7 +113,7 @@ static void ConvertShortMapPathToLongMapPath(AsciiString &mapName)
 
 //=============================================================================
 //=============================================================================
-Int parseNoLogOrCrash(char *args[], int)
+Int parseNoLogOrCrash(char* args[], int)
 {
 	DEBUG_CRASH(("-NoLogOrCrash not supported in this build\n"));
 	return 1;
@@ -121,7 +121,7 @@ Int parseNoLogOrCrash(char *args[], int)
 
 //=============================================================================
 //=============================================================================
-Int parseWin(char *args[], int)
+Int parseWin(char* args[], int)
 {
 	TheWritableGlobalData->m_windowed = true;
 
@@ -130,7 +130,7 @@ Int parseWin(char *args[], int)
 
 //=============================================================================
 //=============================================================================
-Int parseNoMusic(char *args[], int)
+Int parseNoMusic(char* args[], int)
 {
 	TheWritableGlobalData->m_musicOn = false;
 
@@ -140,7 +140,7 @@ Int parseNoMusic(char *args[], int)
 
 //=============================================================================
 //=============================================================================
-Int parseNoVideo(char *args[], int)
+Int parseNoVideo(char* args[], int)
 {
 	TheWritableGlobalData->m_videoOn = false;
 
@@ -149,7 +149,7 @@ Int parseNoVideo(char *args[], int)
 
 //=============================================================================
 //=============================================================================
-Int parseFPUPreserve(char *args[], int argc)
+Int parseFPUPreserve(char* args[], int argc)
 {
 	if (argc > 1)
 	{
@@ -160,7 +160,7 @@ Int parseFPUPreserve(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseUseWaveEditor(char *args[], int num)
+Int parseUseWaveEditor(char* args[], int num)
 {
 	TheWritableGlobalData->m_usingWaterTrackEditor = TRUE;
 
@@ -171,7 +171,7 @@ Int parseUseWaveEditor(char *args[], int num)
 
 //=============================================================================
 //=============================================================================
-Int parseUseCSF(char *args[], int)
+Int parseUseCSF(char* args[], int)
 {
 	g_useStringFile = FALSE;
 	return 1;
@@ -179,7 +179,7 @@ Int parseUseCSF(char *args[], int)
 
 //=============================================================================
 //=============================================================================
-Int parseNoInputDisable(char *args[], int)
+Int parseNoInputDisable(char* args[], int)
 {
 	TheWritableGlobalData->m_disableScriptedInputDisabling = true;
 
@@ -188,7 +188,7 @@ Int parseNoInputDisable(char *args[], int)
 
 //=============================================================================
 //=============================================================================
-Int parseNoFade(char *args[], int)
+Int parseNoFade(char* args[], int)
 {
 	TheWritableGlobalData->m_disableCameraFade = true;
 
@@ -197,7 +197,7 @@ Int parseNoFade(char *args[], int)
 
 //=============================================================================
 //=============================================================================
-Int parseNoMilCap(char *args[], int)
+Int parseNoMilCap(char* args[], int)
 {
 	TheWritableGlobalData->m_disableMilitaryCaption = true;
 
@@ -207,7 +207,7 @@ Int parseNoMilCap(char *args[], int)
 
 //=============================================================================
 //=============================================================================
-Int parseDebugCRCFromFrame(char *args[], int argc)
+Int parseDebugCRCFromFrame(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	if (argc > 1)
@@ -220,7 +220,7 @@ Int parseDebugCRCFromFrame(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseDebugCRCUntilFrame(char *args[], int argc)
+Int parseDebugCRCUntilFrame(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	if (argc > 1)
@@ -233,7 +233,7 @@ Int parseDebugCRCUntilFrame(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseKeepCRCSave(char *args[], int argc)
+Int parseKeepCRCSave(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	g_keepCRCSaves = TRUE;
@@ -259,7 +259,7 @@ Int parseSaveDebugCRCPerFrame(char* args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseCRCLogicModuleData(char *args[], int argc)
+Int parseCRCLogicModuleData(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	g_crcModuleDataFromLogic = TRUE;
@@ -269,7 +269,7 @@ Int parseCRCLogicModuleData(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseCRCClientModuleData(char *args[], int argc)
+Int parseCRCClientModuleData(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	g_crcModuleDataFromClient = TRUE;
@@ -279,7 +279,7 @@ Int parseCRCClientModuleData(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseClientDeepCRC(char *args[], int argc)
+Int parseClientDeepCRC(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	g_clientDeepCRC = TRUE;
@@ -289,7 +289,7 @@ Int parseClientDeepCRC(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseVerifyClientCRC(char *args[], int argc)
+Int parseVerifyClientCRC(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	g_verifyClientCRC = TRUE;
@@ -299,7 +299,7 @@ Int parseVerifyClientCRC(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseLogObjectCRCs(char *args[], int argc)
+Int parseLogObjectCRCs(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	g_logObjectCRCs = TRUE;
@@ -309,7 +309,7 @@ Int parseLogObjectCRCs(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseNetCRCInterval(char *args[], int argc)
+Int parseNetCRCInterval(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	if (argc > 1)
@@ -322,7 +322,7 @@ Int parseNetCRCInterval(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseReplayCRCInterval(char *args[], int argc)
+Int parseReplayCRCInterval(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	if (argc > 1)
@@ -335,7 +335,7 @@ Int parseReplayCRCInterval(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseNoDraw(char *args[], int argc)
+Int parseNoDraw(char* args[], int argc)
 {
 #ifdef DEBUG_CRC
 	TheWritableGlobalData->m_noDraw = TRUE;
@@ -347,7 +347,7 @@ Int parseNoDraw(char *args[], int argc)
 
 //=============================================================================
 //=============================================================================
-Int parseLogToConsole(char *args[], int)
+Int parseLogToConsole(char* args[], int)
 {
 #ifdef ALLOW_DEBUG_UTILS
 	DebugSetFlags(DebugGetFlags() | DEBUG_FLAG_LOG_TO_CONSOLE);
@@ -359,7 +359,7 @@ Int parseLogToConsole(char *args[], int)
 
 //=============================================================================
 //=============================================================================
-Int parseNoAudio(char *args[], int)
+Int parseNoAudio(char* args[], int)
 {
 	TheWritableGlobalData->m_audioOn = false;
 	TheWritableGlobalData->m_speechOn = false;
@@ -371,14 +371,14 @@ Int parseNoAudio(char *args[], int)
 
 //=============================================================================
 //=============================================================================
-Int parseNoWin(char *args[], int)
+Int parseNoWin(char* args[], int)
 {
 	TheWritableGlobalData->m_windowed = false;
 
 	return 1;
 }
 
-Int parseFullVersion(char *args[], int num)
+Int parseFullVersion(char* args[], int num)
 {
 	if (TheVersion && num > 1)
 	{
@@ -387,7 +387,7 @@ Int parseFullVersion(char *args[], int num)
 	return 1;
 }
 
-Int parseNoShadows(char *args[], int)
+Int parseNoShadows(char* args[], int)
 {
 	TheWritableGlobalData->m_useShadowVolumes = false;
 	TheWritableGlobalData->m_useShadowDecals = false;
@@ -395,17 +395,17 @@ Int parseNoShadows(char *args[], int)
 	return 1;
 }
 
-Int parseMapName(char *args[], int num)
+Int parseMapName(char* args[], int num)
 {
 	if (num == 2)
 	{
-		TheWritableGlobalData->m_mapName.set( args[ 1 ] );
+		TheWritableGlobalData->m_mapName.set(args[1]);
 		ConvertShortMapPathToLongMapPath(TheWritableGlobalData->m_mapName);
 	}
 	return 1;
 }
 
-Int parseXRes(char *args[], int num)
+Int parseXRes(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -415,7 +415,7 @@ Int parseXRes(char *args[], int num)
 	return 1;
 }
 
-Int parseYRes(char *args[], int num)
+Int parseYRes(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -428,7 +428,7 @@ Int parseYRes(char *args[], int num)
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 //=============================================================================
 //=============================================================================
-Int parseLatencyAverage(char *args[], int num)
+Int parseLatencyAverage(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -439,7 +439,7 @@ Int parseLatencyAverage(char *args[], int num)
 
 //=============================================================================
 //=============================================================================
-Int parseLatencyAmplitude(char *args[], int num)
+Int parseLatencyAmplitude(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -450,7 +450,7 @@ Int parseLatencyAmplitude(char *args[], int num)
 
 //=============================================================================
 //=============================================================================
-Int parseLatencyPeriod(char *args[], int num)
+Int parseLatencyPeriod(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -461,7 +461,7 @@ Int parseLatencyPeriod(char *args[], int num)
 
 //=============================================================================
 //=============================================================================
-Int parseLatencyNoise(char *args[], int num)
+Int parseLatencyNoise(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -472,7 +472,7 @@ Int parseLatencyNoise(char *args[], int num)
 
 //=============================================================================
 //=============================================================================
-Int parsePacketLoss(char *args[], int num)
+Int parsePacketLoss(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -483,7 +483,7 @@ Int parsePacketLoss(char *args[], int num)
 
 //=============================================================================
 //=============================================================================
-Int parseLowDetail(char *args[], int num)
+Int parseLowDetail(char* args[], int num)
 {
 	TheWritableGlobalData->m_terrainLOD = TERRAIN_LOD_MIN;
 
@@ -492,7 +492,7 @@ Int parseLowDetail(char *args[], int num)
 
 //=============================================================================
 //=============================================================================
-Int parseNoDynamicLOD(char *args[], int num)
+Int parseNoDynamicLOD(char* args[], int num)
 {
 	TheWritableGlobalData->m_enableDynamicLOD = FALSE;
 
@@ -501,7 +501,7 @@ Int parseNoDynamicLOD(char *args[], int num)
 
 //=============================================================================
 //=============================================================================
-Int parseNoStaticLOD(char *args[], int num)
+Int parseNoStaticLOD(char* args[], int num)
 {
 	TheWritableGlobalData->m_enableStaticLOD = FALSE;
 
@@ -510,7 +510,7 @@ Int parseNoStaticLOD(char *args[], int num)
 
 //=============================================================================
 //=============================================================================
-Int parseFPSLimit(char *args[], int num)
+Int parseFPSLimit(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -520,56 +520,56 @@ Int parseFPSLimit(char *args[], int num)
 }
 
 //=============================================================================
-Int parseNoViewLimit(char *args[], int)
+Int parseNoViewLimit(char* args[], int)
 {
 	TheWritableGlobalData->m_useCameraConstraints = FALSE;
 
 	return 1;
 }
 
-Int parseWireframe(char *args[], int)
+Int parseWireframe(char* args[], int)
 {
 	TheWritableGlobalData->m_wireframe = TRUE;
 
 	return 1;
 }
 
-Int parseShowCollision(char *args[], int)
+Int parseShowCollision(char* args[], int)
 {
 	TheWritableGlobalData->m_showCollisionExtents = TRUE;
 
 	return 1;
 }
 
-Int parseNoShowClientPhysics(char *args[], int)
+Int parseNoShowClientPhysics(char* args[], int)
 {
 	TheWritableGlobalData->m_showClientPhysics = FALSE;
 
 	return 1;
 }
 
-Int parseShowTerrainNormals(char *args[], int)
+Int parseShowTerrainNormals(char* args[], int)
 {
 	TheWritableGlobalData->m_showTerrainNormals = TRUE;
 
 	return 1;
 }
 
-Int parseStateMachineDebug(char *args[], int)
+Int parseStateMachineDebug(char* args[], int)
 {
 	TheWritableGlobalData->m_stateMachineDebug = TRUE;
 
 	return 1;
 }
 
-Int parseJabber(char *args[], int)
+Int parseJabber(char* args[], int)
 {
 	TheWritableGlobalData->m_jabberOn = TRUE;
 
 	return 1;
 }
 
-Int parseMunkee(char *args[], int)
+Int parseMunkee(char* args[], int)
 {
 	TheWritableGlobalData->m_munkeeOn = TRUE;
 
@@ -577,7 +577,7 @@ Int parseMunkee(char *args[], int)
 }
 #endif // defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 
-Int parseScriptDebug(char *args[], int)
+Int parseScriptDebug(char* args[], int)
 {
 	TheWritableGlobalData->m_scriptDebug = TRUE;
 	TheWritableGlobalData->m_winCursors = TRUE;
@@ -585,7 +585,7 @@ Int parseScriptDebug(char *args[], int)
 	return 1;
 }
 
-Int parseParticleEdit(char *args[], int)
+Int parseParticleEdit(char* args[], int)
 {
 	TheWritableGlobalData->m_particleEdit = TRUE;
 	TheWritableGlobalData->m_winCursors = TRUE;
@@ -595,7 +595,7 @@ Int parseParticleEdit(char *args[], int)
 }
 
 
-Int parseBuildMapCache(char *args[], int)
+Int parseBuildMapCache(char* args[], int)
 {
 	TheWritableGlobalData->m_buildMapCache = true;
 
@@ -604,7 +604,7 @@ Int parseBuildMapCache(char *args[], int)
 
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL) || defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)
-Int parsePreload( char *args[], int num )
+Int parsePreload(char* args[], int num)
 {
 	TheWritableGlobalData->m_preloadAssets = TRUE;
 
@@ -614,14 +614,14 @@ Int parsePreload( char *args[], int num )
 
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL) 
-Int parseDisplayDebug(char *args[], int)
+Int parseDisplayDebug(char* args[], int)
 {
 	TheWritableGlobalData->m_displayDebug = TRUE;
 
 	return 1;
 }
 
-Int parseFile(char *args[], int num)
+Int parseFile(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -632,7 +632,7 @@ Int parseFile(char *args[], int num)
 }
 
 
-Int parsePreloadEverything( char *args[], int num )
+Int parsePreloadEverything(char* args[], int num)
 {
 	TheWritableGlobalData->m_preloadAssets = TRUE;
 	TheWritableGlobalData->m_preloadEverything = TRUE;
@@ -640,9 +640,9 @@ Int parsePreloadEverything( char *args[], int num )
 	return 1;
 }
 
-Int parseLogAssets( char *args[], int num )
+Int parseLogAssets(char* args[], int num)
 {
-	FILE *logfile=fopen("PreloadedAssets.txt","w");
+	FILE* logfile = fopen("PreloadedAssets.txt", "w");
 	if (logfile)	//clear the file
 		fclose(logfile);
 	TheWritableGlobalData->m_preloadReport = TRUE;
@@ -651,7 +651,7 @@ Int parseLogAssets( char *args[], int num )
 }
 
 /// begin stuff for VTUNE
-Int parseVTune ( char *args[], int num )
+Int parseVTune(char* args[], int num)
 {
 	TheWritableGlobalData->m_vTune = TRUE;
 
@@ -664,7 +664,7 @@ Int parseVTune ( char *args[], int num )
 //=============================================================================
 //=============================================================================
 
-Int parseNoFX(char *args[], int)
+Int parseNoFX(char* args[], int)
 {
 	TheWritableGlobalData->m_useFX = FALSE;
 
@@ -672,7 +672,7 @@ Int parseNoFX(char *args[], int)
 }
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
-Int parseNoShroud(char *args[], int)
+Int parseNoShroud(char* args[], int)
 {
 	TheWritableGlobalData->m_shroudOn = FALSE;
 
@@ -680,14 +680,14 @@ Int parseNoShroud(char *args[], int)
 }
 #endif
 
-Int parseForceBenchmark(char *args[], int)
+Int parseForceBenchmark(char* args[], int)
 {
 	TheWritableGlobalData->m_forceBenchmark = TRUE;
 
 	return 1;
 }
 
-Int parseNoMoveCamera(char *args[], int)
+Int parseNoMoveCamera(char* args[], int)
 {
 	TheWritableGlobalData->m_disableCameraMovement = true;
 
@@ -695,7 +695,7 @@ Int parseNoMoveCamera(char *args[], int)
 }
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
-Int parseNoCinematic(char *args[], int)
+Int parseNoCinematic(char* args[], int)
 {
 	TheWritableGlobalData->m_disableCameraMovement = true;
 	TheWritableGlobalData->m_disableMilitaryCaption = true;
@@ -706,21 +706,23 @@ Int parseNoCinematic(char *args[], int)
 }
 #endif
 
-Int parseSync(char *args[], int)
+Int parseSync(char* args[], int)
 {
 	TheDebugIgnoreSyncErrors = true;
 
 	return 1;
 }
 
-Int parseNoShellMap(char *args[], int)
+Int parseNoShellMap(char* args[], int)
 {
 #if !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
+	TheWritableGlobalData->m_shellMapOn = FALSE;
 #endif
+
 	return 1;
 }
 
-Int parseNoShaders(char *args[], int)
+Int parseNoShaders(char* args[], int)
 {
 	TheWritableGlobalData->m_chipSetType = 1;	//force to a voodoo card which uses least amount of features.
 
@@ -728,22 +730,28 @@ Int parseNoShaders(char *args[], int)
 }
 
 #if (defined(RTS_DEBUG) || defined(RTS_INTERNAL))
-Int parseNoLogo(char *args[], int)
+Int parseNoLogo(char* args[], int)
 {
 #if !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
+	TheWritableGlobalData->m_playIntro = FALSE;
+	TheWritableGlobalData->m_afterIntro = TRUE;
+	TheWritableGlobalData->m_playSizzle = FALSE;
 #endif
+
 	return 1;
 }
 #endif
 
-Int parseNoSizzle( char *args[], int )
+Int parseNoSizzle(char* args[], int)
 {
 #if !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
+	TheWritableGlobalData->m_playSizzle = FALSE;
 #endif
+
 	return 1;
 }
 
-Int parseShellMap(char *args[], int num)
+Int parseShellMap(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -752,42 +760,46 @@ Int parseShellMap(char *args[], int num)
 	return 2;
 }
 
-Int parseNoWindowAnimation(char *args[], int num)
+Int parseNoWindowAnimation(char* args[], int num)
 {
 #if !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
+	TheWritableGlobalData->m_animateWindows = FALSE;
 #endif
+
 	return 1;
 }
 
-Int parseWinCursors(char *args[], int num)
+Int parseWinCursors(char* args[], int num)
 {
 	TheWritableGlobalData->m_winCursors = TRUE;
 
 	return 1;
 }
 
-Int parseQuickStart( char *args[], int num )
+Int parseQuickStart(char* args[], int num)
 {
+#if !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 #if (defined(RTS_DEBUG) || defined(RTS_INTERNAL))
-  parseNoLogo( args, num );
+	parseNoLogo(args, num);
 #else
 	//Kris: Patch 1.01 -- Allow release builds to skip the sizzle video, but still force the EA logo to show up.
 	//This is for legal reasons.
-	parseNoSizzle( args, num );
+	parseNoSizzle(args, num);
 #endif
-	parseNoShellMap( args, num );
-	parseNoWindowAnimation( args, num );
+	parseNoShellMap(args, num);
+	parseNoWindowAnimation(args, num);
+#endif
 	return 1;
 }
 
-Int parseHeadless( char *args[], int num )
+Int parseHeadless(char* args[], int num)
 {
 	TheWritableGlobalData->m_headless = TRUE;
 
 	return 1;
 }
 
-Int parseConstantDebug( char *args[], int num )
+Int parseConstantDebug(char* args[], int num)
 {
 	TheWritableGlobalData->m_constantDebugUpdate = TRUE;
 
@@ -795,7 +807,7 @@ Int parseConstantDebug( char *args[], int num )
 }
 
 #if (defined(RTS_DEBUG) || defined(RTS_INTERNAL))
-Int parseExtraLogging( char *args[], int num )
+Int parseExtraLogging(char* args[], int num)
 {
 	TheWritableGlobalData->m_extraLogging = TRUE;
 
@@ -813,7 +825,7 @@ Int parseAllAdvice( char *args[], int num )
 }
 */
 
-Int parseShowTeamDot( char *args[], int num )
+Int parseShowTeamDot(char* args[], int num)
 {
 	TheWritableGlobalData->m_showTeamDot = TRUE;
 
@@ -822,27 +834,27 @@ Int parseShowTeamDot( char *args[], int num )
 
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
-Int parseSelectAll( char *args[], int num )
+Int parseSelectAll(char* args[], int num)
 {
 	TheWritableGlobalData->m_allowUnselectableSelection = TRUE;
 
 	return 1;
 }
 
-Int parseRunAhead( char *args[], Int num )
+Int parseRunAhead(char* args[], Int num)
 {
 	if (num > 2)
 	{
 		MIN_RUNAHEAD = atoi(args[1]);
 		MAX_FRAMES_AHEAD = atoi(args[2]);
-		FRAME_DATA_LENGTH = (MAX_FRAMES_AHEAD + 1)*2;
+		FRAME_DATA_LENGTH = (MAX_FRAMES_AHEAD + 1) * 2;
 	}
 	return 3;
 }
 #endif
 
 
-Int parseSeed(char *args[], int num)
+Int parseSeed(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -851,14 +863,14 @@ Int parseSeed(char *args[], int num)
 	return 2;
 }
 
-Int parseIncrAGPBuf(char *args[], int num)
+Int parseIncrAGPBuf(char* args[], int num)
 {
 	TheWritableGlobalData->m_incrementalAGPBuf = TRUE;
 
 	return 1;
 }
 
-Int parseNetMinPlayers(char *args[], int num)
+Int parseNetMinPlayers(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -867,16 +879,16 @@ Int parseNetMinPlayers(char *args[], int num)
 	return 2;
 }
 
-Int parsePlayStats(char *args[], int num)
+Int parsePlayStats(char* args[], int num)
 {
 	if (num > 1)
 	{
-		TheWritableGlobalData->m_playStats  = atoi(args[1]);
+		TheWritableGlobalData->m_playStats = atoi(args[1]);
 	}
 	return 2;
 }
 
-Int parseDemoLoadScreen(char *args[], int num)
+Int parseDemoLoadScreen(char* args[], int num)
 {
 	TheWritableGlobalData->m_loadScreenDemo = TRUE;
 
@@ -884,7 +896,7 @@ Int parseDemoLoadScreen(char *args[], int num)
 }
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
-Int parseSaveStats(char *args[], int num)
+Int parseSaveStats(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -896,7 +908,7 @@ Int parseSaveStats(char *args[], int num)
 #endif
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
-Int parseSaveAllStats(char *args[], int num)
+Int parseSaveAllStats(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -909,7 +921,7 @@ Int parseSaveAllStats(char *args[], int num)
 #endif
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
-Int parseLocalMOTD(char *args[], int num)
+Int parseLocalMOTD(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -921,7 +933,7 @@ Int parseLocalMOTD(char *args[], int num)
 #endif
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
-Int parseCameraDebug(char *args[], int num)
+Int parseCameraDebug(char* args[], int num)
 {
 	TheWritableGlobalData->m_debugCamera = TRUE;
 
@@ -930,12 +942,12 @@ Int parseCameraDebug(char *args[], int num)
 #endif
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
-Int parseBenchmark(char *args[], int num)
+Int parseBenchmark(char* args[], int num)
 {
 	if (num > 1)
 	{
 		TheWritableGlobalData->m_benchmarkTimer = atoi(args[1]);
-		TheWritableGlobalData->m_playStats  = atoi(args[1]);
+		TheWritableGlobalData->m_playStats = atoi(args[1]);
 	}
 	return 2;
 }
@@ -943,12 +955,12 @@ Int parseBenchmark(char *args[], int num)
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 #ifdef DUMP_PERF_STATS
-Int parseStats(char *args[], int num)
+Int parseStats(char* args[], int num)
 {
 	if (num > 1)
 	{
 		TheWritableGlobalData->m_dumpStatsAtInterval = TRUE;
-		TheWritableGlobalData->m_statsInterval  = atoi(args[1]);
+		TheWritableGlobalData->m_statsInterval = atoi(args[1]);
 	}
 	return 2;
 }
@@ -956,7 +968,7 @@ Int parseStats(char *args[], int num)
 #endif
 
 #ifdef DEBUG_CRASHING
-Int parseIgnoreAsserts(char *args[], int num)
+Int parseIgnoreAsserts(char* args[], int num)
 {
 	if (num > 0)
 	{
@@ -967,7 +979,7 @@ Int parseIgnoreAsserts(char *args[], int num)
 #endif
 
 #ifdef DEBUG_STACKTRACE
-Int parseIgnoreStackTrace(char *args[], int num)
+Int parseIgnoreStackTrace(char* args[], int num)
 {
 	if (num > 0)
 	{
@@ -977,7 +989,7 @@ Int parseIgnoreStackTrace(char *args[], int num)
 }
 #endif
 
-Int parseNoFPSLimit(char *args[], int num)
+Int parseNoFPSLimit(char* args[], int num)
 {
 	TheWritableGlobalData->m_useFpsLimit = false;
 	TheWritableGlobalData->m_framesPerSecondLimit = 30000;
@@ -985,14 +997,14 @@ Int parseNoFPSLimit(char *args[], int num)
 	return 1;
 }
 
-Int parseDumpAssetUsage(char *args[], int num)
+Int parseDumpAssetUsage(char* args[], int num)
 {
 	TheWritableGlobalData->m_dumpAssetUsage = true;
 
 	return 1;
 }
 
-Int parseJumpToFrame(char *args[], int num)
+Int parseJumpToFrame(char* args[], int num)
 {
 	if (num > 1)
 	{
@@ -1003,14 +1015,14 @@ Int parseJumpToFrame(char *args[], int num)
 	return 1;
 }
 
-Int parseUpdateImages(char *args[], int num)
+Int parseUpdateImages(char* args[], int num)
 {
 	TheWritableGlobalData->m_shouldUpdateTGAToDDS = TRUE;
 
 	return 1;
 }
 
-Int parseMod(char *args[], Int num)
+Int parseMod(char* args[], Int num)
 {
 	if (num > 1)
 	{
@@ -1058,16 +1070,16 @@ Int parseMod(char *args[], Int num)
 }
 
 #ifdef DEBUG_LOGGING
-Int parseSetDebugLevel(char *args[], int num)
+Int parseSetDebugLevel(char* args[], int num)
 {
 	if (num > 1)
 	{
 		AsciiString val = args[1];
-		for (Int i=0; i<DEBUG_LEVEL_MAX; ++i)
+		for (Int i = 0; i < DEBUG_LEVEL_MAX; ++i)
 		{
 			if (val == TheDebugLevels[i])
 			{
-				DebugLevelMask |= 1<<i;
+				DebugLevelMask |= 1 << i;
 				break;
 			}
 		}
@@ -1075,16 +1087,16 @@ Int parseSetDebugLevel(char *args[], int num)
 	return 2;
 }
 
-Int parseClearDebugLevel(char *args[], int num)
+Int parseClearDebugLevel(char* args[], int num)
 {
 	if (num > 1)
 	{
 		AsciiString val = args[1];
-		for (Int i=0; i<DEBUG_LEVEL_MAX; ++i)
+		for (Int i = 0; i < DEBUG_LEVEL_MAX; ++i)
 		{
 			if (val == TheDebugLevels[i])
 			{
-				DebugLevelMask &= ~(1<<i);
+				DebugLevelMask &= ~(1 << i);
 				break;
 			}
 		}
@@ -1129,7 +1141,7 @@ static CommandLineParam paramsForEngineInit[] =
 	{ "-FPUPreserve", parseFPUPreserve },
 	{ "-benchmark", parseBenchmark },
 #ifdef DUMP_PERF_STATS
-	{ "-stats", parseStats }, 
+	{ "-stats", parseStats },
 #endif
 	{ "-saveStats", parseSaveStats },
 	{ "-localMOTD", parseLocalMOTD },
@@ -1212,65 +1224,65 @@ static CommandLineParam paramsForEngineInit[] =
 	{ "-displayDebug", parseDisplayDebug },
 	{ "-file", parseFile },
 
-//	{ "-preload", parsePreload },
-	
-	{ "-preloadEverything", parsePreloadEverything },
-	{ "-logAssets", parseLogAssets },
-	{ "-netMinPlayers", parseNetMinPlayers },
-	{ "-DemoLoadScreen", parseDemoLoadScreen },
-	{ "-cameraDebug", parseCameraDebug },
-	{ "-logToCon", parseLogToConsole },
-	{ "-vTune", parseVTune },
-	{ "-selectTheUnselectable", parseSelectAll },
-	{ "-RunAhead", parseRunAhead },
-	{ "-noshroud", parseNoShroud },
-	{ "-forceBenchmark", parseForceBenchmark },
-	{ "-buildmapcache", parseBuildMapCache },
-	{ "-noshadowvolumes", parseNoShadows },
-	{ "-nofx", parseNoFX },
-	{ "-ignoresync", parseSync },
-	{ "-nologo", parseNoLogo },
-	{ "-shellmap", parseShellMap },
-	{ "-noShellAnim", parseNoWindowAnimation },
-	{ "-winCursors", parseWinCursors },
-	{ "-constantDebug", parseConstantDebug },
-	{ "-seed", parseSeed },
-	{ "-noagpfix", parseIncrAGPBuf },
-	{ "-noFPSLimit", parseNoFPSLimit },
-	{ "-dumpAssetUsage", parseDumpAssetUsage },
-	{ "-jumpToFrame", parseJumpToFrame },
-	{ "-updateImages", parseUpdateImages },
-	{ "-showTeamDot", parseShowTeamDot },
-	{ "-extraLogging", parseExtraLogging },
+	//	{ "-preload", parsePreload },
 
-#endif
+		{ "-preloadEverything", parsePreloadEverything },
+		{ "-logAssets", parseLogAssets },
+		{ "-netMinPlayers", parseNetMinPlayers },
+		{ "-DemoLoadScreen", parseDemoLoadScreen },
+		{ "-cameraDebug", parseCameraDebug },
+		{ "-logToCon", parseLogToConsole },
+		{ "-vTune", parseVTune },
+		{ "-selectTheUnselectable", parseSelectAll },
+		{ "-RunAhead", parseRunAhead },
+		{ "-noshroud", parseNoShroud },
+		{ "-forceBenchmark", parseForceBenchmark },
+		{ "-buildmapcache", parseBuildMapCache },
+		{ "-noshadowvolumes", parseNoShadows },
+		{ "-nofx", parseNoFX },
+		{ "-ignoresync", parseSync },
+		{ "-nologo", parseNoLogo },
+		{ "-shellmap", parseShellMap },
+		{ "-noShellAnim", parseNoWindowAnimation },
+		{ "-winCursors", parseWinCursors },
+		{ "-constantDebug", parseConstantDebug },
+		{ "-seed", parseSeed },
+		{ "-noagpfix", parseIncrAGPBuf },
+		{ "-noFPSLimit", parseNoFPSLimit },
+		{ "-dumpAssetUsage", parseDumpAssetUsage },
+		{ "-jumpToFrame", parseJumpToFrame },
+		{ "-updateImages", parseUpdateImages },
+		{ "-showTeamDot", parseShowTeamDot },
+		{ "-extraLogging", parseExtraLogging },
 
-#ifdef DEBUG_LOGGING
-	{ "-setDebugLevel", parseSetDebugLevel },
-	{ "-clearDebugLevel", parseClearDebugLevel },
-#endif
+	#endif
 
-#ifdef DEBUG_CRASHING
-	{ "-ignoreAsserts", parseIgnoreAsserts },
-#endif
+	#ifdef DEBUG_LOGGING
+		{ "-setDebugLevel", parseSetDebugLevel },
+		{ "-clearDebugLevel", parseClearDebugLevel },
+	#endif
 
-#ifdef DEBUG_STACKTRACE
-	{ "-ignoreStackTrace", parseIgnoreStackTrace },
-#endif
+	#ifdef DEBUG_CRASHING
+		{ "-ignoreAsserts", parseIgnoreAsserts },
+	#endif
 
-	//-allAdvice feature
-	//{ "-allAdvice", parseAllAdvice },
+	#ifdef DEBUG_STACKTRACE
+		{ "-ignoreStackTrace", parseIgnoreStackTrace },
+	#endif
 
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL) || defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)
-	{ "-preload", parsePreload },
-#endif
+		//-allAdvice feature
+		//{ "-allAdvice", parseAllAdvice },
+
+	#if defined(RTS_DEBUG) || defined(RTS_INTERNAL) || defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)
+		{ "-preload", parsePreload },
+	#endif
 
 
 };
 
-char *nextParam(char *newSource, const char *seps)
+char* nextParam(char* newSource, const char* seps)
 {
-	static char *source = NULL;
+	static char* source = NULL;
 	if (newSource)
 	{
 		source = newSource;
@@ -1281,12 +1293,12 @@ char *nextParam(char *newSource, const char *seps)
 	}
 
 	// find first separator
-	char *first = source;//strpbrk(source, seps);
+	char* first = source;//strpbrk(source, seps);
 	if (first)
 	{
 		// go past separator
-		char *firstSep = strpbrk(first, seps);
-		char firstChar[2] = {0,0};
+		char* firstSep = strpbrk(first, seps);
+		char firstChar[2] = { 0,0 };
 		if (firstSep == first)
 		{
 			firstChar[0] = *first;
@@ -1294,7 +1306,7 @@ char *nextParam(char *newSource, const char *seps)
 		}
 
 		// find end
-		char *end;
+		char* end;
 		if (firstChar[0])
 			end = strpbrk(first, firstChar);
 		else
@@ -1303,7 +1315,7 @@ char *nextParam(char *newSource, const char *seps)
 		// trim string & save next start pos
 		if (end)
 		{
-			source = end+1;
+			source = end + 1;
 			*end = 0;
 
 			if (!*source)
@@ -1326,11 +1338,11 @@ static void parseCommandLine(const CommandLineParam* params, int numParams)
 	std::vector<char*> argv;
 
 	std::string cmdLine = GetCommandLineA();
-	char *token = nextParam(&cmdLine[0], "\" ");
+	char* token = nextParam(&cmdLine[0], "\" ");
 	while (token != NULL)
 	{
 		argv.push_back(strtrim(token));
-		token = nextParam(NULL, "\" ");	   
+		token = nextParam(NULL, "\" ");
 	}
 	int argc = argv.size();
 
@@ -1340,7 +1352,7 @@ static void parseCommandLine(const CommandLineParam* params, int numParams)
 	DEBUG_LOG(("Command-line args:"));
 	int debugFlags = DebugGetFlags();
 	DebugSetFlags(debugFlags & ~DEBUG_FLAG_PREPEND_TIME); // turn off timestamps
-	for (arg=1; arg<argc; arg++)
+	for (arg = 1; arg < argc; arg++)
 	{
 		DEBUG_LOG((" %s", argv[arg]));
 	}
@@ -1354,11 +1366,11 @@ static void parseCommandLine(const CommandLineParam* params, int numParams)
 	// can check the entire string (for testing the presence of a flag) or check
 	// just the start (for a key=val argument).  The handling function can also
 	// look at the next argument(s), to accomodate multi-arg parameters, e.g. "-p 1234".
-	while (arg<argc)
+	while (arg < argc)
 	{
 		// Look at arg #i
 		Bool found = false;
-		for (int param=0; !found && param<numParams; ++param)
+		for (int param = 0; !found && param < numParams; ++param)
 		{
 			int len = strlen(params[param].name);
 			int len2 = strlen(argv[arg]);
@@ -1366,7 +1378,7 @@ static void parseCommandLine(const CommandLineParam* params, int numParams)
 				continue;
 			if (strnicmp(argv[arg], params[param].name, len) == 0)
 			{
-				arg += params[param].func(&argv[0]+arg, argc-arg);
+				arg += params[param].func(&argv[0] + arg, argc - arg);
 				found = true;
 				break;
 			}

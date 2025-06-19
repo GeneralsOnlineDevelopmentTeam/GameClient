@@ -266,8 +266,14 @@ void PopulateCustomLadderComboBox( void )
 
 	CustomMatchPreferences pref;
 	AsciiString userPrefFilename;
+
+#if defined(GENERALS_ONLINE)
+	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	userPrefFilename.format("GeneralsOnline\\CustomPref%lld.ini", localProfile);
+#else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
 	userPrefFilename.format("GeneralsOnline\\CustomPref%d.ini", localProfile);
+#endif
 	pref.load(userPrefFilename);
 
 	std::set<const LadderInfo *> usedLadders;

@@ -82,6 +82,13 @@ static Bool s_inQM = FALSE;
 #define PERF_LOG(x) {}
 #endif // DEBUG_LOGGING
 
+#if defined(GENERALS_ONLINE)
+#include "../OnlineServices_Init.h"
+#include "../OnlineServices_Auth.h"
+#include "../NGMPGame.h"
+extern NGMPGame* TheNGMPGame;
+#endif
+
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 // window ids ------------------------------------------------------------------------------
 static NameKeyType parentWOLQuickMatchID = NAMEKEY_INVALID;
@@ -404,7 +411,13 @@ void PopulateQMLadderListBox( GameWindow *win )
 
 	QuickMatchPreferences pref;
 	AsciiString userPrefFilename;
+
+#if defined(GENERALS_ONLINE)
+	// TODO_NGMP: We should move to int32 for user IDs
+	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+#else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
+#endif
 
 	Color specialColor = GameSpyColor[GSCOLOR_MAP_SELECTED];
 	Color normalColor = GameSpyColor[GSCOLOR_MAP_UNSELECTED];
@@ -499,7 +512,12 @@ void PopulateQMLadderComboBox( void )
 	isPopulatingLadderBox = true;
 
 	QuickMatchPreferences pref;
+
+#if defined(GENERALS_ONLINE)
+	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+#else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
+#endif
 
 	Color specialColor = GameSpyColor[GSCOLOR_MAP_SELECTED];
 	Color normalColor = GameSpyColor[GSCOLOR_MAP_UNSELECTED];
@@ -559,7 +577,9 @@ void PopulateQMLadderComboBox( void )
 
 static void populateQuickMatchMapSelectListbox( QuickMatchPreferences& pref )
 {
-	std::list<AsciiString> maps = TheGameSpyConfig->getQMMaps();
+	//std::list<AsciiString> maps = TheGameSpyConfig->getQMMaps();
+	std::list<AsciiString> maps;
+	maps.push_back(AsciiString("Maps\\Homeland Alliance\\Homeland Alliance.map"));
 
 	// enable/disable box based on ladder status
 	Int index;
@@ -767,7 +787,10 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 	comboBoxNumPlayers = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, comboBoxNumPlayersID );
 	comboBoxLadder = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, comboBoxLadderID );
 	comboBoxMaxDisconnects = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, comboBoxMaxDisconnectsID );
+
+#if !defined(GENERALS_ONLINE)
 	TheGameSpyInfo->registerTextWindow(quickmatchTextWindow);
+#endif
 	staticTextNumPlayers = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, staticTextNumPlayersID );
 	comboBoxSide = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, comboBoxSideID );
 	comboBoxColor = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, comboBoxColorID );
@@ -815,7 +838,11 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 	if (staticTextTitle)
 	{
 		UnicodeString tmp;
+#if !defined(GENERALS_ONLINE)
 		tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), TheGameSpyInfo->getLocalName().str());
+#else
+		tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
+#endif
 		GadgetStaticTextSetText(staticTextTitle, tmp);
 	}
 
@@ -871,7 +898,12 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 	GadgetComboBoxSetSelectedPos(comboBoxMaxDisconnects, maxDisconIndex);
 
 	GadgetComboBoxReset( comboBoxMaxPing );
+#if defined(GENERALS_ONLINE)
+	maxPingEntries = 10;
+#else
 	maxPingEntries = (TheGameSpyConfig->getPingTimeoutInMs() - 1) / 100;
+#endif
+
 	maxPingEntries++; // need to add the entry for the actual timeout
 	for (i=1; i <maxPingEntries; ++i)
 	{
@@ -891,7 +923,15 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 
 	PopulateQMLadderComboBox();
 	TheShell->showShellMap(TRUE);
+
+#if defined(GENERALS_ONLINE)
+	if (TheNGMPGame != nullptr)
+	{
+		TheNGMPGame->reset();
+	}
+#else
 	TheGameSpyGame->reset();
+#endif
 
 	GadgetListBoxReset(listboxMapSelect);
 	populateQuickMatchMapSelectListbox(pref);
