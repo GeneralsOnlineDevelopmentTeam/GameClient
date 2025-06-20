@@ -391,7 +391,6 @@ UpdateSleepTime HelicopterSlowDeathBehavior::update( void )
 		force.x = DOUBLE_TO_REAL( Cos( m_forwardAngle ) ) * m_forwardSpeed/2.f;
 		force.y = DOUBLE_TO_REAL( Sin( m_forwardAngle ) ) * m_forwardSpeed/2.f;
 #else
-		Coord3D force;
 		force.x = DOUBLE_TO_REAL(Cos(m_forwardAngle)) * m_forwardSpeed;
 		force.y = DOUBLE_TO_REAL(Sin(m_forwardAngle)) * m_forwardSpeed;
 #endif

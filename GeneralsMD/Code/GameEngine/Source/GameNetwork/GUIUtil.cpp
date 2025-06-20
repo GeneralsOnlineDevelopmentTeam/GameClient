@@ -189,6 +189,7 @@ void ShowUnderlyingGUIElements( Bool show, const char *layoutFilename, const cha
 void PopulateColorComboBox(Int comboBox, GameWindow *comboArray[], GameInfo *myGame, Bool isObserver)
 {
 	Int numColors = TheMultiplayerSettings->getNumColors();
+
 	UnicodeString colorName;
 	std::vector<bool> availableColors;
 
@@ -226,7 +227,13 @@ void PopulateColorComboBox(Int comboBox, GameWindow *comboArray[], GameInfo *myG
 		if (!def || availableColors[c] == false)
 			continue;
 
-		colorName = TheGameText->fetch(def->getTooltipName().str());
+		bool bFoundColorName = false;
+		colorName = TheGameText->fetch(def->getTooltipName().str(), &bFoundColorName);
+
+		if (!bFoundColorName) // use raw instead
+		{
+			colorName.format(L"%hs", def->getTooltipName().str());
+		}
 		newIndex = GadgetComboBoxAddEntry(comboArray[comboBox], colorName, def->getColor());
 		GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)c);
 	}

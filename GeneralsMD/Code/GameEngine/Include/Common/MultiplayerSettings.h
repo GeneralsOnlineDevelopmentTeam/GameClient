@@ -47,17 +47,19 @@ public:
 	MultiplayerColorDefinition();
 	//-----------------------------------------------------------------------------------------------
 	static const FieldParse m_colorFieldParseTable[];		///< the parse table for INI definition
-	const FieldParse *getFieldParse( void ) const { return m_colorFieldParseTable; }
+	const FieldParse* getFieldParse(void) const { return m_colorFieldParseTable; }
 
 	inline AsciiString getTooltipName(void) const { return m_tooltipName; };
 	inline RGBColor getRGBValue(void) const { return m_rgbValue; };
 	inline RGBColor getRGBNightValue(void) const { return m_rgbValueNight; };
 	inline Color getColor(void) const { return m_color; }
 	inline Color getNightColor(void) const { return m_colorNight; }
-	void setColor( RGBColor rgb );
-	void setNightColor( RGBColor rgb );
+	void setColor(RGBColor rgb);
+	void setNightColor(RGBColor rgb);
 
-	MultiplayerColorDefinition * operator =(const MultiplayerColorDefinition& other);
+	MultiplayerColorDefinition* operator =(const MultiplayerColorDefinition& other);
+
+	void SetTooltipName(AsciiString str) { m_tooltipName = str; }
 
 private:
 	AsciiString m_tooltipName;	///< tooltip name for color combo box (AsciiString to pass to TheGameText->fetch())

@@ -9,6 +9,7 @@
 #include <ws2tcpip.h>
 #include "GameClient/DisplayStringManager.h"
 #include "../../NetworkInterface.h"
+#include "Common/MultiplayerSettings.h"
 
 extern NetworkInterface* TheNetwork;
 
@@ -323,6 +324,35 @@ void NGMP_OnlineServicesManager::Init()
 
 	m_pHTTPManager = new HTTPManager();
 	m_pHTTPManager->Initialize();
+
+	// TODO_NGMP: Better location
+	// TODO_NGMP: Get all of this from the service
+	int moneyVal = 100000;
+	int maxMoneyVal = 1000000;
+
+	while (moneyVal <= maxMoneyVal)
+	{
+		
+		Money newMoneyVal;
+		newMoneyVal.deposit(moneyVal, false);
+		TheMultiplayerSettings->addStartingMoneyChoice(newMoneyVal, false);
+
+		moneyVal += 50000;
+	}
+
+#if 0
+	std::map<AsciiString, RGBColor> mapColors;
+	mapColors["Dark Red"] = RGBColor{ 0.53f, 0.f, 0.08f };
+	mapColors["Brown"] = RGBColor{ 0.46f, 0.26f, 0.26f };
+	mapColors["Dark Green"] = RGBColor{ 0.09f, 0.24f, 0.04f };
+
+	for (const auto& [colorName, rgbColor] : mapColors)
+	{
+		MultiplayerColorDefinition* newDef = TheMultiplayerSettings->newMultiplayerColorDefinition(colorName.str());
+		newDef->setColor(rgbColor);
+		newDef->setNightColor(rgbColor);
+	}
+#endif
 }
 
 

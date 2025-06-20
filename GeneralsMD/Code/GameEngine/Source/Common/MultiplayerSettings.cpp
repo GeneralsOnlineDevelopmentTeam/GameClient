@@ -132,10 +132,13 @@ MultiplayerColorDefinition * MultiplayerSettings::findMultiplayerColorDefinition
 MultiplayerColorDefinition * MultiplayerSettings::newMultiplayerColorDefinition(AsciiString name)
 {
  	MultiplayerColorDefinition tmp;
+	tmp.SetTooltipName(name);
 	Int numColors = getNumColors();
 
 	m_colorList[numColors] = tmp;
 	m_numColors = m_colorList.size();
+
+	
 
 	return &m_colorList[numColors];
 }
@@ -164,11 +167,13 @@ MultiplayerColorDefinition * MultiplayerColorDefinition::operator =(const Multip
 
 void MultiplayerColorDefinition::setColor( RGBColor rgb )
 {
+	m_rgbValue = rgb;
 	m_color = rgb.getAsInt() | 0xFF << 24;
 }
 
 void MultiplayerColorDefinition::setNightColor( RGBColor rgb )
 {
+	m_rgbValueNight = rgb;
 	m_colorNight = rgb.getAsInt() | 0xFF << 24;
 }
 

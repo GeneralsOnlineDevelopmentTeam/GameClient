@@ -1144,7 +1144,7 @@ ParticleSystem::ParticleSystem( const ParticleSystemTemplate *sysTemplate,
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	m_startTimestamp = TheGameClient->getFrameLegacy();
 #else
-	m_startTimestamp = TheGameClient->getFrameLegacy();
+	m_startTimestamp = TheGameClient->getFrame();
 #endif
 #endif
 	m_systemLifetimeLeft = sysTemplate->m_systemLifetime;

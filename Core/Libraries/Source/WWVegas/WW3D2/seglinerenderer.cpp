@@ -47,6 +47,7 @@
 #include "RANDOM.H"
 #include "v3_rnd.h"
 #include "meshgeometry.h"
+#include <algorithm>
 
 
 /* We have chunking logic which handles N segments at a time. To simplify the subdivision logic,
@@ -232,7 +233,11 @@ void SegLineRendererClass::Render
 	/* 
 	** Handle texture UV offset animation (done once for entire line).
 	*/
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	unsigned int delta = std::max<unsigned int>(33, WW3D::Get_Sync_Time() - LastUsedSyncTime);
+#else
 	unsigned int delta = WW3D::Get_Sync_Time() - LastUsedSyncTime;
+#endif
 	float del = (float)delta;
 	Vector2 uv_offset = CurrentUVOffset + UVOffsetDeltaPerMS * del;
 
