@@ -687,26 +687,6 @@ void TurretAI::friend_notifyStateMachineChanged()
 DECLARE_PERF_TIMER(TurretAI)
 UpdateSleepTime TurretAI::updateTurretAI()
 {
-	// NGMP_TODO: Replace this hack, it's to fix firewall, but we should be tweaking the rotation logic instead. Also string compare is really expensive and horrible.
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	if (!TheGameLogic->HasLegacyFrameAdvanced())
-	{
-		if (m_turretStateMachine && m_turretStateMachine->getOwner() != nullptr)
-		{
-			WeaponSlotType currentWeaponSlot;
-			Weapon* pWeapon = m_turretStateMachine->getOwner()->getCurrentWeapon(&currentWeaponSlot);
-			if (pWeapon != nullptr)
-			{
-					if (currentWeaponSlot == SECONDARY_WEAPON && pWeapon->getName().startsWith("DragonTankFireWallWeapon"))
-					{
-						return UPDATE_SLEEP_NONE;
-					}
-			}
-		}
-		
-	}
-#endif
-
 	USE_PERF_TIMER(TurretAI)
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
@@ -1405,7 +1385,11 @@ StateReturnType TurretAIIdleScanState::update()
   if( getMachineOwner()->testStatus( OBJECT_STATUS_UNDER_CONSTRUCTION))
     return STATE_CONTINUE;//ML so that under-construction base-defenses do not idle-scan while under construction
 
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_LIMIT)
+	Bool angleAligned = getTurretAI()->friend_turnTowardsAngle(getTurretAI()->getNaturalTurretAngle() + m_desiredAngle, 0.5f, 0.5f);
+#else
 	Bool angleAligned = getTurretAI()->friend_turnTowardsAngle(getTurretAI()->getNaturalTurretAngle() + m_desiredAngle, 0.5f, 0.0f);
+#endif
 	Bool pitchAligned = getTurretAI()->friend_turnTowardsPitch(getTurretAI()->getNaturalTurretPitch(), 0.5f);
 
 	if( angleAligned && pitchAligned )
