@@ -665,6 +665,9 @@ void PortMapper::ForwardPort_PCP()
 			default:
 				break;
 			}
+
+			// cleanup
+			plum_cleanup();
 		});
 #endif
 }
@@ -673,8 +676,16 @@ void PortMapper::RemovePortMapping_PCP()
 {
 	if (m_PCPMappingHandle != -1)
 	{
+		// Initialize
+		plum_config_t config;
+		memset(&config, 0, sizeof(config));
+		config.log_level = PLUM_LOG_LEVEL_VERBOSE;
+		plum_init(&config);
+
 		NetworkLog("PortMapper: Removing PCP Mapping");
 		plum_destroy_mapping(m_PCPMappingHandle);
+
+		plum_cleanup();
 	}
 }
 
