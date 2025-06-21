@@ -997,6 +997,10 @@ InGameUI::InGameUI()
 		m_uiMessages[ i ].timestamp = 0;
 		m_uiMessages[ i ].color = 0;
 
+#if defined(GENERALS_ONLINE)
+		m_uiMessages[ i ].isChat = false;
+#endif
+
 	}  // end for i
 
 	m_replayWindow = NULL;
@@ -1658,7 +1662,8 @@ void InGameUI::update( void )
 
 	// GeneralsOnline NOTE: Increasing this, it's short + we increased framerate which is tied into the calc elsewhere
 #if defined(GENERALS_ONLINE)
-	const int messageTimeout = NGMP_OnlineServicesManager::Settings.GetChatLifeSeconds() * LOGICFRAMES_PER_SECOND;
+	const int messageTimeoutChat = NGMP_OnlineServicesManager::Settings.GetChatLifeSeconds() * LOGICFRAMES_PER_SECOND;
+	const int messageTimeoutStandard = (m_messageDelayMS / LOGICFRAMES_PER_SECOND / 1000) * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER;
 #else
 	const int messageTimeout = m_messageDelayMS / LOGICFRAMES_PER_SECOND / 1000;
 #endif
@@ -1667,6 +1672,10 @@ void InGameUI::update( void )
 	for( i = MAX_UI_MESSAGES - 1; i >= 0; i-- )
 	{
 
+#if defined(GENERALS_ONLINE)
+		// determine which timeout to apply
+		const int messageTimeout = m_uiMessages[i].isChat ? messageTimeoutChat : messageTimeoutStandard;
+#endif
 		if( currLogicFrame - m_uiMessages[ i ].timestamp > messageTimeout )
 		{
 
@@ -2079,7 +2088,11 @@ void InGameUI::message( UnicodeString format, ... )
 /** Interface for display text messages to the user */
 //-------------------------------------------------------------------------------------------------
 // srj sez: passing as const-ref screws up varargs for some reason. dunno why. just pass by value.
-void InGameUI::messageColor( const RGBColor *rgbColor, UnicodeString format, ... )
+#if defined(GENERALS_ONLINE)
+void InGameUI::messageColor(bool bIsChatMsg, const RGBColor *rgbColor, UnicodeString format, ... )
+#else
+void InGameUI::messageColor(const RGBColor* rgbColor, UnicodeString format, ...)
+#endif
 {
 	UnicodeString formattedMessage;
 
@@ -2094,7 +2107,11 @@ void InGameUI::messageColor( const RGBColor *rgbColor, UnicodeString format, ...
 	{
 		formattedMessage.set( buf );
 		// add the text to the ui
-		addMessageText( formattedMessage, rgbColor );
+#if defined(GENERALS_ONLINE)
+		addMessageText( formattedMessage, rgbColor, bIsChatMsg);
+#else
+		addMessageText(formattedMessage, rgbColor);
+#endif
 	}
 	else
 	{
@@ -2104,7 +2121,11 @@ void InGameUI::messageColor( const RGBColor *rgbColor, UnicodeString format, ...
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
+#if defined(GENERALS_ONLINE)
+void InGameUI::addMessageText( const UnicodeString& formattedMessage, const RGBColor *rgbColor, bool bIsChatMsg )
+#else
 void InGameUI::addMessageText( const UnicodeString& formattedMessage, const RGBColor *rgbColor )
+#endif
 {
 	Int i;
 	Color color1 = m_messageColor1;
@@ -2133,6 +2154,9 @@ void InGameUI::addMessageText( const UnicodeString& formattedMessage, const RGBC
 	// "up" an index
 	//
 	m_uiMessages[ 0 ].fullText = formattedMessage;
+#if defined(GENERALS_ONLINE)
+	m_uiMessages[ 0 ].isChat = bIsChatMsg;
+#endif
 	m_uiMessages[ 0 ].timestamp = TheGameLogic->getFrame();
 	m_uiMessages[ 0 ].displayString = TheDisplayStringManager->newDisplayString();
 	m_uiMessages[ 0 ].displayString->setFont( TheFontLibrary->getFont( m_messageFont, 

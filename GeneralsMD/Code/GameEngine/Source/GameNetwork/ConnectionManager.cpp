@@ -673,7 +673,11 @@ void ConnectionManager::processChat(NetChatCommandMsg *msg)
 	{
 		RGBColor rgb;
 		rgb.setFromInt(player->getPlayerColor());
+#if defined(GENERALS_ONLINE)
+		TheInGameUI->messageColor(true, &rgb, UnicodeString(L"%ls"), unitext.str());
+#else
 		TheInGameUI->messageColor(&rgb, UnicodeString(L"%ls"), unitext.str());
+#endif
 
 		// feedback for received chat messages in-game
 		AudioEventRTS audioEvent("GUICommunicatorIncoming");

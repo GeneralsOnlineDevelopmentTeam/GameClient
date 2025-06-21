@@ -376,7 +376,11 @@ public:  // ********************************************************************
 
 	// interface for messages to the user
 	// srj sez: passing as const-ref screws up varargs for some reason. dunno why. just pass by value.
-	virtual void messageColor( const RGBColor *rgbColor, UnicodeString format, ... );	///< display a colored message to the user
+#if defined(GENERALS_ONLINE)
+	virtual void messageColor(bool bIsChatMsg, const RGBColor *rgbColor, UnicodeString format, ... );	///< display a colored message to the user
+#else
+	virtual void messageColor(const RGBColor* rgbColor, UnicodeString format, ...);	///< display a colored message to the user
+#endif
 	virtual void message( UnicodeString format, ... );				  ///< display a message to the user
 	virtual void message( AsciiString stringManagerLabel, ... );///< display a message to the user
 	virtual void toggleMessages( void ) { m_messagesOn = 1 - m_messagesOn; }	///< toggle messages on/off
@@ -642,6 +646,10 @@ protected:
 		DisplayString *displayString;						///< display string used to render the message
 		UnsignedInt timestamp;									///< logic frame message was created on
 		Color color;														///< color to render this in
+
+#if defined(GENERALS_ONLINE)
+		bool isChat;
+#endif
 	};
 	enum { MAX_UI_MESSAGES = 6 };
 
@@ -684,8 +692,11 @@ protected:
 
 	void setMouseCursor(Mouse::MouseCursor c);
 
-	
+#if defined(GENERALS_ONLINE)
+	void addMessageText( const UnicodeString& formattedMessage, const RGBColor *rgbColor = NULL, bool bIsChatMsg = false );  ///< internal workhorse for adding plain text for messages
+#else
 	void addMessageText( const UnicodeString& formattedMessage, const RGBColor *rgbColor = NULL );  ///< internal workhorse for adding plain text for messages
+#endif
 	void removeMessageAtIndex( Int i );				///< remove the message at index i
 
 	void updateFloatingText( void );						///< Update function to move our floating text

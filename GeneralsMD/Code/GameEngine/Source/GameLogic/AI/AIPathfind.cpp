@@ -9125,15 +9125,22 @@ void Pathfinder::prependCells( Path *path, const Coord3D *fromPos,
 		}
 		prevCell = cell;
 	}
-	m_zoneManager.setPassable(cell->getXIndex(), cell->getYIndex(), true);
-	if (goalCellNull) {
-		// Very short path.
-		adjustCoordToCell(cell->getXIndex(), cell->getYIndex(), center, pos, cell->getLayer());
-		path->prependNode( &pos, cell->getLayer() );
-	}
-	// put actual start position as first node on the path, so it begins right at the unit's feet
-	if (fromPos->x != path->getFirstNode()->getPosition()->x || fromPos->y != path->getFirstNode()->getPosition()->y) {
-		path->prependNode( fromPos, cell->getLayer() );
+
+	// TODO_NGMP: Investigate this further, is it truly valid for cell to be null? For now, we ignore if nullptr, the worst implication of this is they need to re-send the unit.
+	// TODO_NGMP: Should also investigate this again once Maullers pathfind fixes are in, it's probably unnecessary then
+	if (cell == nullptr) cell = prevCell;
+	if (cell != nullptr)
+	{
+		m_zoneManager.setPassable(cell->getXIndex(), cell->getYIndex(), true);
+		if (goalCellNull) {
+			// Very short path.
+			adjustCoordToCell(cell->getXIndex(), cell->getYIndex(), center, pos, cell->getLayer());
+			path->prependNode(&pos, cell->getLayer());
+		}
+		// put actual start position as first node on the path, so it begins right at the unit's feet
+		if (fromPos->x != path->getFirstNode()->getPosition()->x || fromPos->y != path->getFirstNode()->getPosition()->y) {
+			path->prependNode(fromPos, cell->getLayer());
+		}
 	}
 
 }			 
