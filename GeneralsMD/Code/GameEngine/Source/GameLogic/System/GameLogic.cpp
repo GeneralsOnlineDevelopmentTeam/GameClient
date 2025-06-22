@@ -2993,9 +2993,7 @@ Int GameLogic::rebalanceChildSleepyUpdate(Int i)
 // version present for clarity. (Yes, this is worth doing.) (srj) 
 
 
-	// NGMP_CHANGE: REvert...
-	// TODO_NGMP: Fix this and re-enable
-#if 0
+#if 1
 	UpdateModulePtr* pI = &m_sleepyUpdates[i];
 
 	// our children are i*2 and i*2+1

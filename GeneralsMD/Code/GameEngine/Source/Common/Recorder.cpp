@@ -640,10 +640,10 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
 		else
 		{
 #if defined(GENERALS_ONLINE)
-			theSlotList = GameInfoToAsciiString(TheGameSpyGame);
+			theSlotList = GameInfoToAsciiString(TheNGMPGame);
 			localIndex = TheNGMPGame->getLocalSlotNum();
 #else
-			theSlotList = GameInfoToAsciiString(TheNGMPGame);
+			theSlotList = GameInfoToAsciiString(TheGameSpyGame);
 			localIndex = TheGameSpyGame->getLocalSlotNum();
 #endif
 		}

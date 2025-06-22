@@ -738,7 +738,7 @@ void NetworkHUD::Render()
 			}
 
 			UnicodeString unibuffer;
-			unibuffer.format(L"FPS: Render: %d Logic: %ld\nLatency: %d frames (%d ms)",m_lastFPS,
+			unibuffer.format(L"FPS: Render: %d Logic: %ld | Latency: %d frames (%d ms)",m_lastFPS,
 				TheNetwork->getFrameRate(), (int)ceil(highestLatency/GENERALS_ONLINE_HIGH_FPS_LIMIT), highestLatency);
 
 			m_DisplayString->setText(unibuffer);
