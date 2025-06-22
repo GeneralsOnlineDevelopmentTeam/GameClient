@@ -10,6 +10,7 @@
 #include "GameClient/DisplayStringManager.h"
 #include "../../NetworkInterface.h"
 #include "Common/MultiplayerSettings.h"
+#include "../../GameSpyOverlay.h"
 
 extern NetworkInterface* TheNetwork;
 
@@ -236,9 +237,6 @@ void NGMP_OnlineServicesManager::CancelUpdate()
 
 void NGMP_OnlineServicesManager::LaunchPatcher()
 {
-	STARTUPINFOA si = { sizeof(STARTUPINFOA) };
-	PROCESS_INFORMATION pi = {};
-
 	char CurDir[MAX_PATH + 1] = {};
 	::GetCurrentDirectoryA(MAX_PATH + 1u, CurDir);
 
@@ -246,20 +244,29 @@ void NGMP_OnlineServicesManager::LaunchPatcher()
 	std::string strPatcherDir = std::format("{}/{}", CurDir, strPatchDir);
 	std::string strPatcherPath = std::format("{}/{}", strPatcherDir, m_patcher_name);
 
-	char params[] = "/VERYSILENT";
-	if (CreateProcessA(strPatcherPath.c_str(), params, nullptr, nullptr, FALSE, 0, nullptr, strPatcherDir.c_str(), &si, &pi))
-	{
-		// Successfully launched the process, close handles  
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
+	SHELLEXECUTEINFOA shellexInfo = { sizeof(shellexInfo) };
+	shellexInfo.lpVerb = "runas"; // admin
+	shellexInfo.lpFile = strPatcherPath.c_str();
+	shellexInfo.nShow = SW_SHOWNORMAL;
+	shellexInfo.lpDirectory = strPatcherDir.c_str();
+	shellexInfo.lpParameters = "/VERYSILENT";
 
+	bool bPatcherExeExists = std::filesystem::exists(strPatcherPath) && std::filesystem::is_regular_file(strPatcherPath);
+	bool bPatcherDirExists = std::filesystem::exists(strPatcherDir) && std::filesystem::is_directory(strPatcherDir);
+
+	if (bPatcherExeExists && bPatcherDirExists && ShellExecuteExA(&shellexInfo))
+	{
 		// Exit the application  
 		exit(0);
 	}
 	else
 	{
 		// show msg
-		MessageBoxOk(UnicodeString(L"Update Failed"), UnicodeString(L"Could not run the updater."), nullptr);
+		ClearGSMessageBoxes();
+		MessageBoxOk(UnicodeString(L"Update Failed"), UnicodeString(L"Could not run the updater. Press below to exit."), []()
+			{
+				exit(0);
+			});
 		ShellExecuteA(NULL, "open", "https://www.playgenerals.online/updatefailed", NULL, NULL, SW_SHOWNORMAL);
 	}
 }
