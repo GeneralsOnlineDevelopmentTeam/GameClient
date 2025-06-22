@@ -12,7 +12,6 @@
 
 class NetRoom_ChatMessagePacket;
 class Lobby_StartGamePacket;
-
 enum class EConnectionState
 {
 	NOT_CONNECTED,
@@ -29,26 +28,11 @@ public:
 	// TODO_RELAY: Add destructor that shuts down peers etc, but only shut down relay peer if not being used by another connection
 	PlayerConnection()
 	{
-
+		
 	}
 
 
-	PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* peer, bool bStartSendingHellosAgain)
-	{
-		m_userID = userID;
-		m_address = addr;
-		m_peer = peer;
-		m_pRelayPeer = nullptr;
-
-		if (bStartSendingHellosAgain)
-		{
-			NetworkLog("Starting sending hellos 1");
-			m_bNeedsHelloSent = true;
-		}
-		// otherwise, keep whatever start we were in, its just a connection update
-
-		enet_peer_timeout(m_peer, 5, 1000, 1000);
-	}
+	PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* peer, bool bStartSendingHellosAgain);
 
 	EConnectionState GetState() const { return m_State; }
 	ENetPeer* GetPeerToUse();
@@ -162,6 +146,8 @@ public:
 	{
 
 	}
+
+	void UpdateConnectivity(PlayerConnection* connection);
 
 	void OnRelayUpgrade(int64_t targetUserID);
 

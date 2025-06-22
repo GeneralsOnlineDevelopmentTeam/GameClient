@@ -14,7 +14,24 @@
 #include "../../NetworkInterface.h"
 #include "GameLogic/GameLogic.h"
 #include "../OnlineServices_RoomsInterface.h"
+#include "../json.hpp"
+#include "../HTTP/HTTPManager.h"
+#include "../OnlineServices_Init.h"
 
+
+void NetworkMesh::UpdateConnectivity(PlayerConnection* connection)
+{
+	nlohmann::json j;
+	j["target"] = connection->m_userID;
+	j["outcome"] = connection->GetState();
+	std::string strPostData = j.dump();
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ConnectionOutcome", true);
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			// dont care about the response
+		});
+}
 
 void NetworkMesh::OnRelayUpgrade(int64_t targetUserID)
 {
@@ -260,6 +277,7 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING_RELAY;
 	m_mapConnections[user_id].m_ConnectionAttempts = 0;
 	m_mapConnections[user_id].m_lastConnectionAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	UpdateConnectivity(&m_mapConnections[user_id]);
 	
 	NetworkLog("[SERVER] Connecting to user %lld via relay.\n", user_id);
 
@@ -442,6 +460,7 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	}
 
 	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING_DIRECT;
+	UpdateConnectivity(&m_mapConnections[user_id]);
 
 	if (bIsReconnect)
 	{
@@ -880,6 +899,7 @@ void NetworkMesh::Tick()
 							if (m_mapConnections[ackPacket.GetUserID()].m_State != EConnectionState::CONNECTED_RELAY)
 							{
 								m_mapConnections[ackPacket.GetUserID()].m_State = EConnectionState::CONNECTED_RELAY;
+								UpdateConnectivity(&m_mapConnections[ackPacket.GetUserID()]);
 
 								std::string strDisplayName = "Unknown User";
 								auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
@@ -903,6 +923,7 @@ void NetworkMesh::Tick()
 							if (m_mapConnections[ackPacket.GetUserID()].m_State != EConnectionState::CONNECTED_DIRECT)
 							{
 								m_mapConnections[ackPacket.GetUserID()].m_State = EConnectionState::CONNECTED_DIRECT;
+								UpdateConnectivity(&m_mapConnections[ackPacket.GetUserID()]);
 
 								std::string strDisplayName = "Unknown User";
 								auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
@@ -1121,6 +1142,30 @@ void NetworkMesh::SendPing()
 	}
 }
 
+
+PlayerConnection::PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* peer, bool bStartSendingHellosAgain)
+{
+	m_userID = userID;
+	m_address = addr;
+	m_peer = peer;
+	m_pRelayPeer = nullptr;
+
+	if (bStartSendingHellosAgain)
+	{
+		NetworkLog("Starting sending hellos 1");
+		m_bNeedsHelloSent = true;
+	}
+	// otherwise, keep whatever start we were in, its just a connection update
+
+	enet_peer_timeout(m_peer, 5, 1000, 1000);
+
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	if (pMesh != nullptr)
+	{
+		pMesh->UpdateConnectivity(this);
+	}
+}
+
 ENetPeer* PlayerConnection::GetPeerToUse()
 {
 	if (m_peer == nullptr)
@@ -1224,10 +1269,20 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 			{
 				NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_ConnectionRelayUpgrade(m_userID);
 				m_State = EConnectionState::CONNECTING_RELAY;
+				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+				if (pMesh != nullptr)
+				{
+					pMesh->UpdateConnectivity(this);
+				}
 			}
 			else if (m_State == EConnectionState::CONNECTED_DIRECT)
 			{
 				m_State = EConnectionState::CONNECTED_RELAY;
+				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+				if (pMesh != nullptr)
+				{
+					pMesh->UpdateConnectivity(this);
+				}
 			}
 
 			return -4;
