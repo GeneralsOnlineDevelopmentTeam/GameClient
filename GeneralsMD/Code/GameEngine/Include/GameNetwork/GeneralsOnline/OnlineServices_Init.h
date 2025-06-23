@@ -342,9 +342,11 @@ public:
 	bool IsPendingFullTeardown() const { return m_bPendingFullTeardown; }
 	void ConsumePendingFullTeardown() { m_bPendingFullTeardown = false; }
 
-	private:
+private:
 		void InitSentry();
 		void ShutdownSentry();
+
+		std::string GetPatcherDirectoryPath();
 
 private:
 	NGMP_OnlineServices_AuthInterface* m_pAuthInterface = nullptr;
@@ -368,8 +370,6 @@ private:
 	std::queue<int64_t> m_vecFilesSizes;
 	std::vector<std::string> m_vecFilesDownloaded;
 	std::function<void(void)> m_updateCompleteCallback = nullptr;
-
-	const std::string strPatchDir = "GeneralsOnlinePatch";
 
 	std::string m_patcher_name;
 	std::string m_patcher_path;

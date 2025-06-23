@@ -828,13 +828,15 @@ void StartPatchCheck( void )
 						onlineCancelWindow = NULL;
 					}
 
+					// NGMP_NOTE: This checks you can write to the local dir, we actually write to my docs data dir now, because it's safer, so we don't really need this chekc
+					/*
 					if (!hasWriteAccess(true))
 					{
 						MessageBoxOk(TheGameText->fetch("GUI:Error"),
 							TheGameText->fetch("GUI:MustHaveAdminRights"),
 							CancelPatchCheckCallbackAndReopenDropdown);
 					}
-					else if (mustDownloadPatch)
+					else*/ if (mustDownloadPatch)
 					{
 						// NOTE: we treat all patches as mandatory currently
 						onlineCancelWindow = MessageBoxOkCancel(TheGameText->fetch("GUI:PatchAvailable"),

@@ -188,12 +188,11 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 
 				m_vecFilesDownloaded.push_back(strDownloadPath);
 
-				char CurDir[MAX_PATH + 1] = {};
-				::GetCurrentDirectoryA(MAX_PATH + 1u, CurDir);
+				std::string strPatchDir = GetPatcherDirectoryPath();
 
 				// Extract the filename with extension from strDownloadPath  
 				std::string strFileName = strDownloadPath.substr(strDownloadPath.find_last_of('/') + 1);
-				std::string strOutPath = std::format("{}/{}/{}", CurDir, strPatchDir, strFileName.c_str());
+				std::string strOutPath = std::format("{}/{}", strPatchDir, strFileName.c_str());
 
 				uint8_t* pBuffer = pReq->GetBuffer();
 				size_t bufSize = pReq->GetBufferSize();
@@ -237,18 +236,18 @@ void NGMP_OnlineServicesManager::CancelUpdate()
 
 void NGMP_OnlineServicesManager::LaunchPatcher()
 {
-	char CurDir[MAX_PATH + 1] = {};
-	::GetCurrentDirectoryA(MAX_PATH + 1u, CurDir);
+	char GameDir[MAX_PATH + 1] = {};
+	::GetCurrentDirectoryA(MAX_PATH + 1u, GameDir);
 
-	// Extract the filename with extension from strDownloadPath  
-	std::string strPatcherDir = std::format("{}/{}", CurDir, strPatchDir);
+	// Extract the filename with extension from strDownloadPath
+	std::string strPatcherDir = GetPatcherDirectoryPath();
 	std::string strPatcherPath = std::format("{}/{}", strPatcherDir, m_patcher_name);
 
 	SHELLEXECUTEINFOA shellexInfo = { sizeof(shellexInfo) };
 	shellexInfo.lpVerb = "runas"; // admin
 	shellexInfo.lpFile = strPatcherPath.c_str();
 	shellexInfo.nShow = SW_SHOWNORMAL;
-	shellexInfo.lpDirectory = strPatcherDir.c_str();
+	shellexInfo.lpDirectory = GameDir;
 	shellexInfo.lpParameters = "/VERYSILENT";
 
 	bool bPatcherExeExists = std::filesystem::exists(strPatcherPath) && std::filesystem::is_regular_file(strPatcherPath);
@@ -290,6 +289,7 @@ void NGMP_OnlineServicesManager::StartDownloadUpdate(std::function<void(void)> c
 	m_updateCompleteCallback = cb;
 
 	// cleanup current folder
+	std::string strPatchDir = GetPatcherDirectoryPath();
 	if (std::filesystem::exists(strPatchDir) && std::filesystem::is_directory(strPatchDir))
 	{
 		for (const auto& entry : std::filesystem::directory_iterator(strPatchDir))
@@ -443,6 +443,13 @@ void NGMP_OnlineServicesManager::InitSentry()
 void NGMP_OnlineServicesManager::ShutdownSentry()
 {
 	sentry_close();
+}
+
+
+std::string NGMP_OnlineServicesManager::GetPatcherDirectoryPath()
+{
+	std::string strPatcherDirPath = std::format("{}/GeneralsOnlineUpdate/", TheGlobalData->getPath_UserData().str());
+	return strPatcherDirPath;
 }
 
 void WebSocket::Shutdown()
