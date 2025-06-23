@@ -12,6 +12,7 @@
 #include "GameNetwork/GameSpyOverlay.h"
 #include "../json.hpp"
 
+#define SETTINGS_FILENAME "credentials.json"
 
 #include "GameNetwork/GeneralsOnline/vendor/libcurl/curl.h"
 #include "libsodium/sodium/crypto_aead_aes256gcm.h"
@@ -154,7 +155,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						NetworkLog("LOGIN: Logged in");
 						m_bWaitingLogin = false;
 
-						SaveCredentials(DecryptServiceToken(authResp.al_token).c_str());
+						//SaveCredentials(DecryptServiceToken(authResp.al_token).c_str());
 
 						// store data locally
 						m_strToken = DecryptServiceToken(authResp.ss_token);
@@ -419,22 +420,16 @@ void NGMP_OnlineServices_AuthInterface::LoginAsSecondaryDevAccount()
 
 void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szToken)
 {
-	// store in credmgr
+	// store in data dir
 #if !defined(GENERALS_ONLINE_DONT_SAVE_CREDENTIALS)
-	DWORD blobsize = strlen(szToken);
+	nlohmann::json root = {{"token", szToken}};
 
-	CREDENTIALA cred = { 0 };
-	cred.Flags = 0;
-	cred.Type = CRED_TYPE_GENERIC;
-	cred.TargetName = (char*)"GeneralsOnline";
-	cred.CredentialBlobSize = blobsize;
-	cred.CredentialBlob = (LPBYTE)szToken;
-	cred.Persist = CRED_PERSIST_LOCAL_MACHINE;
-	cred.UserName = (char*)"";
-
-	if (!CredWrite(&cred, 0))
+	std::string strData = root.dump(1);
+	FILE* file = fopen(GetCredentialsFilePath().c_str(), "wb");
+	if (file)
 	{
-		NetworkLog("ERROR STORING CREDENTIALS: %d\n", GetLastError());
+		fwrite(strData.data(), 1, strData.size(), file);
+		fclose(file);
 	}
 #endif
 }
@@ -447,6 +442,7 @@ bool NGMP_OnlineServices_AuthInterface::DoCredentialsExist()
 
 std::string NGMP_OnlineServices_AuthInterface::GetCredentials()
 {
+	// NGMP_NOTE: Prior to 6/23, tokens were stored in the Windows Credential Manager, this code migrates them to the new json file system
 	PCREDENTIAL credential;
 	if (CredRead("GeneralsOnline", CRED_TYPE_GENERIC, 0, &credential))
 	{
@@ -455,9 +451,59 @@ std::string NGMP_OnlineServices_AuthInterface::GetCredentials()
 
 		if (token.length() == 32)
 		{
+			SaveCredentials(token.c_str());
+			CredDelete("GeneralsOnline", CRED_TYPE_GENERIC, 0);
 			return token;
 		}
 	}
 
+	// New system, load from json
+	std::vector<uint8_t> vecBytes;
+	FILE* file = fopen(GetCredentialsFilePath().c_str(), "rb");
+	if (file)
+	{
+		fseek(file, 0, SEEK_END);
+		long fileSize = ftell(file);
+		fseek(file, 0, SEEK_SET);
+		if (fileSize > 0)
+		{
+			vecBytes.resize(fileSize);
+			fread(vecBytes.data(), 1, fileSize, file);
+		}
+		fclose(file);
+	}
+
+
+	if (!vecBytes.empty())
+	{
+		std::string strJSON = std::string((char*)vecBytes.data(), vecBytes.size());
+		nlohmann::json jsonCredentials = nullptr;
+
+		try
+		{
+			jsonCredentials = nlohmann::json::parse(strJSON);
+
+			if (jsonCredentials != nullptr)
+			{
+				if (jsonCredentials.contains("token"))
+				{
+					std::string strToken = jsonCredentials["token"];
+					return strToken;
+				}
+			}
+
+		}
+		catch (...)
+		{
+			return std::string();
+		}
+	}
+
 	return std::string();
+}
+
+std::string NGMP_OnlineServices_AuthInterface::GetCredentialsFilePath()
+{
+	std::string strPatcherDirPath = std::format("{}/GeneralsOnlineData/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
+	return strPatcherDirPath;
 }

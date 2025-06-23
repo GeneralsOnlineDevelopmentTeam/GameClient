@@ -45,6 +45,8 @@ private:
 	bool DoCredentialsExist();
 	std::string GetCredentials();
 
+	std::string GetCredentialsFilePath();
+
 private:
 	bool m_bWaitingLogin = false;
 	std::string m_strCode;
