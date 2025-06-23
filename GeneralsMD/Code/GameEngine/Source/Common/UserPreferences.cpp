@@ -254,7 +254,7 @@ QuickMatchPreferences::QuickMatchPreferences()
 	
 #if defined(GENERALS_ONLINE)
 	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-	userPrefFilename.format("GeneralsOnlineNG\\QMPref%lld.ini", localProfile);
+	userPrefFilename.format("GeneralsOnlineData\\QMPref%lld.ini", localProfile);
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
 	userPrefFilename.format("GeneralsOnline\\QMPref%d.ini", profileID);
@@ -447,10 +447,10 @@ CustomMatchPreferences::CustomMatchPreferences()
 #if defined(GENERALS_ONLINE)
 	// NOTE: We need to use a different folder to avoid conflict with GS/Revora
 	int64_t user_id = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-	userPrefFilename.format("GeneralsOnlineNG\\CustomPref%lld.ini", user_id);
+	userPrefFilename.format("GeneralsOnlineData\\CustomPref%lld.ini", user_id);
 
 	AsciiString prefsDirectory = TheGlobalData->getPath_UserData();
-	prefsDirectory.concat("GeneralsOnlineNG");
+	prefsDirectory.concat("GeneralsOnlineData");
 
 	if (!std::filesystem::exists(prefsDirectory.str()))
 	{
@@ -810,7 +810,7 @@ GameSpyMiscPreferences::GameSpyMiscPreferences()
 	
 #if defined(GENERALS_ONLINE)
 	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-	userPrefFilename.format("GeneralsOnlineNG\\GSMiscPref%lld.ini", localProfile);
+	userPrefFilename.format("GeneralsOnlineData\\GSMiscPref%lld.ini", localProfile);
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
 	userPrefFilename.format("GeneralsOnline\\GSMiscPref%d.ini", localProfile);
@@ -862,7 +862,7 @@ IgnorePreferences::IgnorePreferences()
 	
 #if defined(GENERALS_ONLINE)
 	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-	userPrefFilename.format("GeneralsOnlineNG\\IgnorePref%lld.ini", localProfile);
+	userPrefFilename.format("GeneralsOnlineData\\IgnorePref%lld.ini", localProfile);
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
 	userPrefFilename.format("GeneralsOnline\\IgnorePref%d.ini", localProfile);
@@ -924,7 +924,7 @@ Bool LadderPreferences::loadProfile( Int profileID )
 	AsciiString userPrefFilename;
 
 #if defined(GENERALS_ONLINE)
-	userPrefFilename.format("GeneralsOnlineNG\\Ladders%d.ini", profileID);
+	userPrefFilename.format("GeneralsOnlineData\\Ladders%d.ini", profileID);
 #else
 	userPrefFilename.format("GeneralsOnline\\Ladders%d.ini", profileID);
 #endif

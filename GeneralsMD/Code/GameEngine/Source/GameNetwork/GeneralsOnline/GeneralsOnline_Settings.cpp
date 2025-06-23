@@ -18,7 +18,8 @@
 #define SETTINGS_KEY_CHAT "chat"
 #define SETTINGS_KEY_CHAT_LIFE_SECONDS "duration_seconds_until_fade_out"
 
-#define SETTINGS_FILENAME "GeneralsOnline_settings.json"
+#define SETTINGS_FILENAME_LEGACY "GeneralsOnline_settings.json"
+#define SETTINGS_FILENAME "settings.json"
 
 GenOnlineSettings::GenOnlineSettings()
 {
@@ -51,8 +52,15 @@ void GenOnlineSettings::Load(void)
 {
 	char GameDir[MAX_PATH + 1] = {};
 	::GetCurrentDirectoryA(MAX_PATH + 1u, GameDir);
-	std::string strSettingsFilePath = std::format("{}/GeneralsOnline/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
-	std::string strSettingsFilePathLegacy = std::format("{}/{}", GameDir, SETTINGS_FILENAME);
+	std::string strSettingsFileDir = std::format("{}/GeneralsOnlineData/", TheGlobalData->getPath_UserData().str());
+	std::string strSettingsFilePath = std::format("{}/{}", strSettingsFileDir, SETTINGS_FILENAME);
+	std::string strSettingsFilePathLegacy = std::format("{}/{}", GameDir, SETTINGS_FILENAME_LEGACY);
+
+	// create directories we need
+	if (!std::filesystem::exists(strSettingsFileDir))
+	{
+		std::filesystem::create_directory(strSettingsFileDir);
+	}
 
 	// NGMP_NOTE: Prior to 6/23, we used the game dir for settings, this code migrates any legacy settings file to the new location (game user data dir)
 	if (std::filesystem::exists(strSettingsFilePathLegacy))
@@ -216,7 +224,7 @@ void GenOnlineSettings::Save()
 	
 	std::string strData = root.dump(1);
 
-	std::string strSettingsFilePath = std::format("{}/GeneralsOnline/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
+	std::string strSettingsFilePath = std::format("{}/GeneralsOnlineData/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
 	FILE* file = fopen(strSettingsFilePath.c_str(), "wb");
 	if (file)
 	{

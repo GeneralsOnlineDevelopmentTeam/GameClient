@@ -448,7 +448,7 @@ void NGMP_OnlineServicesManager::ShutdownSentry()
 
 std::string NGMP_OnlineServicesManager::GetPatcherDirectoryPath()
 {
-	std::string strPatcherDirPath = std::format("{}/GeneralsOnline/Update/", TheGlobalData->getPath_UserData().str());
+	std::string strPatcherDirPath = std::format("{}/GeneralsOnlineData/Update/", TheGlobalData->getPath_UserData().str());
 	return strPatcherDirPath;
 }
 
