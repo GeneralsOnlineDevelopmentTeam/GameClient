@@ -230,6 +230,16 @@ Bool Win32BIGFileSystem::loadBigFilesFromDirectory(AsciiString dir, AsciiString 
 		ArchiveFile *archiveFile = openArchiveFile((*it).str());
 
 		if (archiveFile != NULL) {
+			// NGMP_CHANGE: The EA version ships with a duplicate and outdated INIZH file. GameEngine.cpp line 342 tries to delete it - but this does not work on EA App/Origin installs because the folder is owned by the app and is not writeable.
+			//				So instead, we just don't load it.
+			AsciiString fileLower = (*it);
+			fileLower.toLower(); // in place
+			if (strcmp(fileLower.str(), "data\\ini\\inizh.big") == 0)
+			{
+				it++;
+				continue;
+			}
+
 			DEBUG_LOG(("Win32BIGFileSystem::loadBigFilesFromDirectory - loading %s into the directory tree.\n", (*it).str()));
 			loadIntoDirectoryTree(archiveFile, *it, overwrite);
 			m_archiveFileMap[(*it)] = archiveFile;
