@@ -716,6 +716,9 @@ void GameEngine::init( int argc, char *argv[] )
 
 	TheSubsystemList->resetAll();
 	HideControlBar();
+
+	// NGMP_CHANGE: Init our settings
+	NGMP_OnlineServicesManager::Settings.Initialize();
 }  // end init
 
 /** -----------------------------------------------------------------------------------------------

@@ -22,7 +22,7 @@
 
 GenOnlineSettings::GenOnlineSettings()
 {
-	Initialize();
+	
 }
 
 float GenOnlineSettings::DetermineCameraMaxHeight()
@@ -49,10 +49,22 @@ float GenOnlineSettings::DetermineCameraMaxHeight()
 
 void GenOnlineSettings::Load(void)
 {
+	char GameDir[MAX_PATH + 1] = {};
+	::GetCurrentDirectoryA(MAX_PATH + 1u, GameDir);
+	std::string strSettingsFilePath = std::format("{}/GeneralsOnline/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
+	std::string strSettingsFilePathLegacy = std::format("{}/{}", GameDir, SETTINGS_FILENAME);
+
+	// NGMP_NOTE: Prior to 6/23, we used the game dir for settings, this code migrates any legacy settings file to the new location (game user data dir)
+	if (std::filesystem::exists(strSettingsFilePathLegacy))
+	{
+		std::filesystem::copy(strSettingsFilePathLegacy, strSettingsFilePath, std::filesystem::copy_options::overwrite_existing);
+		std::filesystem::remove(strSettingsFilePathLegacy);
+	}
+
 	bool bApplyDefaults = false;
 
 	std::vector<uint8_t> vecBytes;
-	FILE* file = fopen(SETTINGS_FILENAME, "rb");
+	FILE* file = fopen(strSettingsFilePath.c_str(), "rb");
 	if (file)
 	{
 		fseek(file, 0, SEEK_END);
@@ -204,7 +216,8 @@ void GenOnlineSettings::Save()
 	
 	std::string strData = root.dump(1);
 
-	FILE* file = fopen(SETTINGS_FILENAME, "wb");
+	std::string strSettingsFilePath = std::format("{}/GeneralsOnline/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
+	FILE* file = fopen(strSettingsFilePath.c_str(), "wb");
 	if (file)
 	{
 		fwrite(strData.data(), 1, strData.size(), file);
