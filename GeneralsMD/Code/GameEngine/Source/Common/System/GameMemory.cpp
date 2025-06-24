@@ -2022,6 +2022,15 @@ void DynamicMemoryAllocator::init(MemoryPoolFactory *factory, Int numSubPools, c
 {
 	const PoolInitRec defaultDMA[7] = 
 	{
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_USE_LARGER_DMAPOOL)
+		{ "dmaPool_16", 64, 64, 64 },
+		{ "dmaPool_32", 64, 64, 64 },
+		{ "dmaPool_64", 64, 64, 64 },
+		{ "dmaPool_128", 128, 64, 64 },
+		{ "dmaPool_256", 256, 64, 64 },
+		{ "dmaPool_2048", 2048, 64, 64 },
+		{ "dmaPool_4096", 4096, 64, 64 },
+#else
 		{ "dmaPool_16", 16, 64, 64 },
 		{ "dmaPool_32", 32, 64, 64 },
 		{ "dmaPool_64", 64, 64, 64 },
@@ -2029,6 +2038,7 @@ void DynamicMemoryAllocator::init(MemoryPoolFactory *factory, Int numSubPools, c
 		{ "dmaPool_256", 256, 64, 64 },
 		{ "dmaPool_512", 512, 64, 64 },
 		{ "dmaPool_1024", 1024, 64, 64 }
+#endif
 	};
 
 	if (numSubPools == 0 || pParms == NULL) 

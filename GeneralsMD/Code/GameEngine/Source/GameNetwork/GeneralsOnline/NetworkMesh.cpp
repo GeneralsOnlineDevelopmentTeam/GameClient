@@ -192,7 +192,7 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 				}
 				else
 				{
-					NetworkLog("Packet Failed To Send! %s:%d", ip.c_str(), peer->address.port);
+					NetworkLog("Packet Failed To Send! %s:%d, result was %d", ip.c_str(), peer->address.port, ret);
 				}
 			}
 		}
@@ -430,6 +430,21 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	/* Initiate the connection, allocating the 3 channels. */
 	
 	ENetPeer* peer = enet_host_connect(enetInstance, &addr, 3, 0);
+	enet_peer_timeout(peer, 3, 1000, 1000);
+
+#if defined(NETWORK_CONNECTION_DEBUG)
+	char ip1[INET_ADDRSTRLEN + 1] = { 0 };
+	char ip2[INET_ADDRSTRLEN + 1] = { 0 };
+	if (enet_address_get_host_ip(&peer->host->receivedAddress, ip1, sizeof(ip1)) == 0 && enet_address_get_host_ip(&peer->host->address, ip2, sizeof(ip2)) == 0)
+	{
+		NetworkLog("[DEBUG] New enet_host_connect with address %s:%u. and received address %s:%u",
+			ip1,
+			peer->host->receivedAddress.port,
+			ip2,
+			peer->address.port);
+	}
+#endif
+	
 
 	// don't care about in-game
 	if (!TheGameLogic->isInGame())
@@ -1058,8 +1073,16 @@ void NetworkMesh::Tick()
 					{
 						if (pConnection->m_State == EConnectionState::CONNECTING_DIRECT)
 						{
-							NetworkLog("[SERVER] %d timed out while connecting directly, attempting to use relay\n", pConnection->m_userID);
-							ConnectToUserViaRelay(pConnection->m_userID);
+							if (pConnection->m_ConnectionAttempts < 3)
+							{
+								NetworkLog("[SERVER] Attempting to connect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts + 1);
+								ConnectToSingleUser(pConnection->m_address, pConnection->m_userID, true);
+							}
+							else
+							{
+								NetworkLog("[SERVER] %d timed out while connecting directly, attempting to use relay\n", pConnection->m_userID);
+								ConnectToUserViaRelay(pConnection->m_userID);
+							}
 						}
 						else
 						{
@@ -1157,7 +1180,7 @@ PlayerConnection::PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* p
 	}
 	// otherwise, keep whatever start we were in, its just a connection update
 
-	enet_peer_timeout(m_peer, 5, 1000, 1000);
+	enet_peer_timeout(m_peer, 3, 1000, 1000);
 
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
 	if (pMesh != nullptr)
@@ -1243,18 +1266,15 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 		if (m_State != EConnectionState::CONNECTED_DIRECT && m_State != EConnectionState::CONNECTED_RELAY)
 		{
 			NetworkLog("WARNING: Attempting to send packet before connected, state is %d", m_State);
-			return 0;
+			return -7;
 		}
 	}
-
+	
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
 
-	if (m_State == EConnectionState::NOT_CONNECTED
-		|| m_State == EConnectionState::CONNECTION_FAILED)
-	{
-		return -1;
-	}
-	else if (m_State == EConnectionState::CONNECTING_DIRECT || m_State == EConnectionState::CONNECTED_DIRECT)
+	// Allow handshake in all stages
+	if ((m_State == EConnectionState::CONNECTING_DIRECT || m_State == EConnectionState::CONNECTED_DIRECT) || ((m_State == EConnectionState::NOT_CONNECTED
+		|| m_State == EConnectionState::CONNECTION_FAILED) && channel == 2))
 	{
 		CBitStream* pBitStream = packet.Serialize();
 		pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
