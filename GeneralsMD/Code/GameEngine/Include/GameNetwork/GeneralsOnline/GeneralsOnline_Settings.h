@@ -5,6 +5,7 @@ class GenOnlineSettings
 public:
 	GenOnlineSettings();
 
+	float Camera_MoveSpeedRatio() const { return m_Camera_MoveSpeedRatio; }
 	float Camera_GetMinHeight() const { return m_Camera_MinHeight; }
 	float Camera_GetMaxHeight_WhenLobbyHost() const { return m_Camera_MaxHeight_LobbyHost; }
 
@@ -41,6 +42,9 @@ private:
 	// NOTE: This also works as the default creation (since we just call Save)
 	const float m_Camera_MinHeight_default = 100.f;
 	float m_Camera_MinHeight = m_Camera_MinHeight_default;
+
+	const float m_Camera_MoveSpeedRatio_default = 1.f;
+	float m_Camera_MoveSpeedRatio = m_Camera_MoveSpeedRatio_default;
 
 	float m_Camera_MaxHeight_LobbyHost = GENERALS_ONLINE_DEFAULT_LOBBY_CAMERA_ZOOM;
 

@@ -357,8 +357,8 @@ void NGMPGame::launchGame(void)
 #endif
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	//TheWritableGlobalData->m_horizontalScrollSpeedFactor = 0.5f;
-	//TheWritableGlobalData->m_verticalScrollSpeedFactor = 0.5f;
+	TheWritableGlobalData->m_horizontalScrollSpeedFactor = NGMP_OnlineServicesManager::Settings.Camera_MoveSpeedRatio();
+	TheWritableGlobalData->m_verticalScrollSpeedFactor = NGMP_OnlineServicesManager::Settings.Camera_MoveSpeedRatio();
 #endif
 
 	setGameInProgress(TRUE);

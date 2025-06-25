@@ -337,8 +337,13 @@ void EMPUpdate::doDisableAttack( void )
 
 							sys->attachToObject(curVictim);
 							sys->setPosition( &offs );
+							#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+							sys->setSystemLifetime(MAX(0, (data->m_disabledDuration/ GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER) - 240));
+							sys->setInitialDelay(GameLogicRandomValue(1, 100) / GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER);
+							#else
 							sys->setSystemLifetime(MAX(0, data->m_disabledDuration - 30));
-							sys->setInitialDelay(GameLogicRandomValue(1,100));
+							sys->setInitialDelay(GameLogicRandomValue(1, 100));
+							#endif
 						}
 					}
 				} 

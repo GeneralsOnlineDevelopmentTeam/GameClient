@@ -192,10 +192,10 @@ public:
 	{
 		// cheats
 #if defined(GENERALS_ONLINE_ALL_SCIENCES)
-		static bool GrantAllSciences = false;
+		static bool GrantAllSciences = true;
 		if (GrantAllSciences)
 		{
-			GrantAllSciences = false;
+			//GrantAllSciences = false;
 			Player* player = ThePlayerList->getLocalPlayer();
 			if (player)
 			{
@@ -207,10 +207,11 @@ public:
 					if (st != SCIENCE_INVALID && TheScienceStore->isScienceGrantable(st))
 					{
 						player->grantScience(st);
+						TheInGameUI->message(UnicodeString(L"Granting all sciences!"));
 					}
 				}
 			}
-			TheInGameUI->message(UnicodeString(L"Granting all sciences!"));
+			
 		}
 #endif
 
