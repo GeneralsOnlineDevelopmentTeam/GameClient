@@ -519,9 +519,12 @@ WindowMsgHandledType ScoreScreenInput( GameWindow *window, UnsignedInt msg,
 
 }  // end MainMenuInput
 
-static Bool showButtonContinue()
+static Bool showReplayButtonContinue()
 {
-	return ReplaySimulation::getCurrentReplayIndex() != ReplaySimulation::getReplayCount()-1;
+	bool hasSimulationReplay = ReplaySimulation::getReplayCount() > 0;
+	bool isLastSimulationReplay = ReplaySimulation::getCurrentReplayIndex() == ReplaySimulation::getReplayCount()-1;
+
+	return hasSimulationReplay && !isLastSimulationReplay;
 }
 
 /** System Function for the ScoreScreen */
@@ -1021,7 +1024,7 @@ void initReplaySinglePlayer( void )
 	if (chatBoxBorder)
 		chatBoxBorder->winHide(TRUE);
 	if (buttonContinue)
-		buttonContinue->winHide(!showButtonContinue());
+		buttonContinue->winHide(!showReplayButtonContinue());
 	if (buttonBuddies)
 		buttonBuddies->winHide(TRUE);
 	if (listboxChatWindowScoreScreen)
@@ -1128,7 +1131,7 @@ void initReplayMultiPlayer(void)
 	if (chatBoxBorder)
 		chatBoxBorder->winHide(TRUE);
 	if (buttonContinue)
-		buttonContinue->winHide(!showButtonContinue());
+		buttonContinue->winHide(!showReplayButtonContinue());
 	if (buttonBuddies)
 		buttonBuddies->winHide(TRUE);
 //	if (buttonRehost)
