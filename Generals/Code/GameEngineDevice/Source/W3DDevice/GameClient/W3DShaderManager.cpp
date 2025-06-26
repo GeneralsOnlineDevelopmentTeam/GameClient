@@ -72,7 +72,6 @@
 #include "d3dx8tex.h"
 #include "dx8caps.h"
 #include "Common/GameLOD.h"
-#include "benchmark.h"
 
 #ifdef RTS_INTERNAL
 // for occasional debugging...
@@ -2773,11 +2772,11 @@ HRESULT W3DShaderManager::LoadAndCreateD3DShader(const char* strFilePath, const 
 		file->close();
 		file = NULL;
 
-		if (ShaderType == TRUE)//SHADERTYPE_VERTEX)
+		if (ShaderType) // SHADERTYPE_VERTEX
 		{
 			hr = DX8Wrapper::_Get_D3D_Device8()->CreateVertexShader(pDeclaration, pShader, pHandle, Usage);
 		}
-		else if (ShaderType == FALSE)//SHADERTYPE_PIXEL)
+		else // SHADERTYPE_PIXEL
 		{
 			hr = DX8Wrapper::_Get_D3D_Device8()->CreatePixelShader(pShader, pHandle);
 		}
@@ -2844,7 +2843,11 @@ Bool W3DShaderManager::testMinimumRequirements(ChipsetType *videoChipType, CpuTy
 
 	if (intBenchIndex && floatBenchIndex && memBenchIndex)
 	{
-		RunBenchmark(0, NULL, floatBenchIndex, intBenchIndex, memBenchIndex);
+        // TheSuperHackers @tweak Aliendroid1 19/06/2025 Legacy benchmarking code was removed. 
+		// Since modern hardware always meets the minimum requirements, we preset the benchmark "results" to a high value. 
+		*intBenchIndex   = 10.0f;
+		*floatBenchIndex = 10.0f;
+		*memBenchIndex   = 10.0f;
 	}
 
 	return TRUE;

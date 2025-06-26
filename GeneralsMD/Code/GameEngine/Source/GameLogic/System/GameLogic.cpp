@@ -321,7 +321,7 @@ void GameLogic::setDefaults( Bool loadingSaveGame )
 Bool GameLogic::isInSinglePlayerGame( void )
 {
 	return (m_gameMode == GAME_SINGLE_PLAYER ||
-		(TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK && TheRecorder->getGameMode() == GAME_SINGLE_PLAYER));
+		(TheRecorder && TheRecorder->isPlaybackMode() && TheRecorder->getGameMode() == GAME_SINGLE_PLAYER));
 }
 
 
@@ -858,9 +858,11 @@ static void populateRandomStartPosition( GameInfo *game )
 	Int i;
 	Int numPlayers = MAX_SLOTS;
 	const MapMetaData *md = TheMapCache->findMap( game->getMap() );
-  DEBUG_ASSERTCRASH( md , ("Could not find map %s in the mapcache", game->getMap().str()));
 	if (md)
 		numPlayers = md->m_numPlayers;
+	else
+		printf("Could not find map \"%s\"\n", game->getMap().str());
+	DEBUG_ASSERTCRASH( md , ("Could not find map %s in the mapcache", game->getMap().str()));
 
 	// generate a map of start spot distances
 	Real startSpotDistance[MAX_SLOTS][MAX_SLOTS];
@@ -1254,7 +1256,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	}
 	else
 	{
-		if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK)
+		if (TheRecorder && TheRecorder->isPlaybackMode())
 		{
 			TheGameInfo = game = TheRecorder->getGameInfo();
 		}
@@ -1318,7 +1320,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	//****************************//
 
 	// Get the m_loadScreen for this kind of game
-	if(!m_loadScreen && !TheGlobalData->m_headless)
+	if(!m_loadScreen && !(TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_SIMULATION_PLAYBACK))
 	{
 		m_loadScreen = getLoadScreen( loadingSaveGame );
 		if(m_loadScreen)
@@ -2249,7 +2251,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	}
 
 	// if we're in a load game, don't fade yet
-	if(loadingSaveGame == FALSE && TheTransitionHandler != NULL)
+	if(loadingSaveGame == FALSE && TheTransitionHandler != NULL && m_loadScreen)
 	{
 		TheTransitionHandler->setGroup("FadeWholeScreen");
 		while(!TheTransitionHandler->isFinished())
@@ -3835,27 +3837,21 @@ void GameLogic::update( void )
 	if (generateForSolo || generateForMP)
 	{
 		m_CRC = getCRC( CRC_RECALC );
-		if (isMPGameOrReplay)
-		{
-#if defined(GENERALS_ONLINE)
-			bool bForceArtificialMismatch = false;
-			if (bForceArtificialMismatch)
-			{
-				m_CRC = 1234567890;
-			}
-#endif
-			GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_LOGIC_CRC );
-			msg->appendIntegerArgument( m_CRC );
-			msg->appendBooleanArgument( (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK) ); // playback CRC
-			DEBUG_LOG(("Appended CRC on frame %d: %8.8X\n", m_frame, m_CRC));
-		}
-		else
-		{
-			GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_LOGIC_CRC );
-			msg->appendIntegerArgument( m_CRC );
-			msg->appendBooleanArgument( (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK) ); // playback CRC
-			DEBUG_LOG(("Appended Playback CRC on frame %d: %8.8X\n", m_frame, m_CRC));
-		}
+		bool isPlayback = (TheRecorder && TheRecorder->isPlaybackMode());
+		
+		GameMessage *msg = newInstance(GameMessage)(GameMessage::MSG_LOGIC_CRC);
+		msg->appendIntegerArgument(m_CRC);
+		msg->appendBooleanArgument(isPlayback);
+
+		// TheSuperHackers @info helmutbuhler 13/04/2025
+		// During replay simulation, we bypass TheMessageStream and instead put the CRC message
+		// directly into TheCommandList because we don't update TheMessageStream during simulation.
+		GameMessageList *messageList = TheMessageStream;
+		if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_SIMULATION_PLAYBACK)
+			messageList = TheCommandList;
+		messageList->appendMessage(msg);
+
+		DEBUG_LOG(("Appended %sCRC on frame %d: %8.8X\n", isPlayback ? "Playback " : "", m_frame, m_CRC));
 	}
 
 	// collect stats

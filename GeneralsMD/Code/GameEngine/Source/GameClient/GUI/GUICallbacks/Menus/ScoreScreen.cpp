@@ -67,6 +67,7 @@
 #include "Common/PlayerTemplate.h"
 #include "Common/RandomValue.h"
 #include "Common/Recorder.h"
+#include "Common/ReplaySimulation.h"
 #include "Common/ScoreKeeper.h"
 #include "Common/SkirmishBattleHonors.h"
 #include "Common/ThingFactory.h"
@@ -518,6 +519,11 @@ WindowMsgHandledType ScoreScreenInput( GameWindow *window, UnsignedInt msg,
 
 }  // end MainMenuInput
 
+static Bool showButtonContinue()
+{
+	return ReplaySimulation::getCurrentReplayIndex() != ReplaySimulation::getReplayCount()-1;
+}
+
 /** System Function for the ScoreScreen */
 //-------------------------------------------------------------------------------------------------
 WindowMsgHandledType ScoreScreenSystem( GameWindow *window, UnsignedInt msg, 
@@ -556,23 +562,36 @@ WindowMsgHandledType ScoreScreenSystem( GameWindow *window, UnsignedInt msg,
 			{
 				TheShell->pop();
 				TheCampaignManager->setCampaign(AsciiString::TheEmptyString);
+
+				if ( ReplaySimulation::getReplayCount() > 0 )
+				{
+					ReplaySimulation::stop();
+					TheGameEngine->setQuitting(TRUE);
+				}
 			}
 			else if ( controlID == buttonContinueID )	
 			{
-				if(!buttonIsFinishCampaign)
-					ReplayWasPressed = TRUE;
-				if( screenType == SCORESCREEN_SINGLEPLAYER)	
+				if( ReplaySimulation::getReplayCount() > 0 )
 				{
-					AsciiString mapName = TheCampaignManager->getCurrentMap();
+					TheGameEngine->setQuitting(TRUE);
+				}
+				else
+				{
+					if(!buttonIsFinishCampaign)
+						ReplayWasPressed = TRUE;
+					if( screenType == SCORESCREEN_SINGLEPLAYER)	
+					{
+						AsciiString mapName = TheCampaignManager->getCurrentMap();
 
-					if( mapName.isEmpty() )
-					{
-						ReplayWasPressed = FALSE;
-						TheShell->pop();
-					}
-					else
-					{
-						CheckForCDAtGameStart( startNextCampaignGame );
+						if( mapName.isEmpty() )
+						{
+							ReplayWasPressed = FALSE;
+							TheShell->pop();
+						}
+						else
+						{
+							CheckForCDAtGameStart( startNextCampaignGame );
+						}
 					}
 				}
 			}
@@ -634,9 +653,10 @@ WindowMsgHandledType ScoreScreenSystem( GameWindow *window, UnsignedInt msg,
 						req.arg.addbuddy.text[MAX_BUDDY_CHAT_LEN-1] = 0;
 						TheGameSpyBuddyMessageQueue->addRequest(req);
 					}
-					break;
 				}
 			}
+
+			break;
 		}
 
 		case GEM_EDIT_DONE:
@@ -662,6 +682,8 @@ WindowMsgHandledType ScoreScreenSystem( GameWindow *window, UnsignedInt msg,
 					//add the gamespy chat request here
 
 			}// if ( controlID == textEntryChatID )
+
+			break;
 		}
 	}		
 	return MSG_HANDLED;
@@ -999,7 +1021,7 @@ void initReplaySinglePlayer( void )
 	if (chatBoxBorder)
 		chatBoxBorder->winHide(TRUE);
 	if (buttonContinue)
-		buttonContinue->winHide(TRUE);
+		buttonContinue->winHide(!showButtonContinue());
 	if (buttonBuddies)
 		buttonBuddies->winHide(TRUE);
 	if (listboxChatWindowScoreScreen)
@@ -1106,7 +1128,7 @@ void initReplayMultiPlayer(void)
 	if (chatBoxBorder)
 		chatBoxBorder->winHide(TRUE);
 	if (buttonContinue)
-		buttonContinue->winHide(TRUE);
+		buttonContinue->winHide(!showButtonContinue());
 	if (buttonBuddies)
 		buttonBuddies->winHide(TRUE);
 //	if (buttonRehost)
@@ -1408,7 +1430,7 @@ static inline int CheckForApocalypse( ScoreKeeper *s, const char* szWeapon )
 //-------------------------------------------------------------------------------------------------
 void populatePlayerInfo( Player *player, Int pos)
 {
-	if(!player || pos > MAX_SLOTS)
+	if(!player || pos < 0 || pos >= MAX_SLOTS)
 		return;
 	Color color = player->getPlayerColor();
 	ScoreKeeper *scoreKpr = player->getScoreKeeper();
@@ -2352,20 +2374,23 @@ void grabSinglePlayerInfo( void )
 	{
 		Bool isFriend = TRUE;
 		
-		// set the string we'll be compairing to
+		// set the string we'll be comparing to
 		switch (j) {
 		case USA_ENEMY:
 			isFriend = FALSE;
+			FALLTHROUGH;
 		case USA_FRIEND:
 			side.set("USA");
 			break;
 		case CHINA_ENEMY:
 			isFriend = FALSE;
+			FALLTHROUGH;
 		case CHINA_FRIEND:
 			side.set("China");
 			break;
 		case GLA_ENEMY:
-			isFriend = FALSE;	
+			isFriend = FALSE;
+			FALLTHROUGH;
 		case GLA_FRIEND:
 			side.set("GLA");
 			break;
@@ -2524,7 +2549,7 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", i);
 //-------------------------------------------------------------------------------------------------
 void setObserverWindows( Player *player, Int i )
 {
-	if(i < 0 || i >= MAX_SLOTS)
+	if(!player || i < 0 || i >= MAX_SLOTS)
 		return;
 	AsciiString winName;
 	GameWindow *win;
@@ -2535,16 +2560,10 @@ void setObserverWindows( Player *player, Int i )
 	winName.format("ScoreScreen.wnd:StaticTextPlayer%d", i);
 	win =  TheWindowManager->winGetWindowFromId( parent, TheNameKeyGenerator->nameToKey( winName ) );
 	DEBUG_ASSERTCRASH(win,("Could not find window %s on the score screen", winName.str()));
-	if (player)
-	{
-		GadgetStaticTextSetText(win, player->getPlayerDisplayName());
-		win->winHide(FALSE);
-		win->winSetEnabledTextColors(color, win->winGetEnabledTextBorderColor());
-	}
-	else
-	{
-		win->winHide(TRUE);
-	}
+
+	GadgetStaticTextSetText(win, player->getPlayerDisplayName());
+	win->winHide(FALSE);
+	win->winSetEnabledTextColors(color, win->winGetEnabledTextBorderColor());
 
 	// set the player name
 	winName.format("ScoreScreen.wnd:StaticTextObserver%d", i);

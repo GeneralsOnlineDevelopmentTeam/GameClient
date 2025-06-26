@@ -166,6 +166,7 @@ static void doSetRallyPoint( Object *obj, const Coord3D& pos )
 			// play the no can do sound
 			static AudioEventRTS rallyNotSet("UnableToSetRallyPoint");
 			rallyNotSet.setPosition(&pos);
+			rallyNotSet.setPlayerIndex(obj->getControllingPlayer()->getPlayerIndex());
 			TheAudio->addAudioEvent(&rallyNotSet);
 
 		}  // end if
@@ -1173,7 +1174,10 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 					currentlySelectedGroup->groupOverrideSpecialPowerDestination( spType, loc, CMD_FROM_PLAYER );
 				}
 			}
-		}
+
+			break;
+
+		}  // end GameMessage::MSG_DO_SPECIAL_POWER_OVERRIDE_DESTINATION
 
 		//---------------------------------------------------------------------------------------------
 		case GameMessage::MSG_DO_ATTACK_OBJECT:
@@ -1195,7 +1199,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 
 			break;
 
-		}  // end GameMessage::MSG_DO_ATTACK_GROUND_OBJECT
+		}  // end GameMessage::MSG_DO_ATTACK_OBJECT
 
 		//---------------------------------------------------------------------------------------------
 		case GameMessage::MSG_DO_FORCE_ATTACK_OBJECT:
@@ -1215,7 +1219,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 
 			break;
 
-		}  // end GameMessage::MSG_DO_ATTACK_GROUND_OBJECT
+		}  // end GameMessage::MSG_DO_FORCE_ATTACK_OBJECT
 
 		//---------------------------------------------------------------------------------------------
 		case GameMessage::MSG_DO_FORCE_ATTACK_GROUND:
@@ -1254,7 +1258,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 
 			break;
 
-		}  // end GameMessage::MSG_DO_ATTACK_GROUND_OBJECT
+		}  // end GameMessage::MSG_DO_FORCE_ATTACK_GROUND
 
 		//---------------------------------------------------------------------------------------------
 		case GameMessage::MSG_QUEUE_UPGRADE:
@@ -1799,7 +1803,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 		// --------------------------------------------------------------------------------------------
 		case GameMessage::MSG_SET_REPLAY_CAMERA:
 		{
-			if (TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK && TheGlobalData->m_useCameraInReplay && TheControlBar->getObserverLookAtPlayer() == thisPlayer)
+			if (TheRecorder->isPlaybackMode() && TheGlobalData->m_useCameraInReplay && TheControlBar->getObserverLookAtPlayer() == thisPlayer)
 			{
 				if (TheTacticalView->isCameraMovementFinished())
 				{
@@ -1936,7 +1940,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 					//thisPlayer->getPlayerDisplayName().str(), m_frame));
 				m_cachedCRCs[msg->getPlayerIndex()] = newCRC; // to mask problem: = (oldCRC < newCRC)?newCRC:oldCRC;
 			}
-			else if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK)
+			else if (TheRecorder && TheRecorder->isPlaybackMode())
 			{
 				UnsignedInt newCRC = msg->getArgument(0)->integer;
 				//DEBUG_LOG(("Saw CRC of %X from player %d.  Our CRC is %X.  Arg count is %d\n",
@@ -1966,7 +1970,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 	}  // end switch
 
 	/**/ /// @todo: multiplayer semantics
-	if (currentlySelectedGroup && TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK && TheGlobalData->m_useCameraInReplay && TheControlBar->getObserverLookAtPlayer() == thisPlayer /*&& !TheRecorder->isMultiplayer()*/)
+	if (currentlySelectedGroup && TheRecorder->isPlaybackMode() && TheGlobalData->m_useCameraInReplay && TheControlBar->getObserverLookAtPlayer() == thisPlayer /*&& !TheRecorder->isMultiplayer()*/)
 	{
 		const VecObjectID& selectedObjects = currentlySelectedGroup->getAllIDs();
 		TheInGameUI->deselectAllDrawables();

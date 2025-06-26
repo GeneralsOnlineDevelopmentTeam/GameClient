@@ -2088,6 +2088,7 @@ void InGameUI::message( UnicodeString format, ... )
 /** Interface for display text messages to the user */
 //-------------------------------------------------------------------------------------------------
 // srj sez: passing as const-ref screws up varargs for some reason. dunno why. just pass by value.
+
 #if defined(GENERALS_ONLINE)
 void InGameUI::messageColor(bool bIsChatMsg, const RGBColor *rgbColor, UnicodeString format, ... )
 #else
@@ -5738,6 +5739,8 @@ WindowMsgHandledType IdleWorkerSystem( GameWindow *window, UnsignedInt msg,
 			// if we're givin the opportunity to take the keyboard focus we must say we don't want it
 			if( mData1 == TRUE )
 				*(Bool *)mData2 = FALSE;
+			break;
+
 		}
 		//---------------------------------------------------------------------------------------------
 		case GBM_SELECTED:

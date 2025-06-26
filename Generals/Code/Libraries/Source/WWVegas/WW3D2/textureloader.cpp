@@ -199,7 +199,7 @@ IDirect3DTexture8* TextureLoader::Load_Thumbnail(const StringClass& filename,WW3
 		MIP_LEVELS_ALL);
 
 	unsigned level=0;
-	D3DLOCKED_RECT locked_rects[12];
+	D3DLOCKED_RECT locked_rects[12]={0};
 	WWASSERT(d3d_texture->GetLevelCount()<=12);
 
 	// Lock all surfaces
@@ -979,7 +979,7 @@ void TextureLoadTaskClass::Init(TextureBaseClass* tc,bool high_priority)
 {
 	// Make sure texture has a filename.
 	REF_PTR_SET(Texture,tc);
-	WWASSERT(Texture->Get_Full_Path() != NULL);
+	//WWASSERT(Texture->Get_Full_Path() != NULL);
 
 	Reduction=Texture->Get_Reduction();
 	HighPriorityRequested=high_priority;

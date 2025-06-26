@@ -777,15 +777,18 @@ void PopulateLobbyPlayerListbox(void)
 		// restore selection
 		if (indicesToSelect.size())
 		{
-			Int i = 0;
-			std::set<Int>::const_iterator indexIt;
-			Int *newIndices = NEW Int[indicesToSelect.size()];
-			for (i=0, indexIt = indicesToSelect.begin(); indexIt != indicesToSelect.end(); ++i, ++indexIt)
+			std::set<Int>::const_iterator indexIt = indicesToSelect.begin();
+			const size_t count = indicesToSelect.size();
+			size_t index = 0;
+			Int *newIndices = NEW Int[count];
+			while (index < count)
 			{
-				newIndices[i] = *indexIt;
+				newIndices[index] = *indexIt;
 				DEBUG_LOG(("Queueing up index %d to re-select\n", *indexIt));
+				++index;
+				++indexIt;
 			}
-			GadgetListBoxSetSelected(listboxLobbyPlayers, newIndices, indicesToSelect.size());
+			GadgetListBoxSetSelected(listboxLobbyPlayers, newIndices, count);
 			delete[] newIndices;
 		}
 
@@ -1474,6 +1477,7 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 					TheGameSpyInfo->reset();
 					TheShell->pop();
 				}
+				break;
 			case PeerResponse::PEERRESPONSE_CREATESTAGINGROOM:
 				{
 					sawImportantMessage = TRUE;

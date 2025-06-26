@@ -1776,7 +1776,7 @@ void Parameter::qualify(const AsciiString& qualifier,
 			if (m_string == THIS_TEAM) {
 				break;
 			}
-			/// otherwise drop down & qualify.
+			FALLTHROUGH; /// otherwise drop down & qualify.
 		case SCRIPT:
 		case COUNTER:
 		case FLAG:
@@ -2445,8 +2445,8 @@ Bool ScriptAction::ParseActionDataChunk(DataChunkInput &file, DataChunkInfo *inf
 				pScriptAction->m_numParms = 2;
 				// Default it to TRUE, as per conversation with JohnL
 				pScriptAction->m_parms[1] = newInstance(Parameter)(Parameter::BOOLEAN, 1);
-				break;
 			}
+			break;
 	}
 
 

@@ -118,7 +118,10 @@ static void drawFramerateBar(void);
 #endif
 
 // DEFINE AND ENUMS ///////////////////////////////////////////////////////////
-#define W3D_DISPLAY_DEFAULT_BIT_DEPTH 32
+#define DEFAULT_DISPLAY_BIT_DEPTH 32
+#define MIN_DISPLAY_BIT_DEPTH 16
+#define MIN_DISPLAY_RESOLUTION_X 800
+#define MIN_DISPLAY_RESOLUTION_Y 600
 
 #define no_SAMPLE_DYNAMIC_LIGHT	1
 #ifdef SAMPLE_DYNAMIC_LIGHT
@@ -480,9 +483,6 @@ W3DDisplay::~W3DDisplay()
 
 }  // end ~W3DDisplay
 
-#define MIN_DISPLAY_RESOLUTION_X	800
-#define MIN_DISPLAY_RESOLUTOIN_Y	600
-
 
 Bool IS_FOUR_BY_THREE_ASPECT( Real x, Real y )
 {
@@ -727,6 +727,18 @@ void W3DDisplay::init( void )
 		if (WW3D::Init( ApplicationHWnd ) != WW3D_ERROR_OK)
 			throw ERROR_INVALID_D3D;	//failed to initialize.  User probably doesn't have DX 8.1
 
+#if defined(GENERALS_ONLINE_WINDOWED_FULLSCREEN)
+		DEVMODE dm = {};
+		if (!TheGlobalData->m_windowed)
+		{
+			dm.dmSize = sizeof(dm);
+			EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm);
+
+			TheWritableGlobalData->m_xResolution = dm.dmPelsWidth;
+			TheWritableGlobalData->m_yResolution = dm.dmPelsHeight;
+		}
+#endif
+
 		WW3D::Set_Prelit_Mode( WW3D::PRELIT_MODE_LIGHTMAP_MULTI_PASS );
 		WW3D::Set_Collision_Box_Display_Mask(0x00);	///<set to 0xff to make collision boxes visible
 		WW3D::Enable_Static_Sort_Lists(true);
@@ -740,51 +752,73 @@ void W3DDisplay::init( void )
 		m_2DRender = NEW Render2DClass;
 		DEBUG_ASSERTCRASH( m_2DRender, ("Cannot create Render2DClass") );
 
-
-#if defined(GENERALS_ONLINE_WINDOWED_FULLSCREEN)
-	DEVMODE dm = {};
-	if (!getWindowed())
-	{
-		dm.dmSize = sizeof(dm);
-		EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm);
-
-		TheWritableGlobalData->m_xResolution = dm.dmPelsWidth;
-		TheWritableGlobalData->m_yResolution = dm.dmPelsHeight;
-	}
-#endif
-
-		// set our default width and height and bit depth
-		/// @todo we should set this according to options read from a file
-		setWidth( TheGlobalData->m_xResolution );
-		setHeight( TheGlobalData->m_yResolution );
-		setBitDepth( W3D_DISPLAY_DEFAULT_BIT_DEPTH );
-
-		if( WW3D::Set_Render_Device( 0, 
-																 getWidth(), 
-																 getHeight(), 
-																 getBitDepth(), 
-																 getWindowed(), 
-																 true ) != WW3D_ERROR_OK ) 
+		WW3DErrorType renderDeviceError;
+		Int attempt = 0;
+		do
 		{
-			// Getting the device at the default bit depth (32) didn't work, so try
-			// getting a 16 bit display.  (Voodoo 1-3 only supported 16 bit.) jba.
-			setBitDepth( 16 );
-			if( WW3D::Set_Render_Device( 0, 
-																	 getWidth(), 
-																	 getHeight(), 
-																	 getBitDepth(), 
-																	 getWindowed(), 
-																	 true ) != WW3D_ERROR_OK ) 
+			switch (attempt)
 			{
-
-				WW3D::Shutdown();
-				WWMath::Shutdown();
-				throw ERROR_INVALID_D3D;	//failed to initialize.  User probably doesn't have DX 8.1
-				DEBUG_ASSERTCRASH( 0, ("Unable to set render device\n") );
-				return;
+			case 0:
+			{
+				// set our default width and height and bit depth
+				setWidth( TheGlobalData->m_xResolution );
+				setHeight( TheGlobalData->m_yResolution );
+				setBitDepth( DEFAULT_DISPLAY_BIT_DEPTH );
+				break;
+			}
+			case 1:
+			{
+				// Getting the device at the default bit depth (32) didn't work, so try
+				// getting a 16 bit display.  (Voodoo 1-3 only supported 16 bit.) jba.
+				setBitDepth( MIN_DISPLAY_BIT_DEPTH );
+				break;
+			}
+			case 2:
+			{
+				// TheSuperHackers @bugfix xezon 11/06/2025 Now tries a safe default resolution
+				// if the custom resolution did not succeed. This is unlikely to happen but is possible
+				// if the user writes an unsupported resolution in the Option Preferences or if the
+				// graphics adapter does not support the minimum display resolution to begin with.
+				Int xres = MIN_DISPLAY_RESOLUTION_X;
+				Int yres = MIN_DISPLAY_RESOLUTION_Y;
+				Int bitDepth = DEFAULT_DISPLAY_BIT_DEPTH;
+				Int displayModeCount = getDisplayModeCount();
+				Int displayModeIndex = 0;
+				for (; displayModeIndex < displayModeCount; ++displayModeIndex)
+				{
+					getDisplayModeDescription(displayModeIndex, &xres, &yres, &bitDepth);
+					if (xres * yres >= MIN_DISPLAY_RESOLUTION_X * MIN_DISPLAY_RESOLUTION_Y)
+						break; // Is good enough. Use it.
+				}
+				TheWritableGlobalData->m_xResolution = xres;
+				TheWritableGlobalData->m_yResolution = yres;
+				setWidth( xres );
+				setHeight( yres );
+				setBitDepth( bitDepth );
+				break;
+			}
 			}
 
-		}  // end if
+			renderDeviceError = WW3D::Set_Render_Device(
+				0,
+				getWidth(),
+				getHeight(),
+				getBitDepth(),
+				getWindowed(),
+				true );
+
+			++attempt;
+		}
+		while (attempt < 3 && renderDeviceError != WW3D_ERROR_OK);
+
+		if (renderDeviceError != WW3D_ERROR_OK)
+		{
+			WW3D::Shutdown();
+			WWMath::Shutdown();
+			throw ERROR_INVALID_D3D;	//failed to initialize.  User probably doesn't have DX 8.1
+			DEBUG_ASSERTCRASH( 0, ("Unable to set render device\n") );
+			return;
+		}
 
 		//Check if level was never set and default to setting most suitable for system.
 		if (TheGameLODManager->getStaticLODLevel() == STATIC_GAME_LOD_UNKNOWN)
@@ -2683,6 +2717,7 @@ void W3DDisplay::drawImage( const Image *image, Int startX, Int startY,
 			m_2DRender->Enable_Additive(false);
 			m_2DRender->Enable_Alpha(false);
 			doAlphaReset = TRUE;
+			break;
 		default:
 			break;
 	}
@@ -2940,75 +2975,77 @@ void W3DDisplay::setShroudLevel( Int x, Int y, CellShroudStatus setting )
 //=============================================================================
 ///Utility function to dump data into a .BMP file
 static void CreateBMPFile(LPTSTR pszFile, char *image, Int width, Int height)
-{ 
-     HANDLE hf;                 // file handle 
-    BITMAPFILEHEADER hdr;       // bitmap file-header 
-    PBITMAPINFOHEADER pbih;     // bitmap info-header 
-    LPBYTE lpBits;              // memory pointer 
-    DWORD dwTotal;              // total count of bytes 
-    DWORD cb;                   // incremental count of bytes 
-    BYTE *hp;                   // byte pointer 
-    DWORD dwTmp; 
+{
+	HANDLE hf;                  // file handle 
+	BITMAPFILEHEADER hdr;       // bitmap file-header 
+	PBITMAPINFOHEADER pbih;     // bitmap info-header 
+	LPBYTE lpBits;              // memory pointer 
+	DWORD dwTotal;              // total count of bytes 
+	DWORD cb;                   // incremental count of bytes 
+	BYTE *hp;                   // byte pointer 
+	DWORD dwTmp;
 
-    PBITMAPINFO pbmi; 
+	PBITMAPINFO pbmi;
 
-    pbmi = (PBITMAPINFO) LocalAlloc(LPTR,sizeof(BITMAPINFOHEADER));
-    pbmi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER); 
-    pbmi->bmiHeader.biWidth = width; 
-    pbmi->bmiHeader.biHeight = height; 
-    pbmi->bmiHeader.biPlanes = 1; 
-    pbmi->bmiHeader.biBitCount = 24;
-    pbmi->bmiHeader.biCompression = BI_RGB;
-    pbmi->bmiHeader.biSizeImage = (pbmi->bmiHeader.biWidth + 7) /8 * pbmi->bmiHeader.biHeight * 24;
-    pbmi->bmiHeader.biClrImportant = 0; 
-
-
-    pbih = (PBITMAPINFOHEADER) pbmi; 
-    lpBits = (LPBYTE) image;
-
-    // Create the .BMP file. 
-    hf = CreateFile(pszFile, 
-                   GENERIC_READ | GENERIC_WRITE, 
-                   (DWORD) 0, 
-                    NULL, 
-                   CREATE_ALWAYS, 
-                   FILE_ATTRIBUTE_NORMAL, 
-                   (HANDLE) NULL); 
-    if (hf == INVALID_HANDLE_VALUE) 
-		return;
-    hdr.bfType = 0x4d42;        // 0x42 = "B" 0x4d = "M" 
-    // Compute the size of the entire file. 
-    hdr.bfSize = (DWORD) (sizeof(BITMAPFILEHEADER) + 
-                 pbih->biSize + pbih->biClrUsed 
-                 * sizeof(RGBQUAD) + pbih->biSizeImage); 
-    hdr.bfReserved1 = 0; 
-    hdr.bfReserved2 = 0; 
-
-    // Compute the offset to the array of color indices. 
-    hdr.bfOffBits = (DWORD) sizeof(BITMAPFILEHEADER) + 
-                    pbih->biSize + pbih->biClrUsed 
-                    * sizeof (RGBQUAD); 
-
-    // Copy the BITMAPFILEHEADER into the .BMP file. 
-    if (!WriteFile(hf, (LPVOID) &hdr, sizeof(BITMAPFILEHEADER), 
-        (LPDWORD) &dwTmp,  NULL)) 
+	pbmi = (PBITMAPINFO) LocalAlloc(LPTR,sizeof(BITMAPINFOHEADER));
+	if (pbmi == NULL)
 		return;
 
-    // Copy the BITMAPINFOHEADER and RGBQUAD array into the file. 
-    if (!WriteFile(hf, (LPVOID) pbih, sizeof(BITMAPINFOHEADER) + pbih->biClrUsed * sizeof (RGBQUAD),(LPDWORD) &dwTmp, NULL)) 
-		return;
+	pbmi->bmiHeader.biSize = sizeof(BITMAPINFOHEADER); 
+	pbmi->bmiHeader.biWidth = width; 
+	pbmi->bmiHeader.biHeight = height; 
+	pbmi->bmiHeader.biPlanes = 1; 
+	pbmi->bmiHeader.biBitCount = 24;
+	pbmi->bmiHeader.biCompression = BI_RGB;
+	pbmi->bmiHeader.biSizeImage = (pbmi->bmiHeader.biWidth + 7) /8 * pbmi->bmiHeader.biHeight * 24;
+	pbmi->bmiHeader.biClrImportant = 0; 
 
-    // Copy the array of color indices into the .BMP file. 
-    dwTotal = cb = pbih->biSizeImage; 
-    hp = lpBits; 
-    if (!WriteFile(hf, (LPSTR) hp, (int) cb, (LPDWORD) &dwTmp,NULL)) 
-		return;
+	pbih = (PBITMAPINFOHEADER) pbmi; 
+	lpBits = (LPBYTE) image;
 
-    // Close the .BMP file. 
-     if (!CloseHandle(hf))
-		 return;
+	// Create the .BMP file. 
+	hf = CreateFile(pszFile, 
+		GENERIC_READ | GENERIC_WRITE, 
+		(DWORD) 0, 
+		NULL, 
+		CREATE_ALWAYS, 
+		FILE_ATTRIBUTE_NORMAL, 
+		(HANDLE) NULL); 
 
-    // Free memory. 
+	if (hf != INVALID_HANDLE_VALUE) 
+	{
+		hdr.bfType = 0x4d42;        // 0x42 = "B" 0x4d = "M" 
+		// Compute the size of the entire file. 
+		hdr.bfSize = (DWORD) (sizeof(BITMAPFILEHEADER) + 
+									pbih->biSize + pbih->biClrUsed 
+									* sizeof(RGBQUAD) + pbih->biSizeImage); 
+		hdr.bfReserved1 = 0; 
+		hdr.bfReserved2 = 0; 
+
+		// Compute the offset to the array of color indices. 
+		hdr.bfOffBits = (DWORD) sizeof(BITMAPFILEHEADER) + 
+										pbih->biSize + pbih->biClrUsed 
+										* sizeof (RGBQUAD); 
+
+		// Copy the BITMAPFILEHEADER into the .BMP file. 
+		if (WriteFile(hf, (LPVOID) &hdr, sizeof(BITMAPFILEHEADER), 
+				(LPDWORD) &dwTmp,  NULL))
+		{
+			// Copy the BITMAPINFOHEADER and RGBQUAD array into the file. 
+			if (WriteFile(hf, (LPVOID) pbih, sizeof(BITMAPINFOHEADER) + pbih->biClrUsed * sizeof (RGBQUAD),(LPDWORD) &dwTmp, NULL)) 
+			{
+				// Copy the array of color indices into the .BMP file. 
+				dwTotal = cb = pbih->biSizeImage; 
+				hp = lpBits; 
+				WriteFile(hf, (LPSTR) hp, (int) cb, (LPDWORD) &dwTmp, NULL);
+			}
+		}
+
+		// Close the .BMP file. 
+		CloseHandle(hf);
+	}
+
+	// Free memory.
 	LocalFree( (HLOCAL) pbmi);
 }
 

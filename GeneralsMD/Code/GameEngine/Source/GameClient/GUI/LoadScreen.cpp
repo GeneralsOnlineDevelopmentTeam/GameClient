@@ -1477,6 +1477,7 @@ void MultiPlayerLoadScreen::processProgress(Int playerId, Int percentage)
 	if( percentage < 0 || percentage > 100 || playerId >= MAX_SLOTS || playerId < 0 || m_playerLookup[playerId] == -1)
 	{
 		DEBUG_ASSERTCRASH(FALSE, ("Percentage %d was passed in for Player %d\n", percentage, playerId));
+		return;
 	}
 	//DEBUG_LOG(("Percentage %d was passed in for Player %d (in loadscreen position %d)\n", percentage, playerId, m_playerLookup[playerId]));
 	if(m_progressBars[m_playerLookup[playerId]])
@@ -1870,6 +1871,7 @@ void GameSpyLoadScreen::processProgress(Int playerId, Int percentage)
 	if( percentage < 0 || percentage > 100 || playerId >= MAX_SLOTS || playerId < 0 || m_playerLookup[playerId] == -1)
 	{
 		DEBUG_ASSERTCRASH(FALSE, ("Percentage %d was passed in for Player %d\n", percentage, playerId));
+		return;
 	}
 	//DEBUG_LOG(("Percentage %d was passed in for Player %d (in loadscreen position %d)\n", percentage, playerId, m_playerLookup[playerId]));
 	if(m_progressBars[m_playerLookup[playerId]])
@@ -2028,6 +2030,7 @@ void MapTransferLoadScreen::processProgress(Int playerId, Int percentage, AsciiS
 	if( percentage < 0 || percentage > 100 || playerId >= MAX_SLOTS || playerId < 0 || m_playerLookup[playerId] == -1)
 	{
 		DEBUG_ASSERTCRASH(FALSE, ("Percentage %d was passed in for Player %d\n", percentage, playerId));
+		return;
 	}
 
 	if (m_oldProgress[playerId] == percentage)
