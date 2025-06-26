@@ -59,14 +59,34 @@ void PortMapper::Tick()
 
 	if (m_bNATCheckInProgress)
 	{
-		// check here first, in case we early out
-		bool bAllProbesReceived = true;
-		for (int i = 0; i < m_probesExpected; ++i)
+		// send outbound traffic too
+		NetworkLog("[NAT Check]: Send outbound Holepunch");
+		struct sockaddr_in punchAddr;
+#if _DEBUG
+		hostent* pEnt = gethostbyname("localhost");
+#else
+		hostent* pEnt = gethostbyname("cloud.playgenerals.online");
+#endif
+		if (pEnt != nullptr)
 		{
-			bAllProbesReceived &= m_probesReceived[i];
-		}
+			memcpy(&punchAddr.sin_addr, pEnt->h_addr_list[0], pEnt->h_length);
+			punchAddr.sin_family = AF_INET;
+			punchAddr.sin_port = htons(9000);
 
-		if (bAllProbesReceived)
+			const char* punchMsg = "NATPUNCH";
+			for (int i = 0; i < 25; ++i)
+			{
+				int sent = sendto(m_NATSocket, punchMsg, static_cast<int>(strlen(punchMsg)), 0, (sockaddr*)&punchAddr, sizeof(punchAddr));
+				if (sent == SOCKET_ERROR)
+				{
+					NetworkLog("[NAT Check]: Failed to send NATPUNCH packet %d. Error: %d", i, WSAGetLastError());
+				}
+			}
+		}
+		NetworkLog("[NAT Check]: Finished outbound Holepunch");
+		
+		// check here first, in case we early out
+		if (m_bProbesReceived)
 		{
 			m_bNATCheckInProgress = false;
 			m_directConnect = ECapabilityState::SUPPORTED;
@@ -122,16 +142,9 @@ void PortMapper::Tick()
 
 			buffer[bytesReceived] = '\0';
 			//NetworkLog("[NAT Check]: Received from server: %s", buffer);
-
-			for (int i = 0; i < m_probesExpected; ++i)
+			if (strcmp(buffer, "NATCHECK") == 0)
 			{
-				char szBuffer[32] = { 0 };
-				sprintf_s(szBuffer, "NATCHECK%d", i);
-
-				if (strcmp(buffer, szBuffer) == 0)
-				{
-					m_probesReceived[i] = true;
-				}
+				m_bProbesReceived = true;
 			}
 		}
 	}
@@ -140,10 +153,7 @@ void PortMapper::Tick()
 void PortMapper::StartNATCheck()
 {
 	NetworkLog("[NAT Checker]: Starting");
-	for (int i = 0; i < m_probesExpected; ++i)
-	{
-		m_probesReceived[i] = false;
-	}
+	m_bProbesReceived = false;
 	m_directConnect = ECapabilityState::UNDETERMINED;
 
 	// init recv socket 
@@ -204,7 +214,11 @@ void PortMapper::StartNATCheck()
 	// TODO_NAT: This would be a lot more effective if we knew the response port too
 	NetworkLog("[NAT Check]: Start Holepunch");
 	struct sockaddr_in punchAddr;
+#if _DEBUG
+	hostent* pEnt = gethostbyname("localhost");
+#else
 	hostent* pEnt = gethostbyname("cloud.playgenerals.online");
+#endif
 	if (pEnt != nullptr)
 	{
 		memcpy(&punchAddr.sin_addr, pEnt->h_addr_list[0], pEnt->h_length);
@@ -212,7 +226,7 @@ void PortMapper::StartNATCheck()
 		punchAddr.sin_port = htons(9000);
 
 		const char* punchMsg = "NATPUNCH";
-		for (int i = 0; i < 25; ++i)
+		for (int i = 0; i < 50; ++i)
 		{
 			int sent = sendto(m_NATSocket, punchMsg, static_cast<int>(strlen(punchMsg)), 0, (sockaddr*)&punchAddr, sizeof(punchAddr));
 			if (sent == SOCKET_ERROR)

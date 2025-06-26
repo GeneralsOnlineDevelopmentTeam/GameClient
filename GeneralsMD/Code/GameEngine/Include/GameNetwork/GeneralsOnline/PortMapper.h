@@ -97,10 +97,9 @@ private:
 
 	std::atomic<bool> m_bPortMapperWorkComplete = false;
 
-	const int m_probeTimeout = 3000;
+	const int m_probeTimeout = 15000;
 	int64_t m_probeStartTime = -1;
-	static const int m_probesExpected = 5;
-	bool m_probesReceived[m_probesExpected];
+	bool m_bProbesReceived = false;
 
 	// TODO_NGMP: Do we need to refresh this periodically? or just do it on login. It would be kinda weird if the local network device changed during gameplay...
 	struct UPNPDev* m_pCachedUPnPDevice = nullptr;
