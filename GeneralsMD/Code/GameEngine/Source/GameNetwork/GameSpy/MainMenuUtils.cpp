@@ -807,7 +807,7 @@ void StartPatchCheck( void )
 				}
 
 				// TODO_NGMP: do this everywhere teardowngamespy was called
-				TearDownGeneralsOnline(false);
+				NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
 
 				MessageBoxOk(TheGameText->fetch("GUI:CannotConnectToServservTitle"),
 					TheGameText->fetch("GUI:CannotConnectToServserv"),

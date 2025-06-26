@@ -55,7 +55,7 @@ class Radar;
 class WebBrowser;
 class ParticleSystemManager;
 
-void TearDownGeneralsOnline(bool bWasDisconnectionError);
+void TearDownGeneralsOnline();
 
 /**
  * The implementation of the game engine

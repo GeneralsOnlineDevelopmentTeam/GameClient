@@ -84,6 +84,14 @@ enum class EQoSRegions
 	UaeNorth = 15
 };
 
+enum class EGOTearDownReason
+{
+	UNKNOWN = -1,
+	LOST_CONNECTION = 0,
+	USER_LOGOUT = 1,
+	USER_REQUESTED_SILENT = 2
+};
+
 class QoSManager
 {
 public:
@@ -338,9 +346,12 @@ public:
 
 	std::string& GetMOTD() { return m_strMOTD; }
 
-	void SetPendingFullTeardown() { m_bPendingFullTeardown = true; }
+	void SetPendingFullTeardown(EGOTearDownReason reason) { m_bPendingFullTeardown = true; m_teardownReason = reason; }
 	bool IsPendingFullTeardown() const { return m_bPendingFullTeardown; }
+	EGOTearDownReason GetTeardownReason() const { return m_teardownReason; }
 	void ConsumePendingFullTeardown() { m_bPendingFullTeardown = false; }
+
+	void ResetPendingFullTeardownReason() { m_teardownReason = EGOTearDownReason::UNKNOWN; }
 
 private:
 		void InitSentry();
@@ -364,6 +375,7 @@ private:
 
 	std::string m_strMOTD;
 
+	EGOTearDownReason m_teardownReason = EGOTearDownReason::UNKNOWN;
 	bool m_bPendingFullTeardown = false;
 
 	std::queue<std::string> m_vecFilesToDownload;

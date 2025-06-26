@@ -117,15 +117,34 @@
 #include "ww3d.h"
 
 static bool g_bTearDownGeneralsOnlineRequested = false;
-void TearDownGeneralsOnline(bool bWasDisconnectionError)
+void TearDownGeneralsOnline()
 {
 	g_bTearDownGeneralsOnlineRequested = true;
 
-	if (bWasDisconnectionError)
+	EGOTearDownReason teardownReason = NGMP_OnlineServicesManager::GetInstance()->GetTeardownReason();
+
+	if (teardownReason != EGOTearDownReason::USER_REQUESTED_SILENT)
 	{
 		UnicodeString title, body;
-		title = TheGameText->fetch("GUI:GSErrorTitle");
-		body = L"Your connection to the Generals Online servers was lost.";
+
+		if (teardownReason == EGOTearDownReason::USER_LOGOUT)
+		{
+			title = L"Logged Out";
+			body = L"You are now logged out of GeneralsOnline.";
+		}
+		else if (teardownReason == EGOTearDownReason::LOST_CONNECTION)
+		{
+			title = TheGameText->fetch("GUI:GSErrorTitle");
+			body = L"Your connection to the Generals Online servers was lost.";
+		}
+		else
+		{
+			title = TheGameText->fetch("GUI:GSErrorTitle");
+			body = L"An unknown error occurred.";
+		}
+
+		NGMP_OnlineServicesManager::GetInstance()->ResetPendingFullTeardownReason();
+
 		GameSpyCloseAllOverlays();
 		GSMessageBoxOk(title, body);
 	}

@@ -36,7 +36,7 @@ public:
 		return m_userID != -1 && !m_strToken.empty();
 	}
 
-	void DeleteMyAccount();
+	void LogoutOfMyAccount();
 
 private:
 	void LoginAsSecondaryDevAccount();

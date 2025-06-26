@@ -12,7 +12,7 @@
 #include "GameNetwork/GameSpyOverlay.h"
 #include "../json.hpp"
 
-#define SETTINGS_FILENAME "credentials.json"
+#define CREDENTIALS_FILENAME "credentials.json"
 
 #include "GameNetwork/GeneralsOnline/vendor/libcurl/curl.h"
 #include "libsodium/sodium/crypto_aead_aes256gcm.h"
@@ -405,12 +405,24 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 	}
 }
 
-void NGMP_OnlineServices_AuthInterface::DeleteMyAccount()
+void NGMP_OnlineServices_AuthInterface::LogoutOfMyAccount()
 {
-	// delete on service
+	// delete session on service
+	nlohmann::json j;
+	j["token"] = GetCredentials();
+	std::string strBody = j.dump();
+
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("User", true), m_userID);
 	std::map<std::string, std::string> mapHeaders;
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, "", nullptr);
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strBody.c_str(), nullptr);
+
+	// delete local credentials cache
+	std::string strCredentialsCachePath = GetCredentialsFilePath();
+
+	if (std::filesystem::exists(strCredentialsCachePath))
+	{
+		std::filesystem::remove(strCredentialsCachePath);
+	}
 }
 
 void NGMP_OnlineServices_AuthInterface::LoginAsSecondaryDevAccount()
@@ -504,6 +516,6 @@ std::string NGMP_OnlineServices_AuthInterface::GetCredentials()
 
 std::string NGMP_OnlineServices_AuthInterface::GetCredentialsFilePath()
 {
-	std::string strPatcherDirPath = std::format("{}/GeneralsOnlineData/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
+	std::string strPatcherDirPath = std::format("{}/GeneralsOnlineData/{}", TheGlobalData->getPath_UserData().str(), CREDENTIALS_FILENAME);
 	return strPatcherDirPath;
 }

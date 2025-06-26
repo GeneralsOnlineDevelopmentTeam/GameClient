@@ -306,7 +306,7 @@ void WebSocket::Tick()
 				// TODO_NGMP: Dont do this during gameplay, they can play without the WS, just 'queue' it for when they get back to the front end
 
 				NetworkLog("Got websocket close");
-				NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown();
+				NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
 				m_bConnected = false;
 				// TODO_NGMP: Handle this
 			}
@@ -331,7 +331,7 @@ void WebSocket::Tick()
 		// TODO_NGMP: Dont do this during gameplay, they can play without the WS, just 'queue' it for when they get back to the front end
 
 		NetworkLog("Got websocket disconnect");
-		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown();
+		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
 		m_bConnected = false;
 	}
 

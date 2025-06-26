@@ -1333,8 +1333,8 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 	{
 		//buttonbuttonOptions->winHide(FALSE);
 		buttonSetLocale->winHide(TRUE);
-		// TODO_NGMP: What should this do? reset stats? but not delete account?
-		buttonDeleteAccount->winHide(TRUE); // set back to false when we have this worked out.
+		buttonDeleteAccount->winHide(FALSE);
+		buttonDeleteAccount->winSetText(UnicodeString(L"LOGOUT"));
 		checkBoxAsianFont->winHide(TRUE);
 		checkBoxNonAsianFont->winHide(TRUE);
 	}
@@ -1511,10 +1511,7 @@ WindowMsgHandledType GameSpyPlayerInfoOverlaySystem( GameWindow *window, Unsigne
 					RefreshGameListBoxes();
 					GameSpyCloseOverlay( GSOVERLAY_PLAYERINFO );
 
-					MessageBoxOk(TheGameText->fetch("GUI:DeleteAccount"), UnicodeString(L"NOTE: This will only delete your in-game data. It will not delete your account on our website, forums or bugtracker. Please contact us if you wish to fully delete all of your data."), []()
-						{
-							MessageBoxYesNo(TheGameText->fetch("GUI:DeleteAccount"), TheGameText->fetch("GUI:AreYouSureDeleteAccount"), messageBoxYes, NULL);
-						});
+					MessageBoxYesNo(UnicodeString(L"Log Out"), UnicodeString(L"Are you sure you want to log out?"), messageBoxYes, NULL);
 				}
 				else if (controlID == checkBoxAsianFontID)
 				{
@@ -1567,10 +1564,10 @@ WindowMsgHandledType GameSpyPlayerInfoOverlaySystem( GameWindow *window, Unsigne
 
 static void messageBoxYes( void )
 {
-	// delete account
-	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->DeleteMyAccount();
+	// log out of account
+	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->LogoutOfMyAccount();
 
-	NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown();
+	NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_LOGOUT);
 
 	// and go back
 	RefreshGameListBoxes();

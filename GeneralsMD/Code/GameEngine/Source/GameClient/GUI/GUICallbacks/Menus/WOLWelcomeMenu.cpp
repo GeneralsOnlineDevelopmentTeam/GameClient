@@ -822,12 +822,12 @@ void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 	{
 		NGMP_OnlineServicesManager::GetInstance()->ConsumePendingFullTeardown();
 
-		// NGMP: Don't need to logout here, just kill the WS connection, that triggers a log out
-		TearDownGeneralsOnline(true);
-
 		buttonPushed = TRUE;
 
 		TheShell->pop();
+
+		// NGMP: Don't need to logout here, just kill the WS connection, that triggers a log out
+		TearDownGeneralsOnline();
 	}
 
 	// TODO_NGMP: do we still care about FW helper?
@@ -1014,7 +1014,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 					//TheGameSpyChat->disconnectFromChat();
 					
 					// NGMP: Don't need to logout here, just kill the WS connection, that triggers a log out
-					TearDownGeneralsOnline(false);
+					NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
 
 					DEBUG_LOG(("Tearing down GeneralsOnline from WOLWelcomeMenuSystem(GBM_SELECTED)\n"));
 
