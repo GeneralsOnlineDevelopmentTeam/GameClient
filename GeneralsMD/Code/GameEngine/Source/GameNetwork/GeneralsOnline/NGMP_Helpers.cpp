@@ -195,3 +195,25 @@ std::string DecryptServiceToken(std::string strServiceToken)
 	return strServiceToken;
 #endif
 }
+
+int RoundUpLatencyToFrameInterval(int latency, int frameInterval)
+{
+	if (frameInterval == 0)
+		return latency;
+
+	int remainder = latency % frameInterval;
+	if (remainder == 0)
+		return latency;
+
+	return latency + frameInterval - remainder;
+}
+int ConvertMSLatencyToFrames(int ms)
+{
+	ms = RoundUpLatencyToFrameInterval(ms, 1000 / GENERALS_ONLINE_HIGH_FPS_LIMIT);
+	return (int)ceil((ms / 1000.f) * (float)GENERALS_ONLINE_HIGH_FPS_LIMIT);
+}
+
+int ConvertMSLatencyToGenToolFrames(int ms)
+{
+	return ConvertMSLatencyToFrames(ms) / GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER;
+}

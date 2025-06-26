@@ -752,8 +752,8 @@ void NetworkHUD::Render()
 			}
 
 			UnicodeString unibuffer;
-			unibuffer.format(L"FPS: Render: %d Logic: %ld | Latency: %d frames (%d ms)",m_lastFPS,
-				TheNetwork->getFrameRate(), (int)ceil(highestLatency/GENERALS_ONLINE_HIGH_FPS_LIMIT), highestLatency);
+			unibuffer.format(L"FPS: Render: %d Logic: %ld | Latency: %d 60hz frames (%d ms) - %d GenTool frames", m_lastFPS,
+				TheNetwork->getFrameRate(), ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency));
 
 			m_DisplayString->setText(unibuffer);
 			m_DisplayString->draw(0, 0, GameMakeColor(255, 255, 255, 255), GameMakeColor(0, 0, 0, 255));
