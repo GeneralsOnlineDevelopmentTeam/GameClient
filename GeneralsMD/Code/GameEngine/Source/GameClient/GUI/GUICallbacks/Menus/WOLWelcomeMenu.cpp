@@ -818,6 +818,7 @@ void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 		raiseMessageBoxes = FALSE;
 	}
 
+	// TODO_NGMP: We do this in multiple UIs, we should actually just do it in one place and send an event to every other screen
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->IsPendingFullTeardown())
 	{
 		NGMP_OnlineServicesManager::GetInstance()->ConsumePendingFullTeardown();

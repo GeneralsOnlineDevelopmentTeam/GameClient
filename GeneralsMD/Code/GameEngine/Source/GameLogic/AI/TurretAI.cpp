@@ -397,6 +397,11 @@ Bool TurretAI::friend_turnTowardsAngle(Real desiredAngle, Real rateModifier, Rea
 	Real origAngle = getTurretAngle();
 	Real actualAngle = origAngle;
 	Real turnRate = getTurnRate() * rateModifier;
+
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	turnRate *= 2.f;
+#endif
+
 	Real angleDiff = normalizeAngle(desiredAngle - actualAngle);
 
 	// Are we close enough to the desired angle to just snap there?
@@ -687,6 +692,14 @@ void TurretAI::friend_notifyStateMachineChanged()
 DECLARE_PERF_TIMER(TurretAI)
 UpdateSleepTime TurretAI::updateTurretAI()
 {
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (!TheGameLogic->HasLegacyFrameAdvanced())
+	{
+		return UPDATE_SLEEP_NONE;
+	}
+#endif
+
+
 	USE_PERF_TIMER(TurretAI)
 
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)

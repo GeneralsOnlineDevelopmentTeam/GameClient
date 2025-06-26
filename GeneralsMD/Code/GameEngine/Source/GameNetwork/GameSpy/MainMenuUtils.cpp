@@ -140,6 +140,9 @@ static void noPatchBeforeOnlineCallback( void )
 	{
 		// go back to normal
 		HandleCanceledDownload();
+
+		// Patch was cancelled and critical, tear us down
+		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
 	}
 	else
 	{
@@ -582,6 +585,9 @@ void CancelPatchCheckCallbackAndReopenDropdown( void )
 {
 	HandleCanceledDownload();
 	CancelPatchCheckCallback();
+
+	// Patch was cancelled, tear us down
+	NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
 }
 
 void CancelPatchCheckCallback( void )
