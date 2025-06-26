@@ -26,7 +26,7 @@ struct IPCapsResult
 void PortMapper::Tick()
 {
 	// do we have work to do on main thread?
-	bool bEverythingComplete = m_bPortMapper_PCP_Complete.load() && m_bPortMapper_UPNP_Complete.load() && m_bPortMapper_NATPMP_Complete.load();
+	bool bEverythingComplete = m_bPortMapper_PCP_Complete.load() && m_bPortMapper_UPNP_Complete.load() && m_bPortMapper_NATPMP_Complete.load() && m_IPV4 != ECapabilityState::UNDETERMINED && m_IPV6 != ECapabilityState::UNDETERMINED;
 	// if one thing succeeded, bail, or if everything is done, also bail
 	if (m_bPortMapper_AnyMappingSuccess.load() || bEverythingComplete)
 	{
@@ -44,6 +44,8 @@ void PortMapper::Tick()
 			EMappingTech mappingTechUsed = GetPortMappingTechnologyUsed();
 			nlohmann::json j;
 			j["mapping_tech"] = mappingTechUsed;
+			j["ipv4"] = m_IPV4 == ECapabilityState::SUPPORTED;
+			j["ipv6"] = m_IPV6 == ECapabilityState::SUPPORTED;
 			std::string strPostData = j.dump();
 			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Connectivity", true);
 			std::map<std::string, std::string> mapHeaders;
@@ -269,6 +271,8 @@ void PortMapper::StartNATCheck()
 
 void PortMapper::DetermineLocalNetworkCapabilities()
 {
+	CheckIPCapabilities();
+
 	if (TheGlobalData->m_firewallPortOverride != 0)
 	{
 		m_PreferredPort.store(TheGlobalData->m_firewallPortOverride);
@@ -559,6 +563,58 @@ void PortMapper::StorePCPOutcome(bool bSucceeded)
 		m_bPortMapper_MappingTechUsed.store(EMappingTech::PCP);
 	}
 	m_bPortMapper_PCP_Complete.store(true);
+}
+
+struct IPCapabilitiesResponse
+{
+	int ipversion;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(IPCapabilitiesResponse, ipversion)
+};
+
+void PortMapper::CheckIPCapabilities()
+{
+	std::string strToken = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken();
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("DETERMINEIPCAPABILITIES", true);
+	std::map<std::string, std::string> mapHeaders;
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			m_IPV4 = ECapabilityState::UNSUPPORTED;
+
+			if (statusCode == 200)
+			{
+				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+				IPCapabilitiesResponse ipCapsResp = jsonObject.get<IPCapabilitiesResponse>();
+
+				if (ipCapsResp.ipversion == 4)
+				{
+					m_IPV4 = ECapabilityState::SUPPORTED;
+				}
+			}
+
+			NetworkLog("IPV4 Support: %d", m_IPV4);
+			InvokeCallback();
+		});
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV6, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			m_IPV6 = ECapabilityState::UNSUPPORTED;
+
+			if (statusCode == 200)
+			{
+				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+				IPCapabilitiesResponse ipCapsResp = jsonObject.get<IPCapabilitiesResponse>();
+
+				if (ipCapsResp.ipversion == 6)
+				{
+					m_IPV6 = ECapabilityState::SUPPORTED;
+				}
+			}
+
+			NetworkLog("IPV6 Support: %d", m_IPV4);
+			InvokeCallback();
+		});
 }
 
 void PortMapper::RemovePortMapping_UPnP()

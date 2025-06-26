@@ -64,6 +64,9 @@ public:
 
 	void CleanupPorts();
 
+	ECapabilityState HasIPV4() { return m_IPV4; }
+	ECapabilityState HasIPV6() { return m_IPV6; }
+
 	ECapabilityState HasDirectConnect()
 	{
 		return m_directConnect;
@@ -79,6 +82,8 @@ public:
 
 	void StorePCPOutcome(bool bSucceeded);
 
+	void CheckIPCapabilities();
+
 private:
 
 	void RemovePortMapping_UPnP();
@@ -89,6 +94,9 @@ private:
 
 private:
 	ECapabilityState m_directConnect = ECapabilityState::UNDETERMINED;
+
+	ECapabilityState m_IPV4 = ECapabilityState::UNDETERMINED;
+	ECapabilityState m_IPV6 = ECapabilityState::UNDETERMINED;
 
 	std::atomic<uint16_t> m_PreferredPort = 0;
 

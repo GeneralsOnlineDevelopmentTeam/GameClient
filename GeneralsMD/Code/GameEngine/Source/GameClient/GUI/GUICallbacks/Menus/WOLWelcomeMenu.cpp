@@ -368,6 +368,16 @@ static void updateNumPlayersOnline(void)
 			// network status
 			GadgetListBoxAddEntryText(listboxInfo, UnicodeString(L"Your Network Status:"), c, -1, -1);
 
+			// IPV4
+			ECapabilityState IPv4 = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasIPV4();
+			line.format(L"IPv4: %hs", IPv4 == ECapabilityState::UNDETERMINED ? "Still Being Determined..." : IPv4 == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported");
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+
+			// IPV6
+			ECapabilityState IPv6 = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasIPV6();
+			line.format(L"IPv6: %hs", IPv6 == ECapabilityState::UNDETERMINED ? "Still Being Determined..." : IPv6 == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported");
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+
 			// network port
 			line.format(L"Network Port: %d (%hs)", preferredPort, strPortState.c_str());
 			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
@@ -381,9 +391,8 @@ static void updateNumPlayersOnline(void)
 				""
 #endif
 			);
-
 			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
-
+			
 			// relayed connect
 			line.format(L"Relayed Connect: %hs", "Supported");
 			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
