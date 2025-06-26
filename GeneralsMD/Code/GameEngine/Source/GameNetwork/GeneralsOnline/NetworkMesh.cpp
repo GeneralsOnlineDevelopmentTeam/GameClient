@@ -27,7 +27,7 @@ void NetworkMesh::UpdateConnectivity(PlayerConnection* connection)
 	std::string strPostData = j.dump();
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ConnectionOutcome", true);
 	std::map<std::string, std::string> mapHeaders;
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			// dont care about the response
 		});
@@ -403,10 +403,7 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	// is it local?
 	if (user_id == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
 	{
-		// TODO_NGMP: Is this really necessary
-		enet_address_set_host(&addr, "127.0.0.1");
 		// dont connect to ourselves
-
 		NetworkLog("NetworkMesh::ConnectToSingleUser - not connecting to ourselves (%lld)", user_id);
 		return;
 	}

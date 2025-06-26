@@ -44,8 +44,13 @@ void WebSocket::Connect(const char* url)
 
 		curl_easy_setopt(m_pCurl, CURLOPT_CONNECT_ONLY, 2L); /* websocket style */
 
-		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 0); /* websocket style */
-		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 0); /* websocket style */
+#if _DEBUG
+		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 0);
+		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 0);
+#else
+		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 1);
+		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 1);
+#endif
 
 		//curl_easy_setopt(m_pCurl, CURLOPT_TIMEOUT_MS, 1000);
 
@@ -349,7 +354,7 @@ void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> c
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Rooms", true);
 	std::map<std::string, std::string> mapHeaders;
 
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			try
 			{

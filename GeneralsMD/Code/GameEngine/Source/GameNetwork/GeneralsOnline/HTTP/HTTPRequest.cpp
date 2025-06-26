@@ -194,14 +194,19 @@ void HTTPRequest::PlatformStartRequest()
 			curl_easy_setopt(m_pCURL, CURLOPT_CUSTOMREQUEST, "DELETE");
 		}
 
+#if _DEBUG
 		if (pHTTPManager->IsProxyEnabled())
 		{
 			curl_easy_setopt(m_pCURL, CURLOPT_PROXY, pHTTPManager->GetProxyAddress().c_str());
 			curl_easy_setopt(m_pCURL, CURLOPT_PROXYPORT, pHTTPManager->GetProxyPort());
 		}
 
-		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
+#else
+		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1);
+		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 1);
+#endif
 	}
 }
