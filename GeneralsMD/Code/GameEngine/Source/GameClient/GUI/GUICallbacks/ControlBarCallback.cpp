@@ -513,7 +513,11 @@ void ShowControlBar( Bool immediate )
 	if (window)
 	{
 		TheControlBar->switchControlBarStage(CONTROL_BAR_STAGE_DEFAULT);
+#ifdef SLIDE_LETTERBOX
 		TheTacticalView->setHeight((Int)(TheDisplay->getHeight() * 0.80f));
+#else
+		TheTacticalView->setHeight(TheDisplay->getHeight());
+#endif
 
 		if (TheControlBar->m_animateWindowManager && !immediate)
 		{
@@ -588,7 +592,11 @@ void ToggleControlBar( Bool immediate )
 			TheControlBar->showSpecialPowerShortcut();
 
 			//now hidden, we're making it visible again so shrink viewport under the window
+#ifdef SLIDE_LETTERBOX
 			TheTacticalView->setHeight((Int)(TheDisplay->getHeight() * 0.80f));
+#else
+			TheTacticalView->setHeight(TheDisplay->getHeight());
+#endif
 			window->winHide(FALSE);
 			TheControlBar->switchControlBarStage(CONTROL_BAR_STAGE_DEFAULT);
 
