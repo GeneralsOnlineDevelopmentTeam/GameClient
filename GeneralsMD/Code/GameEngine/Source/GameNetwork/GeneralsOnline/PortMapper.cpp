@@ -725,6 +725,7 @@ void PortMapper::ForwardPort_PCP()
 	memset(&pcpMapping, 0, sizeof(pcpMapping));
 	pcpMapping.protocol = PLUM_IP_PROTOCOL_UDP;
 	pcpMapping.internal_port = port;
+	pcpMapping.external_port = port;
 	m_PCPMappingHandle = plum_create_mapping(&pcpMapping, [](int id, plum_state_t state, const plum_mapping_t* mapping)
 		{
 			NetworkLog("PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
