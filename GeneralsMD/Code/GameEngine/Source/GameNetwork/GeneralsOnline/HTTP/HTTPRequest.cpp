@@ -205,8 +205,8 @@ void HTTPRequest::PlatformStartRequest()
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
 		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
 #else
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1);
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 1);
+		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
+		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
 #endif
 	}
 }

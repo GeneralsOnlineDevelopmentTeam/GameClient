@@ -48,8 +48,8 @@ void WebSocket::Connect(const char* url)
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 0);
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 0);
 #else
-		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 1);
-		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 1);
+		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 0);
+		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 0);
 #endif
 
 		//curl_easy_setopt(m_pCurl, CURLOPT_TIMEOUT_MS, 1000);
