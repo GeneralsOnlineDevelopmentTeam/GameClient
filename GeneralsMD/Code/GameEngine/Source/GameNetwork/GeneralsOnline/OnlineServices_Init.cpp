@@ -248,7 +248,7 @@ void NGMP_OnlineServicesManager::LaunchPatcher()
 	shellexInfo.lpFile = strPatcherPath.c_str();
 	shellexInfo.nShow = SW_SHOWNORMAL;
 	shellexInfo.lpDirectory = GameDir;
-	shellexInfo.lpParameters = "/VERYSILENT";
+	//shellexInfo.lpParameters = "/VERYSILENT";
 
 	bool bPatcherExeExists = std::filesystem::exists(strPatcherPath) && std::filesystem::is_regular_file(strPatcherPath);
 	bool bPatcherDirExists = std::filesystem::exists(strPatcherDir) && std::filesystem::is_directory(strPatcherDir);
