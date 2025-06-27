@@ -64,7 +64,7 @@ void PortMapper::Tick()
 		// send outbound traffic too
 		NetworkLog("[NAT Check]: Send outbound Holepunch");
 		struct sockaddr_in punchAddr;
-#if _DEBUG
+#if _DEBUG && !defined(USE_TEST_ENV)
 		hostent* pEnt = gethostbyname("localhost");
 #else
 		hostent* pEnt = gethostbyname("cloud.playgenerals.online");
@@ -216,7 +216,7 @@ void PortMapper::StartNATCheck()
 	// TODO_NAT: This would be a lot more effective if we knew the response port too
 	NetworkLog("[NAT Check]: Start Holepunch");
 	struct sockaddr_in punchAddr;
-#if _DEBUG
+#if _DEBUG && !defined(USE_TEST_ENV)
 	hostent* pEnt = gethostbyname("localhost");
 #else
 	hostent* pEnt = gethostbyname("cloud.playgenerals.online");

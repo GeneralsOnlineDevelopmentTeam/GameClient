@@ -230,18 +230,24 @@ public:
 	enum EEnvironment
 	{
 		DEV,
+		TEST,
 		PROD
 	};
 
 	NetworkHUD m_HUD;
 	void DrawUI();
 
-#if defined(_DEBUG)
-	const static EEnvironment g_Environment = EEnvironment::DEV;
-	#pragma message ("Building for DEV environment")
+#if defined(USE_TEST_ENV)
+	const static EEnvironment g_Environment = EEnvironment::TEST;
+	#pragma message ("Building for TEST environment")
 #else
-	const static EEnvironment g_Environment = EEnvironment::PROD;
-	#pragma message ("Building for PROD environment")
+	#if defined(_DEBUG)
+		const static EEnvironment g_Environment = EEnvironment::DEV;
+		#pragma message ("Building for DEV environment")
+	#else
+		const static EEnvironment g_Environment = EEnvironment::PROD;
+		#pragma message ("Building for PROD environment")
+	#endif
 #endif
 	static std::string GetAPIEndpoint(const char* szEndpoint, bool bAttachToken);
 
