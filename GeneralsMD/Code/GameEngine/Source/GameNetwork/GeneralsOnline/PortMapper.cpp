@@ -26,9 +26,10 @@ struct IPCapsResult
 void PortMapper::Tick()
 {
 	// do we have work to do on main thread?
-	bool bEverythingComplete = m_bPortMapper_PCP_Complete.load() && m_bPortMapper_UPNP_Complete.load() && m_bPortMapper_NATPMP_Complete.load() && m_IPV4 != ECapabilityState::UNDETERMINED && m_IPV6 != ECapabilityState::UNDETERMINED;
+	bool bEverythingComplete = m_bPortMapper_PCP_Complete.load() && m_bPortMapper_UPNP_Complete.load() && m_bPortMapper_NATPMP_Complete.load();
+	bool bIPChecksComplete = m_IPV4 != ECapabilityState::UNDETERMINED && m_IPV6 != ECapabilityState::UNDETERMINED;
 	// if one thing succeeded, bail, or if everything is done, also bail
-	if (m_bPortMapper_AnyMappingSuccess.load() || bEverythingComplete)
+	if ((m_bPortMapper_AnyMappingSuccess.load() || bEverythingComplete) && bIPChecksComplete)
 	{
 		if (!m_bNATCheckStarted)
 		{
@@ -48,6 +49,7 @@ void PortMapper::Tick()
 			j["ipv6"] = m_IPV6 == ECapabilityState::SUPPORTED;
 			std::string strPostData = j.dump();
 			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Connectivity", true);
+			NetworkLog("[NAT Check]: Connectivity outcome - Mapping Tech is %d, IPv4 is %d, IPv6 is %d", mappingTechUsed, (int)(m_IPV4 == ECapabilityState::SUPPORTED), m_IPV6 == ECapabilityState::SUPPORTED);
 			std::map<std::string, std::string> mapHeaders;
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
@@ -612,7 +614,7 @@ void PortMapper::CheckIPCapabilities()
 				}
 			}
 
-			NetworkLog("IPV6 Support: %d", m_IPV4);
+			NetworkLog("IPV6 Support: %d", m_IPV6);
 			InvokeCallback();
 		});
 }
