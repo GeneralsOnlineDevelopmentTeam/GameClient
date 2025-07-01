@@ -4149,8 +4149,11 @@ StateReturnType AIFollowWaypointPathState::update()
 		if (getAdjustsDestination() && ai->isDoingGroundMovement()) {
 			if (!TheAI->pathfinder()->adjustDestination(obj, ai->getLocomotorSet(), &m_goalPosition)) {
 				if (m_currentWaypoint) {
+// TheSuperHackers @info helmutbuhler 05/05/2025 This debug mutates the code to become CRC incompatible
+#if (defined(RTS_DEBUG) || defined(RTS_INTERNAL)) || !RETAIL_COMPATIBLE_CRC
 					DEBUG_LOG(("Breaking out of follow waypoint path %s of %s\n", 
 					m_currentWaypoint->getName().str(), m_currentWaypoint->getPathLabel1().str()));
+#endif
 				}
 				return STATE_FAILURE;
 			}
@@ -4171,8 +4174,12 @@ StateReturnType AIFollowWaypointPathState::update()
 	if (m_moveAsGroup) {
 		if (obj->getControllingPlayer()->isSkirmishAIPlayer()) {
 			Team *team = obj->getTeam();
-			AIGroup *group = TheAI->createGroup();
+			AIGroupPtr group = TheAI->createGroup();
+#if RETAIL_COMPATIBLE_AIGROUP
 			team->getTeamAsAIGroup(group);
+#else
+			team->getTeamAsAIGroup(group.Peek());
+#endif
 
 			Coord3D pos;
 			group->getCenter(&pos);
@@ -4219,8 +4226,11 @@ StateReturnType AIFollowWaypointPathState::update()
 		if (getAdjustsDestination() && ai->isDoingGroundMovement()) {
 			if (!TheAI->pathfinder()->adjustDestination(obj, ai->getLocomotorSet(), &m_goalPosition)) {
 				if (m_currentWaypoint) {
+// TheSuperHackers @info helmutbuhler 05/05/2025 This debug mutates the code to become CRC incompatible
+#if (defined(RTS_DEBUG) || defined(RTS_INTERNAL)) || !RETAIL_COMPATIBLE_CRC
 					DEBUG_LOG(("Breaking out of follow waypoint path %s of %s\n", 
 					m_currentWaypoint->getName().str(), m_currentWaypoint->getPathLabel1().str()));
+#endif
 				}
 				return STATE_FAILURE;
 			}
