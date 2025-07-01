@@ -1553,7 +1553,7 @@ void W3DTreeBuffer::drawTrees(CameraClass* camera, RefRenderObjListIterator* pDy
 		pause = true;
 	}
 
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+#if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
 	if (TheGameClient && !TheGameClient->HasLegacyFrameAdvanced())
 	{
 		pause = true;

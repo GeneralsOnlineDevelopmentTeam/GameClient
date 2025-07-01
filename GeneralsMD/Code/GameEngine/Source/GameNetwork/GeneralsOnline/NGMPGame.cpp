@@ -356,7 +356,7 @@ void NGMPGame::launchGame(void)
 	TheWritableGlobalData->m_showMetrics = true;
 #endif
 
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+#if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
 	TheWritableGlobalData->m_horizontalScrollSpeedFactor = NGMP_OnlineServicesManager::Settings.Camera_MoveSpeedRatio();
 	TheWritableGlobalData->m_verticalScrollSpeedFactor = NGMP_OnlineServicesManager::Settings.Camera_MoveSpeedRatio();
 #endif
@@ -433,7 +433,7 @@ void NGMPGame::launchGame(void)
 	GameMessage* msg = TheMessageStream->appendMessage(GameMessage::MSG_NEW_GAME);
 	msg->appendIntegerArgument(GAME_INTERNET);
 
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+#if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
 
 	if (NGMP_OnlineServicesManager::Settings.Graphics_LimitFramerate())
 	{

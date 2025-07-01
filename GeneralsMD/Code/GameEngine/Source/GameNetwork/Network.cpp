@@ -675,6 +675,12 @@ void Network::processRunAheadCommand(NetRunAheadCommandMsg *msg) {
 	if (frameGrouping > 500) {
 		frameGrouping = 500; // Max of a half a second.
 	}
+
+// TODO_NGMP: Investigate this + packet router more. Probably not necessary anymore.
+#if defined(GENERALS_ONLINE)
+	frameGrouping = 1;
+#endif
+
 	m_conMgr->setFrameGrouping(frameGrouping);
 }
 

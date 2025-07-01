@@ -42,14 +42,19 @@
 #define GENERALS_ONLINE_MIN_LOBBY_CAMERA_ZOOM 400
 #define GENERALS_ONLINE_MAX_LOBBY_CAMERA_ZOOM 1000
 
-#define GENERALS_ONLINE_HIGH_FPS_SERVER 1
+//#define GENERALS_ONLINE_HIGH_FPS_SERVER 0
+
+
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	#define GENERALS_ONLINE_HIGH_FPS_LIMIT 60
 	#define GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER (GENERALS_ONLINE_HIGH_FPS_LIMIT/30)
+	#define GENERALS_ONLINE_HIGH_FPS_RENDER 1 // This must be defined for high fps server
 #else
 	#define GENERALS_ONLINE_HIGH_FPS_LIMIT 30
 	#define GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER 1
+
+	#define GENERALS_ONLINE_HIGH_FPS_RENDER 1 // This is optional on 30fps, but will boost/unlock the framerate, similar to gentool
 #endif
 
 // useful for testing release builds with multiple logins

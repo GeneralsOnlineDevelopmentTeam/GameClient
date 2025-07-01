@@ -3078,7 +3078,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 			}
 
 			UnicodeString msg;
-			msg.format(L"        Connection %d - user %lld - name %hs - addr %hs:%d - State: %hs - Attempts: %d - Latency: %d 60hz frames (%d ms) - %d GenTool frames",
+			msg.format(L"        Connection %d - user %lld - name %hs - addr %hs:%d - State: %hs - Attempts: %d - Latency: %d game frames (%d ms) - %d GenTool frames",
 				i, kvPair.first, strDisplayName.c_str(), strIPAddr.c_str(), conn.m_address.port, strState.c_str(), conn.m_ConnectionAttempts, ConvertMSLatencyToFrames(conn.latency), conn.latency, ConvertMSLatencyToGenToolFrames(conn.latency));
 			GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 
@@ -3092,7 +3092,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 
 		// show overall latency expectations
 		UnicodeString msgOverall;
-		msgOverall.format(L"Based on the current lobby players, the game latency will be %d 60hz frames (%d ms)(%d GenTool frames):", ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency));
+		msgOverall.format(L"Based on the current lobby players, the game latency will be %d game frames (%d ms)(%d GenTool frames):", ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency));
 		GadgetListBoxAddEntryText(listboxGameSetupChat, msgOverall, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 
 		return TRUE; // was a slash command

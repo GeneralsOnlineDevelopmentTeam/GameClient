@@ -760,7 +760,7 @@ void NetworkHUD::Render()
 			}
 
 			UnicodeString unibuffer;
-			unibuffer.format(L"FPS: Render: %d Logic: %ld | Latency: %d 60hz frames (%d ms) - %d GenTool frames", m_lastFPS,
+			unibuffer.format(L"FPS: Render: %d Logic: %ld | Latency: %d game frames (%d ms) - %d GenTool frames", m_lastFPS,
 				TheNetwork->getFrameRate(), ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency));
 
 			m_DisplayString->setText(unibuffer);

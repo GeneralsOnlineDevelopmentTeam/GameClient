@@ -27,7 +27,7 @@
 
 #include "GameNetwork/networkutil.h"
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 Int MAX_FRAMES_AHEAD = 128*2;
 Int MIN_RUNAHEAD = 10*2;
 Int FRAME_DATA_LENGTH = ((MAX_FRAMES_AHEAD+1)*2)*2;

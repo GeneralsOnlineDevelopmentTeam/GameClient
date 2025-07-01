@@ -775,6 +775,10 @@ DECLARE_PERF_TIMER(GameEngine_update)
  * @todo Allow the client to run as fast as possible, but limit the execution
  * of TheNetwork and TheGameLogic to a fixed framerate.
  */
+#if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
+extern NGMPGame* TheNGMPGame;
+#endif
+
 #if !defined(GENERALS_ONLINE_RUN_FAST)
 void GameEngine::update(void)
 {
@@ -786,9 +790,18 @@ void GameEngine::update(void)
 			// VERIFY CRC needs to be in this code block.  Please to not pull TheGameLogic->update() inside this block.
 			VERIFY_CRC
 
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+#if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
+			// NGMP_NOTE: Lock the shellmap to 30fps until we fix everything
+			if (TheNGMPGame != nullptr && TheGameLogic->isInGame() && !TheShell->isShellActive())
+			{
 				m_maxFPS = NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit();
+			}
+			else
+			{
+				m_maxFPS = 60;
+			}
 #endif
+			
 				TheRadar->UPDATE();
 
 			/// @todo Move audio init, update, etc, into GameClient update
