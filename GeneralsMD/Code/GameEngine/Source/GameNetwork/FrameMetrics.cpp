@@ -69,7 +69,13 @@ FrameMetrics::~FrameMetrics() {
 
 void FrameMetrics::init() {
 	m_averageFps = 30;
+
+#if defined(GENERALS_ONLINE)
+	// NGMP_NOTE: Don't start with the assumption that we have latency. Connections are now formed earlier, so we have latency data earlier too.
+	m_averageLatency = (Real)0.0;
+#else
 	m_averageLatency = (Real)0.2;
+#endif
 	m_minimumCushion = -1;
 
 	UnsignedInt i = 0;

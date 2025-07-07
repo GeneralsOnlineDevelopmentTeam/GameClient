@@ -616,12 +616,20 @@ void ConnectionManager::processRunAheadMetrics(NetRunAheadMetricsCommandMsg *msg
 		m_latencyAverages[player] = msg->getAverageLatency();
 		m_fpsAverages[player] = msg->getAverageFps();
 		//DEBUG_LOG(("ConnectionManager::processRunAheadMetrics - player %d, fps = %d, latency = %f\n", player, msg->getAverageFps(), msg->getAverageLatency()));
+
+		// NGMP_CHANGE: Modern machines render games at much higher framerates, 100 is no longer only achievable when a game is in the background...
+#if defined(GENERALS_ONLINE)
+		if (m_fpsAverages[player] > 300) {
+			m_fpsAverages[player] = 300;
+		}
+#else
 		if (m_fpsAverages[player] > 100) {
 			// limit the reported frame rate average to 100.  This is done because if a
 			// user alt-tab's out of the game their frame rate climbs to in the neighborhood of
 			// 300, that was deemed "ugly" by the powers that be.
 			m_fpsAverages[player] = 100;
 		}
+#endif
 	}
 }
 
@@ -1260,9 +1268,18 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			if (minFps < 5) {
 				minFps = 5; // Absolutely do not run below 5 fps.
 			}
+
+			// NGMP_NOTE: This math is wrong... it's determing minFPS from the render FPS, and then using that to determine newRunAhead (artificial delay_ below as a multiplier, so the higher the render framerate... the worse the 'lag'.
+			//				 It should actually be using the network logic framerate.
+#if defined(GENERALS_ONLINE)
+			if (minFps > TheNetwork->getFrameRate()) {
+				minFps = TheNetwork->getFrameRate(); // Cap to network tick rate
+			}
+#else
 			if (minFps > TheGlobalData->m_framesPerSecondLimit) {
 				minFps = TheGlobalData->m_framesPerSecondLimit; // Cap to 30 FPS.
-			}
+		}
+#endif
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::updateRunAhead - minFps after adjustment is %d\n", minFps));
 			Int newRunAhead = (Int)((getMaximumLatency() / 2.0) * (Real)minFps);
 			newRunAhead += (newRunAhead * TheGlobalData->m_networkRunAheadSlack) / 100; // Add in 10% of slack to the run ahead in case of network hiccups.
