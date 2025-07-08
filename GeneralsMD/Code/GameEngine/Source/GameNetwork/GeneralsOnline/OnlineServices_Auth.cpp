@@ -109,15 +109,25 @@ void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 				// if MOTD was bad, still proceed, its a soft error
 				NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD("Error retrieving MOTD");
 
+				bool bResult = true;
+
+				// WS should be connected by this point
+				bool bWSConnected = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->IsConnected();
+				if (!bWSConnected)
+				{
+					bResult = bWSConnected;
+				}
+
+				// NOTE: Don't need to get stats here, PopulatePlayerInfoWindows is called as part of going to MP...
+				// cache our local stats 
+				// 
 				// go to next screen
 				ClearGSMessageBoxes();
 
 				if (m_cb_LoginPendingCallback != nullptr)
 				{
-					m_cb_LoginPendingCallback(false);
+					m_cb_LoginPendingCallback(bResult);
 				}
-
-				TheShell->pop();
 			}
 		});
 }

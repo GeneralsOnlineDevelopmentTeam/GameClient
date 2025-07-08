@@ -65,7 +65,7 @@ static const Int MAX_PACKET_SIZE = 476;
  * Command packet - contains frame #, total # of commands, and each command.  This is what gets sent
  * to each player every frame
  */
-#define MAX_MESSAGE_LEN 1024
+#define MAX_MESSAGE_LEN 1500
 #define MAX_MESSAGES 128
 static const Int numCommandsPerCommandPacket = (MAX_MESSAGE_LEN - sizeof(UnsignedInt) - sizeof(UnsignedShort))/sizeof(GameMessage);
 #pragma pack(push, 1)
