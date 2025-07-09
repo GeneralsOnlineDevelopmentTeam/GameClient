@@ -512,6 +512,16 @@ Int WeaponTemplate::getDelayBetweenShots(const WeaponBonus& bonus) const
 	{
 		delayToUse = 2*GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER;
 	}
+
+	// HACK
+	// TODO_NGMP: Better solution for this, seems like an ini data bug
+	if (getName().compareNoCase("GattlingBuilding") == 0
+		|| getName().compareNoCase("GattlingBuildingGun") == 0
+		|| getName().compareNoCase("GattlingBuildingGunAir") == 0
+		|| getName().compareNoCase("GattlingBuildingGunAirDummy") == 0)
+	{
+		delayToUse /= 1.5;
+	}
 #endif
 	Real bonusROF = bonus.getField(WeaponBonus::RATE_OF_FIRE);
 	//CRCDEBUG_LOG(("WeaponTemplate::getDelayBetweenShots() - min:%d max:%d val:%d, bonusROF=%g/%8.8X\n",
@@ -2665,6 +2675,7 @@ Bool Weapon::privateFireWeapon(
 			m_status = BETWEEN_FIRING_SHOTS;
 			//CRCDEBUG_LOG(("Weapon::privateFireWeapon() just set m_status to BETWEEN_FIRING_SHOTS\n"));
 			Int delay = m_template->getDelayBetweenShots(bonus);
+
 			m_whenLastReloadStarted = now;
 			m_whenWeCanFireAgain = now + delay;
 			//CRCDEBUG_LOG(("Just set m_whenWeCanFireAgain to %d (delay is %d) in Weapon::privateFireWeapon\n", m_whenWeCanFireAgain, delay));
