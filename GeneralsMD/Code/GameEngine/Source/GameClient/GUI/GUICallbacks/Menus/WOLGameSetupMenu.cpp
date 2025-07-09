@@ -801,6 +801,14 @@ static void StartPressed(void)
 	if (!myGame)
 		return;
 
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	if (pMesh->GetAllConnections().size() != NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby().current_players - 1)
+	{
+		UnicodeString text(L"Some players are still connecting... please try again soon");
+		GadgetListBoxAddEntryText(listboxGameSetupChat, text, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+		return;
+	}
+
 	// see if everyone's accepted and count the number of players in the game
 	UnicodeString mapDisplayName;
 	const MapMetaData *mapData = TheMapCache->findMap( myGame->getMap() );
