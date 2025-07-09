@@ -34,7 +34,7 @@ HTTPRequest::~HTTPRequest()
 	curl_multi_remove_handle(pMultiHandle, m_pCURL);
 	curl_easy_cleanup(m_pCURL);
 
-	////delete[] m_pBuffer;
+	free(m_pBuffer);
 }
 
 void HTTPRequest::PlatformThreaded_SetComplete()
@@ -61,8 +61,10 @@ void HTTPRequest::StartRequest()
 		// invoke fail immediately
 		PlatformThreaded_SetComplete();
 
+		NetworkLog("Request failed, malloc was null");
+
 		m_strResponse = std::string();
-		m_responseCode = 500;
+		m_responseCode = 123;
 		m_bIsComplete = true;
 	}
 	else
