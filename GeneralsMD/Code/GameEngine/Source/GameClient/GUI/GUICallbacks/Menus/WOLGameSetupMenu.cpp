@@ -802,7 +802,16 @@ static void StartPressed(void)
 		return;
 
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-	if (pMesh->GetAllConnections().size() != NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby().current_players - 1)
+	int numHumanPlayers = 0;
+	for(LobbyMemberEntry & member : NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby().members)
+	{
+		if (member.IsHuman())
+		{
+			++numHumanPlayers;
+		}
+	}
+
+	if (pMesh->GetAllConnections().size() != numHumanPlayers - 1)
 	{
 		UnicodeString text(L"Some players are still connecting... please try again soon");
 		GadgetListBoxAddEntryText(listboxGameSetupChat, text, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
