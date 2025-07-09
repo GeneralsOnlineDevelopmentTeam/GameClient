@@ -184,7 +184,7 @@ Bool handleLobbySlashCommands(UnicodeString uText)
 		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"/name <value> - Changes your display name - Example: /name General Granger"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
 		return TRUE; // was a slash command
 	}
-	else if ((token == "name" && uText.getLength() > 6) || (token == "nick" && uText.getLength() > 4))
+	else if ((token == "name" && uText.getLength() > 6) || (token == "nick" && uText.getLength() > 6))
 	{
 		AsciiString newName;
 		newName.translate(UnicodeString(uText.str() + 6)); // skip the /name or nick
