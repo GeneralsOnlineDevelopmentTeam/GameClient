@@ -23,6 +23,33 @@ struct IPCapsResult
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(IPCapsResult, ipversion)
 };
 
+void pcpMappingCallback(int id, plum_state_t state, const plum_mapping_t* mapping)
+{
+	NetworkLog("PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
+	switch (state) {
+	case PLUM_STATE_SUCCESS:
+	{
+		NetworkLog("PortMapper: PCP Mapping %d: success, internal=%hu, external=%s:%hu\n", id, mapping->internal_port,
+			mapping->external_host, mapping->external_port);
+
+		NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(true);
+		break;
+	}
+
+	case PLUM_STATE_FAILURE:
+		NetworkLog("PortMapper: PCP Mapping %d: failed\n", id);
+
+		NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(false);
+		break;
+
+	default:
+		break;
+	}
+
+	// cleanup
+	plum_cleanup();
+}
+
 void PortMapper::Tick()
 {
 	// do we have work to do on main thread?
@@ -728,6 +755,9 @@ void PortMapper::ForwardPort_PCP()
 	pcpMapping.protocol = PLUM_IP_PROTOCOL_UDP;
 	pcpMapping.internal_port = port;
 	pcpMapping.external_port = port;
+	m_PCPMappingHandle = plum_create_mapping(&pcpMapping, pcpMappingCallback);
+
+/*
 	m_PCPMappingHandle = plum_create_mapping(&pcpMapping, [](int id, plum_state_t state, const plum_mapping_t* mapping)
 		{
 			NetworkLog("PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
@@ -754,6 +784,7 @@ void PortMapper::ForwardPort_PCP()
 			// cleanup
 			plum_cleanup();
 		});
+*/
 #endif
 }
 
