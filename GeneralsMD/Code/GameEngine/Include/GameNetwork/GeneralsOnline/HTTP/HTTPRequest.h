@@ -12,7 +12,7 @@ class HTTPRequest
 {
 public:
 	HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const char* szURI, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)>
-		progressCallback = nullptr) noexcept;
+		progressCallback = nullptr, int timeout = -1) noexcept;
 	~HTTPRequest();
 
 	bool EasyHandleMatches(CURL* pHandle)
@@ -63,6 +63,8 @@ private:
 	EHTTPVerb m_httpVerb;
 
 	EIPProtocolVersion m_protover;
+
+	int m_timeoutMS = 2000;
 
 	std::string m_strURI;
 	std::string m_strPostData;
