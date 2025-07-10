@@ -527,8 +527,6 @@ static void updateOverallStats(void)
 				//int percent = (int)(100.0f * (fThisPercent / s_totalWinPercent));
 				//percStr.format(TheGameText->fetch("GUI:WinPercent"), percent);
 
-				NetworkLog(teamName.c_str());
-
 				percStr.format(L"%d%% (%d of %d)", (int)(100.f*fThisPercent), stats.wins[i], stats.matches[i]);
 				wndName.format("WOLWelcomeMenu.wnd:Percent%s", teamName.c_str());
 				pWin = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY(wndName));

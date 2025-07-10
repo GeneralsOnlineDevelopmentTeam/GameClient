@@ -1,11 +1,15 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include <chrono>
 #include "libsodium/sodium/crypto_aead_aes256gcm.h"
+#include <mutex>
 
 std::string m_strNetworkLogFileName;
+std::mutex m_logMutex;
 
 void NetworkLog(const char* fmt, ...)
 {
+	std::scoped_lock{ m_logMutex };
+
 	if (m_strNetworkLogFileName.empty())
 	{
 		auto now = std::chrono::system_clock::now();
@@ -36,11 +40,11 @@ void NetworkLog(const char* fmt, ...)
 
 	auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
 
-	char buffer[1024];
+	char buffer[8192];
 	va_list args;
 	va_start(args, fmt);
-	vsnprintf(buffer, 1024, fmt, args);
-	buffer[1024 - 1] = 0;
+	vsnprintf(buffer, 8192, fmt, args);
+	buffer[8192 - 1] = 0;
 	va_end(args);
 
 	std::string strLogBuffer = std::format("[{:%Y-%m-%d %T}] {}", time, buffer);

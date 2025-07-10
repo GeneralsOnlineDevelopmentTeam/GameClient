@@ -209,11 +209,12 @@ void WebSocket::Tick()
 	char buffer[8196] = { 0 };
 
 	CURLcode ret = CURL_LAST;
-	ret = curl_ws_recv(m_pCurl, buffer, sizeof(buffer), &rlen, &meta);
+	ret = curl_ws_recv(m_pCurl, buffer, sizeof(buffer) - 1, &rlen, &meta);
+	buffer[rlen] = 0; // Ensure null-termination
 
 	if (ret != CURLE_RECV_ERROR && ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
 	{
-		//NetworkLog("Got websocket msg: %s", buffer);
+		NetworkLog("Got websocket msg: %s", buffer);
 
 		// what type of message?
 		if (meta != nullptr)
