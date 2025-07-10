@@ -2305,6 +2305,8 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	}
 	else
 	{
+
+		TheNGMPGame->StartMatchTimer();
 		
 //		TheShell->hideShell();
 		if(TheStatsCollector)
