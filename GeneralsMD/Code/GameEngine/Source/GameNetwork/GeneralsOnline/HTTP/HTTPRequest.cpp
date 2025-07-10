@@ -12,9 +12,15 @@ size_t WriteMemoryCallback(void* contents, size_t sizePerByte, size_t numBytes, 
 }
 
 HTTPRequest::HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const char* szURI, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback,
-	std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/) noexcept
+	std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/, int timeoutMS/*= -1*/) noexcept
 {
 	m_pCURL = curl_easy_init();
+
+	// -1 means use default
+	if (timeoutMS > 0)
+	{
+		m_timeoutMS = timeoutMS;
+	}
 
 	m_httpVerb = httpVerb;
 	m_protover = protover;
@@ -144,6 +150,7 @@ void HTTPRequest::PlatformStartRequest()
 		curl_easy_setopt(m_pCURL, CURLOPT_WRITEDATA, (void*)this);
 		curl_easy_setopt(m_pCURL, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 		curl_easy_setopt(m_pCURL, CURLOPT_USERAGENT, "GeneralsOnline/1.0");
+		curl_easy_setopt(m_pCURL, CURLOPT_TIMEOUT_MS, m_timeoutMS);
 
 		if (m_protover == EIPProtocolVersion::DONT_CARE)
 		{

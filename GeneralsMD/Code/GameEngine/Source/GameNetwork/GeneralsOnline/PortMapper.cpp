@@ -624,7 +624,7 @@ void PortMapper::CheckIPCapabilities()
 
 			NetworkLog("IPV4 Support: %d", m_IPV4);
 			InvokeCallback();
-		});
+		}, nullptr, 500);
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV6, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
@@ -643,7 +643,7 @@ void PortMapper::CheckIPCapabilities()
 
 			NetworkLog("IPV6 Support: %d", m_IPV6);
 			InvokeCallback();
-		});
+		}, nullptr, 500);
 }
 
 void PortMapper::RemovePortMapping_UPnP()
