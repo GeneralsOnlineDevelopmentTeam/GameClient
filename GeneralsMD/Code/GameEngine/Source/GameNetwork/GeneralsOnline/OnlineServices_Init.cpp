@@ -202,7 +202,7 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 				std::string strFileName = strDownloadPath.substr(strDownloadPath.find_last_of('/') + 1);
 				std::string strOutPath = std::format("{}/{}", strPatchDir, strFileName.c_str());
 
-				uint8_t* pBuffer = pReq->GetBuffer();
+				std::vector<uint8_t> vecBuffer = pReq->GetBuffer();
 				size_t bufSize = pReq->GetBufferSize();
 
 				if (!std::filesystem::exists(strPatchDir))
@@ -211,7 +211,7 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 				}
 
 				FILE* pFile = fopen(strOutPath.c_str(), "wb");
-				fwrite(pBuffer, sizeof(uint8_t), bufSize, pFile);
+				fwrite(vecBuffer.data(), sizeof(uint8_t), bufSize, pFile);
 				fclose(pFile);
 
 				// call continue update again, thisll check if we're done or have more work to do

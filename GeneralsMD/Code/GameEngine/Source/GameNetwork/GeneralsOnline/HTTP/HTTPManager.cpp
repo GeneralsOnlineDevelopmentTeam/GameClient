@@ -96,17 +96,26 @@ void HTTPManager::BackgroundThreadRun()
 
 		PlatformThreadedTick_Locked();
 
-		for (HTTPRequest* pRequest : m_vecRequestsPendingstart)
-		{
-			if (!pRequest->HasStarted())
-			{
-				pRequest->StartRequest();
-			}
+		// TODO_NGMP: Resolve
+		bool bHasRequestInFlight = !m_vecRequestsInFlight.empty();
 
-			// add to the proper queue
-			m_vecRequestsInFlight.push_back(pRequest);
+		if (!bHasRequestInFlight)
+		{
+			for (HTTPRequest* pRequest : m_vecRequestsPendingstart)
+			{
+				if (!pRequest->HasStarted())
+				{
+					pRequest->StartRequest();
+				}
+
+				// add to the proper queue
+				m_vecRequestsInFlight.push_back(pRequest);
+
+				m_vecRequestsPendingstart.erase(std::remove(m_vecRequestsPendingstart.begin(), m_vecRequestsPendingstart.end(), pRequest));
+				break;
+			}
+			//m_vecRequestsPendingstart.clear();
 		}
-		m_vecRequestsPendingstart.clear();
 
 		m_mutex.unlock();
 

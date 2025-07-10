@@ -49,8 +49,8 @@ public:
 	void Threaded_SetComplete();
 
 	// mainly used for downloads
-	uint8_t* GetBuffer() { return m_pBuffer; }
-	size_t GetBufferSize() { return m_currentBufSize_Used; }
+	std::vector<uint8_t> GetBuffer() { return m_vecBuffer; }
+	size_t GetBufferSize() { return m_vecBuffer.size(); }
 
 private:
 	void PlatformStartRequest();
@@ -59,7 +59,6 @@ private:
 	CURL* m_pCURL = nullptr;
 
 	int m_responseCode = -1;
-	std::string m_strResponse;
 
 	EHTTPVerb m_httpVerb;
 
@@ -70,15 +69,16 @@ private:
 
 	std::map<std::string, std::string> m_mapHeaders;
 
-	std::uint8_t* m_pBuffer = nullptr;
-	size_t m_currentBufSize = 0;
+	std::vector<uint8_t> m_vecBuffer;
 	size_t m_currentBufSize_Used = 0;
 
-	const size_t g_initialBufSize = (1024 * 1024) * 1;
+	const size_t g_initialBufSize = (1024 * 4); // 4KB
 
 	bool m_bNeedsProgressUpdate = false;
 	bool m_bIsStarted = false;
 	bool m_bIsComplete = false;
+
+	struct curl_slist* headers = nullptr;
 
 	std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> m_completionCallback = nullptr;
 

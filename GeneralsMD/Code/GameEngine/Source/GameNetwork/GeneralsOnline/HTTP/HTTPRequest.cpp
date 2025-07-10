@@ -34,7 +34,12 @@ HTTPRequest::~HTTPRequest()
 	curl_multi_remove_handle(pMultiHandle, m_pCURL);
 	curl_easy_cleanup(m_pCURL);
 
-	free(m_pBuffer);
+	m_vecBuffer.clear();
+	m_vecBuffer.resize(0);
+
+    if (headers) {
+        curl_slist_free_all(headers);
+    }
 }
 
 void HTTPRequest::PlatformThreaded_SetComplete()
@@ -53,29 +58,11 @@ void HTTPRequest::StartRequest()
 	m_bIsStarted = true;
 	m_bIsComplete = false;
 
-	// 1MB buffer at first, will resize
-	m_pBuffer = (uint8_t*)malloc(g_initialBufSize);
+	m_vecBuffer.resize(g_initialBufSize);
 
-	if (m_pBuffer == nullptr)
-	{
-		// invoke fail immediately
-		PlatformThreaded_SetComplete();
+	m_currentBufSize_Used = 0;
 
-		NetworkLog("Request failed, malloc was null");
-
-		m_strResponse = std::string();
-		m_responseCode = 123;
-		m_bIsComplete = true;
-	}
-	else
-	{
-		memset(m_pBuffer, 0, g_initialBufSize);
-
-		m_currentBufSize = g_initialBufSize;
-		m_currentBufSize_Used = 0;
-
-		PlatformStartRequest();
-	}
+	PlatformStartRequest();
 }
 
 void HTTPRequest::OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes)
@@ -86,24 +73,13 @@ void HTTPRequest::OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes)
 	// TODO_HTTP: Use vector instead
 
 	// do we need a buffer resize?
-	if (m_currentBufSize_Used + numBytes >= m_currentBufSize)
+	if (m_currentBufSize_Used + numBytes >= m_vecBuffer.size())
 	{
-		m_currentBufSize = m_currentBufSize + g_initialBufSize;
-
-		// realloc with an additional 1MB
-		m_pBuffer = (uint8_t*)realloc(m_pBuffer, m_currentBufSize);
-
-		// memset new 1mb
-		memset(m_pBuffer + m_currentBufSize_Used, 0, m_currentBufSize - m_currentBufSize_Used);
-
-		if (m_pBuffer == NULL)
-		{
-			// no memory 
-			NetworkLog("[HTTP Manager] ERROR: Out of memory");
-		}
+		NetworkLog("[%p] Doing buffer resize", this);
+		m_vecBuffer.resize(m_vecBuffer.size() + g_initialBufSize);
 	}
 
-	memcpy(m_pBuffer + m_currentBufSize_Used, pBuffer, numBytes);
+	std::copy(pBuffer, pBuffer + numBytes, m_vecBuffer.begin() + m_currentBufSize_Used);
 	m_currentBufSize_Used += numBytes;
 
 	NetworkLog("[%p] Received: %d bytes", this, numBytes);
@@ -118,7 +94,17 @@ void HTTPRequest::InvokeCallbackIfComplete()
 		// TODO_HTTP: Assert if not game thread
 		if (m_completionCallback != nullptr)
 		{
-			m_completionCallback(true, m_responseCode, m_strResponse, this);
+			// Convert m_vecBuffer to std::string for m_strResponse
+			std::string strResponse;
+			if (!m_vecBuffer.empty() && m_currentBufSize_Used > 0)
+			{
+				strResponse = std::string(reinterpret_cast<const char*>(m_vecBuffer.data()), m_currentBufSize_Used);
+			}
+			else
+			{
+				strResponse.clear();
+			}
+			m_completionCallback(true, m_responseCode, strResponse, this);
 		}
 	}
 }
@@ -127,10 +113,15 @@ void HTTPRequest::Threaded_SetComplete()
 {
 	PlatformThreaded_SetComplete();
 
-	m_strResponse = std::string((char*)m_pBuffer, m_currentBufSize_Used);
-
 	m_bIsComplete = true;
+
+	// finalize the size, so we can use .size etc
+	m_vecBuffer.resize(m_currentBufSize_Used);
+
+	std::string strResponse = std::string(reinterpret_cast<const char*>(m_vecBuffer.data()), m_currentBufSize_Used);
 	NetworkLog("[%p] Transfer is complete: %d bytes total!", this, m_currentBufSize_Used);
+	NetworkLog("[%p] Response was %d - %s!", this, m_responseCode, strResponse.c_str());
+
 
 	// debug write to file
 	/*
@@ -168,7 +159,6 @@ void HTTPRequest::PlatformStartRequest()
 		}
 		
 
-		struct curl_slist* headers = NULL;
 		for (auto& kvPair : m_mapHeaders)
 		{
 			char szHeaderBuffer[256] = { 0 };
