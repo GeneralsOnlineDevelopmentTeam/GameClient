@@ -115,7 +115,7 @@ void HTTPRequest::InvokeCallbackIfComplete()
 	}
 }
 
-void HTTPRequest::Threaded_SetComplete()
+void HTTPRequest::Threaded_SetComplete(CURLcode result)
 {
 	PlatformThreaded_SetComplete();
 
@@ -125,8 +125,8 @@ void HTTPRequest::Threaded_SetComplete()
 	m_vecBuffer.resize(m_currentBufSize_Used);
 
 	std::string strResponse = std::string(reinterpret_cast<const char*>(m_vecBuffer.data()), m_currentBufSize_Used);
-	NetworkLog("[%p] Transfer is complete: %d bytes total!", this, m_currentBufSize_Used);
-	NetworkLog("[%p] Response was %d - %s!", this, m_responseCode, strResponse.c_str());
+	NetworkLog("[%p|%s] Transfer is complete: %d bytes total! Curl result is %d", this, m_strURI.c_str(), m_currentBufSize_Used, result);
+	NetworkLog("[%p|%s] Response was %d - %s!", this, m_strURI.c_str(), m_responseCode, strResponse.c_str());
 
 
 	// debug write to file
@@ -150,6 +150,9 @@ void HTTPRequest::PlatformStartRequest()
 		curl_easy_setopt(m_pCURL, CURLOPT_WRITEDATA, (void*)this);
 		curl_easy_setopt(m_pCURL, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 		curl_easy_setopt(m_pCURL, CURLOPT_USERAGENT, "GeneralsOnline/1.0");
+
+		
+		curl_easy_setopt(m_pCURL, CURLOPT_CONNECTTIMEOUT_MS, m_timeoutMS);
 		curl_easy_setopt(m_pCURL, CURLOPT_TIMEOUT_MS, m_timeoutMS);
 
 		if (m_protover == EIPProtocolVersion::DONT_CARE)

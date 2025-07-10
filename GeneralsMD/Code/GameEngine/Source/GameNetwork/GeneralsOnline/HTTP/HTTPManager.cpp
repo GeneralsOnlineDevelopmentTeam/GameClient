@@ -1,4 +1,5 @@
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
+#include "../NGMP_include.h"
 
 HTTPManager::HTTPManager() noexcept
 {
@@ -67,7 +68,7 @@ void HTTPManager::PlatformThreadedTick_Locked()
 			HTTPRequest* pPlatformRequest = static_cast<HTTPRequest*>(pRequest);
 			if (pPlatformRequest->EasyHandleMatches(e))
 			{
-				pPlatformRequest->Threaded_SetComplete();
+				pPlatformRequest->Threaded_SetComplete(m->data.result);
 			}
 		}
 	}
@@ -96,26 +97,17 @@ void HTTPManager::BackgroundThreadRun()
 
 		PlatformThreadedTick_Locked();
 
-		// TODO_NGMP: Resolve
-		bool bHasRequestInFlight = !m_vecRequestsInFlight.empty();
-
-		if (!bHasRequestInFlight)
+		for (HTTPRequest* pRequest : m_vecRequestsPendingstart)
 		{
-			for (HTTPRequest* pRequest : m_vecRequestsPendingstart)
+			if (!pRequest->HasStarted())
 			{
-				if (!pRequest->HasStarted())
-				{
-					pRequest->StartRequest();
-				}
-
-				// add to the proper queue
-				m_vecRequestsInFlight.push_back(pRequest);
-
-				m_vecRequestsPendingstart.erase(std::remove(m_vecRequestsPendingstart.begin(), m_vecRequestsPendingstart.end(), pRequest));
-				break;
+				pRequest->StartRequest();
 			}
-			//m_vecRequestsPendingstart.clear();
+
+			// add to the proper queue
+			m_vecRequestsInFlight.push_back(pRequest);
 		}
+		m_vecRequestsPendingstart.clear();
 
 		m_mutex.unlock();
 

@@ -613,12 +613,19 @@ void PortMapper::CheckIPCapabilities()
 
 			if (statusCode == 200)
 			{
-				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-				IPCapabilitiesResponse ipCapsResp = jsonObject.get<IPCapabilitiesResponse>();
-
-				if (ipCapsResp.ipversion == 4)
+				try
 				{
-					m_IPV4 = ECapabilityState::SUPPORTED;
+					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+					IPCapabilitiesResponse ipCapsResp = jsonObject.get<IPCapabilitiesResponse>();
+
+					if (ipCapsResp.ipversion == 4)
+					{
+						m_IPV4 = ECapabilityState::SUPPORTED;
+					}
+				}
+				catch (...)
+				{
+					m_IPV4 = ECapabilityState::UNSUPPORTED;
 				}
 			}
 
@@ -632,18 +639,25 @@ void PortMapper::CheckIPCapabilities()
 
 			if (statusCode == 200)
 			{
-				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-				IPCapabilitiesResponse ipCapsResp = jsonObject.get<IPCapabilitiesResponse>();
-
-				if (ipCapsResp.ipversion == 6)
+				try
 				{
-					m_IPV6 = ECapabilityState::SUPPORTED;
+					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+					IPCapabilitiesResponse ipCapsResp = jsonObject.get<IPCapabilitiesResponse>();
+
+					if (ipCapsResp.ipversion == 6)
+					{
+						m_IPV6 = ECapabilityState::SUPPORTED;
+					}
+				}
+				catch (...)
+				{
+					m_IPV6 = ECapabilityState::UNSUPPORTED;
 				}
 			}
 
 			NetworkLog("IPV6 Support: %d", m_IPV6);
 			InvokeCallback();
-		}, nullptr, 500);
+		}, nullptr, 2000);
 }
 
 void PortMapper::RemovePortMapping_UPnP()

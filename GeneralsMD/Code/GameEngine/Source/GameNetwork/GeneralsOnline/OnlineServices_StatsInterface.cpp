@@ -26,13 +26,20 @@ void NGMP_OnlineServices_StatsInterface::GetGlobalStats(std::function<void(Globa
 		{
 			GlobalStats stats;
 
-			nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody)["globalstats"];
+			try
+			{
+				nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody)["globalstats"];
 
-			int i = 0;
+				int i = 0;
 
-			#define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : jsonObjectRoot[#name]) { iter.get_to(stats.##name[i++]); }
-			PROCESS_JSON_PER_GENERAL_RESULT(wins);
-			PROCESS_JSON_PER_GENERAL_RESULT(matches);
+	#define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : jsonObjectRoot[#name]) { iter.get_to(stats.##name[i++]); }
+				PROCESS_JSON_PER_GENERAL_RESULT(wins);
+				PROCESS_JSON_PER_GENERAL_RESULT(matches);
+			}
+			catch (...)
+			{
+
+			}
 
 			cb(stats);
 		});
@@ -95,70 +102,78 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 					PSPlayerStats stats;
 					stats.id = userID;
 
-					nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody)["stats"];
+					try
+					{
+						nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody)["stats"];
 
-					// parse json
-					int i = 0;
+						// parse json
+						int i = 0;
 
 #define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : jsonObjectRoot[#name]) { iter.get_to(stats.##name[i++]); }
-					PROCESS_JSON_PER_GENERAL_RESULT(wins);
-					PROCESS_JSON_PER_GENERAL_RESULT(losses);
-					PROCESS_JSON_PER_GENERAL_RESULT(games);
-					PROCESS_JSON_PER_GENERAL_RESULT(duration);
-					PROCESS_JSON_PER_GENERAL_RESULT(unitsKilled);
-					PROCESS_JSON_PER_GENERAL_RESULT(unitsLost);
-					PROCESS_JSON_PER_GENERAL_RESULT(unitsBuilt);
-					PROCESS_JSON_PER_GENERAL_RESULT(buildingsKilled);
-					PROCESS_JSON_PER_GENERAL_RESULT(wins);
-					PROCESS_JSON_PER_GENERAL_RESULT(buildingsLost);
-					PROCESS_JSON_PER_GENERAL_RESULT(buildingsBuilt);
-					PROCESS_JSON_PER_GENERAL_RESULT(earnings);
-					PROCESS_JSON_PER_GENERAL_RESULT(techCaptured);
-					PROCESS_JSON_PER_GENERAL_RESULT(discons);
-					PROCESS_JSON_PER_GENERAL_RESULT(desyncs);
-					PROCESS_JSON_PER_GENERAL_RESULT(surrenders);
-					PROCESS_JSON_PER_GENERAL_RESULT(gamesOf2p);
-					PROCESS_JSON_PER_GENERAL_RESULT(gamesOf3p);
-					PROCESS_JSON_PER_GENERAL_RESULT(gamesOf4p);
-					PROCESS_JSON_PER_GENERAL_RESULT(gamesOf5p);
-					PROCESS_JSON_PER_GENERAL_RESULT(gamesOf6p);
-					PROCESS_JSON_PER_GENERAL_RESULT(gamesOf7p);
-					PROCESS_JSON_PER_GENERAL_RESULT(gamesOf8p);
-					PROCESS_JSON_PER_GENERAL_RESULT(customGames);
-					PROCESS_JSON_PER_GENERAL_RESULT(QMGames);
+						PROCESS_JSON_PER_GENERAL_RESULT(wins);
+						PROCESS_JSON_PER_GENERAL_RESULT(losses);
+						PROCESS_JSON_PER_GENERAL_RESULT(games);
+						PROCESS_JSON_PER_GENERAL_RESULT(duration);
+						PROCESS_JSON_PER_GENERAL_RESULT(unitsKilled);
+						PROCESS_JSON_PER_GENERAL_RESULT(unitsLost);
+						PROCESS_JSON_PER_GENERAL_RESULT(unitsBuilt);
+						PROCESS_JSON_PER_GENERAL_RESULT(buildingsKilled);
+						PROCESS_JSON_PER_GENERAL_RESULT(wins);
+						PROCESS_JSON_PER_GENERAL_RESULT(buildingsLost);
+						PROCESS_JSON_PER_GENERAL_RESULT(buildingsBuilt);
+						PROCESS_JSON_PER_GENERAL_RESULT(earnings);
+						PROCESS_JSON_PER_GENERAL_RESULT(techCaptured);
+						PROCESS_JSON_PER_GENERAL_RESULT(discons);
+						PROCESS_JSON_PER_GENERAL_RESULT(desyncs);
+						PROCESS_JSON_PER_GENERAL_RESULT(surrenders);
+						PROCESS_JSON_PER_GENERAL_RESULT(gamesOf2p);
+						PROCESS_JSON_PER_GENERAL_RESULT(gamesOf3p);
+						PROCESS_JSON_PER_GENERAL_RESULT(gamesOf4p);
+						PROCESS_JSON_PER_GENERAL_RESULT(gamesOf5p);
+						PROCESS_JSON_PER_GENERAL_RESULT(gamesOf6p);
+						PROCESS_JSON_PER_GENERAL_RESULT(gamesOf7p);
+						PROCESS_JSON_PER_GENERAL_RESULT(gamesOf8p);
+						PROCESS_JSON_PER_GENERAL_RESULT(customGames);
+						PROCESS_JSON_PER_GENERAL_RESULT(QMGames);
 
 #define PROCESS_JSON_STANDARD_RESULT(name) jsonObjectRoot[#name].get_to(stats.##name)
-					PROCESS_JSON_STANDARD_RESULT(locale);
-					PROCESS_JSON_STANDARD_RESULT(gamesAsRandom);
-					PROCESS_JSON_STANDARD_RESULT(options);
-					PROCESS_JSON_STANDARD_RESULT(systemSpec);
-					PROCESS_JSON_STANDARD_RESULT(lastFPS);
-					PROCESS_JSON_STANDARD_RESULT(lastGeneral);
-					PROCESS_JSON_STANDARD_RESULT(gamesInRowWithLastGeneral);
-					PROCESS_JSON_STANDARD_RESULT(challengeMedals);
-					PROCESS_JSON_STANDARD_RESULT(battleHonors);
-					PROCESS_JSON_STANDARD_RESULT(QMwinsInARow);
-					PROCESS_JSON_STANDARD_RESULT(maxQMwinsInARow);
-					PROCESS_JSON_STANDARD_RESULT(winsInARow);
-					PROCESS_JSON_STANDARD_RESULT(maxWinsInARow);
-					PROCESS_JSON_STANDARD_RESULT(lossesInARow);
-					PROCESS_JSON_STANDARD_RESULT(maxLossesInARow);
-					PROCESS_JSON_STANDARD_RESULT(disconsInARow);
-					PROCESS_JSON_STANDARD_RESULT(maxDisconsInARow);
-					PROCESS_JSON_STANDARD_RESULT(desyncsInARow);
-					PROCESS_JSON_STANDARD_RESULT(maxDesyncsInARow);
-					PROCESS_JSON_STANDARD_RESULT(builtParticleCannon);
-					PROCESS_JSON_STANDARD_RESULT(builtNuke);
-					PROCESS_JSON_STANDARD_RESULT(builtSCUD);
-					PROCESS_JSON_STANDARD_RESULT(lastLadderPort);
-					PROCESS_JSON_STANDARD_RESULT(lastLadderHost);
+						PROCESS_JSON_STANDARD_RESULT(locale);
+						PROCESS_JSON_STANDARD_RESULT(gamesAsRandom);
+						PROCESS_JSON_STANDARD_RESULT(options);
+						PROCESS_JSON_STANDARD_RESULT(systemSpec);
+						PROCESS_JSON_STANDARD_RESULT(lastFPS);
+						PROCESS_JSON_STANDARD_RESULT(lastGeneral);
+						PROCESS_JSON_STANDARD_RESULT(gamesInRowWithLastGeneral);
+						PROCESS_JSON_STANDARD_RESULT(challengeMedals);
+						PROCESS_JSON_STANDARD_RESULT(battleHonors);
+						PROCESS_JSON_STANDARD_RESULT(QMwinsInARow);
+						PROCESS_JSON_STANDARD_RESULT(maxQMwinsInARow);
+						PROCESS_JSON_STANDARD_RESULT(winsInARow);
+						PROCESS_JSON_STANDARD_RESULT(maxWinsInARow);
+						PROCESS_JSON_STANDARD_RESULT(lossesInARow);
+						PROCESS_JSON_STANDARD_RESULT(maxLossesInARow);
+						PROCESS_JSON_STANDARD_RESULT(disconsInARow);
+						PROCESS_JSON_STANDARD_RESULT(maxDisconsInARow);
+						PROCESS_JSON_STANDARD_RESULT(desyncsInARow);
+						PROCESS_JSON_STANDARD_RESULT(maxDesyncsInARow);
+						PROCESS_JSON_STANDARD_RESULT(builtParticleCannon);
+						PROCESS_JSON_STANDARD_RESULT(builtNuke);
+						PROCESS_JSON_STANDARD_RESULT(builtSCUD);
+						PROCESS_JSON_STANDARD_RESULT(lastLadderPort);
+						PROCESS_JSON_STANDARD_RESULT(lastLadderHost);
 
-					NetworkLog("Cached stats for user %lld", userID);
-					m_mapCachedStats[userID] = stats;
-					m_mapStatsLastRefresh[userID] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+						NetworkLog("Cached stats for user %lld", userID);
+						m_mapCachedStats[userID] = stats;
+						m_mapStatsLastRefresh[userID] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
-					// cb
-					cb(true, stats);
+						// cb
+						cb(true, stats);
+					}
+					catch (...)
+					{
+						// cb
+						cb(false, stats);
+					}
 				});
 		}
 		else // cached data instead
