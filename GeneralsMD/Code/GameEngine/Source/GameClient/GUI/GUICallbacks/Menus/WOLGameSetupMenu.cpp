@@ -789,7 +789,6 @@ static void handleLimitSuperweaponsClick()
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_LimitSuperweapons(bLimitSuperweapons);
 }
 
-
 static void StartPressed(void)
 {
 	Bool isReady = TRUE;
@@ -939,6 +938,7 @@ static void StartPressed(void)
 		//req.peerRequestType = PeerRequest::PEERREQUEST_STARTGAME;
 		//TheGameSpyPeerMessageQueue->addRequest(req);
 
+#if !defined(GENERALS_ONLINE_ENABLE_MATCH_START_COUNTDOWN)
 		Lobby_StartGamePacket startGamePacket;
 		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendToMesh(startGamePacket);
 
@@ -949,6 +949,17 @@ static void StartPressed(void)
 			Lobby_StartGamePacket startGamePacket2;
 			pMesh->ProcessGameStart(startGamePacket2);
 		}
+#else
+		if (!TheNGMPGame->IsCountdownStarted())
+		{
+			// remote msg
+			UnicodeString strInform;
+			strInform.format(TheGameText->fetch("LAN:GameStartTimerPlural"), TheNGMPGame->GetTotalCountdownDuration());
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform, true);
+
+			TheNGMPGame->StartCountdown();
+		}
+#endif
 
 		// TODO_NGMP
 		//SendStatsToOtherPlayers(myGame);
@@ -958,6 +969,11 @@ static void StartPressed(void)
 		if (buttonBack != nullptr)
 		{
 			buttonBack->winEnable(FALSE);
+		}
+
+		if (buttonStart != nullptr)
+		{
+			buttonStart->winEnable(FALSE);
 		}
 
 		GameWindow *buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
@@ -1154,11 +1170,11 @@ void WOLDisplaySlotList( void )
 				genericPingWindow[i]->winSetEnabledImage(0, pingImages[0]);
 
 				Int ping = slot->getPingAsInt();
-				if (ping < 100)
+				if (ping < 500)
 				{
 					genericPingWindow[i]->winSetEnabledImage(0, pingImages[0]);
 				}
-				else if (ping < 200)
+				else if (ping < 750)
 				{
 					genericPingWindow[i]->winSetEnabledImage(0, pingImages[1]);
 				}
@@ -2004,6 +2020,23 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 			{
 				GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. a new host has been selected."), GameMakeColor(255, 255, 255, 255), -1, -1);
 			}
+
+			// re-enable critical buttons for everyone
+			if (buttonBack != nullptr)
+			{
+				buttonBack->winEnable(FALSE);
+			}
+
+			if (buttonStart != nullptr)
+			{
+				buttonStart->winEnable(FALSE);
+			}
+
+			GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
+			if (buttonBuddy != nullptr)
+			{
+				buttonBuddy->winEnable(FALSE);
+			}
 		}
 	}
 
@@ -2024,6 +2057,51 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 
 		return;
 	}
+
+#if defined(GENERALS_ONLINE_ENABLE_MATCH_START_COUNTDOWN)
+	// is there a countdown in progress?
+	if (TheNGMPGame->IsCountdownStarted())
+	{
+		const int64_t timeBetweenChecks = 1000;
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+		if (currTime - TheNGMPGame->GetCountdownLastCheckTime() >= timeBetweenChecks)
+		{
+			int secondsSinceCountdownStart = (currTime - TheNGMPGame->GetCountdownStartTime()) / 1000;
+			int secondsRemaining = TheNGMPGame->GetTotalCountdownDuration() - secondsSinceCountdownStart;
+
+			TheNGMPGame->UpdateCountdownLastCheckTime();
+
+			// remote msg
+			UnicodeString strInform;
+			if (secondsRemaining == 1)
+				strInform.format(TheGameText->fetch("LAN:GameStartTimerSingular"), secondsRemaining);
+			else
+				strInform.format(TheGameText->fetch("LAN:GameStartTimerPlural"), secondsRemaining);
+			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform, true);
+
+			// are we done?
+			if (secondsRemaining <= 0)
+			{
+				// stop countdown
+				TheNGMPGame->StopCountdown();
+
+				// send start game packet
+				Lobby_StartGamePacket startGamePacket;
+				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendToMesh(startGamePacket);
+
+				// process locally too
+				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+				if (pMesh != nullptr)
+				{
+					Lobby_StartGamePacket startGamePacket2;
+					pMesh->ProcessGameStart(startGamePacket2);
+				}
+			}
+		}
+
+	}
+#endif
 
 	if (raiseMessageBoxes)
 	{

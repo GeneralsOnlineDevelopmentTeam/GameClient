@@ -74,10 +74,57 @@ private:
 	
 	std::chrono::system_clock::time_point matchStartTime;
 
+#if defined(GENERALS_ONLINE_ENABLE_MATCH_START_COUNTDOWN)
+	bool m_bCountdownStarted = false;
+	int64_t m_countdownStartTime = -1;
+	int64_t m_countdownLastCheckTime = -1;
+#endif
+
 public:
 	NGMPGame();
 	virtual ~NGMPGame();
 	virtual void reset(void);
+
+#if defined(GENERALS_ONLINE_ENABLE_MATCH_START_COUNTDOWN)
+	void StartCountdown()
+	{
+		m_bCountdownStarted = true;
+		m_countdownStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		m_countdownLastCheckTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	}
+
+	void StopCountdown()
+	{
+		m_bCountdownStarted = false;
+		m_countdownStartTime = -1;
+		m_countdownLastCheckTime = -1;
+	}
+
+	bool IsCountdownStarted()
+	{
+		return m_bCountdownStarted;
+	}
+
+	int64_t GetCountdownStartTime()
+	{
+		return m_countdownStartTime;
+	}
+
+	void UpdateCountdownLastCheckTime()
+	{
+		m_countdownLastCheckTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	}
+
+	int GetTotalCountdownDuration()
+	{
+		return 10;
+	}
+
+	int64_t GetCountdownLastCheckTime()
+	{
+		return m_countdownLastCheckTime;
+	}
+#endif
 
 	void StartMatchTimer() { matchStartTime = std::chrono::system_clock::now(); }
 	std::chrono::system_clock::time_point GetStartTime() { return matchStartTime; }
