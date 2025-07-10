@@ -1,5 +1,6 @@
 #pragma once
 #include "../GameInfo.h"
+#include <chrono>
 
 class LobbyEntry;
 
@@ -70,11 +71,16 @@ private:
 	Int m_reportedNumPlayers;
 	Int m_reportedMaxPlayers;
 	Int m_reportedNumObservers;
+	
+	std::chrono::system_clock::time_point matchStartTime;
 
 public:
 	NGMPGame();
 	virtual ~NGMPGame();
 	virtual void reset(void);
+
+	void StartMatchTimer() { matchStartTime = std::chrono::system_clock::now(); }
+	std::chrono::system_clock::time_point GetStartTime() { return matchStartTime; }
 
 	void SyncWithLobby(LobbyEntry& lobby);
 	void UpdateSlotsFromCurrentLobby();

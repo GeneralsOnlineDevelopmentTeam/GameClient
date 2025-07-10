@@ -11,6 +11,7 @@
 #include "../../NetworkInterface.h"
 #include "Common/MultiplayerSettings.h"
 #include "../../GameSpyOverlay.h"
+#include "GameClient/Display.h"
 
 extern NetworkInterface* TheNetwork;
 
@@ -759,12 +760,40 @@ void NetworkHUD::Render()
 				}
 			}
 
+
+			// PERF STATS
 			UnicodeString unibuffer;
 			unibuffer.format(L"FPS: Render: %d Logic: %ld | Latency: %d game frames (%d ms) - %d GenTool frames", m_lastFPS,
 				TheNetwork->getFrameRate(), ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency));
 
 			m_DisplayString->setText(unibuffer);
 			m_DisplayString->draw(0, 0, GameMakeColor(255, 255, 255, 255), GameMakeColor(0, 0, 0, 255));
+
+			// CLOCKS
+			auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+			auto tm = *std::localtime(&t);
+			std::ostringstream oss;
+			oss << std::put_time(&tm, "%H:%M:%S");
+
+			auto startTime = TheNGMPGame->GetStartTime();
+
+			// match duration
+			auto duration = std::chrono::system_clock::now() - startTime;
+			auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
+			int hours = static_cast<int>(seconds / 3600);
+			int minutes = static_cast<int>((seconds % 3600) / 60);
+			int secs = static_cast<int>(seconds % 60);
+			std::ostringstream ossDuration;
+			ossDuration << std::setfill('0') << std::setw(2) << hours << ":"
+				<< std::setfill('0') << std::setw(2) << minutes << ":"
+				<< std::setfill('0') << std::setw(2) << secs;
+
+			UnicodeString unibufferClock;
+			unibufferClock.format(L"%hs | %hs", oss.str().c_str(), ossDuration.str().c_str());
+			m_DisplayString->setText(unibufferClock);
+
+			uint32_t width = (TheDisplay->getWidth() - m_DisplayString->getWidth());
+			m_DisplayString->draw(width, 0, GameMakeColor(255, 255, 255, 255), GameMakeColor(0, 0, 0, 255));
 		}
 	}
 }
