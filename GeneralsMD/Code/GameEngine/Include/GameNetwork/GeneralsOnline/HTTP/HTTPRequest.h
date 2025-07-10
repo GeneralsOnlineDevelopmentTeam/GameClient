@@ -46,11 +46,13 @@ public:
 
 	void InvokeCallbackIfComplete();
 
-	void Threaded_SetComplete();
+	void Threaded_SetComplete(CURLcode result);
 
 	// mainly used for downloads
 	std::vector<uint8_t> GetBuffer() { return m_vecBuffer; }
 	size_t GetBufferSize() { return m_vecBuffer.size(); }
+
+	std::string GetURI() { return m_strURI; }
 
 private:
 	void PlatformStartRequest();
@@ -64,7 +66,7 @@ private:
 
 	EIPProtocolVersion m_protover;
 
-	int m_timeoutMS = 2000;
+	int m_timeoutMS = 5000;
 
 	std::string m_strURI;
 	std::string m_strPostData;
