@@ -950,14 +950,17 @@ static void StartPressed(void)
 			pMesh->ProcessGameStart(startGamePacket2);
 		}
 #else
-		if (!TheNGMPGame->IsCountdownStarted())
+		if (TheNGMPGame != nullptr)
 		{
-			// remote msg
-			UnicodeString strInform;
-			strInform.format(TheGameText->fetch("LAN:GameStartTimerPlural"), TheNGMPGame->GetTotalCountdownDuration());
-			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform, true);
+			if (!TheNGMPGame->IsCountdownStarted())
+			{
+				// remote msg
+				UnicodeString strInform;
+				strInform.format(TheGameText->fetch("LAN:GameStartTimerPlural"), TheNGMPGame->GetTotalCountdownDuration());
+				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform, true);
 
-			TheNGMPGame->StartCountdown();
+				TheNGMPGame->StartCountdown();
+			}
 		}
 #endif
 
@@ -2060,46 +2063,49 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 
 #if defined(GENERALS_ONLINE_ENABLE_MATCH_START_COUNTDOWN)
 	// is there a countdown in progress?
-	if (TheNGMPGame->IsCountdownStarted())
+	if (TheNGMPGame != nullptr)
 	{
-		const int64_t timeBetweenChecks = 1000;
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-
-		if (currTime - TheNGMPGame->GetCountdownLastCheckTime() >= timeBetweenChecks)
+		if (TheNGMPGame->IsCountdownStarted())
 		{
-			int secondsSinceCountdownStart = (currTime - TheNGMPGame->GetCountdownStartTime()) / 1000;
-			int secondsRemaining = TheNGMPGame->GetTotalCountdownDuration() - secondsSinceCountdownStart;
+			const int64_t timeBetweenChecks = 1000;
+			int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
-			TheNGMPGame->UpdateCountdownLastCheckTime();
-
-			// remote msg
-			UnicodeString strInform;
-			if (secondsRemaining == 1)
-				strInform.format(TheGameText->fetch("LAN:GameStartTimerSingular"), secondsRemaining);
-			else
-				strInform.format(TheGameText->fetch("LAN:GameStartTimerPlural"), secondsRemaining);
-			NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform, true);
-
-			// are we done?
-			if (secondsRemaining <= 0)
+			if (currTime - TheNGMPGame->GetCountdownLastCheckTime() >= timeBetweenChecks)
 			{
-				// stop countdown
-				TheNGMPGame->StopCountdown();
+				int secondsSinceCountdownStart = (currTime - TheNGMPGame->GetCountdownStartTime()) / 1000;
+				int secondsRemaining = TheNGMPGame->GetTotalCountdownDuration() - secondsSinceCountdownStart;
 
-				// send start game packet
-				Lobby_StartGamePacket startGamePacket;
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendToMesh(startGamePacket);
+				TheNGMPGame->UpdateCountdownLastCheckTime();
 
-				// process locally too
-				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-				if (pMesh != nullptr)
+				// remote msg
+				UnicodeString strInform;
+				if (secondsRemaining == 1)
+					strInform.format(TheGameText->fetch("LAN:GameStartTimerSingular"), secondsRemaining);
+				else
+					strInform.format(TheGameText->fetch("LAN:GameStartTimerPlural"), secondsRemaining);
+				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform, true);
+
+				// are we done?
+				if (secondsRemaining <= 0)
 				{
-					Lobby_StartGamePacket startGamePacket2;
-					pMesh->ProcessGameStart(startGamePacket2);
+					// stop countdown
+					TheNGMPGame->StopCountdown();
+
+					// send start game packet
+					Lobby_StartGamePacket startGamePacket;
+					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendToMesh(startGamePacket);
+
+					// process locally too
+					NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+					if (pMesh != nullptr)
+					{
+						Lobby_StartGamePacket startGamePacket2;
+						pMesh->ProcessGameStart(startGamePacket2);
+					}
 				}
 			}
-		}
 
+		}
 	}
 #endif
 
@@ -3598,7 +3604,12 @@ void OnKickedFromLobby()
 {
 	// can't see ourselves
 	buttonPushed = true;
-	TheNGMPGame->reset();
+
+	if (TheNGMPGame != nullptr)
+	{
+		TheNGMPGame->reset();
+	}
+
 	GSMessageBoxOk(TheGameText->fetch("GUI:GSErrorTitle"), TheGameText->fetch("GUI:GSKicked"));
 	nextScreen = "Menus/WOLCustomLobby.wnd";
 	TheShell->pop();
