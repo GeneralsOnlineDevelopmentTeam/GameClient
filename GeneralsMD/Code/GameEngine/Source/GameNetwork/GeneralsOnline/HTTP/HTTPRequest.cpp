@@ -82,7 +82,7 @@ void HTTPRequest::OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes)
 	if (m_currentBufSize_Used + numBytes >= m_vecBuffer.size())
 	{
 		NetworkLog("[%p] Doing buffer resize", this);
-		m_vecBuffer.resize(m_vecBuffer.size() + g_initialBufSize);
+		m_vecBuffer.resize(m_currentBufSize_Used + numBytes);
 	}
 
 	std::copy(pBuffer, pBuffer + numBytes, m_vecBuffer.begin() + m_currentBufSize_Used);
