@@ -619,8 +619,8 @@ void ConnectionManager::processRunAheadMetrics(NetRunAheadMetricsCommandMsg *msg
 
 		// NGMP_CHANGE: Modern machines render games at much higher framerates, 100 is no longer only achievable when a game is in the background...
 #if defined(GENERALS_ONLINE)
-		if (m_fpsAverages[player] > 300) {
-			m_fpsAverages[player] = 300;
+		if (m_fpsAverages[player] > 100) {
+			m_fpsAverages[player] = 100;
 		}
 #else
 		if (m_fpsAverages[player] > 100) {

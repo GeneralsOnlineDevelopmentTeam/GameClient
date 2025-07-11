@@ -672,9 +672,16 @@ void Network::processRunAheadCommand(NetRunAheadCommandMsg *msg) {
 	if (frameGrouping < 1) {
 		frameGrouping = 1; // Having a value less than 1 doesn't make sense.
 	}
-	if (frameGrouping > 500) {
-		frameGrouping = 500; // Max of a half a second.
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVEr)
+	if (frameGrouping > 60) {
+		frameGrouping = 60; // Max of a half a second.
 	}
+#else
+	if (frameGrouping > 30) {
+		frameGrouping = 30; // Max of a half a second.
+	}
+#endif
 
 	m_conMgr->setFrameGrouping(frameGrouping);
 }

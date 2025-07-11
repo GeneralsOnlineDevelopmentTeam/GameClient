@@ -186,13 +186,16 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 				std::string ip = connection.second.GetIPAddrString();
 				ENetPeer* peer = connection.second.m_peer;
 
-				if (ret == 0)
+				if (peer != nullptr)
 				{
-					NetworkLog("Packet Sent! %s:%d", ip.c_str(), peer->address.port);
-				}
-				else
-				{
-					NetworkLog("Packet Failed To Send! %s:%d, result was %d", ip.c_str(), peer->address.port, ret);
+					if (ret == 0)
+					{
+						NetworkLog("Packet Sent! %s:%d", ip.c_str(), peer->address.port);
+					}
+					else
+					{
+						NetworkLog("Packet Failed To Send! %s:%d, result was %d", ip.c_str(), peer->address.port, ret);
+					}
 				}
 			}
 		}
