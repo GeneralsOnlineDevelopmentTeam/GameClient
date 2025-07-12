@@ -1,8 +1,6 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
-#include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_Hello.h"
 #include "GameNetwork/GeneralsOnline/NetworkPacket.h"
-#include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h"
 #include "GameNetwork/GeneralsOnline/NetworkBitstream.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "../OnlineServices_Init.h"

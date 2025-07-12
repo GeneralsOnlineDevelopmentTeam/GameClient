@@ -24,7 +24,7 @@ public:
 
 	bool Graphics_DrawStatsOverlay() const { return m_Render_DrawStatsOverlay; }
 	bool Graphics_LimitFramerate() const { return m_Render_LimitFramerate; }
-	int Graphics_GetFPSLimit() const { return std::max<int>(m_Render_FramerateLimit_FPSVal, 60); }
+	int Graphics_GetFPSLimit() const { return std::clamp<int>(m_Render_FramerateLimit_FPSVal, 60, 240); }
 
 	int GetChatLifeSeconds() const { return std::max<int>(m_Chat_LifeSeconds, 10); }
 
