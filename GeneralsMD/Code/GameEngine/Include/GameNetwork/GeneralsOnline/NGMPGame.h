@@ -117,7 +117,7 @@ public:
 
 	int GetTotalCountdownDuration()
 	{
-		return 10;
+		return 5;
 	}
 
 	int64_t GetCountdownLastCheckTime()
