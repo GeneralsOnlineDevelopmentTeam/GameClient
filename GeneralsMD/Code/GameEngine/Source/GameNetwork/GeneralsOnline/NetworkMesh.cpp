@@ -4,7 +4,6 @@
 
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_Hello.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h"
-#include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_Pong.h"
 #include "../ngmp_include.h"
@@ -54,49 +53,6 @@ void NetworkMesh::OnRelayUpgrade(int64_t targetUserID)
 	else
 	{
 		NetworkLog("User was not found for relay upgrade");
-	}
-}
-
-void NetworkMesh::ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int64_t sendingUserID)
-{
-	GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatPacket.IsAction());
-
-	// TODO_NGMP: Dont make one string per iter
-	int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-	auto lobbyUsers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
-	for (const auto& lobbyUser : lobbyUsers)
-	{
-		if (lobbyUser.user_id == sendingUserID)
-		{
-			// if its an announce, dont show it to the sender, they did something locally instead
-			if (chatPacket.IsAnnouncement())
-			{
-				// if its not us, show the message
-				if (chatPacket.ShowAnnouncementToHost() || lobbyUser.user_id != localID)
-				{
-					UnicodeString str;
-					str.format(L"%hs", chatPacket.GetMsg().c_str());
-
-					if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback != nullptr)
-					{
-						NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
-					}
-				}
-			}
-			else
-			{
-				UnicodeString str;
-				str.format(L"[%hs] %hs", lobbyUser.display_name.c_str(), chatPacket.GetMsg().c_str());
-
-				if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback != nullptr)
-				{
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
-				}
-			}
-
-
-			break;
-		}
 	}
 }
 
@@ -988,16 +944,6 @@ void NetworkMesh::Tick()
 
 						Lobby_StartGamePacket startGamePacket(bitstream);
 						ProcessGameStart(startGamePacket);
-					}
-					else if (packetID == EPacketID::PACKET_ID_NET_ROOM_CHAT_MSG)
-					{
-						NetRoom_ChatMessagePacket chatPacket(bitstream);
-
-						// TODO_NGMP: Support longer msgs
-						NetworkLog("[NGMP]: Received chat message of len %d: %s from %d", chatPacket.GetMsg().length(), chatPacket.GetMsg().c_str(), event.peer->incomingPeerID);
-
-						ProcessChatMessage(chatPacket, connUserID);
-
 					}
 					else if (packetID == EPacketID::PACKET_ID_PING)
 					{

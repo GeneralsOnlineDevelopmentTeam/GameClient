@@ -4,7 +4,6 @@
 #include "GameNetwork/GeneralsOnline/NetworkPacket.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h"
 #include "GameNetwork/GeneralsOnline/NetworkBitstream.h"
-#include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "../OnlineServices_Init.h"
 #include "../HTTP/HTTPManager.h"
@@ -171,6 +170,17 @@ public:
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message, action)
 };
 
+class WebSocketMessage_LobbyChatIncoming : public WebSocketMessageBase
+{
+public:
+	std::string message;
+	bool action;
+	bool announcement;
+	bool show_announcement_to_host;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_LobbyChatIncoming, msg_id, message, action, announcement, show_announcement_to_host)
+};
+
 class WebSocketMessage_RelayUpgrade : public WebSocketMessageBase
 {
 public:
@@ -250,6 +260,22 @@ void WebSocket::Tick()
 							if (NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback != nullptr)
 							{
 								NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg, color);
+							}
+						}
+						break;
+
+						case EWebSocketMessageID::LOBBY_CHAT_FROM_SERVER:
+						{
+							WebSocketMessage_LobbyChatIncoming chatData = jsonObject.get<WebSocketMessage_LobbyChatIncoming>();
+
+							GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action);
+
+							UnicodeString str;
+							str.format(L"%hs", chatData.message.c_str());
+
+							if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback != nullptr)
+							{
+								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
 							}
 						}
 						break;
