@@ -2,8 +2,6 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
-#include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_Hello.h"
-#include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_Pong.h"
 #include "../ngmp_include.h"
