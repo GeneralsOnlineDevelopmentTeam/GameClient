@@ -68,7 +68,7 @@ void NetworkMesh::ProcessGameStart(Lobby_StartGamePacket& startGamePacket)
 	{
 		if (connectionInfo.second.m_peer != nullptr)
 		{
-			enet_peer_timeout(connectionInfo.second.m_peer, 0, 0, 0);
+			enet_peer_timeout(connectionInfo.second.m_peer, 128, 30000, 60000);
 		}
 	}
 }
@@ -386,7 +386,7 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	/* Initiate the connection, allocating the 3 channels. */
 	
 	ENetPeer* peer = enet_host_connect(enetInstance, &addr, 3, 0);
-	enet_peer_timeout(peer, 3, 1000, 1000);
+	enet_peer_timeout(peer, 3, 250, 1000);
 
 #if defined(NETWORK_CONNECTION_DEBUG)
 	char ip1[INET_ADDRSTRLEN + 1] = { 0 };
@@ -1019,7 +1019,7 @@ void NetworkMesh::Tick()
 					{
 						if (pConnection->m_State == EConnectionState::CONNECTING_DIRECT)
 						{
-							if (pConnection->m_ConnectionAttempts < 3)
+							if (pConnection->m_ConnectionAttempts < 1)
 							{
 								NetworkLog("[SERVER] Attempting to connect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts + 1);
 								ConnectToSingleUser(pConnection->m_address, pConnection->m_userID, true);
@@ -1126,7 +1126,7 @@ PlayerConnection::PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* p
 	}
 	// otherwise, keep whatever start we were in, its just a connection update
 
-	enet_peer_timeout(m_peer, 3, 1000, 1000);
+	enet_peer_timeout(m_peer, 3, 250, 1000);
 
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
 	if (pMesh != nullptr)
