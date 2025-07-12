@@ -178,7 +178,6 @@ public:
 		m_cbOnConnected = nullptr;
 	}
 
-	void ProcessChatMessage(NetRoom_ChatMessagePacket& chatPacket, int64_t sendingUserID);
 	void ProcessGameStart(Lobby_StartGamePacket& startGamePacket);
 
 	std::queue<QueuedGamePacket> m_queueQueuedGamePackets;

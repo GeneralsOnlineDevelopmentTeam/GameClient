@@ -476,6 +476,20 @@ void WebSocket::SendData_ChangeName(const char* szNewName)
 	Send(strBody.c_str());
 }
 
+
+void WebSocket::SendData_LobbyChatMessage(const char* szMessage, bool bIsAction, bool bIsAnnouncement, bool bShowAnnouncementToHost)
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::LOBBY_ROOM_CHAT_FROM_CLIENT;
+	j["message"] = szMessage;
+	j["action"] = bIsAction;
+	j["announcement"] = bIsAnnouncement;
+	j["show_announcement_to_host"] = bShowAnnouncementToHost;
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+}
+
 void WebSocket::SendData_LeaveNetworkRoom()
 {
 	SendData_JoinNetworkRoom(-1);

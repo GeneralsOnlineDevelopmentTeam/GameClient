@@ -1,7 +1,6 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_Hello.h"
 #include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_HelloAck.h"
-#include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_NetRoom_ChatMessage.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
@@ -452,27 +451,11 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 
 void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
-	// TODO_NGMP: Custom
 	// TODO_NGMP: Support unicode again
 	AsciiString strChatMsg;
 	strChatMsg.translate(strChatMsgUnicode);
 
-	NetRoom_ChatMessagePacket chatPacket(strChatMsg, false, false, bIsAction);
-
-	// fake send / process locally too
-	m_pLobbyMesh->ProcessChatMessage(chatPacket, NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
-
-	// TODO_NGMP: Move to uint64 for user id
-	std::vector<int64_t> vecUsersToSend;
-	for (auto kvPair : m_CurrentLobby.members)
-	{
-		vecUsersToSend.push_back(kvPair.user_id);
-	}
-	
-	if (m_pLobbyMesh != nullptr)
-	{
-		m_pLobbyMesh->SendToMesh(chatPacket, vecUsersToSend);
-	}
+	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LobbyChatMessage(strChatMsg.str(), bIsAction, false, false);
 }
 
 // TODO_NGMP: Just send a separate packet for each announce, more efficient and less hacky
@@ -481,16 +464,7 @@ void NGMP_OnlineServices_LobbyInterface::SendAnnouncementMessageToCurrentLobby(U
 	AsciiString strChatMsg;
 	strChatMsg.translate(strAnnouncementMsgUnicode);
 
-	NetRoom_ChatMessagePacket chatPacket(strChatMsg, true, bShowToHost, false);
-
-	// fake send / process locally too
-	m_pLobbyMesh->ProcessChatMessage(chatPacket, NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
-
-	std::vector<int64_t> vecUsersToSend;
-	if (m_pLobbyMesh != nullptr)
-	{
-		m_pLobbyMesh->SendToMesh(chatPacket, vecUsersToSend);
-	}
+	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LobbyChatMessage(strChatMsg.str(), false, true, bShowToHost);
 }
 
 NGMP_OnlineServices_LobbyInterface::NGMP_OnlineServices_LobbyInterface()
