@@ -259,11 +259,7 @@ void PortMapper::StartNATCheck()
 		const char* punchMsg = "NATPUNCH";
 		for (int i = 0; i < 50; ++i)
 		{
-			int sent = sendto(m_NATSocket, punchMsg, static_cast<int>(strlen(punchMsg)), 0, (sockaddr*)&punchAddr, sizeof(punchAddr));
-			if (sent == SOCKET_ERROR)
-			{
-				NetworkLog("[NAT Check]: Failed to send NATPUNCH packet %d. Error: %d", i, WSAGetLastError());
-			}
+			sendto(m_NATSocket, punchMsg, static_cast<int>(strlen(punchMsg)), 0, (sockaddr*)&punchAddr, sizeof(punchAddr));
 		}
 	}
 	NetworkLog("[NAT Check]: Finished Holepunch");
