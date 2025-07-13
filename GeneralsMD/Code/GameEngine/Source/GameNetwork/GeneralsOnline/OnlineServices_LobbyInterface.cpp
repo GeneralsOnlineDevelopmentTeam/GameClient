@@ -997,9 +997,12 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 
 void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 {
-	if (!IsInLobby())
+	// kill mesh
+	if (m_pLobbyMesh != nullptr)
 	{
-		return;
+		m_pLobbyMesh->Disconnect();
+		delete m_pLobbyMesh;
+		m_pLobbyMesh = nullptr;
 	}
 
 	if (TheNGMPGame != nullptr)
@@ -1009,15 +1012,12 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 	}
 
 	m_timeStartAutoReadyCountdown = -1;
-
-	// kill mesh
-	if (m_pLobbyMesh != nullptr)
-	{
-		m_pLobbyMesh->Disconnect();
-		delete m_pLobbyMesh;
-		m_pLobbyMesh = nullptr;
-	}
 	
+	if (!IsInLobby())
+	{
+		return;
+	}
+
 	// leave on service
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
