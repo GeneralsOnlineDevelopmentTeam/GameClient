@@ -124,9 +124,29 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 	// finalize the size, so we can use .size etc
 	m_vecBuffer.resize(m_currentBufSize_Used);
 
+	std::string strURIRedacted = m_strURI;
+
+	size_t tokenpos = strURIRedacted.find("token:");
+	if (tokenpos != -1)
+	{
+		std::string strReplace = "<redacted>";
+		const size_t tokenLen = 32;
+		strURIRedacted = strURIRedacted.replace(tokenpos + 6, tokenLen, strReplace);
+	}
+
 	std::string strResponse = std::string(reinterpret_cast<const char*>(m_vecBuffer.data()), m_currentBufSize_Used);
-	NetworkLog("[%p|%s] Transfer is complete: %d bytes total! Curl result is %d", this, m_strURI.c_str(), m_currentBufSize_Used, result);
-	NetworkLog("[%p|%s] Response was %d - %s!", this, m_strURI.c_str(), m_responseCode, strResponse.c_str());
+	NetworkLog("[%p|%s] Transfer is complete: %d bytes total! Curl result is %d", this, strURIRedacted.c_str(), m_currentBufSize_Used, result);
+
+	// if we got an error, set the response code to 0
+
+	std::transform(strResponse.begin(), strResponse.end(), strResponse.begin(),
+		[](unsigned char c) { return std::tolower(c); });
+	if (strResponse.find("token") != std::string::npos)
+	{
+		strResponse = "<redacted>";
+	}
+
+	NetworkLog("[%p|%s] Response was %d - %s!", this, strURIRedacted.c_str(), m_responseCode, strResponse.c_str());
 
 
 	// debug write to file
