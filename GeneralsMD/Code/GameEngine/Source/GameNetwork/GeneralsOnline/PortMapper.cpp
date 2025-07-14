@@ -25,6 +25,13 @@ struct IPCapsResult
 
 void pcpMappingCallback(int id, plum_state_t state, const plum_mapping_t* mapping)
 {
+	NGMP_OnlineServicesManager* pOnlineServiceMgr = NGMP_OnlineServicesManager::GetInstance();
+
+	if (pOnlineServiceMgr == nullptr)
+	{
+		return;
+	}
+
 	NetworkLog("PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
 	switch (state) {
 	case PLUM_STATE_SUCCESS:
@@ -758,6 +765,7 @@ void PortMapper::RemovePortMapping_NATPMP()
 
 void PortMapper::ForwardPort_PCP()
 {
+	
 #if defined(DISABLE_PCP)
 	NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(false);
 	return;
