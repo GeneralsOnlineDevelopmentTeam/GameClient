@@ -45,13 +45,21 @@ void pcpMappingCallback(int id, plum_state_t state, const plum_mapping_t* mappin
 	default:
 		break;
 	}
-
-	// cleanup
-	plum_cleanup();
 }
 
 void PortMapper::Tick()
 {
+	if (m_bPCPNeedsCleanup)
+	{
+		if (m_bPortMapper_PCP_Complete.load())
+		{
+			m_bPCPNeedsCleanup = false;
+			
+			// cleanup
+			plum_cleanup();
+		}
+	}
+
 	// do we have work to do on main thread?
 	bool bEverythingComplete = m_bPortMapper_PCP_Complete.load() && m_bPortMapper_UPNP_Complete.load() && m_bPortMapper_NATPMP_Complete.load();
 	bool bIPChecksComplete = m_IPV4 != ECapabilityState::UNDETERMINED && m_IPV6 != ECapabilityState::UNDETERMINED;
@@ -332,6 +340,9 @@ void PortMapper::DetermineLocalNetworkCapabilities()
 	NetworkLog("[PortMapper] DetermineLocalNetworkCapabilities - starting background thread");
 
 	m_timeStartPortMapping = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+	// clear cleanup flag
+	m_bPCPNeedsCleanup = true;
 
 	// background threads, network ops are blocking
 	m_backgroundThread_PCP = new std::thread(&PortMapper::ForwardPort_PCP, this);
