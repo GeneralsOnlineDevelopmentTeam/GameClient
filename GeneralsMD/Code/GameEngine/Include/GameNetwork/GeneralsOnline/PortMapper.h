@@ -29,6 +29,9 @@ class PortMapper
 public:
 	~PortMapper()
 	{
+		// cleanup
+		plum_cleanup();
+
 		CleanupPorts();
 	}
 
