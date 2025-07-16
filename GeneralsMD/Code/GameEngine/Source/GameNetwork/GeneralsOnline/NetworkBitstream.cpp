@@ -20,7 +20,7 @@ void CBitStream::Decrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 #if defined(ENABLE_ENCRYPTION)
 	std::vector<unsigned char> vecDecryptedBytes(m_memBuffer.GetAllocatedSize());
 	unsigned long long decrypted_len = 0;
-	if (crypto_aead_aes256gcm_decrypt(&vecDecryptedBytes.data()[0], &decrypted_len,
+	if (crypto_aead_xchacha20poly1305_ietf_decrypt(&vecDecryptedBytes.data()[0], &decrypted_len,
 		NULL,
 		&m_memBuffer.GetData()[0], m_memBuffer.GetAllocatedSize(),
 		nullptr,
@@ -50,7 +50,7 @@ void CBitStream::Decrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 void CBitStream::Encrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 {
 #if defined(ENABLE_ENCRYPTION)
-	std::vector<unsigned char> ciphertext(GetNumBytesUsed() + crypto_aead_aes256gcm_ABYTES);
+	std::vector<unsigned char> ciphertext(GetNumBytesUsed() + crypto_aead_xchacha20poly1305_ietf_ABYTES);
 
 	unsigned long long ciphertext_len;
 
@@ -58,7 +58,7 @@ void CBitStream::Encrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 
 	
 
-	crypto_aead_aes256gcm_encrypt(&ciphertext.data()[0], &ciphertext_len,
+	crypto_aead_xchacha20poly1305_ietf_encrypt(&ciphertext.data()[0], &ciphertext_len,
 		GetRawBuffer(), GetNumBytesUsed(),
 		nullptr, 0,
 		NULL, &vecIV.data()[0], &vecKey.data()[0]);

@@ -29,6 +29,9 @@ class PortMapper
 public:
 	~PortMapper()
 	{
+		// cleanup
+		plum_cleanup();
+
 		CleanupPorts();
 	}
 
@@ -117,6 +120,7 @@ private:
 	std::thread* m_backgroundThread_NATPMP = nullptr;
 	std::thread* m_backgroundThread_PCP = nullptr;
 	bool m_bNATCheckStarted = false;
+	bool m_bPCPNeedsCleanup = false;
 	std::atomic<bool> m_bPortMapper_AnyMappingSuccess = false;
 	std::atomic<bool> m_bPortMapper_NATPMP_Complete = false;
 	std::atomic<bool> m_bPortMapper_UPNP_Complete = false;

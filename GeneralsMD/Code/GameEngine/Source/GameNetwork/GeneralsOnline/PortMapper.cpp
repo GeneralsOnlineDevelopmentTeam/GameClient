@@ -25,6 +25,13 @@ struct IPCapsResult
 
 void pcpMappingCallback(int id, plum_state_t state, const plum_mapping_t* mapping)
 {
+	NGMP_OnlineServicesManager* pOnlineServiceMgr = NGMP_OnlineServicesManager::GetInstance();
+
+	if (pOnlineServiceMgr == nullptr)
+	{
+		return;
+	}
+
 	NetworkLog("PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
 	switch (state) {
 	case PLUM_STATE_SUCCESS:
@@ -45,13 +52,21 @@ void pcpMappingCallback(int id, plum_state_t state, const plum_mapping_t* mappin
 	default:
 		break;
 	}
-
-	// cleanup
-	plum_cleanup();
 }
 
 void PortMapper::Tick()
 {
+	if (m_bPCPNeedsCleanup)
+	{
+		if (m_bPortMapper_PCP_Complete.load())
+		{
+			m_bPCPNeedsCleanup = false;
+			
+			// cleanup
+			plum_cleanup();
+		}
+	}
+
 	// do we have work to do on main thread?
 	bool bEverythingComplete = m_bPortMapper_PCP_Complete.load() && m_bPortMapper_UPNP_Complete.load() && m_bPortMapper_NATPMP_Complete.load();
 	bool bIPChecksComplete = m_IPV4 != ECapabilityState::UNDETERMINED && m_IPV6 != ECapabilityState::UNDETERMINED;
@@ -107,11 +122,7 @@ void PortMapper::Tick()
 			const char* punchMsg = "NATPUNCH";
 			for (int i = 0; i < 25; ++i)
 			{
-				int sent = sendto(m_NATSocket, punchMsg, static_cast<int>(strlen(punchMsg)), 0, (sockaddr*)&punchAddr, sizeof(punchAddr));
-				if (sent == SOCKET_ERROR)
-				{
-					NetworkLog("[NAT Check]: Failed to send NATPUNCH packet %d. Error: %d", i, WSAGetLastError());
-				}
+				sendto(m_NATSocket, punchMsg, static_cast<int>(strlen(punchMsg)), 0, (sockaddr*)&punchAddr, sizeof(punchAddr));
 			}
 		}
 		NetworkLog("[NAT Check]: Finished outbound Holepunch");
@@ -332,6 +343,9 @@ void PortMapper::DetermineLocalNetworkCapabilities()
 	NetworkLog("[PortMapper] DetermineLocalNetworkCapabilities - starting background thread");
 
 	m_timeStartPortMapping = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+	// clear cleanup flag
+	m_bPCPNeedsCleanup = true;
 
 	// background threads, network ops are blocking
 	m_backgroundThread_PCP = new std::thread(&PortMapper::ForwardPort_PCP, this);
@@ -627,7 +641,7 @@ void PortMapper::CheckIPCapabilities()
 
 			NetworkLog("IPV4 Support: %d", m_IPV4);
 			InvokeCallback();
-		}, nullptr, 500);
+		}, nullptr, 2000);
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV6, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
@@ -747,6 +761,7 @@ void PortMapper::RemovePortMapping_NATPMP()
 
 void PortMapper::ForwardPort_PCP()
 {
+	
 #if defined(DISABLE_PCP)
 	NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(false);
 	return;

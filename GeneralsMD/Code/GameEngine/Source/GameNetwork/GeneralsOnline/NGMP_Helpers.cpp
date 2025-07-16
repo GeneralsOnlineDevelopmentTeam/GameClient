@@ -1,7 +1,7 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include <chrono>
-#include "libsodium/sodium/crypto_aead_aes256gcm.h"
 #include <mutex>
+#include "libsodium/sodium/crypto_aead_xchacha20poly1305.h"
 
 std::string m_strNetworkLogFileName;
 std::mutex m_logMutex;
@@ -148,16 +148,17 @@ std::string PrepareChallenge()
 
 #if defined(_DEBUG)
 	const unsigned char key[32] = { 1, 4, 2, 6, 1, 9, 3, 5, 6, 2, 1, 0, 0, 7, 0, 1, 7, 9, 4, 4, 6, 1, 3, 9, 3, 1, 2, 2, 3, 4, 1, 6 };
-	const unsigned char iv[12] = { 0, 5, 2, 3, 4, 1, 9, 0, 6, 2, 4, 3 };
+	const unsigned char iv[24] = { 0, 5, 2, 3, 4, 1, 9, 0, 6, 2, 4, 3, 0, 5, 2, 3, 4, 1, 9, 0, 6, 2, 4, 3 };
 #else
 	const unsigned char key[32] = { {REPLACE_CHALLENGE_KEY} };
-	const unsigned char iv[12] = { {REPLACE_CHALLENGE_IV} };
+	const unsigned char iv[24] = { {REPLACE_CHALLENGE_IV} };
 #endif
 
 	// encrypt
-	std::vector<unsigned char> ciphertext((strlen(szChallenge) * sizeof(char)) + crypto_aead_aes256gcm_ABYTES);
-	unsigned long long ciphertext_len;
-	crypto_aead_aes256gcm_encrypt(&ciphertext.data()[0], &ciphertext_len,
+	std::vector<unsigned char> ciphertext((strlen(szChallenge) * sizeof(char)) + crypto_aead_xchacha20poly1305_ietf_ABYTES);
+	unsigned long long ciphertext_len = 0;
+
+	crypto_aead_xchacha20poly1305_ietf_encrypt(&ciphertext.data()[0], &ciphertext_len,
 		(unsigned char*)szChallenge, strlen(szChallenge) * sizeof(char),
 		nullptr, 0,
 		NULL, &iv[0], &key[0]);
@@ -178,7 +179,7 @@ std::string DecryptServiceToken(std::string strServiceToken)
 
 	std::vector<unsigned char> vecDecryptedBytes;
 	unsigned long long decrypted_len = 0;
-	if (crypto_aead_aes256gcm_decrypt(&vecDecryptedBytes.data()[0], &decrypted_len,
+	if (crypto_aead_xchacha20poly1305_ietf_decrypt(&vecDecryptedBytes.data()[0], &decrypted_len,
 		NULL,
 		&vecDecodedToken.data()[0], vecDecodedToken.size(),
 		nullptr,

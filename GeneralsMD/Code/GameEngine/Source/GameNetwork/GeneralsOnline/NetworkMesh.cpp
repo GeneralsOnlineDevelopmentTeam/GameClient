@@ -64,6 +64,9 @@ void NetworkMesh::ProcessGameStart(Lobby_StartGamePacket& startGamePacket)
 	// increase our timeout, Generals has its own timeout code and allows reconnecting, so just set an extremely long value and let the game handle it.
 	for (auto& connectionInfo : m_mapConnections)
 	{
+		// finalize connection outcomes, it's all or nothing now
+		UpdateConnectivity(&connectionInfo.second);
+
 		if (connectionInfo.second.m_peer != nullptr)
 		{
 			enet_peer_timeout(connectionInfo.second.m_peer, 10, 30000, 60000);
@@ -341,6 +344,7 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 					// assume connected, since the connection was already formed prior
 					NetworkLog("[STATE CHANGE 1] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTED_RELAY", user_id, m_mapConnections[user_id].m_State);
 					m_mapConnections[user_id].m_State = EConnectionState::CONNECTED_RELAY;
+					UpdateConnectivity(&m_mapConnections[user_id]);
 					enet_peer_timeout(m_mapConnections[user_id].m_pRelayPeer, 10, 30000, 60000);
 
 					// callback
