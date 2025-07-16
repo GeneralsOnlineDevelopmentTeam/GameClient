@@ -70,7 +70,9 @@ static std::unordered_map<int, std::string> g_mapServiceIndexToPlayerTemplateStr
 #include "../Console/Console.h"
 #endif
 
+#include "../json.hpp"
+
 std::string Base64Encode(const std::vector<uint8_t>& data);
 std::vector<uint8_t> Base64Decode(const std::string& encodedData);
-std::string PrepareChallenge();
+void PrepareChallenge(nlohmann::json& json);
 std::string DecryptServiceToken(std::string strServiceToken);
