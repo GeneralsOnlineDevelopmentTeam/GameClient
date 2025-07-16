@@ -63,7 +63,6 @@ struct LobbyEntry
 	std::string password;
 
 	std::vector<BYTE> EncKey;
-	std::vector<BYTE> EncIV;
 	std::vector<LobbyMemberEntry> members;
 };
 

@@ -1109,7 +1109,7 @@ void NetworkMesh::Tick()
 				{
 					// decrypt
 					CBitStream* bitstream = new CBitStream(event.packet->dataLength, event.packet->data, event.packet->dataLength);
-					bitstream->Decrypt(currentLobby.EncKey, currentLobby.EncIV);
+					bitstream->Decrypt(currentLobby.EncKey);
 					//bitstream->ResetOffsetForLocalRead();
 
 					NetworkLog("Got game packet source user is %lld", connUserID);
@@ -1126,7 +1126,7 @@ void NetworkMesh::Tick()
 					NetworkLog("[NGMP]: Received %d bytes from peer %d on handshake channel", event.packet->dataLength, event.peer->incomingPeerID);
 
 
-					bitstream.Decrypt(currentLobby.EncKey, currentLobby.EncIV);
+					bitstream.Decrypt(currentLobby.EncKey);
 
 					EPacketID packetID = bitstream.Read<EPacketID>();
 					if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO) // remote host is sending us hello
@@ -1157,7 +1157,7 @@ void NetworkMesh::Tick()
 				NetworkLog("[NGMP]: Received %d bytes from peer %d (user id is %lld)", event.packet->dataLength, event.peer->incomingPeerID, connUserID);
 
 				
-				bitstream.Decrypt(currentLobby.EncKey, currentLobby.EncIV);
+				bitstream.Decrypt(currentLobby.EncKey);
 
 				EPacketID packetID = bitstream.Read<EPacketID>();
 
@@ -1328,9 +1328,9 @@ void NetworkMesh::SendPing()
 
 	// TODO_NGMP: Better way of checking we have everything we need / are fully in the lobby
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
-	if (currentLobby.EncKey.empty() || currentLobby.EncIV.empty())
+	if (currentLobby.EncKey.empty())
 	{
-		NetworkLog("No encryption key or IV, not sending ping");
+		NetworkLog("No encryption key, not sending ping");
 		return;
 	}
 
@@ -1392,7 +1392,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	}
 	else if (m_State == EConnectionState::CONNECTING_DIRECT || m_State == EConnectionState::CONNECTED_DIRECT)
 	{
-		bitstream.Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+		bitstream.Encrypt(currentLobby.EncKey);
 
 		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
 
@@ -1409,7 +1409,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	{
 		// use relay peer
 		// encrypt the game packet as normal
-		bitstream.Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+		bitstream.Encrypt(currentLobby.EncKey);
 
 		// repackage with relay header (unencrypted, 9 bytes) + use relay channel
 		// grow
@@ -1455,7 +1455,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 		|| m_State == EConnectionState::CONNECTION_FAILED) && channel == 2))
 	{
 		CBitStream* pBitStream = packet.Serialize();
-		pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+		pBitStream->Encrypt(currentLobby.EncKey);
 
 		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
 
@@ -1503,7 +1503,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 		// use relay peer
 		// encrypt the game packet as normal
 		CBitStream* pBitStream = packet.Serialize();
-		pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+		pBitStream->Encrypt(currentLobby.EncKey);
 
 		// repackage with relay header (unencrypted, 9 bytes) + use relay channel
 		// grow

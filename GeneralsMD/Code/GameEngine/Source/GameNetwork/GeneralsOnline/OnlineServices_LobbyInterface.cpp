@@ -523,7 +523,6 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 
 				// NOTE: These fields won't be present becauase they're private properties
 				//memberEntryIter["enc_key"].get_to(strEncKey);
-				//memberEntryIter["enc_nonce"].get_to(strEncIV)
 
 				for (const auto& memberEntryIter : lobbyEntryIter["members"])
 				{
@@ -672,23 +671,14 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						}
 
 						std::string strEncKey;
-						std::string strEncIV;
 						lobbyEntryJSON["enc_key"].get_to(strEncKey);
-						lobbyEntryJSON["enc_nonce"].get_to(strEncIV);
 						lobbyEntry.EncKey.resize(32);
-						lobbyEntry.EncIV.resize(12);
 						lobbyEntry.EncKey.clear();
-						lobbyEntry.EncIV.clear();
 
 
 						for (char c : strEncKey)
 						{
 							lobbyEntry.EncKey.push_back((BYTE)c);
-						}
-
-						for (char c : strEncIV)
-						{
-							lobbyEntry.EncIV.push_back((BYTE)c);
 						}
 
 						bool bFoundSelfInOld = false;
