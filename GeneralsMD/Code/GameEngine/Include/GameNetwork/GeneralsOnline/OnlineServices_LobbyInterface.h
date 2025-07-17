@@ -291,7 +291,7 @@ public:
 
 	std::vector<LobbyMemberEntry>& GetMembersListForCurrentRoom()
 	{
-		NetworkLog("[NGMP] Refreshing network room roster");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Refreshing network room roster");
 		return m_CurrentLobby.members;
 	}
 

@@ -70,10 +70,6 @@ Bool NextGenTransport::doRecv(void)
 
 		uint32_t numBytes = gamePacket.m_bs->GetNumBytesAllocated();
 
-		NetworkLog("[NGMP]: Received %d bytes from user %d", numBytes, gamePacket.m_userID);
-
-		
-
 		// avoiding memcpy, since the game memcpy's it into a free slot anyway
 		//buf = (unsigned char*)gamePacket.m_packet->data;
 		memcpy(buf, gamePacket.m_bs->GetRawBuffer(), numBytes);
@@ -99,11 +95,11 @@ Bool NextGenTransport::doRecv(void)
 		// is it a generals packet?
 		if (isGeneralsPacket(&incomingMessage))
 		{
-			//NetworkLog("Game Packet Recv: Is a generals packet");
+			//NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is a generals packet");
 		}
 		else
 		{
-			NetworkLog("Game Packet Recv: Is NOT a generals packet");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is NOT a generals packet");
 		}
 
 		if (numBytes <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
@@ -216,11 +212,11 @@ Bool NextGenTransport::queueSend(UnsignedInt addr, UnsignedShort port, const Uns
 			// is it a generals packet?
 			if (isGeneralsPacket(&m_outBuffer[i]))
 			{
-				//NetworkLog("Game Packet Queue Sending: Is a generals packet");
+				//NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Queue Sending: Is a generals packet");
 			}
 			else
 			{
-				//NetworkLog("Game Packet Queue Sending: Is NOT a generals packet");
+				//NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Queue Sending: Is NOT a generals packet");
 			}
 
 			return true;

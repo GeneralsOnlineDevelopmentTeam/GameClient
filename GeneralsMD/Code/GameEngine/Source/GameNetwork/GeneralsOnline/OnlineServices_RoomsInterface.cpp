@@ -60,14 +60,14 @@ void WebSocket::Connect(const char* url)
 			fprintf(stderr, "curl_easy_perform() failed: %s\n",
 				curl_easy_strerror(res));
 
-			NetworkLog("[WebSocket] Failed to connect");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Failed to connect");
 		}
 		else
 		{
 			/* connected and ready */
 			m_bConnected = true;
 
-			NetworkLog("[WebSocket] Connected");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Connected");
 		}
 	}
 }
@@ -147,7 +147,7 @@ void WebSocket::Send(const char* send_payload)
 
 	if (result != CURLE_OK)
 	{
-		NetworkLog("curl_ws_send() failed: %s\n", curl_easy_strerror(result));
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "curl_ws_send() failed: %s\n", curl_easy_strerror(result));
 	}
 }
 
@@ -222,14 +222,14 @@ void WebSocket::Tick()
 
 	if (ret != CURLE_RECV_ERROR && ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
 	{
-		NetworkLog("Got websocket msg: %s", buffer);
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket msg: %s", buffer);
 
 		// what type of message?
 		if (meta != nullptr)
 		{
 			if (meta->flags & CURLWS_PONG) // PONG
 			{
-				//NetworkLog("Got websocket pong");
+
 			}
 			else if (meta->flags & CURLWS_TEXT)
 			{
@@ -281,7 +281,7 @@ void WebSocket::Tick()
 						case EWebSocketMessageID::PLAYER_CONNECTION_RELAY_UPGRADE:
 						{
 							WebSocketMessage_RelayUpgrade relayUpgrade = jsonObject.get<WebSocketMessage_RelayUpgrade>();
-							NetworkLog("Got relay upgrade for user %lld", relayUpgrade.target_user_id);
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "Got relay upgrade for user %lld", relayUpgrade.target_user_id);
 							NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
 							if (pMesh != nullptr)
 							{
@@ -323,44 +323,43 @@ void WebSocket::Tick()
 			}
 			else if (meta->flags & CURLWS_BINARY)
 			{
-				NetworkLog("Got websocket binary");
+				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket binary");
 				// noop
 			}
 			else if (meta->flags & CURLWS_CONT)
 			{
-				NetworkLog("Got websocket cont");
+				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket cont");
 				// noop
 			}
 			else if (meta->flags & CURLWS_CLOSE)
 			{
 				// TODO_NGMP: Dont do this during gameplay, they can play without the WS, just 'queue' it for when they get back to the front end
 
-				NetworkLog("Got websocket close");
+				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket close");
 				NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
 				m_bConnected = false;
 				// TODO_NGMP: Handle this
 			}
 			else if (meta->flags & CURLWS_PING)
 			{
-				//NetworkLog("Got websocket ping");
 				// TODO_NGMP: Handle this
 			}
 			else if (meta->flags & CURLWS_OFFSET)
 			{
-				NetworkLog("Got websocket offset");
+				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket offset");
 				// noop
 			}
 		}
 		else
 		{
-			NetworkLog("websocket meta was null");
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "websocket meta was null");
 		}
 	}
 	else if (ret == CURLE_RECV_ERROR)
 	{
 		// TODO_NGMP: Dont do this during gameplay, they can play without the WS, just 'queue' it for when they get back to the front end
 
-		NetworkLog("Got websocket disconnect");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect");
 		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
 		m_bConnected = false;
 	}
@@ -429,7 +428,7 @@ void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<v
 
 std::map<uint64_t, NetworkRoomMember>& NGMP_OnlineServices_RoomsInterface::GetMembersListForCurrentRoom()
 {
-	NetworkLog("[NGMP] Refreshing network room roster");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Refreshing network room roster");
 	return m_mapMembers;
 }
 

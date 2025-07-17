@@ -7,9 +7,14 @@
 std::string m_strNetworkLogFileName;
 std::mutex m_logMutex;
 
-void NetworkLog(const char* fmt, ...)
+void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 {
-	std::scoped_lock{ m_logMutex };
+	if (logVerbosity < g_LogVerbosity)
+	{
+		return;
+	}
+
+	std::scoped_lock scopedLock { m_logMutex };
 
 	if (m_strNetworkLogFileName.empty())
 	{
@@ -189,7 +194,7 @@ std::string DecryptServiceToken(std::string strServiceToken)
 		0,
 		&iv[0], &key[0]) != 0)
 	{
-		NetworkLog("Token decrypt failed");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Token decrypt failed");
 		return "";
 	}
 	else

@@ -2013,7 +2013,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 				WOLDisplaySlotList();
 				WOLDisplayGameOptions();
 
-				NetworkLog("Host left and server migrated the host to us...");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "Host left and server migrated the host to us...");
 
 				GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. You are now the host."), GameMakeColor(255, 255, 255, 255), -1, -1);
 

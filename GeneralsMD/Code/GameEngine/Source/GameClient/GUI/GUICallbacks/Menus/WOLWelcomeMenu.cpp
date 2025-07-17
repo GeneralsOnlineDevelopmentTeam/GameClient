@@ -562,27 +562,6 @@ static void updateOverallStats(void)
 
 void UpdateLocalPlayerStats(void)
 {
-	/*
-	int a = 0;
-	for (int i = 0; i < ThePlayerTemplateStore->getPlayerTemplateCount(); i++)
-	{
-		const PlayerTemplate* pTemplate = ThePlayerTemplateStore->getNthPlayerTemplate(i);
-		AsciiString side = pTemplate->getSide();
-
-		if (!pTemplate->isPlayableSide() || pTemplate->getSide().compare("Boss") == 0)
-		{
-			NetworkLog("Player Template %d (%s) is fake", i, side.str());
-			continue;  //skip non-players
-		}
-
-		
-
-		NetworkLog("Player Template %d (%d - %s) is real", i, a, side.str());
-		++a;
-
-		
-	}
-	*/
 	GameWindow *welcomeParent = TheWindowManager->winGetWindowFromId( NULL, NAMEKEY("WOLWelcomeMenu.wnd:WOLWelcomeMenuParent") );
 
 	if (welcomeParent)

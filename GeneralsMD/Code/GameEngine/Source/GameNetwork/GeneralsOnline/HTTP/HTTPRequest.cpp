@@ -81,14 +81,14 @@ void HTTPRequest::OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes)
 	// do we need a buffer resize?
 	if (m_currentBufSize_Used + numBytes >= m_vecBuffer.size())
 	{
-		NetworkLog("[%p] Doing buffer resize", this);
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "[%p] Doing buffer resize", this);
 		m_vecBuffer.resize(m_currentBufSize_Used + numBytes);
 	}
 
 	std::copy(pBuffer, pBuffer + numBytes, m_vecBuffer.begin() + m_currentBufSize_Used);
 	m_currentBufSize_Used += numBytes;
 
-	NetworkLog("[%p] Received: %d bytes", this, numBytes);
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "[%p] Received: %d bytes", this, numBytes);
 
 	m_bNeedsProgressUpdate = true;
 }
@@ -135,7 +135,7 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 	}
 
 	std::string strResponse = std::string(reinterpret_cast<const char*>(m_vecBuffer.data()), m_currentBufSize_Used);
-	NetworkLog("[%p|%s] Transfer is complete: %d bytes total! Curl result is %d", this, strURIRedacted.c_str(), m_currentBufSize_Used, result);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s] Transfer is complete: %d bytes total! Curl result is %d", this, strURIRedacted.c_str(), m_currentBufSize_Used, result);
 
 	// if we got an error, set the response code to 0
 
@@ -146,7 +146,7 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 		strResponse = "<redacted>";
 	}
 
-	NetworkLog("[%p|%s] Response was %d - %s!", this, strURIRedacted.c_str(), m_responseCode, strResponse.c_str());
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s] Response was %d - %s!", this, strURIRedacted.c_str(), m_responseCode, strResponse.c_str());
 
 
 	// debug write to file

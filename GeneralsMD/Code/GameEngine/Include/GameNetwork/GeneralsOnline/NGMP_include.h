@@ -1,7 +1,20 @@
 #pragma once
 
 
-void NetworkLog(const char* fmt, ...);
+enum class ELogVerbosity
+{
+	LOG_DEBUG = 0,
+	LOG_RELEASE = 1
+};
+
+static const ELogVerbosity g_LogVerbosity =
+#if _DEBUG
+ELogVerbosity::LOG_DEBUG;
+#else
+ELogVerbosity::LOG_RELEASE;
+#endif
+
+void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...);
 
 
 int RoundUpLatencyToFrameInterval(int latency, int frameInterval);

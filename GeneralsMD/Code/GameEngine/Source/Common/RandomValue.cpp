@@ -111,7 +111,6 @@ static UnsignedInt randomValue(UnsignedInt *seed)
 	// Do we need a new number?
 	if (lastRngFrame != TheGameLogic->getFrame())
 	{
-		//NetworkLog("Generating new RNG for frame %u", TheGameLogic->getFrame());
 		lastRngFrameVal = generator();
 		lastRngFrame = TheGameLogic->getFrame();
 	}

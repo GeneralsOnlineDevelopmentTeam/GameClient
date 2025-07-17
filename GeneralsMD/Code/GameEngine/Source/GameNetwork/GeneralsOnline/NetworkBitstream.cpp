@@ -34,7 +34,7 @@ void CBitStream::Decrypt(std::vector<BYTE>& vecKey)
 		nonce.data(), &vecKey.data()[0]) != 0)
 	{
 		/* message forged! */
-		NetworkLog("[NGMP]: Message forged! Decrypt failed");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP]: Message forged! Decrypt failed");
 	}
 	else
 	{
@@ -59,8 +59,6 @@ void CBitStream::Encrypt(std::vector<BYTE>& vecKey)
 	std::vector<unsigned char> ciphertext(GetNumBytesUsed() + crypto_aead_xchacha20poly1305_ietf_ABYTES);
 
 	unsigned long long ciphertext_len;
-
-	//NetworkLog("Encrypting message %s", MESSAGE);
 
 	// create nonce
 	std::vector<uint8_t> nonce(crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
