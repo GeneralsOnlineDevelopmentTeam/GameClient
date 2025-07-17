@@ -1039,9 +1039,11 @@ void WOLDisplayGameOptions( void )
 	}
 	else
 	{
-		// TODO_NGMP
-		/*
+#if defined(GENERALS_ONLINE)
+		AsciiString s = theGame->getMap();
+#else
 		AsciiString s = TheGameSpyInfo->getCurrentStagingRoom()->getMap();
+#endif
 		if (s.reverseFind('\\'))
 		{
 			s = s.reverseFind('\\') + 1;
@@ -1049,7 +1051,6 @@ void WOLDisplayGameOptions( void )
 		UnicodeString mapDisplay;
 		mapDisplay.translate(s);
 		GadgetStaticTextSetText(textEntryMapDisplay, mapDisplay);
-		*/
 	}
 	WOLPositionStartSpots();
 	updateMapStartSpots(theGame, buttonMapStartPosition);
@@ -1712,7 +1713,8 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		}
 
 		// TODO_NGMP: preferred map support
-		AsciiString lowerMap = getDefaultOfficialMap();
+		//AsciiString lowerMap = getDefaultOfficialMap();
+		AsciiString lowerMap = game->getMap();
 		//AsciiString lowerMap = customPref.getPreferredMap();
 		lowerMap.toLower();
 		std::map<AsciiString, MapMetaData>::iterator it = TheMapCache->find(lowerMap);
