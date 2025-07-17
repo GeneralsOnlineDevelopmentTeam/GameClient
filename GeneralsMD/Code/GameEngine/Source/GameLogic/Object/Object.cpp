@@ -111,11 +111,6 @@
 #include "Common/AudioEventInfo.h"
 #include "Common/DynamicAudioEventInfo.h"
 
-#ifdef RTS_INTERNAL
-// for occasional debugging...
-//#pragma optimize("", off)
-//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
-#endif
 
 #ifdef DEBUG_OBJECT_ID_EXISTS
 ObjectID TheObjectIDToDebug = INVALID_ID;
@@ -222,7 +217,7 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 	m_visionSpiedMask (PLAYERMASK_NONE),
 	m_numTriggerAreasActive(0)
 {
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	m_hasDiedAlready = false;
 #endif
 	//Modules have not been created yet!
@@ -443,7 +438,7 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 		{
 			if( m_ai ) 
 			{
-				DEBUG_ASSERTCRASH( m_ai == NULL, ("%s has more than one AI module. This is illegal!\n", getTemplate()->getName().str()) );
+				DEBUG_ASSERTCRASH( m_ai == NULL, ("%s has more than one AI module. This is illegal!", getTemplate()->getName().str()) );
 			}
 			m_ai = ai;
 		}
@@ -451,7 +446,7 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 		static NameKeyType key_PhysicsUpdate = NAMEKEY("PhysicsBehavior");
 		if (newMod->getModuleNameKey() == key_PhysicsUpdate)
 		{
-			DEBUG_ASSERTCRASH(m_physics == NULL, ("You should never have more than one Physics module (%s)\n",getTemplate()->getName().str()));
+			DEBUG_ASSERTCRASH(m_physics == NULL, ("You should never have more than one Physics module (%s)",getTemplate()->getName().str()));
 			m_physics = (PhysicsBehavior*)newMod;
 		}
 	}
@@ -569,7 +564,7 @@ void Object::initObject()
 
 	// Kris -- All missiles must be projectiles! This is the perfect place to assert them!
 	// srj: yes, but only in debug...
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	if( !isKindOf( KINDOF_PROJECTILE ) )
 	{
 		if( isKindOf( KINDOF_SMALL_MISSILE ) || isKindOf( KINDOF_BALLISTIC_MISSILE ) )
@@ -809,13 +804,13 @@ void Object::restoreOriginalTeam()
 	Team* origTeam = TheTeamFactory->findTeam(m_originalTeamName);
 	if (origTeam == NULL)
 	{
-		DEBUG_CRASH(("Object original team (%s) could not be found or created! (srj)\n",m_originalTeamName.str()));
+		DEBUG_CRASH(("Object original team (%s) could not be found or created! (srj)",m_originalTeamName.str()));
 		return;
 	}
 
 	if (m_team == origTeam)
 	{
-		DEBUG_CRASH(("Object appears to still be on its original team, so why are we attempting to restore it? (srj)\n"));
+		DEBUG_CRASH(("Object appears to still be on its original team, so why are we attempting to restore it? (srj)"));
 		return;
 	}
 
@@ -1966,7 +1961,7 @@ void Object::kill( DamageType damageType, DeathType deathType )
 	damageInfo.in.m_kill = TRUE; // Triggers object to die no matter what.
 	attemptDamage( &damageInfo );
 
-	DEBUG_ASSERTCRASH(!damageInfo.out.m_noEffect, ("Attempting to kill an unKillable object (InactiveBody?)\n"));
+	DEBUG_ASSERTCRASH(!damageInfo.out.m_noEffect, ("Attempting to kill an unKillable object (InactiveBody?)"));
 
 }  // end kill
 
@@ -2405,12 +2400,12 @@ void Object::onCollide( Object *other, const Coord3D *loc, const Coord3D *normal
 		if( getStatusBits().test( OBJECT_STATUS_NO_COLLISIONS ) )
 		{
 #ifdef DEBUG_CRC
-			//DEBUG_LOG(("Object::onCollide() - OBJECT_STATUS_NO_COLLISIONS set\n"));
+			//DEBUG_LOG(("Object::onCollide() - OBJECT_STATUS_NO_COLLISIONS set"));
 #endif
 			break;
 		}
 #ifdef DEBUG_CRC
-		//DEBUG_LOG(("Object::onCollide() - calling collide module\n"));
+		//DEBUG_LOG(("Object::onCollide() - calling collide module"));
 #endif
 		collide->onCollide(other, loc, normal);
 	}
@@ -2514,7 +2509,7 @@ Bool Object::didEnter(const PolygonTrigger *pTrigger) const
 	if (!didEnterOrExit()) 
 		return false;
 
-	DEBUG_ASSERTCRASH(!isKindOf(KINDOF_INERT), ("Asking whether an inert object entered or exited. This is invalid.\n"));
+	DEBUG_ASSERTCRASH(!isKindOf(KINDOF_INERT), ("Asking whether an inert object entered or exited. This is invalid."));
 
 	for (Int i=0; i<m_numTriggerAreasActive; i++) 
 	{
@@ -2532,7 +2527,7 @@ Bool Object::didExit(const PolygonTrigger *pTrigger) const
 	if (!didEnterOrExit()) 
 		return false;
 
-	DEBUG_ASSERTCRASH(!isKindOf(KINDOF_INERT), ("Asking whether an inert object entered or exited. This is invalid.\n"));
+	DEBUG_ASSERTCRASH(!isKindOf(KINDOF_INERT), ("Asking whether an inert object entered or exited. This is invalid."));
 	for (Int i=0; i<m_numTriggerAreasActive; i++) 
 	{
 		if (m_triggerInfo[i].exited && m_triggerInfo[i].pTrigger == pTrigger) 
@@ -2546,7 +2541,7 @@ Bool Object::didExit(const PolygonTrigger *pTrigger) const
 //-------------------------------------------------------------------------------------------------
 Bool Object::isInside(const PolygonTrigger *pTrigger) const
 {
-	DEBUG_ASSERTCRASH(!isKindOf(KINDOF_INERT), ("Asking whether an inert is inside a trigger area. This is invalid.\n"));
+	DEBUG_ASSERTCRASH(!isKindOf(KINDOF_INERT), ("Asking whether an inert is inside a trigger area. This is invalid."));
 
 	for (Int i=0; i<m_numTriggerAreasActive; i++) 
 	{
@@ -2728,7 +2723,7 @@ void Object::setLayer(PathfindLayerEnum layer)
 	if (layer!=m_layer) {
 #define no_SET_LAYER_INTENSE_DEBUG
 #ifdef SET_LAYER_INTENSE_DEBUG
-		DEBUG_LOG(("Changing layer from %d to %d\n", m_layer, layer));
+		DEBUG_LOG(("Changing layer from %d to %d", m_layer, layer));
 		if (m_layer != LAYER_GROUND) {
 			if (TheTerrainLogic->objectInteractsWithBridgeLayer(this, m_layer)) {
 				DEBUG_CRASH(("Probably shouldn't be chaging layer. jba."));
@@ -2757,7 +2752,7 @@ void Object::setID( ObjectID id )
 {
 
 	// sanity 
-	DEBUG_ASSERTCRASH( id != INVALID_ID, ("Object::setID - Invalid id\n") );
+	DEBUG_ASSERTCRASH( id != INVALID_ID, ("Object::setID - Invalid id") );
 
 	// if id hasn't changed do nothing
 	if( m_id == id )
@@ -2886,7 +2881,7 @@ Module* Object::findModule(NameKeyType key) const
 			}
 			else
 			{
-				DEBUG_CRASH(("Duplicate modules found for name %s!\n",TheNameKeyGenerator->keyToName(key).str()));
+				DEBUG_CRASH(("Duplicate modules found for name %s!",TheNameKeyGenerator->keyToName(key).str()));
 			}
 #else
 			m = *b;
@@ -3980,7 +3975,7 @@ void Object::crc( Xfer *xfer )
 #ifdef DEBUG_CRC
 	if (doLogging)
 	{
-		tmp.format("damage scalar: %g/%8.8X\n", scalar, AS_INT(scalar));
+		tmp.format("damage scalar: %g/%8.8X", scalar, AS_INT(scalar));
 		logString.concat(tmp);
 
 		CRCDEBUG_LOG(("%s", logString.str()));
@@ -4025,7 +4020,7 @@ void Object::xfer( Xfer *xfer )
 	xfer->xferObjectID( &id );
 	setID( id );
 
-	DEBUG_LOG(("Xfer Object %s id=%d\n",getTemplate()->getName().str(),id));
+	DEBUG_LOG(("Xfer Object %s id=%d",getTemplate()->getName().str(),id));
 
 	if (version >= 7)
 	{
@@ -4111,7 +4106,7 @@ void Object::xfer( Xfer *xfer )
 		Team *team = TheTeamFactory->findTeamByID( teamID );
 		if( team == NULL )
 		{
-			DEBUG_CRASH(( "Object::xfer - Unable to load team\n" ));
+			DEBUG_CRASH(( "Object::xfer - Unable to load team" ));
 			throw SC_INVALID_DATA;
 		}
 		const Bool restoring = true;
@@ -4341,7 +4336,7 @@ void Object::xfer( Xfer *xfer )
 			{
 
 				// for testing purposes, this module better be found
-//				DEBUG_CRASH(( "Object::xfer - Module '%s' was indicated in file, but not found on object '%s'(%d)\n",
+//				DEBUG_CRASH(( "Object::xfer - Module '%s' was indicated in file, but not found on object '%s'(%d)",
 //											moduleIdentifier.str(), getTemplate()->getName().str(), getID() ));
 
 				// skip this data in the file
@@ -4391,7 +4386,7 @@ void Object::xfer( Xfer *xfer )
 	//m_body;
 	//m_ai;
 	//m_physics;
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	//m_hasDiedAlready;
 #endif
 
@@ -4557,7 +4552,7 @@ void Object::onDie( DamageInfo *damageInfo )
 
 	checkAndDetonateBoobyTrap(NULL);// Already dying, so no need to handle death case of explosion
 
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	DEBUG_ASSERTCRASH(m_hasDiedAlready == false, ("Object::onDie has been called multiple times. This is invalid. jkmcd"));
 	m_hasDiedAlready = true;
 #endif
@@ -4631,7 +4626,7 @@ void Object::onDie( DamageInfo *damageInfo )
 			RebuildHoleBehaviorInterface *rhbi = RebuildHoleBehavior::getRebuildHoleBehaviorInterfaceFromObject( hole );
 
 			// sanity
-			DEBUG_ASSERTCRASH( rhbi, ("Object::onDie() -  No Rebuild Hole Behavior interface on hole\n") );
+			DEBUG_ASSERTCRASH( rhbi, ("Object::onDie() -  No Rebuild Hole Behavior interface on hole") );
 
 			// start the rebuild process
 			if( rhbi )
@@ -4976,7 +4971,7 @@ void Object::look()
 				m_partitionLastLook->m_forWhom = lookingMask;
 				m_partitionLastLook->m_howFar = getShroudClearingRange();
 
-	//			DEBUG_LOG(( "A %s looks at %f, %f for %x at range %f\n",
+	//			DEBUG_LOG(( "A %s looks at %f, %f for %x at range %f",
 	//									getTemplate()->getName().str(),
 	//									pos.x,
 	//									pos.y,
@@ -5026,7 +5021,7 @@ void Object::unlook()
 																				m_partitionLastLook->m_forWhom
 																				);
 
-//			DEBUG_LOG(( "A %s queues an unlook at %f, %f for %x at range %f\n",
+//			DEBUG_LOG(( "A %s queues an unlook at %f, %f for %x at range %f",
 //									getTemplate()->getName().str(),
 //									m_partitionLastLook.m_where.x,
 //									m_partitionLastLook.m_where.y,
@@ -5107,7 +5102,7 @@ void Object::unshroud()
 //-------------------------------------------------------------------------------------------------
 Real Object::getVisionRange() const
 {
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	if (TheGlobalData->m_debugVisibility) 
 	{
 		Vector3 pos(m_visionRange, 0, 0);
@@ -5143,7 +5138,7 @@ Real Object::getShroudClearingRange() const
 		shroudClearingRange = getGeometryInfo().getBoundingCircleRadius();
 	}
 
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	if (TheGlobalData->m_debugVisibility) 
 	{
 		Vector3 pos(shroudClearingRange, 0, 0);
@@ -5200,7 +5195,7 @@ void Object::setShroudClearingRange( Real newShroudClearingRange )
 //-------------------------------------------------------------------------------------------------
 Real Object::getShroudRange() const
 {
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	if (TheGlobalData->m_debugVisibility) 
 	{
 		Vector3 pos(m_shroudRange, 0, 0);
@@ -5454,7 +5449,7 @@ void Object::doCommandButton( const CommandButton *commandButton, CommandSourceT
 			case GUI_COMMAND_PLAYER_UPGRADE:
 				{
 					const UpgradeTemplate *upgradeT = commandButton->getUpgradeTemplate();
-					DEBUG_ASSERTCRASH( upgradeT, ("Undefined upgrade '%s' in player upgrade command\n", "UNKNOWN") );
+					DEBUG_ASSERTCRASH( upgradeT, ("Undefined upgrade '%s' in player upgrade command", "UNKNOWN") );
 					// sanity
 					if( upgradeT == NULL )
 						break;
@@ -6299,7 +6294,7 @@ AIGroup *Object::getGroup(void)
 //-------------------------------------------------------------------------------------------------
 void Object::enterGroup( AIGroup *group )
 {
-//	DEBUG_LOG(("***AIGROUP %x involved in enterGroup on %x\n", group, this));
+//	DEBUG_LOG(("***AIGROUP %x involved in enterGroup on %x", group, this));
 	// if we are in another group, remove ourselves from it first
 	leaveGroup();
 
@@ -6313,7 +6308,7 @@ void Object::enterGroup( AIGroup *group )
 //-------------------------------------------------------------------------------------------------
 void Object::leaveGroup( void )
 {
-//	DEBUG_LOG(("***AIGROUP %x involved in leaveGroup on %x\n", m_group, this));
+//	DEBUG_LOG(("***AIGROUP %x involved in leaveGroup on %x", m_group, this));
 	// if we are in a group, remove ourselves from it
 	if (m_group)
 	{

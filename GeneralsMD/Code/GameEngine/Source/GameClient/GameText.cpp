@@ -56,20 +56,16 @@
 #include "Common/GlobalData.h"
 #include "Common/file.h"
 #include "Common/FileSystem.h"
+#include "Common/version.h"
 
 
-#ifdef RTS_INTERNAL
-// for occasional debugging...
-//#pragma optimize("", off)
-//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
-#endif
 
 
 //----------------------------------------------------------------------------
 //         Externals                                                     
 //----------------------------------------------------------------------------
 
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 Bool g_useStringFile = TRUE;
 #endif
 
@@ -170,7 +166,7 @@ class GameTextManager : public GameTextInterface
 		StringInfo			*m_stringInfo;
 		StringLookUp		*m_stringLUT;
 		Bool						m_initialized;
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 		Bool						m_jabberWockie;
 		Bool						m_munkee;
 #endif
@@ -251,7 +247,7 @@ GameTextManager::GameTextManager()
 	m_stringLUT(NULL),
 	m_initialized(FALSE),
 	m_noStringList(NULL),
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	m_jabberWockie(FALSE),
 	m_munkee(FALSE),
 	m_useStringFile(g_useStringFile),
@@ -304,7 +300,7 @@ void GameTextManager::init( void )
 	m_initialized = TRUE;
 
 	m_maxLabelLen = 0;
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	if(TheGlobalData)
 	{
 		m_jabberWockie = TheGlobalData->m_jabberOn;
@@ -381,6 +377,17 @@ void GameTextManager::init( void )
 		ourName = s;
 	}
 
+	if (TheVersion != NULL)
+	{
+		// TheSuperHackers @tweak Now prints version information in the Window title.
+		UnicodeString version;
+		version.format(L" %s %s",
+			TheVersion->getUnicodeGameAndGitVersion().str(),
+			TheVersion->getUnicodeBuildUserOrGitCommitAuthorName().str()
+		);
+		ourName.concat(version);
+	}
+
 	AsciiString ourNameA;
 	ourNameA.translate(ourName);	//get ASCII version for Win 9x
 
@@ -427,15 +434,17 @@ void GameTextManager::deinit( void )
 
 	NoString *noString = m_noStringList;
 
-	DEBUG_LOG(("\n*** Missing strings ***\n"));
+	DEBUG_LOG_RAW(("\n"));
+	DEBUG_LOG(("*** Missing strings ***"));
 	while ( noString )
 	{
-		DEBUG_LOG(("*** %ls ***\n", noString->text.str()));
+		DEBUG_LOG(("*** %ls ***", noString->text.str()));
 		NoString *next = noString->next;
 		delete noString;
 		noString = next;
 	}
-	DEBUG_LOG(("*** End missing strings ***\n\n"));
+	DEBUG_LOG(("*** End missing strings ***"));
+	DEBUG_LOG_RAW(("\n"));
 
 	m_noStringList = NULL;
 
@@ -719,7 +728,7 @@ void GameTextManager::translateCopy( WideChar *outbuf, Char *inbuf )
 {
 	Int slash = FALSE;
 
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	if ( m_jabberWockie )
 	{
 		static Char buffer[MAX_UITEXT_LENGTH*2];
@@ -850,7 +859,7 @@ Bool GameTextManager::getStringCount( const char *filename, Int& textCount )
 
 	File *file;
 	file = TheFileSystem->openFile(filename, File::READ | File::TEXT);
-	DEBUG_LOG(("Looking in %s for string file\n", filename));
+	DEBUG_LOG(("Looking in %s for string file", filename));
 	
 	if ( file == NULL )
 	{
@@ -891,7 +900,7 @@ Bool GameTextManager::getCSFInfo ( const Char *filename )
 	CSFHeader header;
 	Int ok = FALSE;
 	File *file = TheFileSystem->openFile(filename, File::READ | File::BINARY);
-	DEBUG_LOG(("Looking in %s for compiled string file\n", filename));
+	DEBUG_LOG(("Looking in %s for compiled string file", filename));
 
 	if ( file != NULL )
 	{
@@ -1334,7 +1343,7 @@ UnicodeString GameTextManager::fetch( const Char *label, Bool *exists )
 			noString = noString->next;
 		}
 
-		//DEBUG_LOG(("*** MISSING:'%s' ***\n", label));
+		//DEBUG_LOG(("*** MISSING:'%s' ***", label));
 		// Remember file could have been altered at this point.
 		noString = NEW NoString;
 		noString->text = missingString;

@@ -50,15 +50,10 @@
 #include "WW3D2/ww3d.h"
 #include "WW3D2/hanim.h"
 
-#include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.		 
-
 #include "../OnlineServices_Init.h"
 
-#ifdef RTS_INTERNAL
-// for occasional debugging...
-//#pragma optimize("", off)
-//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
-#endif
+#include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.		 
+
 
 
 #ifdef RTS_DEBUG
@@ -445,6 +440,8 @@ void W3DInGameUI::draw( void )
 	}
 
 	TheWindowManager->winRepaint();
+
+	postWindowDraw();
 	
 #ifdef EXTENDED_STATS
 	}

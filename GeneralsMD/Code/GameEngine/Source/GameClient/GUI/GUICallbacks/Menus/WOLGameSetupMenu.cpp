@@ -73,17 +73,12 @@ NGMPGame* TheNGMPGame = NULL;
 
 void WOLDisplaySlotList( void );
 
-#ifdef RTS_INTERNAL
-// for occasional debugging...
-//#pragma optimize("", off)
-//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
-#endif
 
 extern std::list<PeerResponse> TheLobbyQueuedUTMs;
 extern void MapSelectorTooltip(GameWindow *window, WinInstanceData *instData,	UnsignedInt mouse);
 
 
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 extern Bool g_debugSlots;
 void slotListDebugLog(const char *fmt, ...)
 {
@@ -138,7 +133,7 @@ void SendStatsToOtherPlayers(const GameInfo *game)
 			AsciiString hostName;
 			hostName.translate(slot->getName());
 			req.nick = hostName.str();
-			DEBUG_LOG(("SendStatsToOtherPlayers() - sending to '%s', data of\n\t'%s'\n", hostName.str(), req.options.c_str()));
+			DEBUG_LOG(("SendStatsToOtherPlayers() - sending to '%s', data of\n\t'%s'", hostName.str(), req.options.c_str()));
 			TheGameSpyPeerMessageQueue->addRequest(req);
 		}
 	}
@@ -270,9 +265,8 @@ void PopBackToLobby( void )
 
 	}
 
+	DEBUG_LOG(("PopBackToLobby() - parentWOLGameSetup is %X", parentWOLGameSetup));
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->LeaveCurrentLobby();
-
-	DEBUG_LOG(("PopBackToLobby() - parentWOLGameSetup is %X\n", parentWOLGameSetup));
 	if (parentWOLGameSetup)
 	{
 		nextScreen = "Menus/WOLCustomLobby.wnd";
@@ -1608,7 +1602,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			GameSpyCloseAllOverlays();
 			GSMessageBoxOk( title, body );
 			TheGameSpyInfo->reset();
-			DEBUG_LOG(("WOLGameSetupMenuInit() - game was in progress, and we were disconnected, so pop immediate back to main menu\n"));
+			DEBUG_LOG(("WOLGameSetupMenuInit() - game was in progress, and we were disconnected, so pop immediate back to main menu"));
 			TheShell->popImmediate();
 			return;
 		}
@@ -1616,13 +1610,13 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 		// If we init while the game is in progress, we are really returning to the menu
 		// after the game.  So, we pop the menu and go back to the lobby.  Whee!
-		DEBUG_LOG(("WOLGameSetupMenuInit() - game was in progress, so pop immediate back to lobby\n"));
+		DEBUG_LOG(("WOLGameSetupMenuInit() - game was in progress, so pop immediate back to lobby"));
 		TheShell->popImmediate();
 
 		// TODO_NGMP: Only do this if still connected to service
 		//if (TheGameSpyPeerMessageQueue && TheGameSpyPeerMessageQueue->isConnected())
 		{
-			DEBUG_LOG(("We're still connected, so pushing back on the lobby\n"));
+			DEBUG_LOG(("We're still connected, so pushing back on the lobby"));
 			TheShell->push("Menus/WOLCustomLobby.wnd", TRUE);
 		}
 
@@ -1892,7 +1886,7 @@ static void shutdownComplete( WindowLayout *layout )
 		if (false)
 		//if (!TheGameSpyPeerMessageQueue || !TheGameSpyPeerMessageQueue->isConnected())
 		{
-			DEBUG_LOG(("GameSetup shutdownComplete() - skipping push because we're disconnected\n"));
+			DEBUG_LOG(("GameSetup shutdownComplete() - skipping push because we're disconnected"));
 		}
 		else
 		{
@@ -2171,7 +2165,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 			{
 				// haven't seen ourselves
 				buttonPushed = true;
-				DEBUG_LOG(("Haven't seen ourselves in slotlist\n"));
+				DEBUG_LOG(("Haven't seen ourselves in slotlist"));
 				if (TheNGMPGame)
 					TheNGMPGame->reset();
 				TheGameSpyInfo->leaveStagingRoom();
@@ -2221,21 +2215,20 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		while (allowedMessages-- && !sawImportantMessage)
 		{
 
-			if (!TheLobbyQueuedUTMs.empty())
-			{
-				DEBUG_LOG(("Got response from queued lobby UTM list\n"));
-				resp = TheLobbyQueuedUTMs.front();
-				TheLobbyQueuedUTMs.pop_front();
-			}
-			else if (TheGameSpyPeerMessageQueue->getResponse( resp ))
-			{
-				DEBUG_LOG(("Got response from message queue\n"));
-			}
+		if (!TheLobbyQueuedUTMs.empty())
+		{
+			DEBUG_LOG(("Got response from queued lobby UTM list"));
+			resp = TheLobbyQueuedUTMs.front();
+			TheLobbyQueuedUTMs.pop_front();
+		}
+		else if (TheGameSpyPeerMessageQueue->getResponse( resp ))
+		{
+			DEBUG_LOG(("Got response from message queue"));
+		}
 			else
-			{
+		{
 				break;
 			}
-
 			switch (resp.peerResponseType)
 			{
 			case PeerResponse::PEERRESPONSE_FAILEDTOHOST:
@@ -2463,10 +2456,10 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 			case PeerResponse::PEERRESPONSE_ROOMUTM:
 				{
 					sawImportantMessage = TRUE;
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 					if (g_debugSlots)
 					{
-						DEBUG_LOG(("About to process a room UTM.  Command is '%s', command options is '%s'\n",
+						DEBUG_LOG(("About to process a room UTM.  Command is '%s', command options is '%s'",
 							resp.command.c_str(), resp.commandOptions.c_str()));
 					}
 #endif
@@ -2477,26 +2470,26 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 						Bool isValidSlotList = game && game->getSlot(0) && game->getSlot(0)->isPlayer( resp.nick.c_str() ) && !TheGameSpyInfo->amIHost();
 						if (!isValidSlotList)
 						{
-							SLOTLIST_DEBUG_LOG(("Not a valid slotlist\n"));
+							SLOTLIST_DEBUG_LOG(("Not a valid slotlist"));
 							if (!game)
 							{
-								SLOTLIST_DEBUG_LOG(("No game!\n"));
+								SLOTLIST_DEBUG_LOG(("No game!"));
 							}
 							else
 							{
 								if (!game->getSlot(0))
 								{
-									SLOTLIST_DEBUG_LOG(("No slot 0!\n"));
+									SLOTLIST_DEBUG_LOG(("No slot 0!"));
 								}
 								else
 								{
 									if (TheGameSpyInfo->amIHost())
 									{
-										SLOTLIST_DEBUG_LOG(("I'm the host!\n"));
+										SLOTLIST_DEBUG_LOG(("I'm the host!"));
 									}
 									else
 									{
-										SLOTLIST_DEBUG_LOG(("Not from the host!  isHuman:%d, name:'%ls', sender:'%s'\n",
+										SLOTLIST_DEBUG_LOG(("Not from the host!  isHuman:%d, name:'%ls', sender:'%s'",
 											game->getSlot(0)->isHuman(), game->getSlot(0)->getName().str(),
 											resp.nick.c_str()));
 									}
@@ -2539,9 +2532,9 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 #ifdef DEBUG_LOGGING
 										UnsignedShort newPort = game->getConstSlot(i)->getPort();
 										UnsignedInt newIP = game->getConstSlot(i)->getIP();
-										DEBUG_ASSERTLOG(newIP == ips[i], ("IP was different for player %d (%X --> %X)\n",
+										DEBUG_ASSERTLOG(newIP == ips[i], ("IP was different for player %d (%X --> %X)",
 											i, ips[i], newIP));
-										DEBUG_ASSERTLOG(newPort == ports[i], ("Port was different for player %d (%d --> %d)\n",
+										DEBUG_ASSERTLOG(newPort == ports[i], ("Port was different for player %d (%d --> %d)",
 											i, ports[i], newPort));
 #endif
 										game->getSlot(i)->setPort(ports[i]);
@@ -2553,15 +2546,15 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 							Bool isInGame = newLocalSlotNum >= 0;
 							if (!optionsOK)
 							{
-								SLOTLIST_DEBUG_LOG(("Options are bad!  bailing!\n"));
+								SLOTLIST_DEBUG_LOG(("Options are bad!  bailing!"));
 								break;
 							}
 							else
 							{
-								SLOTLIST_DEBUG_LOG(("Options are good, local slot is %d\n", newLocalSlotNum));
+								SLOTLIST_DEBUG_LOG(("Options are good, local slot is %d", newLocalSlotNum));
 								if (!isInGame)
 								{
-									SLOTLIST_DEBUG_LOG(("Not in game; players are:\n"));
+									SLOTLIST_DEBUG_LOG(("Not in game; players are:"));
 									for (Int i=0; i<MAX_SLOTS; ++i)
 									{
 										const NGMPGameSlot *slot = game->getGameSpySlot(i);
@@ -2569,7 +2562,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 										{
 											UnicodeString munkee;
 											munkee.format(L"\t%d: %ls", i, slot->getName().str());
-											SLOTLIST_DEBUG_LOG(("%ls\n", munkee.str()));
+											SLOTLIST_DEBUG_LOG(("%ls", munkee.str()));
 										}
 									}
 								}
@@ -2629,7 +2622,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 								{
 									// can't see ourselves
 									buttonPushed = true;
-									DEBUG_LOG(("Can't see ourselves in slotlist %s\n", options.str()));
+									DEBUG_LOG(("Can't see ourselves in slotlist %s", options.str()));
 									game->reset();
 									TheGameSpyInfo->leaveStagingRoom();
 									//TheGameSpyInfo->joinBestGroupRoom();
@@ -2717,7 +2710,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 								UnicodeString message = TheGameText->fetch("GUI:GSKicked");
 								AsciiString commandMessage = resp.commandOptions.c_str();
 								commandMessage.trim();
-								DEBUG_LOG(("We were kicked: reason was '%s'\n", resp.commandOptions.c_str()));
+								DEBUG_LOG(("We were kicked: reason was '%s'", resp.commandOptions.c_str()));
 								if (commandMessage == "GameStarted")
 								{
 									message = TheGameText->fetch("GUI:GSKickedGameStarted");
@@ -2779,7 +2772,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 								options.nextToken(&key, "=");
 								Int val = atoi(options.str()+1);
 								UnsignedInt uVal = atoi(options.str()+1);
-								DEBUG_LOG(("GameOpt request: key=%s, val=%s from player %d\n", key.str(), options.str()+1, slotNum));
+								DEBUG_LOG(("GameOpt request: key=%s, val=%s from player %d", key.str(), options.str()+1, slotNum));
 
 								NGMPGameSlot *slot = game->getGameSpySlot(slotNum);
 								if (!slot)
@@ -2808,7 +2801,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 									}
 									else
 									{
-										DEBUG_LOG(("Rejecting invalid color %d\n", val));
+										DEBUG_LOG(("Rejecting invalid color %d", val));
 									}
 								}
 								else if (key == "PlayerTemplate")
@@ -2837,7 +2830,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 									}
 									else
 									{
-										DEBUG_LOG(("Rejecting invalid PlayerTemplate %d\n", val));
+										DEBUG_LOG(("Rejecting invalid PlayerTemplate %d", val));
 									}
 								}
 								else if (key == "StartPos")
@@ -2864,7 +2857,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 									}
 									else
 									{
-										DEBUG_LOG(("Rejecting invalid startPos %d\n", val));
+										DEBUG_LOG(("Rejecting invalid startPos %d", val));
 									}
 								}
 								else if (key == "Team")
@@ -2877,7 +2870,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 									}
 									else
 									{
-										DEBUG_LOG(("Rejecting invalid team %d\n", val));
+										DEBUG_LOG(("Rejecting invalid team %d", val));
 									}
 								}
 								else if (key == "IP")
@@ -2891,7 +2884,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 									}
 									else
 									{
-										DEBUG_LOG(("Rejecting invalid IP %d\n", uVal));
+										DEBUG_LOG(("Rejecting invalid IP %d", uVal));
 									}
 								}
 								else if (key == "NAT")
@@ -2900,19 +2893,19 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 											(val <= FirewallHelperClass::FIREWALL_MAX))
 									{
 										slot->setNATBehavior((FirewallHelperClass::FirewallBehaviorType)val);
-										DEBUG_LOG(("Setting NAT behavior to %d for player %d\n", val, slotNum));
+										DEBUG_LOG(("Setting NAT behavior to %d for player %d", val, slotNum));
 										change = true;
 									}
 									else
 									{
-										DEBUG_LOG(("Rejecting invalid NAT behavior %d from player %d\n", val, slotNum));
+										DEBUG_LOG(("Rejecting invalid NAT behavior %d from player %d", val, slotNum));
 									}
 								}
 								else if (key == "Ping")
 								{
 									slot->setPingString(options.str()+1);
 									TheGameSpyInfo->setGameOptions();
-									DEBUG_LOG(("Setting ping string to %s for player %d\n", options.str()+1, slotNum));
+									DEBUG_LOG(("Setting ping string to %s for player %d", options.str()+1, slotNum));
 								}
 
 								if (change)
@@ -2923,9 +2916,9 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 									TheGameSpyInfo->setGameOptions();
 
 									WOLDisplaySlotList();
-									DEBUG_LOG(("Slot value is color=%d, PlayerTemplate=%d, startPos=%d, team=%d, IP=0x%8.8X\n",
+									DEBUG_LOG(("Slot value is color=%d, PlayerTemplate=%d, startPos=%d, team=%d, IP=0x%8.8X",
 										slot->getColor(), slot->getPlayerTemplate(), slot->getStartPos(), slot->getTeamNumber(), slot->getIP()));
-									DEBUG_LOG(("Slot list updated to %s\n", GameInfoToAsciiString(game).str()));
+									DEBUG_LOG(("Slot list updated to %s", GameInfoToAsciiString(game).str()));
 								}
 							}
 						}
@@ -2958,7 +2951,7 @@ WindowMsgHandledType WOLGameSetupMenuInput( GameWindow *window, UnsignedInt msg,
 
 			GameWindow *control = (GameWindow *)mData1;
 			NameKeyType controlID = (NameKeyType)control->winGetWindowId();
-			DEBUG_LOG(("GWM_RIGHT_UP for control %d(%s)\n", controlID, TheNameKeyGenerator->keyToName(controlID).str()));
+			DEBUG_LOG(("GWM_RIGHT_UP for control %d(%s)", controlID, TheNameKeyGenerator->keyToName(controlID).str()));
 			break;
 		}
 
@@ -3108,6 +3101,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 
 		return TRUE; // was a slash command
 	}
+#endif
 	else if (token == "leave")
 	{
 		PopBackToLobby();
@@ -3198,9 +3192,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 
 		return TRUE; // was a slash command
 	}
-#endif
-
-#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#if defined(RTS_DEBUG)
 	else if (token == "slots")
 	{
 		g_debugSlots = !g_debugSlots;
@@ -3217,8 +3209,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		TheGameSpyPeerMessageQueue->addRequest( req );
 		return TRUE;
 	}
-
-#endif // defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+#endif // defined(RTS_DEBUG)
 
 	return FALSE; // not a slash command
 }

@@ -58,10 +58,11 @@
 
 // ----------------------------------------------------------------------------------------------
 #include "Lib/BaseType.h"
+#include "Common/GameDefines.h"
 #include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
 
 // ----------------------------------------------------------------------------------------------
-#if defined(RTS_INTERNAL) || defined(RTS_DEBUG)
+#if defined(RTS_DEBUG)
 	#define DUMP_PERF_STATS
 #else
 	#define NO_DUMP_PERF_STATS
