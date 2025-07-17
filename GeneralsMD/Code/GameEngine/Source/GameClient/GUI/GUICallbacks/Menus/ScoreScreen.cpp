@@ -1086,10 +1086,15 @@ void initInternetMultiPlayer(void)
 	if (chatBoxBorder)
 		chatBoxBorder->winHide(FALSE);
 
+	// TODO_NGMP: Enable this once friends works
+#if !defined(GENERALS_ONLINE)
 	if(TheGameSpyInfo && TheGameSpyInfo->getLocalProfileID() ==0)
 		buttonBuddies->winHide(TRUE);
 	else
 		buttonBuddies->winHide(FALSE);
+#else
+	buttonBuddies->winHide(TRUE);
+#endif
 
 	if (!TheGameSpyBuddyMessageQueue)
 		return;
