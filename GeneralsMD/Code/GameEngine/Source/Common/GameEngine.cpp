@@ -1079,7 +1079,7 @@ void GameEngine::execute(void)
 						}
 						catch (const std::exception& e) // caught by reference to base
 						{
-							NetworkLog("A standard exception was caught, with message: %s", e.what());
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "A standard exception was caught, with message: %s", e.what());
 						}
 						catch (...)
 						{
