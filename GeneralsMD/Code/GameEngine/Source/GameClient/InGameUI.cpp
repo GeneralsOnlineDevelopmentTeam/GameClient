@@ -89,8 +89,15 @@
 #include "GameLogic/Module/MobMemberSlavedUpdate.h"//ML
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.		 
-#include "../OnlineServices_Init.h"
 
+#if defined(GENERALS_ONLINE)
+#include "../NGMP_interfaces.h"
+#include "../OnlineServices_Init.h"
+#include "../NetworkMesh.h"
+#include "../../NetworkDefs.h"
+#include "../../NetworkInterface.h"
+extern NetworkInterface* TheNetwork;
+#endif
 
 
 // ------------------------------------------------------------------------------------------------
@@ -5862,7 +5869,42 @@ void InGameUI::drawSystemTime()
 	GetLocalTime( &systemTime );
 
     UnicodeString TimeString;
-    TimeString.format(L"%2.2d:%2.2d:%2.2d", systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
+
+#if defined(GENERALS_ONLINE)
+	if (NGMP_OnlineServicesManager::Settings.Graphics_DrawStatsOverlay() && TheNetwork != nullptr)
+	{
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		if (currTime - lastFPSUpdate >= 1000)
+		{
+			lastFPSUpdate = currTime;
+			m_lastFPS = m_currentFPS;
+			m_currentFPS = 0;
+		}
+		++m_currentFPS;
+
+		// TODO_NGMP: Cache this in a stats interface
+		int highestLatency = 0;
+		std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+		for (auto& kvPair : connections)
+		{
+			PlayerConnection& conn = kvPair.second;
+			if (conn.latency > highestLatency)
+			{
+				highestLatency = conn.latency;
+			}
+		}
+
+		TimeString.format(L"%2.2d:%2.2d:%2.2d - R%d L%ld | Lat: %d frames (%d ms) - %d GenTool frames", systemTime.wHour, systemTime.wMinute, systemTime.wSecond,
+			m_lastFPS, TheNetwork->getFrameRate(), ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency));
+	}
+	else
+	{
+		TimeString.format(L"%2.2d:%2.2d:%2.2d", systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
+	}
+#else
+	TimeString.format(L"%2.2d:%2.2d:%2.2d", systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
+#endif
+
     m_systemTimeString->setText(TimeString);
 
 	m_systemTimeString->draw(m_systemTimePosition.x, m_systemTimePosition.y, m_systemTimeColor, m_systemTimeDropColor);

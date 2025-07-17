@@ -898,6 +898,12 @@ protected:
 
 	DrawableID									m_soloNexusSelectedDrawableID;  ///< The drawable of the nexus, if only one angry mob is selected, otherwise, null
 
+#if defined(GENERALS_ONLINE)
+	int m_lastFPS = -1;
+	int m_currentFPS = -1;
+	int64_t lastFPSUpdate = -1;
+#endif
+
 	// ----------------------------------------------------------------------------------------------
 	// STATIC Protected Data -------------------------------------------------------------------------------
 	// ----------------------------------------------------------------------------------------------

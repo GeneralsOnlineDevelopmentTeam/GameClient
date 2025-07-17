@@ -13,8 +13,6 @@
 #include "../../GameSpyOverlay.h"
 #include "GameClient/Display.h"
 
-extern NetworkInterface* TheNetwork;
-
 extern "C"
 {
 	__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
@@ -51,11 +49,6 @@ NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
 	m_pOnlineServicesManager = this;
 
 	InitSentry();
-}
-
-void NGMP_OnlineServicesManager::DrawUI()
-{
-	m_HUD.Render();
 }
 
 std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, bool bAttachToken)
@@ -727,70 +720,5 @@ void QoSManager::StartProbing(std::map<std::pair<std::string, EQoSRegions>, std:
 		}
 
 		m_lstQoSProbesInFlight.push_back(newProbe);
-	}
-}
-
-void NetworkHUD::Render()
-{
-	if (NGMP_OnlineServicesManager::Settings.Graphics_DrawStatsOverlay())
-	{
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-		if (currTime - lastFPSUpdate >= 1000)
-		{
-			lastFPSUpdate = currTime;
-			m_lastFPS = m_currentFPS;
-			m_currentFPS = 0;
-		}
-		++m_currentFPS;
-
-		if (m_DisplayString && TheNetwork != nullptr)
-		{
-			// TODO_NGMP: Cache this in a stats interface
-			int highestLatency = 0;
-			std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
-			for (auto& kvPair : connections)
-			{
-				PlayerConnection& conn = kvPair.second;
-				if (conn.latency > highestLatency)
-				{
-					highestLatency = conn.latency;
-				}
-			}
-
-
-			// PERF STATS
-			UnicodeString unibuffer;
-			unibuffer.format(L"FPS: Render: %d Logic: %ld | Latency: %d game frames (%d ms) - %d GenTool frames", m_lastFPS,
-				TheNetwork->getFrameRate(), ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency));
-
-			m_DisplayString->setText(unibuffer);
-			m_DisplayString->draw(0, 0, GameMakeColor(255, 255, 255, 255), GameMakeColor(0, 0, 0, 255));
-
-			// CLOCKS
-			auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-			auto tm = *std::localtime(&t);
-			std::ostringstream oss;
-			oss << std::put_time(&tm, "%H:%M:%S");
-
-			auto startTime = TheNGMPGame->GetStartTime();
-
-			// match duration
-			auto duration = std::chrono::system_clock::now() - startTime;
-			auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
-			int hours = static_cast<int>(seconds / 3600);
-			int minutes = static_cast<int>((seconds % 3600) / 60);
-			int secs = static_cast<int>(seconds % 60);
-			std::ostringstream ossDuration;
-			ossDuration << std::setfill('0') << std::setw(2) << hours << ":"
-				<< std::setfill('0') << std::setw(2) << minutes << ":"
-				<< std::setfill('0') << std::setw(2) << secs;
-
-			UnicodeString unibufferClock;
-			unibufferClock.format(L"%hs | %hs", oss.str().c_str(), ossDuration.str().c_str());
-			m_DisplayString->setText(unibufferClock);
-
-			uint32_t width = (TheDisplay->getWidth() - m_DisplayString->getWidth());
-			m_DisplayString->draw(width, 0, GameMakeColor(255, 255, 255, 255), GameMakeColor(0, 0, 0, 255));
-		}
 	}
 }

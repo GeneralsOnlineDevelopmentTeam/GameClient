@@ -433,12 +433,6 @@ void W3DInGameUI::draw( void )
 
 	postDraw();
 
-	// draw ngmp too
-	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-	{
-		NGMP_OnlineServicesManager::GetInstance()->DrawUI();
-	}
-
 	TheWindowManager->winRepaint();
 
 	postWindowDraw();
