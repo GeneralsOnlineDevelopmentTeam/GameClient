@@ -1999,15 +1999,11 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 			if (bIsHost)
 			{
 				// re init our UI & enable host buttons
-				EnableSlotListUpdates(FALSE);
-				InitWOLGameGadgets();
-				EnableSlotListUpdates(TRUE);
 				buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
 				buttonStart->winEnable(TRUE);
 				buttonSelectMap->winEnable(TRUE);
 				initialAcceptEnable = TRUE;
-				WOLDisplaySlotList();
-				WOLDisplayGameOptions();
+
 
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "Host left and server migrated the host to us...");
 
@@ -2023,12 +2019,12 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 			// re-enable critical buttons for everyone
 			if (buttonBack != nullptr)
 			{
-				buttonBack->winEnable(FALSE);
+				buttonBack->winEnable(TRUE);
 			}
 
 			if (buttonStart != nullptr)
 			{
-				buttonStart->winEnable(FALSE);
+				buttonStart->winEnable(TRUE);
 			}
 
 			GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
@@ -2037,6 +2033,14 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 				buttonBuddy->winEnable(FALSE);
 			}
 		}
+
+		// Force a refresh to get latest lobby data
+		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateRoomDataCache([]()
+			{
+
+			});
+
+		
 	}
 
 	if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bPendingHostHasLeft)
