@@ -910,9 +910,21 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
  
 		// Set up version info
 		TheVersion = NEW Version;
+
+		// TODO_NGMP: Better solution
+#if defined(GENERALS_ONLINE)
+		TheVersion->setVersion(VERSION_MAJOR, VERSION_MINOR, GENERALS_ONLINE_VERSION, GENERALS_ONLINE_NET_VERSION,
+	#if !defined(_DEBUG)
+			AsciiString("Generals Online Development Team | GitHub Buildserver"), AsciiString(""),
+	#else
+			AsciiString("Generals Online Development Team | Development Test Build"), AsciiString(""),
+	#endif
+			AsciiString(__TIME__), AsciiString(__DATE__));
+#else
 		TheVersion->setVersion(VERSION_MAJOR, VERSION_MINOR, VERSION_BUILDNUM, VERSION_LOCALBUILDNUM,
 			AsciiString(VERSION_BUILDUSER), AsciiString(VERSION_BUILDLOC),
 			AsciiString(__TIME__), AsciiString(__DATE__));
+#endif
 
 		// TheSuperHackers @refactor The instance mutex now lives in its own class.
 

@@ -392,8 +392,8 @@ void GameTextManager::init( void )
 	ourNameA.translate(ourName);	//get ASCII version for Win 9x
 
 #if defined(GENERALS_ONLINE)
-		ourName.concat(L" [Generals Online]");
-		ourNameA.concat(" [Generals Online]");
+		ourName.concat(L" [GeneralsOnline]");
+		ourNameA.concat(" [GeneralsOnline]");
 
 		if (IsDebuggerPresent())
 		{
