@@ -377,6 +377,14 @@ void GameTextManager::init( void )
 		ourName = s;
 	}
 
+#if defined(GENERALS_ONLINE)
+	ourName.format(L"GeneralsOnline Client v%d.%d.%d for %s (v1.04)", GENERALS_ONLINE_VERSION, GENERALS_ONLINE_NET_VERSION, GENERALS_ONLINE_SERVICE_VERSION, fetch("GUI:Command&ConquerGenerals").str());
+
+	if (IsDebuggerPresent())
+	{
+		ourName.concat(L" [Debugger]");
+	}
+#else
 	if (TheVersion != NULL)
 	{
 		// TheSuperHackers @tweak Now prints version information in the Window title.
@@ -387,20 +395,11 @@ void GameTextManager::init( void )
 		);
 		ourName.concat(version);
 	}
+#endif
+
 
 	AsciiString ourNameA;
 	ourNameA.translate(ourName);	//get ASCII version for Win 9x
-
-#if defined(GENERALS_ONLINE)
-		ourName.concat(L" [GeneralsOnline]");
-		ourNameA.concat(" [GeneralsOnline]");
-
-		if (IsDebuggerPresent())
-		{
-			ourName.concat(L"[Debugger]");
-			ourNameA.concat("[Debugger]");
-		}
-#endif
 
 	extern HWND ApplicationHWnd;  ///< our application window handle
 	if (ApplicationHWnd) {
