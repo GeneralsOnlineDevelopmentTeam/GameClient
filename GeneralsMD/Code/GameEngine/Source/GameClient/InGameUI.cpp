@@ -5884,18 +5884,21 @@ void InGameUI::drawSystemTime()
 
 		// TODO_NGMP: Cache this in a stats interface
 		int highestLatency = 0;
-		std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
-		for (auto& kvPair : connections)
+		if (TheNGMPGame != nullptr)
 		{
-			PlayerConnection& conn = kvPair.second;
-			if (conn.latency > highestLatency)
+			std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+			for (auto& kvPair : connections)
 			{
-				highestLatency = conn.latency;
+				PlayerConnection& conn = kvPair.second;
+				if (conn.latency > highestLatency)
+				{
+					highestLatency = conn.latency;
+				}
 			}
 		}
 
-		TimeString.format(L"%2.2d:%2.2d:%2.2d - R%d L%ld | Lat: %d frames (%d ms) - %d GenTool frames", systemTime.wHour, systemTime.wMinute, systemTime.wSecond,
-			m_lastFPS, TheNetwork->getFrameRate(), ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency));
+		TimeString.format(L"%2.2d:%2.2d:%2.2d - R%d L%ld | Lat: %d frames (%d ms) - %d GenTool frames - RA %d", systemTime.wHour, systemTime.wMinute, systemTime.wSecond,
+			m_lastFPS, TheNetwork->getFrameRate(), ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency), TheNetwork->getRunAhead());
 	}
 	else
 	{

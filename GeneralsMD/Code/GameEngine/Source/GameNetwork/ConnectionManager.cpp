@@ -53,6 +53,8 @@
 #include "GameClient/DisconnectMenu.h"
 #include "GameClient/InGameUI.h"
 #include "../Packets/NextGenTransport.h"
+#include "../NetworkMesh.h"
+#include "../ngmp_interfaces.h"
 
 
 /**
@@ -343,6 +345,7 @@ void ConnectionManager::destroyGameMessages() {
  * assumption that a command will only be relayed once.
  */
 void ConnectionManager::doRelay() {
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "ConnectionManager::doRelay on execution frame %d", TheNetwork->getExecutionFrame());
 	static Int numPackets = 0;
 	static Int numCommands = 0;
 
@@ -1277,6 +1280,8 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::updateRunAhead - minFps after adjustment is %d", minFps));
 			Int newRunAhead = (Int)((getMaximumLatency() / 2.0) * (Real)minFps);
 			newRunAhead += (newRunAhead * TheGlobalData->m_networkRunAheadSlack) / 100; // Add in 10% of slack to the run ahead in case of network hiccups.
+
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "New run ahead is %d, formula is maxlat is %f (div 2: %f), minfps is %d", newRunAhead, getMaximumLatency(), getMaximumLatency()/2.f, minFps);
 			if (newRunAhead < MIN_RUNAHEAD) {
 				newRunAhead = MIN_RUNAHEAD; // make sure its at least MIN_RUNAHEAD.
 			}
@@ -1306,6 +1311,17 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			} else {
 				msg->setExecutionFrame(TheGameLogic->getFrame() + oldRunAhead);
 			}
+
+#if defined(GENERALS_ONLINE) // provide instant responsiveness if there are no remote human players
+			NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+			if (pMesh != nullptr)
+			{
+				if (pMesh->GetAllConnections().size() == 0)
+				{
+					newRunAhead = 0;
+				}
+			}
+#endif
 
 			msg->setRunAhead(newRunAhead);
 			msg->setFrameRate(minFps);
@@ -1690,6 +1706,9 @@ void ConnectionManager::setFrameGrouping(time_t frameGrouping) {
 	// may become the latency bottleneck for sending packets from one player to the next.
 	// This is probably ok since the packet router should have the fastest connection of all
 	// the players in the game.
+
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "ConnectionManager::setFrameGrouping Frame grouping is %d, is packet router %d", frameGrouping, m_localSlot == m_packetRouterSlot);
+
 	if (m_localSlot == m_packetRouterSlot) {
 		frameGrouping = frameGrouping / 2;
 	}

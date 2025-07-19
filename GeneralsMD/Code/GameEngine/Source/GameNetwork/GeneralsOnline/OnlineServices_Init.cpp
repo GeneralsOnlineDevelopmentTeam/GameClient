@@ -33,11 +33,9 @@ struct VersionCheckResponse
 	EVersionCheckResponseResult result;
 	std::string patcher_name;
 	std::string patcher_path;
-	std::string patchfile_path;
 	int64_t patcher_size;
-	int64_t patchfile_size;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result, patcher_name, patcher_path, patchfile_path, patcher_size, patchfile_size)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result, patcher_name, patcher_path, patcher_size)
 };
 
 GenOnlineSettings NGMP_OnlineServicesManager::Settings;
@@ -148,9 +146,7 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 					// cache the data
 					m_patcher_name = authResp.patcher_name;
 					m_patcher_path = authResp.patcher_path;
-					m_patchfile_path = authResp.patchfile_path;
 					m_patcher_size = authResp.patcher_size;
-					m_patchfile_size = authResp.patchfile_size;
 
 					fnCallback(true, true);
 				}
@@ -254,8 +250,21 @@ void NGMP_OnlineServicesManager::LaunchPatcher()
 
 	bool bPatcherExeExists = std::filesystem::exists(strPatcherPath) && std::filesystem::is_regular_file(strPatcherPath);
 	bool bPatcherDirExists = std::filesystem::exists(strPatcherDir) && std::filesystem::is_directory(strPatcherDir);
+	bool bInvalidSize = true;
 
-	if (bPatcherExeExists && bPatcherDirExists && ShellExecuteExA(&shellexInfo))
+	// TODO_NGMP: Replace with CRC ASAP
+
+	// does the file size match?
+	if (bPatcherExeExists && bPatcherDirExists)
+	{
+		std::uintmax_t file_size = std::filesystem::file_size(strPatcherPath);
+		if (file_size == m_patcher_size)
+		{
+			bInvalidSize = false;
+		}
+	}
+
+	if (!bInvalidSize && bPatcherExeExists && bPatcherDirExists && ShellExecuteExA(&shellexInfo))
 	{
 		// Exit the application  
 		exit(0);
@@ -283,10 +292,6 @@ void NGMP_OnlineServicesManager::StartDownloadUpdate(std::function<void(void)> c
 	// patcher
 	m_vecFilesToDownload.emplace(m_patcher_path);
 	m_vecFilesSizes.emplace(m_patcher_size);
-
-	// patch
-	m_vecFilesToDownload.emplace(m_patchfile_path);
-	m_vecFilesSizes.emplace(m_patchfile_size);
 	
 	m_updateCompleteCallback = cb;
 

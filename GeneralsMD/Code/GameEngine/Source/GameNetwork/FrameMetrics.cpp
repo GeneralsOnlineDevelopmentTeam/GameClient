@@ -29,6 +29,9 @@
 #include "GameNetwork/FrameMetrics.h"
 #include "GameClient/Display.h"
 #include "GameNetwork/networkutil.h"
+#include "../NGMP_include.h"
+#include "../NetworkMesh.h"
+#include "../NGMP_interfaces.h"
 
 FrameMetrics::FrameMetrics() 
 {
@@ -72,7 +75,23 @@ void FrameMetrics::init() {
 
 #if defined(GENERALS_ONLINE)
 	// NGMP_NOTE: Don't start with the assumption that we have latency. Connections are now formed earlier, so we have latency data earlier too.
-	m_averageLatency = (Real)0.0;
+
+	if (TheNGMPGame != nullptr)
+	{
+		int totalLatency = 0;
+		std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+		for (auto& kvPair : connections)
+		{
+			PlayerConnection& conn = kvPair.second;
+			totalLatency += conn.latency;
+		}
+
+		m_averageLatency = (Real)((Real)totalLatency / 1000.f) / (Real)connections.size();
+	}
+	else
+	{
+		m_averageLatency = (Real)0.2;
+	}
 #else
 	m_averageLatency = (Real)0.2;
 #endif
@@ -94,6 +113,7 @@ void FrameMetrics::reset() {
 }
 
 void FrameMetrics::doPerFrameMetrics(UnsignedInt frame) {
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "doPerFrameMetrics for frame %d", frame);
 	// Do the measurement of the fps.
 	time_t curTime = timeGetTime();
 	if ((curTime - m_lastFpsTimeThing) >= 1000) {
@@ -116,6 +136,7 @@ void FrameMetrics::doPerFrameMetrics(UnsignedInt frame) {
 }
 
 void FrameMetrics::processLatencyResponse(UnsignedInt frame) {
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "processLatencyResponse for frame %d", frame);
 	time_t curTime = timeGetTime();
 	Int pendingIndex = frame % MAX_FRAMES_AHEAD;
 	time_t timeDiff = curTime - m_pendingLatencies[pendingIndex];
@@ -123,6 +144,7 @@ void FrameMetrics::processLatencyResponse(UnsignedInt frame) {
 	Int latencyListIndex = frame % TheGlobalData->m_networkLatencyHistoryLength;
 	m_averageLatency -= m_latencyList[latencyListIndex] / TheGlobalData->m_networkLatencyHistoryLength;
 	m_latencyList[latencyListIndex] = (Real)timeDiff / (Real)1000; // convert to seconds from milliseconds.
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "processLatencyResponse timediff was %lld which is %f ms latency", timeDiff, (Real)timeDiff / (Real)1000);
 	m_averageLatency += m_latencyList[latencyListIndex] / TheGlobalData->m_networkLatencyHistoryLength;
 
 	if (frame % 16 == 0) {

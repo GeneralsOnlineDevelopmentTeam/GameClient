@@ -28,10 +28,17 @@
 #include "GameNetwork/networkutil.h"
 
 #if defined(GENERALS_ONLINE)
-Int MAX_FRAMES_AHEAD = 128 * 2;
-Int MIN_RUNAHEAD = 10 * 2;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+Int MAX_FRAMES_AHEAD = 30;
+Int MIN_RUNAHEAD = 5;
 Int FRAME_DATA_LENGTH = (MAX_FRAMES_AHEAD + 1) * 2;
 Int FRAMES_TO_KEEP = (MAX_FRAMES_AHEAD / 2) + 1;
+#else
+Int MAX_FRAMES_AHEAD = 30;
+Int MIN_RUNAHEAD = 5;
+Int FRAME_DATA_LENGTH = (MAX_FRAMES_AHEAD + 1) * 2;
+Int FRAMES_TO_KEEP = (MAX_FRAMES_AHEAD / 2) + 1;
+#endif
 #else
 Int MAX_FRAMES_AHEAD = 128;
 Int MIN_RUNAHEAD = 10;
@@ -207,7 +214,11 @@ Bool CommandRequiresDirectSend(NetCommandMsg *msg) {
 			(msg->getNetCommandType() == NETCOMMANDTYPE_FRAMERESENDREQUEST)) {
 		return TRUE;
 	}
+#if defined(GENERALS_ONLINE)
+	return TRUE;
+#else
 	return FALSE;
+#endif
 }
 
 AsciiString GetAsciiNetCommandType(NetCommandType type) {

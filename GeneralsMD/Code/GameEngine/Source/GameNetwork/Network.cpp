@@ -51,6 +51,7 @@
 #include "GameLogic/ScriptEngine.h"
 #include "Common/Recorder.h"
 #include "GameClient/MessageBox.h"
+#include "../NGMP_include.h"
 
 
 #if defined(DEBUG_CRC)
@@ -662,19 +663,21 @@ void Network::processRunAheadCommand(NetRunAheadCommandMsg *msg) {
 	m_runAhead = msg->getRunAhead();
 	m_frameRate = msg->getFrameRate();
 	time_t frameGrouping = (1000 * m_runAhead) / m_frameRate; // number of miliseconds between packet sends
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "Frame grouping is %d, formula was (1000 * %d) / %d", (int)frameGrouping, (int)m_runAhead, (int)m_frameRate);
+	
 	frameGrouping = frameGrouping / 2; // since we only want the latency for one way to be a factor.
 //	DEBUG_LOG(("Network::processRunAheadCommand - trying to set frame grouping to %d.  run ahead = %d, m_frameRate = %d", frameGrouping, m_runAhead, m_frameRate));
 	if (frameGrouping < 1) {
 		frameGrouping = 1; // Having a value less than 1 doesn't make sense.
 	}
 
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVEr)
-	if (frameGrouping > 60) {
-		frameGrouping = 60; // Max of a half a second.
+#if defined(GENERALS_ONLINE)
+	if (frameGrouping > FRAME_GROUPING_CAP) {
+		frameGrouping = FRAME_GROUPING_CAP; // Max of a half a second.
 	}
 #else
-	if (frameGrouping > 30) {
-		frameGrouping = 30; // Max of a half a second.
+	if (frameGrouping > 500) {
+		frameGrouping = 500; // Max of a half a second.
 	}
 #endif
 

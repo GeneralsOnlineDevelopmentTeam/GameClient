@@ -147,6 +147,14 @@ public:
 
 	}
 
+	void Flush()
+	{
+		if (enetInstance != nullptr)
+		{
+			enet_host_flush(enetInstance);
+		}
+	}
+
 	void UpdateConnectivity(PlayerConnection* connection);
 
 	void OnRelayUpgrade(int64_t targetUserID);

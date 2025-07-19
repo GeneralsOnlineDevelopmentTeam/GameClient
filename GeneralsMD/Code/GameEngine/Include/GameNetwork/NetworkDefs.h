@@ -55,7 +55,7 @@ static const Int MAX_SLOTS = MAX_PLAYER+1;
 
 #if defined(GENERALS_ONLINE)
 // UDP (8 bytes) + IP header (28 bytes) = 36 bytes total.  We want a total packet size of 1392, so 1392 - 36 = 1356
-static const Int MAX_PACKET_SIZE = 1356;
+static const Int MAX_PACKET_SIZE = 476;
 #else
 // UDP (8 bytes) + IP header (28 bytes) = 36 bytes total.  We want a total packet size of 512, so 512 - 36 = 476
 static const Int MAX_PACKET_SIZE = 476;
@@ -65,7 +65,7 @@ static const Int MAX_PACKET_SIZE = 476;
  * Command packet - contains frame #, total # of commands, and each command.  This is what gets sent
  * to each player every frame
  */
-#define MAX_MESSAGE_LEN 1500
+#define MAX_MESSAGE_LEN 1024
 #define MAX_MESSAGES 128
 static const Int numCommandsPerCommandPacket = (MAX_MESSAGE_LEN - sizeof(UnsignedInt) - sizeof(UnsignedShort))/sizeof(GameMessage);
 #pragma pack(push, 1)

@@ -363,7 +363,5 @@ private:
 
 	std::string m_patcher_name;
 	std::string m_patcher_path;
-	std::string m_patchfile_path;
 	int64_t m_patcher_size;
-	int64_t m_patchfile_size;
 };

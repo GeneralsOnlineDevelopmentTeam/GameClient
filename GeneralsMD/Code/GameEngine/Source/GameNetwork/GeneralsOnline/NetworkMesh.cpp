@@ -688,6 +688,32 @@ void NetworkMesh::Tick()
 		}
 	}
 
+	for (auto& connectionData : m_mapConnections)
+	{
+		ENetPeer* pPeer = connectionData.second.GetPeerToUse();
+		if (pPeer != nullptr)
+		{
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "PeerStats [FRAME %d|%p]: incomingBandwidth: %u, outgoingBandwidth: %u, incomingDataTotal: %u, outgoingDataTotal: %u, lastSendTime: %u, lastReceiveTime: %u, packetsSent: %u, packetsLost: %u, packetLoss: %u, lastRoundTripTime: %u, lowestRoundTripTime: %u, reliableDataInTransit: %u, mtu %u, totalWaitingData %u",
+				TheNetwork == nullptr ? -1 : TheNetwork->getExecutionFrame(),
+				pPeer,
+				pPeer->incomingBandwidth,
+				pPeer->outgoingBandwidth,
+				pPeer->incomingDataTotal,
+				pPeer->outgoingDataTotal,
+				pPeer->lastSendTime,
+				pPeer->lastReceiveTime,
+				pPeer->packetsSent,
+				pPeer->packetsLost,
+				pPeer->packetLoss,
+				pPeer->lastRoundTripTime,
+				pPeer->lowestRoundTripTime,
+				pPeer->reliableDataInTransit,
+				pPeer->mtu,
+				pPeer->totalWaitingData
+			);
+		}
+	}
+
 	// service connection attempts
 	/*
 		m_mapConnections[lobbyMember.user_id].m_State = EConnectionState::CONNECTING;
@@ -710,8 +736,11 @@ void NetworkMesh::Tick()
 		}
 	}*/
 
+	int eventsHandled = 0;
+	int numReceived = 0;
 	// tick
 	{
+		
 		
 
 		ENetEvent event;
@@ -719,6 +748,7 @@ void NetworkMesh::Tick()
 		// TODO_NGMP: Switch to send/recv model isntead of events
 		while (enet_host_service(enetInstance, &event, 0) > 0)
 		{
+			++eventsHandled;
 			switch (event.type)
 			{
 			case ENET_EVENT_TYPE_CONNECT:
@@ -1042,6 +1072,7 @@ void NetworkMesh::Tick()
 
 			case ENET_EVENT_TYPE_RECEIVE:
 			{
+				++numReceived;
 				PlayerConnection* pConnection = nullptr;
 				int64_t connUserID = -1;
 
@@ -1288,6 +1319,8 @@ void NetworkMesh::Tick()
 		}
 	}
 
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "This frame %d, we procesessed %d events total and %d receive events", TheNetwork == nullptr ? -1 : TheNetwork->getExecutionFrame(), eventsHandled, numReceived);
+
 }
 
 void NetworkMesh::SendPing()
@@ -1340,6 +1373,7 @@ ENetPeer* PlayerConnection::GetPeerToUse()
 {
 	if (m_pRelayPeer != nullptr)
 	{
+		
 		return m_pRelayPeer;
 	}
 	
@@ -1362,7 +1396,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	{
 		bitstream.Encrypt(currentLobby.EncKey);
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED); // TODO_NGMP: Support flags
 
 		if (GetPeerToUse() != nullptr)
 		{
@@ -1386,7 +1420,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 		bitstream.Write<uint8_t>(gameChannel);
 
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED); // TODO_NGMP: Support flags
 
 		// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
 		// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
@@ -1425,7 +1459,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 		CBitStream* pBitStream = packet.Serialize();
 		pBitStream->Encrypt(currentLobby.EncKey);
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
+		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED);
 
 		if (m_peer == m_pRelayPeer && m_pRelayPeer != nullptr)
 		{
@@ -1479,7 +1513,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 		pBitStream->Write<uint32_t>(m_userID);
 		pBitStream->Write<uint8_t>(channel);
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
+		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED);
 
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "Attempting to send relayed packet to %ld", m_userID);
 
