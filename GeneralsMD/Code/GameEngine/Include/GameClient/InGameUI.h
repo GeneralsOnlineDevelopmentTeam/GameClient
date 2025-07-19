@@ -381,6 +381,8 @@ public:  // ********************************************************************
 #else
 	virtual void messageColor(const RGBColor* rgbColor, UnicodeString format, ...);	///< display a colored message to the user
 #endif
+	virtual void messageNoFormat( const UnicodeString& message ); ///< display a message to the user
+	virtual void messageNoFormat( const RGBColor *rgbColor, const UnicodeString& message ); ///< display a colored message to the user
 	virtual void message( UnicodeString format, ... );				  ///< display a message to the user
 	virtual void message( AsciiString stringManagerLabel, ... );///< display a message to the user
 	virtual void toggleMessages( void ) { m_messagesOn = 1 - m_messagesOn; }	///< toggle messages on/off
