@@ -60,11 +60,6 @@
 #include "GameLogic/Module/SpawnBehavior.h"
 
 
-#ifdef RTS_INTERNAL
-// for occasional debugging...
-//#pragma optimize("", off)
-//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
-#endif
 
 StealthUpdateModuleData::StealthUpdateModuleData()
 {
@@ -1188,7 +1183,7 @@ void StealthUpdate::xfer( Xfer *xfer )
 			if( m_disguiseAsTemplate == NULL )
 			{
 
-				DEBUG_CRASH(( "StealthUpdate::xfer - Unknown template '%s'\n", name.str() ));
+				DEBUG_CRASH(( "StealthUpdate::xfer - Unknown template '%s'", name.str() ));
 				throw SC_INVALID_DATA;
 
 			}  // end if

@@ -2,13 +2,19 @@
 #include <chrono>
 #include <mutex>
 #include "libsodium/sodium/crypto_aead_xchacha20poly1305.h"
+#include "libsodium/sodium/randombytes.h"
 
 std::string m_strNetworkLogFileName;
 std::mutex m_logMutex;
 
-void NetworkLog(const char* fmt, ...)
+void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 {
-	std::scoped_lock{ m_logMutex };
+	if (logVerbosity < g_LogVerbosity)
+	{
+		return;
+	}
+
+	std::scoped_lock scopedLock { m_logMutex };
 
 	if (m_strNetworkLogFileName.empty())
 	{
@@ -141,32 +147,34 @@ std::vector<uint8_t> Base64Decode(const std::string& encodedData) {
 	return decodedData;
 }
 
-std::string PrepareChallenge()
+void PrepareChallenge(nlohmann::json & json)
 {
 	// prepare challenge
 	const char* szChallenge = "Can we have some shoes?";
 
 #if defined(_DEBUG)
-	const unsigned char key[32] = { 1, 4, 2, 6, 1, 9, 3, 5, 6, 2, 1, 0, 0, 7, 0, 1, 7, 9, 4, 4, 6, 1, 3, 9, 3, 1, 2, 2, 3, 4, 1, 6 };
-	const unsigned char iv[24] = { 0, 5, 2, 3, 4, 1, 9, 0, 6, 2, 4, 3, 0, 5, 2, 3, 4, 1, 9, 0, 6, 2, 4, 3 };
+	const unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES] = { 1, 4, 2, 6, 1, 9, 3, 5, 6, 2, 1, 0, 0, 7, 0, 1, 7, 9, 4, 4, 6, 1, 3, 9, 3, 1, 2, 2, 3, 4, 1, 6 };
 #else
-	const unsigned char key[32] = { {REPLACE_CHALLENGE_KEY} };
-	const unsigned char iv[24] = { {REPLACE_CHALLENGE_IV} };
+	const unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES] = { {REPLACE_CHALLENGE_KEY} };
 #endif
 
 	// encrypt
 	std::vector<unsigned char> ciphertext((strlen(szChallenge) * sizeof(char)) + crypto_aead_xchacha20poly1305_ietf_ABYTES);
 	unsigned long long ciphertext_len = 0;
 
+	std::vector<uint8_t> nonce(crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+	randombytes_buf(nonce.data(), nonce.size());
+
 	crypto_aead_xchacha20poly1305_ietf_encrypt(&ciphertext.data()[0], &ciphertext_len,
 		(unsigned char*)szChallenge, strlen(szChallenge) * sizeof(char),
 		nullptr, 0,
-		NULL, &iv[0], &key[0]);
+		NULL, &nonce[0], &key[0]);
 
 	// resize buffer and copy back
 	ciphertext.resize(ciphertext_len);
 
-	return Base64Encode(ciphertext);
+	json["challenge"] = Base64Encode(ciphertext);
+	json["nonce"] = Base64Encode(nonce);
 }
 
 std::string DecryptServiceToken(std::string strServiceToken)
@@ -186,7 +194,7 @@ std::string DecryptServiceToken(std::string strServiceToken)
 		0,
 		&iv[0], &key[0]) != 0)
 	{
-		NetworkLog("Token decrypt failed");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Token decrypt failed");
 		return "";
 	}
 	else

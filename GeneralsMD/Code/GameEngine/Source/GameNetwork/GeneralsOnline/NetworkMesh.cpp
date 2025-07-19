@@ -32,7 +32,7 @@ void NetworkMesh::UpdateConnectivity(PlayerConnection* connection)
 
 void NetworkMesh::OnRelayUpgrade(int64_t targetUserID)
 {
-	NetworkLog("Performing relay upgrade for user %lld", targetUserID);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "Performing relay upgrade for user %lld", targetUserID);
 	if (m_mapConnections.find(targetUserID) != m_mapConnections.end())
 	{
 		PlayerConnection& pConnection = m_mapConnections[targetUserID];
@@ -40,17 +40,17 @@ void NetworkMesh::OnRelayUpgrade(int64_t targetUserID)
 
 		if (connState == EConnectionState::NOT_CONNECTED || connState == EConnectionState::CONNECTING_DIRECT)
 		{
-			NetworkLog("Starting relay upgrade for real");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "Starting relay upgrade for real");
 			ConnectToUserViaRelay(targetUserID);
 		}
 		else
 		{
-			NetworkLog("Invalid connection state for relay upgrade (%d)", (int)connState);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "Invalid connection state for relay upgrade (%d)", (int)connState);
 		}
 	}
 	else
 	{
-		NetworkLog("User was not found for relay upgrade");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "User was not found for relay upgrade");
 	}
 }
 
@@ -131,11 +131,11 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 			{
 				if (ret == 0)
 				{
-					NetworkLog("Packet Sent! Via Relay");
+					NetworkLog(ELogVerbosity::LOG_DEBUG, "Packet Sent! Via Relay");
 				}
 				else
 				{
-					NetworkLog("Packet Failed To Send! Via Relay");
+					NetworkLog(ELogVerbosity::LOG_DEBUG, "Packet Failed To Send! Via Relay");
 				}
 			}
 			else
@@ -147,11 +147,11 @@ void NetworkMesh::SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTarg
 				{
 					if (ret == 0)
 					{
-						NetworkLog("Packet Sent! %s:%d", ip.c_str(), peer->address.port);
+						NetworkLog(ELogVerbosity::LOG_DEBUG, "Packet Sent! %s:%d", ip.c_str(), peer->address.port);
 					}
 					else
 					{
-						NetworkLog("Packet Failed To Send! %s:%d, result was %d", ip.c_str(), peer->address.port, ret);
+						NetworkLog(ELogVerbosity::LOG_DEBUG, "Packet Failed To Send! %s:%d, result was %d", ip.c_str(), peer->address.port, ret);
 					}
 				}
 			}
@@ -182,7 +182,7 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 
 		if (!bFoundLobbyMemberForConnection)
 		{
-			NetworkLog("We have a connection open to user id %d, but no lobby member exists, disconnecting", thisConnectionUserID);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "We have a connection open to user id %d, but no lobby member exists, disconnecting", thisConnectionUserID);
 			vecConnectionsToRemove.push_back(thisConnectionUserID);
 		}
 	}
@@ -194,13 +194,13 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 		{
 			if (m_mapConnections[userIDToDisconnect].m_peer != nullptr)
 			{
-				NetworkLog("[DC] enet_peer_disconnect_now %lld", userIDToDisconnect);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] enet_peer_disconnect_now %lld", userIDToDisconnect);
 
 				uint32_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 				enet_peer_disconnect_now(m_mapConnections[userIDToDisconnect].m_peer, localUserID);
 			}
 
-			NetworkLog("[ERASE 1] Removing user %lld", m_mapConnections[userIDToDisconnect].m_userID);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 1] Removing user %lld", m_mapConnections[userIDToDisconnect].m_userID);
 			m_mapConnections.erase(userIDToDisconnect);
 		}
 	}
@@ -211,7 +211,7 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 	// never connect to ourself
 	if (lobbyMember.user_id == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
 	{
-		NetworkLog("NetworkMesh::ConnectToSingleUser - Skipping connection to user %lld - user is local", lobbyMember.user_id);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - Skipping connection to user %lld - user is local", lobbyMember.user_id);
 		return;
 	}
 
@@ -223,7 +223,7 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 	char ip[INET_ADDRSTRLEN + 1] = { 0 };
 	enet_address_get_host_ip(&addr, ip, sizeof(ip));
-	NetworkLog("Connecting to %s:%d. (pref port was actually %d)", ip, addr.port, lobbyMember.preferredPort);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "Connecting to %s:%d. (pref port was actually %d)", ip, addr.port, lobbyMember.preferredPort);
 #endif
 
 	ConnectToSingleUser(addr, lobbyMember.user_id, bIsReconnect);
@@ -231,19 +231,19 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 
 void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 {
-	NetworkLog("NetworkMesh::ConnectToUserViaRelay - Attempting to connect to user %lld via relay", user_id);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToUserViaRelay - Attempting to connect to user %lld via relay", user_id);
 
 	// update
 
 	// TODO_RELAY: How do we want to handle m_peer?
-	NetworkLog("[STATE CHANGE4] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTING_RELAY", user_id, m_mapConnections[user_id].m_State);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STATE CHANGE4] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTING_RELAY", user_id, m_mapConnections[user_id].m_State);
 	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_ConnectionRelayUpgrade(user_id);
 	m_mapConnections[user_id].m_State = EConnectionState::CONNECTING_RELAY;
 	m_mapConnections[user_id].m_ConnectionAttempts = 0;
 	m_mapConnections[user_id].m_lastConnectionAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 	UpdateConnectivity(&m_mapConnections[user_id]);
 	
-	NetworkLog("[SERVER] Connecting to user %lld via relay.\n", user_id);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] Connecting to user %lld via relay.\n", user_id);
 
 	
 
@@ -276,13 +276,13 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 				int slotIdToUseForRelay = m_mapConnectionSelection[myLobbyEntry.m_SlotIndex][member.m_SlotIndex];
 				if (slotIdToUseForRelay == myLobbyEntry.m_SlotIndex)
 				{
-					NetworkLog("Per the relay connection map, using my relay details for connection to %lld", user_id);
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "Per the relay connection map, using my relay details for connection to %lld", user_id);
 					strRelayIPToUse = myLobbyEntry.strRelayIP;
 					relayPortToUse = myLobbyEntry.relayPort;
 				}
 				else
 				{
-					NetworkLog("Per the relay connection map, using the remote users relay details for connection to %lld", user_id);
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "Per the relay connection map, using the remote users relay details for connection to %lld", user_id);
 					strRelayIPToUse = member.strRelayIP;
 					relayPortToUse = member.relayPort;
 				}
@@ -291,7 +291,7 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 				enet_address_set_host(&addr, strRelayIPToUse.c_str());
 				addr.port = relayPortToUse;
 
-				NetworkLog("Attempting to connect to relay. The relay for this lobby pair is %s:%d.", strRelayIPToUse.c_str(), relayPortToUse);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "Attempting to connect to relay. The relay for this lobby pair is %s:%d.", strRelayIPToUse.c_str(), relayPortToUse);
 
 				// Do we already have a peer we can reuse?
 				ENetPeer* pExistingRelayPeer = nullptr;
@@ -316,14 +316,14 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 
 				if (pExistingRelayPeer == nullptr)
 				{
-					NetworkLog("Making a new relay connection...");
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "Making a new relay connection...");
 					enet_uint32 connectData = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 					ENetPeer* pNewRelayPeer = enet_host_connect(enetInstance, &addr, 4, connectData);
 
 					if (pNewRelayPeer == nullptr)
 					{
 						// TODO_NGMP: Better handling
-						NetworkLog("No available peers for initiating an ENet connection to relay.");
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "No available peers for initiating an ENet connection to relay.");
 						return;
 					}
 
@@ -337,12 +337,12 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 				}
 				else
 				{
-					NetworkLog("Reusing an existing lobby connection");
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "Reusing an existing lobby connection");
 					m_mapConnections[user_id].m_pRelayPeer = pExistingRelayPeer;
 					m_mapConnections[user_id].m_peer = nullptr;
 
 					// assume connected, since the connection was already formed prior
-					NetworkLog("[STATE CHANGE 1] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTED_RELAY", user_id, m_mapConnections[user_id].m_State);
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STATE CHANGE 1] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTED_RELAY", user_id, m_mapConnections[user_id].m_State);
 					m_mapConnections[user_id].m_State = EConnectionState::CONNECTED_RELAY;
 					UpdateConnectivity(&m_mapConnections[user_id]);
 					enet_peer_timeout(m_mapConnections[user_id].m_pRelayPeer, 10, 30000, 60000);
@@ -360,7 +360,7 @@ void NetworkMesh::ConnectToUserViaRelay(Int64 user_id)
 
 	if (!bFoundRelay)
 	{
-		NetworkLog("We need a relay, but couldn't find a relay for user %lld, connection will fail.", user_id);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "We need a relay, but couldn't find a relay for user %lld, connection will fail.", user_id);
 	}
 }
 	
@@ -370,7 +370,7 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	// is it already connected?
 	if (m_mapConnections.contains(user_id) && !bIsReconnect)
 	{
-		NetworkLog("NetworkMesh::ConnectToSingleUser - Duplicate connection for user %lld, not making new connection and returning.", user_id);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - Duplicate connection for user %lld, not making new connection and returning.", user_id);
 		return;
 	}
 
@@ -378,7 +378,7 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	if (user_id == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
 	{
 		// dont connect to ourselves
-		NetworkLog("NetworkMesh::ConnectToSingleUser - not connecting to ourselves (%lld)", user_id);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - not connecting to ourselves (%lld)", user_id);
 		return;
 	}
 	else
@@ -409,7 +409,7 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	char ip2[INET_ADDRSTRLEN + 1] = { 0 };
 	if (enet_address_get_host_ip(&peer->host->receivedAddress, ip1, sizeof(ip1)) == 0 && enet_address_get_host_ip(&peer->host->address, ip2, sizeof(ip2)) == 0)
 	{
-		NetworkLog("[DEBUG] New enet_host_connect with address %s:%u. and received address %s:%u",
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[DEBUG] New enet_host_connect with address %s:%u. and received address %s:%u",
 			ip1,
 			peer->host->receivedAddress.port,
 			ip2,
@@ -434,11 +434,11 @@ void NetworkMesh::ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsR
 	if (peer == nullptr)
 	{
 		// TODO_NGMP: Better handling
-		NetworkLog("No available peers for initiating an ENet connection.");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "No available peers for initiating an ENet connection.");
 		return;
 	}
 
-	NetworkLog("[SERVER] Connecting to user %lld.\n", user_id);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] Connecting to user %lld.\n", user_id);
 
 	// store it
 	if (!bIsReconnect)
@@ -474,13 +474,13 @@ bool NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 		if (enet_initialize() != 0)
 		{
 			// TODO_NGMP: Handle error
-			NetworkLog("Network Init Failed!");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "Network Init Failed!");
 			m_bEnetInitialized = false;
 			return false;
 		}
 		else
 		{
-			NetworkLog("Network Initialized!");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "Network Initialized!");
 			m_bEnetInitialized = true;
 		}
 	}
@@ -492,7 +492,7 @@ bool NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 
 		server_address.host = ENET_HOST_ANY;
 		server_address.port = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-		NetworkLog("Network Listening on port %d!", server_address.port);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Network Listening on port %d!", server_address.port);
 		// TODO_NGMP: Correct values here
 		enetInstance = enet_host_create(&server_address,
 			32,  // max game size is 8 and we are p2p and fake a connection to ourselves // TODO_NGMP: Do we need to support more, e.g. spectators?
@@ -503,7 +503,7 @@ bool NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
 		if (enetInstance == NULL)
 		{
 			// TODO_NGMP: Handle error
-			NetworkLog("Network Listen Failed!");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "Network Listen Failed!");
 			m_bEnetInitialized = false;
 			return false;
 		}
@@ -528,7 +528,7 @@ void NetworkMesh::Disconnect()
 		ENetPeer* peer = connectionData.second.m_peer;
 		if (peer != nullptr)
 		{
-			NetworkLog("[DC] enet_peer_disconnect %lld (0)", connectionData.first);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] enet_peer_disconnect %lld (0)", connectionData.first);
 
 			uint32_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 			enet_peer_disconnect(peer, localUserID);
@@ -548,7 +548,7 @@ void NetworkMesh::Disconnect()
 				}
 			}
 
-			NetworkLog("[DC] enet_peer_disconnect %lld (1)", connectionData.first);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] enet_peer_disconnect %lld (1)", connectionData.first);
 
 			uint32_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 			enet_peer_disconnect(relayPeer, localUserID);
@@ -688,6 +688,32 @@ void NetworkMesh::Tick()
 		}
 	}
 
+	for (auto& connectionData : m_mapConnections)
+	{
+		ENetPeer* pPeer = connectionData.second.GetPeerToUse();
+		if (pPeer != nullptr)
+		{
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "PeerStats [FRAME %d|%p]: incomingBandwidth: %u, outgoingBandwidth: %u, incomingDataTotal: %u, outgoingDataTotal: %u, lastSendTime: %u, lastReceiveTime: %u, packetsSent: %u, packetsLost: %u, packetLoss: %u, lastRoundTripTime: %u, lowestRoundTripTime: %u, reliableDataInTransit: %u, mtu %u, totalWaitingData %u",
+				TheNetwork == nullptr ? -1 : TheNetwork->getExecutionFrame(),
+				pPeer,
+				pPeer->incomingBandwidth,
+				pPeer->outgoingBandwidth,
+				pPeer->incomingDataTotal,
+				pPeer->outgoingDataTotal,
+				pPeer->lastSendTime,
+				pPeer->lastReceiveTime,
+				pPeer->packetsSent,
+				pPeer->packetsLost,
+				pPeer->packetLoss,
+				pPeer->lastRoundTripTime,
+				pPeer->lowestRoundTripTime,
+				pPeer->reliableDataInTransit,
+				pPeer->mtu,
+				pPeer->totalWaitingData
+			);
+		}
+	}
+
 	// service connection attempts
 	/*
 		m_mapConnections[lobbyMember.user_id].m_State = EConnectionState::CONNECTING;
@@ -710,8 +736,11 @@ void NetworkMesh::Tick()
 		}
 	}*/
 
+	int eventsHandled = 0;
+	int numReceived = 0;
 	// tick
 	{
+		
 		
 
 		ENetEvent event;
@@ -719,6 +748,7 @@ void NetworkMesh::Tick()
 		// TODO_NGMP: Switch to send/recv model isntead of events
 		while (enet_host_service(enetInstance, &event, 0) > 0)
 		{
+			++eventsHandled;
 			switch (event.type)
 			{
 			case ENET_EVENT_TYPE_CONNECT:
@@ -730,7 +760,7 @@ void NetworkMesh::Tick()
 				char ip[INET_ADDRSTRLEN + 1] = { 0 };
 				if (enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip)) == 0)
 				{
-					NetworkLog("[SERVER] A new client connected from %s:%u (USER ID %ld). Starting wait for hello",
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] A new client connected from %s:%u (USER ID %ld). Starting wait for hello",
 						ip,
 						event.peer->address.port,
 						incomingUserID);
@@ -742,8 +772,8 @@ void NetworkMesh::Tick()
 				if (incomingUserID == 0) // outbound connection has id 0
 				{
 					bool bFound = false;
-					NetworkLog("[CHECK OVERALL] START");
-					NetworkLog("[CHECK 1] There are %d connections currently", m_mapConnections.size());
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[CHECK OVERALL] START");
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[CHECK 1] There are %d connections currently", m_mapConnections.size());
 
 					for (auto& connectionInfo : m_mapConnections)
 					{	
@@ -752,8 +782,8 @@ void NetworkMesh::Tick()
 						
 						//else if (connectionInfo.second.m_State == EConnectionState::CONNECTING_RELAY)
 
-						NetworkLog("[CHECK 1] RelayPeer is %p", connectionInfo.second.m_pRelayPeer);
-						NetworkLog("[CHECK 2] NormalPeer is %p", connectionInfo.second.m_peer);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[CHECK 1] RelayPeer is %p", connectionInfo.second.m_pRelayPeer);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[CHECK 2] NormalPeer is %p", connectionInfo.second.m_peer);
 
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 						{
@@ -762,7 +792,7 @@ void NetworkMesh::Tick()
 								char ip2[INET_ADDRSTRLEN + 1] = { 0 };
 								if (enet_address_get_host_ip(&connectionInfo.second.m_pRelayPeer->address, ip2, sizeof(ip2)) == 0)
 								{
-									NetworkLog("[CHECK 3] Relay peer to check is %s:%u (USER ID %ld).",
+									NetworkLog(ELogVerbosity::LOG_RELEASE, "[CHECK 3] Relay peer to check is %s:%u (USER ID %ld).",
 										ip2,
 										connectionInfo.second.m_pRelayPeer->address.port,
 										connectionInfo.first);
@@ -770,7 +800,7 @@ void NetworkMesh::Tick()
 							}
 							else
 							{
-								NetworkLog("[CHECK 3] Relay peer is null.");
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[CHECK 3] Relay peer is null.");
 							}
 						}
 #endif
@@ -782,7 +812,7 @@ void NetworkMesh::Tick()
 								char ip2[INET_ADDRSTRLEN + 1] = { 0 };
 								if (enet_address_get_host_ip(&connectionInfo.second.m_peer->address, ip2, sizeof(ip2)) == 0)
 								{
-									NetworkLog("[CHECK 4] Peer to check is %s:%u (USER ID %ld).",
+									NetworkLog(ELogVerbosity::LOG_RELEASE, "[CHECK 4] Peer to check is %s:%u (USER ID %ld).",
 										ip2,
 										connectionInfo.second.m_peer->address.port,
 										connectionInfo.first);
@@ -790,7 +820,7 @@ void NetworkMesh::Tick()
 							}
 							else
 							{
-								NetworkLog("[CHECK 4] peer is null.");
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[CHECK 4] peer is null.");
 							}
 						}
 #endif
@@ -802,21 +832,21 @@ void NetworkMesh::Tick()
 							if (connectionInfo.second.m_pRelayPeer->address.host == event.peer->address.host &&
 								connectionInfo.second.m_pRelayPeer->address.port == event.peer->address.port)
 							{
-								NetworkLog("Our outbound connection to relay for user %ld was completed", (int)connectionInfo.second.m_userID);
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "Our outbound connection to relay for user %ld was completed", (int)connectionInfo.second.m_userID);
 								bShouldBreak = true;
 								bFound = true;
 	
 							// update incoming userID to be the user and not the relay
 								incomingUserID = connectionInfo.first;
 
-								NetworkLog("[STATE TEST] Found relay connection, on connect, current state is %d", m_mapConnections[incomingUserID].m_State);
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[STATE TEST] Found relay connection, on connect, current state is %d", m_mapConnections[incomingUserID].m_State);
 
 								// update state
 								if (m_mapConnections[incomingUserID].m_State == EConnectionState::CONNECTING_RELAY)
 								{
 									if (m_mapConnections[incomingUserID].m_State != EConnectionState::CONNECTED_RELAY)
 									{
-										NetworkLog("[STATE CHANGE 2] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTED_RELAY", incomingUserID, m_mapConnections[incomingUserID].m_State);
+										NetworkLog(ELogVerbosity::LOG_RELEASE, "[STATE CHANGE 2] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTED_RELAY", incomingUserID, m_mapConnections[incomingUserID].m_State);
 										m_mapConnections[incomingUserID].m_State = EConnectionState::CONNECTED_RELAY;
 										enet_peer_timeout(m_mapConnections[incomingUserID].m_pRelayPeer, 10, 30000, 60000);
 										UpdateConnectivity(&m_mapConnections[incomingUserID]);
@@ -848,7 +878,7 @@ void NetworkMesh::Tick()
 								connectionInfo.second.m_peer->address.port == event.peer->address.port)
 							{
 								// we already have a connection for this user, just update the peer
-								NetworkLog("Our outbound connection to user %ld was completed", (int)connectionInfo.second.m_userID);
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "Our outbound connection to user %ld was completed", (int)connectionInfo.second.m_userID);
 								bShouldBreak = true;
 								bFound = true;
 								break;
@@ -858,8 +888,8 @@ void NetworkMesh::Tick()
 						
 					}
 
-					NetworkLog("[CHECK FINAL] bFound: %d", bFound);
-					NetworkLog("[CHECK OVERALL] DONE");
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[CHECK FINAL] bFound: %d", bFound);
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[CHECK OVERALL] DONE");
 				}
 				else // new inbound connection
 				{
@@ -882,7 +912,7 @@ void NetworkMesh::Tick()
 									enet_address_get_host_ip(&event.peer->address, newIp, sizeof(newIp));
 
 
-									NetworkLog("Endpoint for user %lld changed. Before: %s:%d, now %s:%d. Attempting connection", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
+									NetworkLog(ELogVerbosity::LOG_RELEASE, "Endpoint for user %lld changed. Before: %s:%d, now %s:%d. Attempting connection", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
 									//pConnection->m_address = event.peer->address;
 									pConnection->m_peer->address = event.peer->address;
 
@@ -912,7 +942,7 @@ void NetworkMesh::Tick()
 									enet_address_get_host_ip(&event.peer->address, newIp, sizeof(newIp));
 
 
-									NetworkLog("Endpoint for user %lld changed. Before: %s:%d, now %s:%d", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
+									NetworkLog(ELogVerbosity::LOG_RELEASE, "Endpoint for user %lld changed. Before: %s:%d, now %s:%d", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
 									//pConnection->m_address = event.peer->address;
 									pConnection->m_peer->address = event.peer->address;
 								}
@@ -932,7 +962,7 @@ void NetworkMesh::Tick()
 						enet_address_get_host_ip(&event.peer->address, newIp, sizeof(newIp));
 
 
-						NetworkLog("Endpoint for user %lld changed. Before: %s:%d, now %s:%d", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Endpoint for user %lld changed. Before: %s:%d, now %s:%d", pConnection->m_userID, oldIp, pConnection->m_address.port, newIp, event.peer->address.port);
 						pConnection->m_address = event.peer->address;
 						pConnection->m_peer->address = event.peer->address;
 						*/
@@ -945,7 +975,7 @@ void NetworkMesh::Tick()
 				
 
 				// we no longer need to send hellos, challenge is the response to hello
-				NetworkLog("Stopping sending hellos 1");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "Stopping sending hellos 1");
 				m_mapConnections[incomingUserID].m_bNeedsHelloSent = false;
 
 				if (incomingUserID == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
@@ -960,9 +990,9 @@ void NetworkMesh::Tick()
 				}
 
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
-				NetworkLog("[NGMP]: Received ack from %s (user ID: %d), we're now connected", ip, incomingUserID);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP]: Received ack from %s (user ID: %d), we're now connected", ip, incomingUserID);
 #else // same log, no IP
-				NetworkLog("[NGMP]: Received ack from user ID: %d, we're now connected", incomingUserID);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP]: Received ack from user ID: %d, we're now connected", incomingUserID);
 #endif
 
 
@@ -1033,7 +1063,7 @@ void NetworkMesh::Tick()
 				}
 
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
-				NetworkLog("[NGMP]: Registered client connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, incomingUserID);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP]: Registered client connection for user %s:%d (user ID: %d)", ip, event.peer->address.port, incomingUserID);
 #endif
 
 				break;
@@ -1042,12 +1072,7 @@ void NetworkMesh::Tick()
 
 			case ENET_EVENT_TYPE_RECEIVE:
 			{
-// 				NetworkLog("[SERVER] A packet of length %u containing %s was received from %s on channel %u.\n",
-// 					event.packet->dataLength,
-// 					event.packet->data,
-// 					event.peer->data,
-// 					event.channelID);
-
+				++numReceived;
 				PlayerConnection* pConnection = nullptr;
 				int64_t connUserID = -1;
 
@@ -1068,13 +1093,11 @@ void NetworkMesh::Tick()
 
 					// resize packet
 
-					//NetworkLog("Got relayed packet from %d (%lld)  on channel %d, size was %d", sourceUser, connUserID, channel, event.packet->dataLength);
-
 #if defined(_DEBUG) || defined(NETWORK_CONNECTION_DEBUG)
 					char ip[INET_ADDRSTRLEN + 1] = { 0 };
 					if (enet_address_get_host_ip(&event.peer->address, ip, sizeof(ip)) == 0)
 					{
-						NetworkLog("[SERVER] Relay endpoint was %s:%u",
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] Relay endpoint was %s:%u",
 							ip,
 							event.peer->address.port);
 					}
@@ -1109,11 +1132,7 @@ void NetworkMesh::Tick()
 				{
 					// decrypt
 					CBitStream* bitstream = new CBitStream(event.packet->dataLength, event.packet->data, event.packet->dataLength);
-					bitstream->Decrypt(currentLobby.EncKey, currentLobby.EncIV);
-					//bitstream->ResetOffsetForLocalRead();
-
-					NetworkLog("Got game packet source user is %lld", connUserID);
-					NetworkLog("Got game packet source user is %lld, of size %d (bs: %lld), ", connUserID, event.packet->dataLength, bitstream->GetNumBytesAllocated());
+					bitstream->Decrypt(currentLobby.EncKey);
 
 					m_queueQueuedGamePackets.push(QueuedGamePacket{ bitstream,connUserID });
 
@@ -1123,29 +1142,12 @@ void NetworkMesh::Tick()
 				else if (event.channelID == 2) // handshake channel
 				{
 					CBitStream bitstream(event.packet->data, event.packet->dataLength, (EPacketID)event.packet->data[0]);
-					NetworkLog("[NGMP]: Received %d bytes from peer %d on handshake channel", event.packet->dataLength, event.peer->incomingPeerID);
+					NetworkLog(ELogVerbosity::LOG_DEBUG, "[NGMP]: Received %d bytes from peer %d on handshake channel", event.packet->dataLength, event.peer->incomingPeerID);
 
 
-					bitstream.Decrypt(currentLobby.EncKey, currentLobby.EncIV);
+					bitstream.Decrypt(currentLobby.EncKey);
 
-					EPacketID packetID = bitstream.Read<EPacketID>();
-					if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO) // remote host is sending us hello
-					{
-						/*
-						NetRoom_HelloPacket helloPacket(bitstream);
-
-						// send ack
-						NetRoom_HelloAckPacket ackPacket(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID());
-						int ret = m_mapConnections[helloPacket.GetUserID()].SendPacket(ackPacket, 2);
-						NetworkLog("Send Hello ret: %d", ret);
-						*/
-					}
-					else if (packetID == EPacketID::PACKET_ID_NET_ROOM_HELLO_ACK)
-					{
-						//NetRoom_HelloAckPacket ackPacket(bitstream);
-
-						
-					}
+					//EPacketID packetID = bitstream.Read<EPacketID>();
 
 					continue;
 				}
@@ -1154,10 +1156,10 @@ void NetworkMesh::Tick()
 				// TODO_NGMP: Reject any packets from members not in the room? or mesh
 
 				CBitStream bitstream(event.packet->data, event.packet->dataLength, (EPacketID)event.packet->data[0]);
-				NetworkLog("[NGMP]: Received %d bytes from peer %d (user id is %lld)", event.packet->dataLength, event.peer->incomingPeerID, connUserID);
+				NetworkLog(ELogVerbosity::LOG_DEBUG, "[NGMP]: Received %d bytes from peer %d (user id is %lld)", event.packet->dataLength, event.peer->incomingPeerID, connUserID);
 
 				
-				bitstream.Decrypt(currentLobby.EncKey, currentLobby.EncIV);
+				bitstream.Decrypt(currentLobby.EncKey);
 
 				EPacketID packetID = bitstream.Read<EPacketID>();
 
@@ -1168,14 +1170,13 @@ void NetworkMesh::Tick()
 					if (packetID == EPacketID::PACKET_ID_LOBBY_START_GAME)
 					{
 						// TODO_NGMP: Ignore if not host sending
-						NetworkLog("[NGMP]: Got start game packet from %d", event.peer->incomingPeerID);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP]: Got start game packet from %d", event.peer->incomingPeerID);
 
 						Lobby_StartGamePacket startGamePacket(bitstream);
 						ProcessGameStart(startGamePacket);
 					}
 					else if (packetID == EPacketID::PACKET_ID_PING)
 					{
-						//NetworkLog("Received Ping");
 						// send pong
 						NetworkPacket_Pong pongPacket;
 						if (pConnection != nullptr)
@@ -1185,8 +1186,6 @@ void NetworkMesh::Tick()
 					}
 					else if (packetID == EPacketID::PACKET_ID_PONG)
 					{
-						//NetworkLog("Received Pong");
-
 						// store delta on connection
 						
 						if (pConnection != nullptr)
@@ -1222,7 +1221,7 @@ void NetworkMesh::Tick()
 								}
 							}
 							
-							NetworkLog("Latency for connection to user %lld is %d (var %d)", pConnection->m_userID, pConnection->latency, l);
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "Latency for connection to user %lld is %d (var %d)", pConnection->m_userID, pConnection->latency, l);
 						}
 					}
 				}
@@ -1248,21 +1247,21 @@ void NetworkMesh::Tick()
 						{
 							if (pConnection->m_ConnectionAttempts < 1)
 							{
-								NetworkLog("[SERVER] Attempting to connect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts + 1);
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] Attempting to connect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts + 1);
 								ConnectToSingleUser(pConnection->m_address, pConnection->m_userID, true);
 							}
 							else
 							{
-								NetworkLog("[SERVER] %d timed out while connecting directly, attempting to use relay\n", pConnection->m_userID);
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] %d timed out while connecting directly, attempting to use relay\n", pConnection->m_userID);
 								ConnectToUserViaRelay(pConnection->m_userID);
 							}
 						}
 						else
 						{
-							NetworkLog("[SERVER] %d timed out while connecting via relay, closing connection and throwing error\n", pConnection->m_userID);
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] %d timed out while connecting via relay, closing connection and throwing error\n", pConnection->m_userID);
 
 							// remove it, they disconnected
-							NetworkLog("[ERASE 2] Removing user %lld", pConnection->m_userID);
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 2] Removing user %lld", pConnection->m_userID);
 							m_mapConnections.erase(pConnection->m_userID);
 						}
 						
@@ -1273,13 +1272,13 @@ void NetworkMesh::Tick()
 						// should we retry?
 						if (pConnection->m_ConnectionAttempts < 5)
 						{
-							NetworkLog("[SERVER] Attemping to connect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts+1);
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] Attemping to connect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts+1);
 							//ConnectToSingleUser(pConnection->m_address, pConnection->m_userID, true);
 						}
 						else
 						{
 							// TODO_NGMP: Leave lobby etc
-							NetworkLog("[SERVER] Exhausted retry attempts connecting to %d.\n", pConnection->m_userID);
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] Exhausted retry attempts connecting to %d.\n", pConnection->m_userID);
 						}
 						*/
 					}
@@ -1291,12 +1290,12 @@ void NetworkMesh::Tick()
 							// if the local user requested the disconnect, the connection wont be in the connection map anymore, so we can only hit this code if we disconnected forcefully, or via remote client disconnecting us
 
 						// TODO_NGMP: What if the remote client disconnected us, we should have them reject any re-connects
-							NetworkLog("[SERVER] %d disconnected (0).\n", pConnection->m_userID);
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] %d disconnected (0).\n", pConnection->m_userID);
 
 							const int numReconnectAttempts = 10;
 							if (pConnection->m_ConnectionAttempts < numReconnectAttempts)
 							{
-								NetworkLog("[SERVER] Attempting to reconnect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts + 1);
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] Attempting to reconnect to %d, attempt number %d\n", pConnection->m_userID, pConnection->m_ConnectionAttempts + 1);
 
 								// if connected, and user is still in lobby, lets try to reconnect
 								ConnectToSingleUser(pConnection->m_address, pConnection->m_userID, true);
@@ -1304,10 +1303,10 @@ void NetworkMesh::Tick()
 							else
 							{
 								// TODO_NGMP: Leave lobby etc
-								NetworkLog("[SERVER] Exhausted retry attempts connecting to %d.\n", pConnection->m_userID);
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] Exhausted retry attempts connecting to %d.\n", pConnection->m_userID);
 
 								// remove it, they disconnected
-								NetworkLog("[ERASE 3] Removing user %lld", pConnection->m_userID);
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 3] Removing user %lld", pConnection->m_userID);
 								m_mapConnections.erase(pConnection->m_userID);
 							}
 						}
@@ -1315,10 +1314,12 @@ void NetworkMesh::Tick()
 
 				}
 
-				NetworkLog("[SERVER] %s disconnected (1).\n", event.peer->data);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] %s disconnected (1).\n", event.peer->data);
 			}
 		}
 	}
+
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "This frame %d, we procesessed %d events total and %d receive events", TheNetwork == nullptr ? -1 : TheNetwork->getExecutionFrame(), eventsHandled, numReceived);
 
 }
 
@@ -1328,9 +1329,9 @@ void NetworkMesh::SendPing()
 
 	// TODO_NGMP: Better way of checking we have everything we need / are fully in the lobby
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
-	if (currentLobby.EncKey.empty() || currentLobby.EncIV.empty())
+	if (currentLobby.EncKey.empty())
 	{
-		NetworkLog("No encryption key or IV, not sending ping");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "No encryption key, not sending ping");
 		return;
 	}
 
@@ -1354,7 +1355,7 @@ PlayerConnection::PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* p
 
 	if (bStartSendingHellosAgain)
 	{
-		NetworkLog("Starting sending hellos 1");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Starting sending hellos 1");
 		m_bNeedsHelloSent = true;
 	}
 	// otherwise, keep whatever start we were in, its just a connection update
@@ -1372,6 +1373,7 @@ ENetPeer* PlayerConnection::GetPeerToUse()
 {
 	if (m_pRelayPeer != nullptr)
 	{
+		
 		return m_pRelayPeer;
 	}
 	
@@ -1392,9 +1394,9 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	}
 	else if (m_State == EConnectionState::CONNECTING_DIRECT || m_State == EConnectionState::CONNECTED_DIRECT)
 	{
-		bitstream.Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+		bitstream.Encrypt(currentLobby.EncKey);
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED); // TODO_NGMP: Support flags
 
 		if (GetPeerToUse() != nullptr)
 		{
@@ -1409,7 +1411,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	{
 		// use relay peer
 		// encrypt the game packet as normal
-		bitstream.Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+		bitstream.Encrypt(currentLobby.EncKey);
 
 		// repackage with relay header (unencrypted, 9 bytes) + use relay channel
 		// grow
@@ -1418,7 +1420,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 		bitstream.Write<uint8_t>(gameChannel);
 
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
+		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED); // TODO_NGMP: Support flags
 
 		// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
 		// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
@@ -1443,7 +1445,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 	{
 		if (m_State != EConnectionState::CONNECTED_DIRECT && m_State != EConnectionState::CONNECTED_RELAY)
 		{
-			NetworkLog("WARNING: Attempting to send packet before connected, state is %d", m_State);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "WARNING: Attempting to send packet before connected, state is %d", m_State);
 			return -7;
 		}
 	}
@@ -1455,18 +1457,18 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 		|| m_State == EConnectionState::CONNECTION_FAILED) && channel == 2))
 	{
 		CBitStream* pBitStream = packet.Serialize();
-		pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+		pBitStream->Encrypt(currentLobby.EncKey);
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
+		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED);
 
 		if (m_peer == m_pRelayPeer && m_pRelayPeer != nullptr)
 		{
-			NetworkLog("Unexpected!");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "Unexpected!");
 
 			if (m_State == EConnectionState::CONNECTING_DIRECT)
 			{
 				NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_ConnectionRelayUpgrade(m_userID);
-				NetworkLog("[STATE CHANGE5] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTING_RELAY", m_userID, m_State);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[STATE CHANGE5] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTING_RELAY", m_userID, m_State);
 				m_State = EConnectionState::CONNECTING_RELAY;
 				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
 				if (pMesh != nullptr)
@@ -1476,7 +1478,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 			}
 			else if (m_State == EConnectionState::CONNECTED_DIRECT)
 			{
-				NetworkLog("[STATE CHANGE3] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTED_RELAY", m_userID, m_State);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[STATE CHANGE3] Relay connection to user %ld changes from state %d to EConnectionState::CONNECTED_RELAY", m_userID, m_State);
 				m_State = EConnectionState::CONNECTED_RELAY;
 				enet_peer_timeout(m_peer, 10, 30000, 60000);
 				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
@@ -1503,7 +1505,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 		// use relay peer
 		// encrypt the game packet as normal
 		CBitStream* pBitStream = packet.Serialize();
-		pBitStream->Encrypt(currentLobby.EncKey, currentLobby.EncIV);
+		pBitStream->Encrypt(currentLobby.EncKey);
 
 		// repackage with relay header (unencrypted, 9 bytes) + use relay channel
 		// grow
@@ -1511,9 +1513,9 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 		pBitStream->Write<uint32_t>(m_userID);
 		pBitStream->Write<uint8_t>(channel);
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
+		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED);
 
-		NetworkLog("Attempting to send relayed packet to %ld", m_userID);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Attempting to send relayed packet to %ld", m_userID);
 
 		// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
 		// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
@@ -1525,7 +1527,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 			char ip[INET_ADDRSTRLEN + 1] = { 0 };
 			if (enet_address_get_host_ip(&m_pRelayPeer->address, ip, sizeof(ip)) == 0)
 			{
-				NetworkLog("[SERVER] Sent relayed packet to %lld, result was %d, endpoint is %s:%u",
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[SERVER] Sent relayed packet to %lld, result was %d, endpoint is %s:%u",
 					m_userID,
 					a,
 					ip,

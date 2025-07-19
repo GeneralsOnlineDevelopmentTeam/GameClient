@@ -61,18 +61,17 @@ Bool NextGenTransport::doRecv(void)
 	TransportMessage incomingMessage;
 	unsigned char* buf = (unsigned char*)&incomingMessage;
 
+	int numRead = 0;
+
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
 	while (pMesh->HasGamePacket())
 	{
+		++numRead;
 		bRet = true;
 
 		QueuedGamePacket gamePacket = pMesh->RecvGamePacket();
 
 		uint32_t numBytes = gamePacket.m_bs->GetNumBytesAllocated();
-
-		NetworkLog("[NGMP]: Received %d bytes from user %d", numBytes, gamePacket.m_userID);
-
-		
 
 		// avoiding memcpy, since the game memcpy's it into a free slot anyway
 		//buf = (unsigned char*)gamePacket.m_packet->data;
@@ -99,11 +98,11 @@ Bool NextGenTransport::doRecv(void)
 		// is it a generals packet?
 		if (isGeneralsPacket(&incomingMessage))
 		{
-			//NetworkLog("Game Packet Recv: Is a generals packet");
+			//NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is a generals packet");
 		}
 		else
 		{
-			NetworkLog("Game Packet Recv: Is NOT a generals packet");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is NOT a generals packet");
 		}
 
 		if (numBytes <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
@@ -136,12 +135,23 @@ Bool NextGenTransport::doRecv(void)
 		}
 	}
 
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "Game Packet Recv: Read %d packets this frame", numRead);
+
+	// flush now
+	
+	if (pMesh != nullptr)
+	{
+		pMesh->Flush();
+	}
+
 	return bRet;
 }
 
 Bool NextGenTransport::doSend(void)
 {
 	bool retval = true;
+
+	int numSent = 0;
 
 	int i;
 	for (i = 0; i < MAX_MESSAGES; ++i)
@@ -164,6 +174,7 @@ Bool NextGenTransport::doSend(void)
 
 			if (retval)
 			{
+				++numSent;
 				//DEBUG_LOG(("Sending %d bytes to %d:%d\n", m_outBuffer[i].length + sizeof(TransportMessageHeader), m_outBuffer[i].addr, m_outBuffer[i].port));
 				m_outgoingPackets[m_statisticsSlot]++;
 				m_outgoingBytes[m_statisticsSlot] += m_outBuffer[i].length + sizeof(TransportMessageHeader);
@@ -180,6 +191,15 @@ Bool NextGenTransport::doSend(void)
 				retval = FALSE;
 			}
 		}
+	}
+
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "Game Packet Send: Sent %d packets this frame", numSent);
+
+	// flush now
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	if (pMesh != nullptr)
+	{
+		pMesh->Flush();
 	}
 
 	return retval;
@@ -216,11 +236,11 @@ Bool NextGenTransport::queueSend(UnsignedInt addr, UnsignedShort port, const Uns
 			// is it a generals packet?
 			if (isGeneralsPacket(&m_outBuffer[i]))
 			{
-				//NetworkLog("Game Packet Queue Sending: Is a generals packet");
+				//NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Queue Sending: Is a generals packet");
 			}
 			else
 			{
-				//NetworkLog("Game Packet Queue Sending: Is NOT a generals packet");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Queue Sending: Is NOT a generals packet");
 			}
 
 			return true;

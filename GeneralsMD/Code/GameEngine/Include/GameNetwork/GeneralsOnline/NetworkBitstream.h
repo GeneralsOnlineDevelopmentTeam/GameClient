@@ -7,8 +7,6 @@
 enum EPacketID
 {
 	PACKET_ID_NONE = -1,
-	PACKET_ID_NET_ROOM_HELLO,
-	PACKET_ID_NET_ROOM_HELLO_ACK,
 	PACKET_ID_LOBBY_START_GAME,
 	PACKET_ID_PING,
 	PACKET_ID_PONG
@@ -96,8 +94,8 @@ public:
 		m_memBuffer = MemoryBuffer();
 	};
 
-	void Encrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV);
-	void Decrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV);
+	void Encrypt(std::vector<BYTE>& vecKey);
+	void Decrypt(std::vector<BYTE>& vecKey);
 
 	CBitStream(EPacketID packetID);
 	CBitStream(int64_t len);
@@ -124,7 +122,7 @@ public:
 		// bounds check
 		if (m_Offset + sizeof(val) > m_memBuffer.GetAllocatedSize())
 		{
-			NetworkLog("[NGMP] Size after writing will be %d, but buffer is only %d", m_Offset + sizeof(val), m_memBuffer.GetAllocatedSize());
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "[NGMP] Size after writing will be %d, but buffer is only %d", m_Offset + sizeof(val), m_memBuffer.GetAllocatedSize());
 			__debugbreak();
 			return;
 		}
@@ -142,7 +140,7 @@ public:
 		// safety
 		if (m_Offset >= m_memBuffer.GetAllocatedSize())
 		{
-			NetworkLog("[NGMP] Trying to read starting from %d, but buffer is only %d", m_Offset, m_memBuffer.GetAllocatedSize());
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "[NGMP] Trying to read starting from %d, but buffer is only %d", m_Offset, m_memBuffer.GetAllocatedSize());
 			__debugbreak();
 			return outVar;
 		}
@@ -163,7 +161,7 @@ public:
 		// bounds check
 		if (m_Offset + valSize > m_memBuffer.GetAllocatedSize())
 		{
-			NetworkLog("[NGMP] Size after writing will be %d, but buffer is only %d", m_Offset + valSize, m_memBuffer.GetAllocatedSize());
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "[NGMP] Size after writing will be %d, but buffer is only %d", m_Offset + valSize, m_memBuffer.GetAllocatedSize());
 			__debugbreak();
 			return;
 		}

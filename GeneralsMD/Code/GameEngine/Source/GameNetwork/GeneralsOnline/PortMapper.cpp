@@ -32,11 +32,11 @@ void pcpMappingCallback(int id, plum_state_t state, const plum_mapping_t* mappin
 		return;
 	}
 
-	NetworkLog("PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
 	switch (state) {
 	case PLUM_STATE_SUCCESS:
 	{
-		NetworkLog("PortMapper: PCP Mapping %d: success, internal=%hu, external=%s:%hu\n", id, mapping->internal_port,
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: PCP Mapping %d: success, internal=%hu, external=%s:%hu\n", id, mapping->internal_port,
 			mapping->external_host, mapping->external_port);
 
 		NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(true);
@@ -44,7 +44,7 @@ void pcpMappingCallback(int id, plum_state_t state, const plum_mapping_t* mappin
 	}
 
 	case PLUM_STATE_FAILURE:
-		NetworkLog("PortMapper: PCP Mapping %d: failed\n", id);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: PCP Mapping %d: failed\n", id);
 
 		NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(false);
 		break;
@@ -79,7 +79,7 @@ void PortMapper::Tick()
 
 			m_bNATCheckStarted = true;
 			// If any mapping completed succesfully, just let the game continue, the other threads will finish silently and not affect anything
-			NetworkLog("[NAT Check]: Port mapper is complete (took %d ms), starting NAT flow", currTime - m_timeStartPortMapping);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Check]: Port mapper is complete (took %d ms), starting NAT flow", currTime - m_timeStartPortMapping);
 
 			m_bPortMapperWorkComplete.store(false);
 
@@ -91,7 +91,7 @@ void PortMapper::Tick()
 			j["ipv6"] = m_IPV6 == ECapabilityState::SUPPORTED;
 			std::string strPostData = j.dump();
 			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Connectivity", true);
-			NetworkLog("[NAT Check]: Connectivity outcome - Mapping Tech is %d, IPv4 is %d, IPv6 is %d", mappingTechUsed, (int)(m_IPV4 == ECapabilityState::SUPPORTED), m_IPV6 == ECapabilityState::SUPPORTED);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Check]: Connectivity outcome - Mapping Tech is %d, IPv4 is %d, IPv6 is %d", mappingTechUsed, (int)(m_IPV4 == ECapabilityState::SUPPORTED), m_IPV6 == ECapabilityState::SUPPORTED);
 			std::map<std::string, std::string> mapHeaders;
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
@@ -106,7 +106,6 @@ void PortMapper::Tick()
 	if (m_bNATCheckInProgress)
 	{
 		// send outbound traffic too
-		NetworkLog("[NAT Check]: Send outbound Holepunch");
 		struct sockaddr_in punchAddr;
 #if _DEBUG && !defined(USE_TEST_ENV)
 		hostent* pEnt = gethostbyname("localhost");
@@ -125,8 +124,7 @@ void PortMapper::Tick()
 				sendto(m_NATSocket, punchMsg, static_cast<int>(strlen(punchMsg)), 0, (sockaddr*)&punchAddr, sizeof(punchAddr));
 			}
 		}
-		NetworkLog("[NAT Check]: Finished outbound Holepunch");
-		
+
 		// check here first, in case we early out
 		if (m_bProbesReceived)
 		{
@@ -177,13 +175,11 @@ void PortMapper::Tick()
 					return;
 				}
 				else {
-					NetworkLog("[NAT Check]: recvfrom failed");
 					return;
 				}
 			}
 
 			buffer[bytesReceived] = '\0';
-			//NetworkLog("[NAT Check]: Received from server: %s", buffer);
 			if (strcmp(buffer, "NATCHECK") == 0)
 			{
 				m_bProbesReceived = true;
@@ -194,7 +190,7 @@ void PortMapper::Tick()
 
 void PortMapper::StartNATCheck()
 {
-	NetworkLog("[NAT Checker]: Starting");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Checker]: Starting");
 	m_bProbesReceived = false;
 	m_directConnect = ECapabilityState::UNDETERMINED;
 
@@ -207,7 +203,7 @@ void PortMapper::StartNATCheck()
 	// Initialize Winsock
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 	{
-		NetworkLog("[NAT Check]: Failed to initialize Winsock. Error: %d", WSAGetLastError());
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Check]: Failed to initialize Winsock. Error: %d", WSAGetLastError());
 		m_directConnect = ECapabilityState::UNSUPPORTED;
 		InvokeCallback();
 		return;
@@ -217,7 +213,7 @@ void PortMapper::StartNATCheck()
 	m_NATSocket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (m_NATSocket == INVALID_SOCKET)
 	{
-		NetworkLog("[NAT Check]: Socket creation failed. Error: %d", WSAGetLastError());
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Check]: Socket creation failed. Error: %d", WSAGetLastError());
 		WSACleanup();
 		m_directConnect = ECapabilityState::UNSUPPORTED;
 		InvokeCallback();
@@ -228,7 +224,7 @@ void PortMapper::StartNATCheck()
 	u_long mode = 1;
 	if (ioctlsocket(m_NATSocket, FIONBIO, &mode) != NO_ERROR)
 	{
-		NetworkLog("[NAT Check]: Failed to set non-blocking mode.");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Check]: Failed to set non-blocking mode.");
 		closesocket(m_NATSocket);
 		m_NATSocket = INVALID_SOCKET;
 		WSACleanup();
@@ -244,7 +240,7 @@ void PortMapper::StartNATCheck()
 
 	if (bind(m_NATSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
 	{
-		NetworkLog("[NAT Check]: Binding failed. Error: %d", WSAGetLastError());
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Check]: Binding failed. Error: %d", WSAGetLastError());
 		closesocket(m_NATSocket);
 		m_NATSocket = INVALID_SOCKET;
 		WSACleanup();
@@ -254,7 +250,7 @@ void PortMapper::StartNATCheck()
 	}
 
 	// TODO_NAT: This would be a lot more effective if we knew the response port too
-	NetworkLog("[NAT Check]: Start Holepunch");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Check]: Start Holepunch");
 	struct sockaddr_in punchAddr;
 #if _DEBUG && !defined(USE_TEST_ENV)
 	hostent* pEnt = gethostbyname("localhost");
@@ -273,10 +269,10 @@ void PortMapper::StartNATCheck()
 			sendto(m_NATSocket, punchMsg, static_cast<int>(strlen(punchMsg)), 0, (sockaddr*)&punchAddr, sizeof(punchAddr));
 		}
 	}
-	NetworkLog("[NAT Check]: Finished Holepunch");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Check]: Finished Holepunch");
 
 
-	NetworkLog("[NAT Check]: Really starting");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Check]: Really starting");
 	// do NAT check
 	m_bNATCheckInProgress = true;
 	m_probeStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
@@ -300,7 +296,7 @@ void PortMapper::StartNATCheck()
 				m_directConnect = ECapabilityState::UNSUPPORTED;
 				InvokeCallback();
 
-				NetworkLog("[NAT Checker]: Error code %d", statusCode);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Checker]: Error code %d", statusCode);
 			}
 		});
 }
@@ -317,7 +313,7 @@ void PortMapper::DetermineLocalNetworkCapabilities()
 		m_bPortMapper_AnyMappingSuccess.store(true);
 		m_bPortMapper_MappingTechUsed.store(EMappingTech::MANUAL);
 		
-		NetworkLog("[PortMapper] Firewall port override is set (%d), skipping port mapping and going straight to connection check", m_PreferredPort.load());
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[PortMapper] Firewall port override is set (%d), skipping port mapping and going straight to connection check", m_PreferredPort.load());
 		m_bPortMapperWorkComplete.store(true);
 
 		// dont trigger callbakc, just say we did the mapping, so we'll continue with direct connect check - this is still valid
@@ -334,13 +330,13 @@ void PortMapper::DetermineLocalNetworkCapabilities()
 		m_PreferredPort.store(dis(gen));
 	}
 
-	NetworkLog("[PortMapper] Start DetermineLocalNetworkCapabilities");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[PortMapper] Start DetermineLocalNetworkCapabilities");
 	
 
 	// reset status
 	m_bPortMapperWorkComplete.store(false);
 
-	NetworkLog("[PortMapper] DetermineLocalNetworkCapabilities - starting background thread");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[PortMapper] DetermineLocalNetworkCapabilities - starting background thread");
 
 	m_timeStartPortMapping = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
@@ -370,7 +366,7 @@ void PortMapper::ForwardPort_UPnP()
 
 	m_pCachedUPnPDevice = upnpDiscover(0, nullptr, nullptr, 0, 0, 2, &error);
 
-	NetworkLog("[PortMapper]: UPnP device result: %d (errcode: %d)", m_pCachedUPnPDevice, error);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[PortMapper]: UPnP device result: %d (errcode: %d)", m_pCachedUPnPDevice, error);
 
 	char lan_address[64];
 	char wan_address[64];
@@ -380,11 +376,11 @@ void PortMapper::ForwardPort_UPnP()
 
 	if (status == 1)
 	{
-		NetworkLog("PortMapper: UPnP gateway found");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP gateway found");
 	}
 	else
 	{
-		NetworkLog("PortMapper: UPnP gateway not found (%d)", status);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP gateway not found (%d)", status);
 
 		// NOTE: dont hard fail here. not finding an exact match might be OK, some routers mangle data etc
 		m_bPortMapper_UPNP_Complete.store(true);
@@ -405,7 +401,7 @@ void PortMapper::ForwardPort_UPnP()
 		nullptr,
 		"86400"); // 24 hours
 
-	NetworkLog("PortMapper: UPnP Mapping added with result %d", error);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP Mapping added with result %d", error);
 
 	bool bSucceeded = !error;
 
@@ -426,7 +422,7 @@ void PortMapper::ForwardPort_NATPMP()
 	return;
 #else
 
-	NetworkLog("PortMapper: NAT-PMP started");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: NAT-PMP started");
 
 	// check for NATPMP first, quicker than trying to port map directly
 	// NAT-PMP
@@ -472,7 +468,7 @@ void PortMapper::ForwardPort_NATPMP()
 
 		if (r >= 0)
 		{
-			NetworkLog("PortMapper: NAT-PMP mapped external port %hu to internal port %hu with lifetime %u",
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: NAT-PMP mapped external port %hu to internal port %hu with lifetime %u",
 				response.pnu.newportmapping.mappedpublicport,
 				response.pnu.newportmapping.privateport,
 				response.pnu.newportmapping.lifetime);
@@ -481,7 +477,7 @@ void PortMapper::ForwardPort_NATPMP()
 		}
 		else
 		{
-			NetworkLog("PortMapper: NAT-PMP failed to map external port %hu to internal port %hu with lifetime %u",
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: NAT-PMP failed to map external port %hu to internal port %hu with lifetime %u",
 				response.pnu.newportmapping.mappedpublicport,
 				response.pnu.newportmapping.privateport,
 				response.pnu.newportmapping.lifetime);
@@ -515,7 +511,7 @@ void PortMapper::CleanupPorts()
 
 void PortMapper::UPnP_RemoveAllMappingsToThisMachine()
 {
-	NetworkLog("PortMapper: UPnP unmapping all mappings to this machine");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP unmapping all mappings to this machine");
 	int error = 0;
 
 	char lan_address[64];
@@ -526,11 +522,11 @@ void PortMapper::UPnP_RemoveAllMappingsToThisMachine()
 
 	if (status == 1)
 	{
-		NetworkLog("PortMapper: UPnP gateway found");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP gateway found");
 	}
 	else
 	{
-		NetworkLog("PortMapper: UPnP gateway not found (%d)", status);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP gateway not found (%d)", status);
 		return;
 	}
 
@@ -565,7 +561,7 @@ void PortMapper::UPnP_RemoveAllMappingsToThisMachine()
 			&& strcmp(map_description, "C&C Generals Online") == 0
 			)
 		{
-			NetworkLog("PortMapper: UPnP mass remove, Found a mapping, removing it");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP mass remove, Found a mapping, removing it");
 			
 			error = UPNP_DeletePortMapping(
 				upnp_urls.controlURL,
@@ -576,11 +572,11 @@ void PortMapper::UPnP_RemoveAllMappingsToThisMachine()
 
 			if (error != UPNPCOMMAND_SUCCESS)
 			{
-				NetworkLog("PortMapper: UPnP mass remove remove of port failed");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP mass remove remove of port failed");
 			}
 			else
 			{
-				NetworkLog("PortMapper: UPnP mass remove of port succeeded");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP mass remove of port succeeded");
 			}
 		}
 
@@ -639,7 +635,7 @@ void PortMapper::CheckIPCapabilities()
 				}
 			}
 
-			NetworkLog("IPV4 Support: %d", m_IPV4);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "IPV4 Support: %d", m_IPV4);
 			InvokeCallback();
 		}, nullptr, 2000);
 
@@ -665,7 +661,7 @@ void PortMapper::CheckIPCapabilities()
 				}
 			}
 
-			NetworkLog("IPV6 Support: %d", m_IPV6);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "IPV6 Support: %d", m_IPV6);
 			InvokeCallback();
 		}, nullptr, 2000);
 }
@@ -677,7 +673,7 @@ void PortMapper::RemovePortMapping_UPnP()
 		return;
 	}
 
-	NetworkLog("PortMapper: UPnP starting unmapping of port");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP starting unmapping of port");
 	int error = 0;
 
 	char lan_address[64];
@@ -688,11 +684,11 @@ void PortMapper::RemovePortMapping_UPnP()
 
 	if (status == 1)
 	{
-		NetworkLog("PortMapper: UPnP gateway found");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP gateway found");
 	}
 	else
 	{
-		NetworkLog("PortMapper: UPnP gateway not found (%d)", status);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP gateway not found (%d)", status);
 		return;
 	}
 
@@ -707,11 +703,11 @@ void PortMapper::RemovePortMapping_UPnP()
 
 	if (error != UPNPCOMMAND_SUCCESS)
 	{
-		NetworkLog("PortMapper: UPnP unmapping of port failed");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP unmapping of port failed");
 	}
 	else
 	{
-		NetworkLog("PortMapper: UPnP unmapping of port succeeded");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: UPnP unmapping of port succeeded");
 	}
 }
 
@@ -722,7 +718,7 @@ void PortMapper::RemovePortMapping_NATPMP()
 		return;
 	}
 
-	NetworkLog("PortMapper: NAT-PMP starting unmapping of port");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: NAT-PMP starting unmapping of port");
 
 	int r;
 	natpmp_t natpmp;
@@ -746,15 +742,15 @@ void PortMapper::RemovePortMapping_NATPMP()
 
 	if (r < 0)
 	{
-		NetworkLog("PortMapper: NAT-PMP unmapping of port failed");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: NAT-PMP unmapping of port failed");
 	}
 	else if ((std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count() - startTime) >= timeoutMS)
 	{
-		NetworkLog("PortMapper: NAT-PMP unmapping of port timed out");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: NAT-PMP unmapping of port timed out");
 	}
 	else
 	{
-		NetworkLog("PortMapper: NAT-PMP unmapping of port succeeded");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: NAT-PMP unmapping of port succeeded");
 	}
 	closenatpmp(&natpmp);
 }
@@ -785,11 +781,11 @@ void PortMapper::ForwardPort_PCP()
 /*
 	m_PCPMappingHandle = plum_create_mapping(&pcpMapping, [](int id, plum_state_t state, const plum_mapping_t* mapping)
 		{
-			NetworkLog("PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
 			switch (state) {
 			case PLUM_STATE_SUCCESS:
 			{
-				NetworkLog("PortMapper: PCP Mapping %d: success, internal=%hu, external=%s:%hu\n", id, mapping->internal_port,
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: PCP Mapping %d: success, internal=%hu, external=%s:%hu\n", id, mapping->internal_port,
 					mapping->external_host, mapping->external_port);
 
 				NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(true);
@@ -797,7 +793,7 @@ void PortMapper::ForwardPort_PCP()
 			}
 
 			case PLUM_STATE_FAILURE:
-				NetworkLog("PortMapper: PCP Mapping %d: failed\n", id);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: PCP Mapping %d: failed\n", id);
 
 				NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(false);
 				break;
@@ -823,7 +819,7 @@ void PortMapper::RemovePortMapping_PCP()
 		config.log_level = PLUM_LOG_LEVEL_VERBOSE;
 		plum_init(&config);
 
-		NetworkLog("PortMapper: Removing PCP Mapping");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: Removing PCP Mapping");
 		plum_destroy_mapping(m_PCPMappingHandle);
 
 		plum_cleanup();

@@ -256,9 +256,20 @@ static void joinGame( AsciiString password )
 		return;
 	}
 
+#if defined(GENERALS_ONLINE)
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->JoinLobby(lobbyTryingToJoin, password.str());
 	
 	DEBUG_LOG(("Attempting to join game %d(%s) with password [%s]\n", lobbyTryingToJoin.lobbyID, lobbyTryingToJoin.name.c_str(), password.str()));
+#else
+	PeerRequest req;
+	req.peerRequestType = PeerRequest::PEERREQUEST_JOINSTAGINGROOM;
+	req.text = ourRoom->getGameName().str();
+	req.stagingRoom.id = ourRoom->getID();
+	req.password = password.str();
+	TheGameSpyPeerMessageQueue->addRequest(req);
+	DEBUG_LOG(("Attempting to join game %d(%ls) with password [%s]", ourRoom->getID(), ourRoom->getGameName().str(), password.str()));
+#endif
+
 	GameSpyCloseOverlay(GSOVERLAY_GAMEPASSWORD);
 	parentPopup = NULL;
 }

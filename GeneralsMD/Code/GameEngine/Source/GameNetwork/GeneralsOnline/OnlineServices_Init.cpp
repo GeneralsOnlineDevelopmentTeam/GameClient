@@ -13,8 +13,6 @@
 #include "../../GameSpyOverlay.h"
 #include "GameClient/Display.h"
 
-extern NetworkInterface* TheNetwork;
-
 extern "C"
 {
 	__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
@@ -35,27 +33,20 @@ struct VersionCheckResponse
 	EVersionCheckResponseResult result;
 	std::string patcher_name;
 	std::string patcher_path;
-	std::string patchfile_path;
 	int64_t patcher_size;
-	int64_t patchfile_size;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result, patcher_name, patcher_path, patchfile_path, patcher_size, patchfile_size)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result, patcher_name, patcher_path, patcher_size)
 };
 
 GenOnlineSettings NGMP_OnlineServicesManager::Settings;
 
 NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
 {
-	NetworkLog("[NGMP] Init");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Init");
 
 	m_pOnlineServicesManager = this;
 
 	InitSentry();
-}
-
-void NGMP_OnlineServicesManager::DrawUI()
-{
-	m_HUD.Render();
 }
 
 std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, bool bAttachToken)
@@ -115,7 +106,7 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck", false);
 
 	// NOTE: Generals 'CRCs' are not true CRC's, its a custom algorithm. This is fine for lobby comparisons, but its not good for patch comparisons.
-	//NetworkLog("Starting version check to endpoint %s", strURI.c_str());
+	
 	// exe crc
 	Char filePath[_MAX_PATH];
 	GetModuleFileName(NULL, filePath, sizeof(filePath));
@@ -136,40 +127,38 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 	std::map<std::string, std::string> mapHeaders;
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
-			NetworkLog("Version Check: Response code was %d and body was %s", statusCode, strBody.c_str());
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "Version Check: Response code was %d and body was %s", statusCode, strBody.c_str());
 			try
 			{
-				NetworkLog("VERSION CHECK: Up To Date");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Up To Date");
 				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 				VersionCheckResponse authResp = jsonObject.get<VersionCheckResponse>();
 
 				if (authResp.result == EVersionCheckResponseResult::OK)
 				{
-					NetworkLog("VERSION CHECK: Up To Date");
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Up To Date");
 					fnCallback(true, false);
 				}
 				else if (authResp.result == EVersionCheckResponseResult::NEEDS_UPDATE)
 				{
-					NetworkLog("VERSION CHECK: Needs Update");
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Needs Update");
 
 					// cache the data
 					m_patcher_name = authResp.patcher_name;
 					m_patcher_path = authResp.patcher_path;
-					m_patchfile_path = authResp.patchfile_path;
 					m_patcher_size = authResp.patcher_size;
-					m_patchfile_size = authResp.patchfile_size;
 
 					fnCallback(true, true);
 				}
 				else
 				{
-					NetworkLog("VERSION CHECK: Failed");
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Failed");
 					fnCallback(false, false);
 				}
 			}
 			catch (...)
 			{
-				NetworkLog("VERSION CHECK: Failed to parse response");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Failed to parse response");
 				fnCallback(false, false);
 			}
 		});
@@ -218,7 +207,7 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 				// call continue update again, thisll check if we're done or have more work to do
 				ContinueUpdate();
 
-				NetworkLog("GOT FILE: %s", strDownloadPath.c_str());
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "GOT FILE: %s", strDownloadPath.c_str());
 			},
 			[=](size_t bytesReceived)
 			{
@@ -261,8 +250,21 @@ void NGMP_OnlineServicesManager::LaunchPatcher()
 
 	bool bPatcherExeExists = std::filesystem::exists(strPatcherPath) && std::filesystem::is_regular_file(strPatcherPath);
 	bool bPatcherDirExists = std::filesystem::exists(strPatcherDir) && std::filesystem::is_directory(strPatcherDir);
+	bool bInvalidSize = true;
 
-	if (bPatcherExeExists && bPatcherDirExists && ShellExecuteExA(&shellexInfo))
+	// TODO_NGMP: Replace with CRC ASAP
+
+	// does the file size match?
+	if (bPatcherExeExists && bPatcherDirExists)
+	{
+		std::uintmax_t file_size = std::filesystem::file_size(strPatcherPath);
+		if (file_size == m_patcher_size)
+		{
+			bInvalidSize = false;
+		}
+	}
+
+	if (!bInvalidSize && bPatcherExeExists && bPatcherDirExists && ShellExecuteExA(&shellexInfo))
 	{
 		// Exit the application  
 		exit(0);
@@ -290,10 +292,6 @@ void NGMP_OnlineServicesManager::StartDownloadUpdate(std::function<void(void)> c
 	// patcher
 	m_vecFilesToDownload.emplace(m_patcher_path);
 	m_vecFilesSizes.emplace(m_patcher_size);
-
-	// patch
-	m_vecFilesToDownload.emplace(m_patchfile_path);
-	m_vecFilesSizes.emplace(m_patchfile_size);
 	
 	m_updateCompleteCallback = cb;
 
@@ -441,12 +439,12 @@ void NGMP_OnlineServicesManager::InitSentry()
 			buffer[1024 - 1] = 0;
 			va_end(args);
 
-			NetworkLog("[Sentry] %s", buffer);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[Sentry] %s", buffer);
 	}, nullptr);
 #endif
 
 	int i = sentry_init(options);
-	NetworkLog("Sentry init: %d", i);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "Sentry init: %d", i);
 }
 
 void NGMP_OnlineServicesManager::ShutdownSentry()
@@ -509,15 +507,15 @@ void QoSManager::Tick()
 		
 
 		int qosDuration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count() - m_timeStartQoS;
-		NetworkLog("QoS checks are done, took %d ms total", qosDuration);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "QoS checks are done, took %d ms total", qosDuration);
 		// put into an ordered map so we get latency high to low
 		QoSProbe* pBestRegion = nullptr;
 
-		NetworkLog("==== START QOS RESULTS ====");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "==== START QOS RESULTS ====");
 		for (QoSProbe& probe : m_lstQoSProbesInFlight)
 		{
 			m_mapQoSData[probe.regionID] = probe.Latency;
-			NetworkLog("QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegionName.c_str(), probe.Latency);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegionName.c_str(), probe.Latency);
 
 			if (probe.Latency > 0)
 			{
@@ -530,12 +528,12 @@ void QoSManager::Tick()
 
 		if (pBestRegion != nullptr)
 		{
-			NetworkLog("Best region is %s (%dms)", pBestRegion->strRegionName.c_str(), pBestRegion->Latency);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "Best region is %s (%dms)", pBestRegion->strRegionName.c_str(), pBestRegion->Latency);
 			m_PreferredRegionName = pBestRegion->strRegionName.c_str();
 			m_PreferredRegionID = pBestRegion->regionID;
 			m_PreferredRegionLatency = pBestRegion->Latency;
 		}
-		NetworkLog("==== END QOS RESULTS ====");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "==== END QOS RESULTS ====");
 
 		// reset
 		m_lstQoSProbesInFlight.clear();
@@ -565,7 +563,7 @@ void QoSManager::Tick()
 	{
 		if (!probe.bDone && probe.HasTimedOut())
 		{
-			NetworkLog("[QoS] Probe for %s (%s) has timed out", probe.strRegionName.c_str(), probe.strEndpoint.c_str());
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[QoS] Probe for %s (%s) has timed out", probe.strRegionName.c_str(), probe.strEndpoint.c_str());
 			// mark as failed
 			probe.bDone = true;
 			probe.Latency = -1;
@@ -582,8 +580,6 @@ void QoSManager::Tick()
 		const int expectedLength = 6;
 		if (iBytesRead == expectedLength)
 		{
-			NetworkLog("GOOD QOS PACKET (CHECK 1)");
-
 			CBitStream bitStream(expectedLength, szBuffer, iBytesRead);
 
 			bitStream.ResetOffsetForLocalRead();
@@ -602,10 +598,6 @@ void QoSManager::Tick()
 				&& b5 == 0x03
 				&& b6 == 0x04)
 			{
-				NetworkLog("GOOD QOS PACKET (CHECK 2)");
-
-				
-
 				// find the associated one
 				bool bFound = false;
 				for (QoSProbe& probe : m_lstQoSProbesInFlight)
@@ -613,15 +605,13 @@ void QoSManager::Tick()
 					//if (memcmp(&probe.addr, &addr, sizeof(addr) == 0))
 					if (strcmp(szIpAddress, probe.strIPAddr.c_str()) == 0 && probe.Port == usPort)
 					{
-						NetworkLog("GOOD QOS PACKET (CHECK 3)");
-
 						int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 						int msTaken = currTime - probe.startTime;
 						probe.Latency = msTaken;
 						probe.bDone = true;
 
 						bFound = true;
-						NetworkLog("QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegionName.c_str(), msTaken);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "QoS reply from %s (%s) took %dms", probe.strEndpoint.c_str(), probe.strRegionName.c_str(), msTaken);
 						break;
 					}
 				}
@@ -629,8 +619,6 @@ void QoSManager::Tick()
 				// TODO_RELAY: add a timeout for the overall process too?
 				if (!bFound)
 				{
-					NetworkLog("BAD QOS PACKET (CHECK 3), IP was %s", szIpAddress);
-
 					// find which probe is in flight and mark it as bad
 					for (QoSProbe& probe : m_lstQoSProbesInFlight)
 					{
@@ -645,7 +633,6 @@ void QoSManager::Tick()
 			}
 			else
 			{
-				NetworkLog("BAD QOS PACKET (CHECK 2)");
 				for (QoSProbe& probe : m_lstQoSProbesInFlight)
 				{
 					//if (memcmp(&probe.addr, &addr, sizeof(addr) == 0))
@@ -653,7 +640,6 @@ void QoSManager::Tick()
 					{
 						probe.Latency = -1;
 						probe.bDone = true;
-						NetworkLog("BAD QOS PACKET (CHECK 1)");
 					}
 				}
 			}
@@ -667,7 +653,6 @@ void QoSManager::Tick()
 				{
 					probe.Latency = -1;
 					probe.bDone = true;
-					NetworkLog("BAD QOS PACKET (CHECK 1)");
 				}
 			}
 		}
@@ -692,8 +677,6 @@ void QoSManager::StartProbing(std::map<std::pair<std::string, EQoSRegions>, std:
 	{
 		// keep ticking while we're in this loop, so we dont artificially add latency
 		Tick();
-
-		NetworkLog("Queueing QoS Probe %s", qosEndpoint.first.first.c_str());
 
 		QoSProbe newProbe;
 		newProbe.strEndpoint = qosEndpoint.second;
@@ -730,8 +713,6 @@ void QoSManager::StartProbing(std::map<std::pair<std::string, EQoSRegions>, std:
 
 			// keep ticking while we're in this loop, so we dont artificially add latency
 			Tick();
-
-			NetworkLog("Sending QoS Probe %s (%s)", newProbe.strRegionName.c_str(), szIpAddress);
 		}
 		else
 		{
@@ -740,74 +721,9 @@ void QoSManager::StartProbing(std::map<std::pair<std::string, EQoSRegions>, std:
 			newProbe.bDone = true;
 			newProbe.Latency = -1;
 
-			NetworkLog("QoS: Failed to resolve hostname %s", newProbe.strEndpoint.c_str());
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "QoS: Failed to resolve hostname %s", newProbe.strEndpoint.c_str());
 		}
 
 		m_lstQoSProbesInFlight.push_back(newProbe);
-	}
-}
-
-void NetworkHUD::Render()
-{
-	if (NGMP_OnlineServicesManager::Settings.Graphics_DrawStatsOverlay())
-	{
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-		if (currTime - lastFPSUpdate >= 1000)
-		{
-			lastFPSUpdate = currTime;
-			m_lastFPS = m_currentFPS;
-			m_currentFPS = 0;
-		}
-		++m_currentFPS;
-
-		if (m_DisplayString && TheNetwork != nullptr)
-		{
-			// TODO_NGMP: Cache this in a stats interface
-			int highestLatency = 0;
-			std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
-			for (auto& kvPair : connections)
-			{
-				PlayerConnection& conn = kvPair.second;
-				if (conn.latency > highestLatency)
-				{
-					highestLatency = conn.latency;
-				}
-			}
-
-
-			// PERF STATS
-			UnicodeString unibuffer;
-			unibuffer.format(L"FPS: Render: %d Logic: %ld | Latency: %d game frames (%d ms) - %d GenTool frames", m_lastFPS,
-				TheNetwork->getFrameRate(), ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency));
-
-			m_DisplayString->setText(unibuffer);
-			m_DisplayString->draw(0, 0, GameMakeColor(255, 255, 255, 255), GameMakeColor(0, 0, 0, 255));
-
-			// CLOCKS
-			auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-			auto tm = *std::localtime(&t);
-			std::ostringstream oss;
-			oss << std::put_time(&tm, "%H:%M:%S");
-
-			auto startTime = TheNGMPGame->GetStartTime();
-
-			// match duration
-			auto duration = std::chrono::system_clock::now() - startTime;
-			auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
-			int hours = static_cast<int>(seconds / 3600);
-			int minutes = static_cast<int>((seconds % 3600) / 60);
-			int secs = static_cast<int>(seconds % 60);
-			std::ostringstream ossDuration;
-			ossDuration << std::setfill('0') << std::setw(2) << hours << ":"
-				<< std::setfill('0') << std::setw(2) << minutes << ":"
-				<< std::setfill('0') << std::setw(2) << secs;
-
-			UnicodeString unibufferClock;
-			unibufferClock.format(L"%hs | %hs", oss.str().c_str(), ossDuration.str().c_str());
-			m_DisplayString->setText(unibufferClock);
-
-			uint32_t width = (TheDisplay->getWidth() - m_DisplayString->getWidth());
-			m_DisplayString->draw(width, 0, GameMakeColor(255, 255, 255, 255), GameMakeColor(0, 0, 0, 255));
-		}
 	}
 }

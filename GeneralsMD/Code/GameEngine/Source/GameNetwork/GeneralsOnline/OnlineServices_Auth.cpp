@@ -104,7 +104,7 @@ void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 			}
 			catch (...)
 			{
-				NetworkLog("MOTD: Failed to parse response");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "MOTD: Failed to parse response");
 
 				// if MOTD was bad, still proceed, its a soft error
 				NGMP_OnlineServicesManager::GetInstance()->ProcessMOTD("Error retrieving MOTD");
@@ -143,14 +143,14 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 	if (NGMP_OnlineServicesManager::g_Environment == NGMP_OnlineServicesManager::EEnvironment::DEV || NGMP_OnlineServicesManager::g_Environment == NGMP_OnlineServicesManager::EEnvironment::TEST)
 	{
 		// use dev account
-		NetworkLog("[NGMP] Secondary instance detected... using dev account for testing purposes");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Secondary instance detected... using dev account for testing purposes");
 		// login
 		std::string strToken = "ILOVECODE";
 		std::map<std::string, std::string> mapHeaders;
 
 		nlohmann::json j;
 		j["token"] = strToken.c_str();
-		j["challenge"] = PrepareChallenge();
+		PrepareChallenge(j);
 		std::string strPostData = j.dump();
 
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
@@ -162,7 +162,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 					if (authResp.result == EAuthResponseResult::SUCCEEDED)
 					{
-						NetworkLog("LOGIN: Logged in");
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Logged in");
 						m_bWaitingLogin = false;
 
 						//SaveCredentials(DecryptServiceToken(authResp.al_token).c_str());
@@ -177,7 +177,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 					}
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
-						NetworkLog("LOGIN: Login failed, dev account cannot reauth");
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed, dev account cannot reauth");
 
 						m_bWaitingLogin = false;
 
@@ -204,7 +204,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 				nlohmann::json j;
 				j["token"] = strToken.c_str();
-				j["challenge"] = PrepareChallenge();
+				PrepareChallenge(j);
 				std::string strPostData = j.dump();
 
 				NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
@@ -219,7 +219,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 								ClearGSMessageBoxes();
 								GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Logged in!"), true);
 
-								NetworkLog("LOGIN: Logged in");
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Logged in");
 								m_bWaitingLogin = false;
 
 								SaveCredentials(DecryptServiceToken(authResp.al_token).c_str());
@@ -237,7 +237,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 								ClearGSMessageBoxes();
 								GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);
 
-								NetworkLog("LOGIN: Login failed, trying to re-auth");
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed, trying to re-auth");
 
 								// do normal login flow, token is bad or expired etc
 								m_bWaitingLogin = true;
@@ -289,7 +289,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 
 			nlohmann::json j;
 			j["code"] = m_strCode.c_str();
-			j["challenge"] = PrepareChallenge();
+			PrepareChallenge(j);
 			std::string strPostData = j.dump();
 
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
@@ -299,18 +299,18 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 					AuthResponse authResp = jsonObject.get<AuthResponse>();
 
-					NetworkLog("PageBody: %s", strBody.c_str());
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "PageBody: %s", strBody.c_str());
 					if (authResp.result == EAuthResponseResult::CODE_INVALID)
 					{
-						NetworkLog("LOGIN: Code didnt exist, trying again soon");
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Code didnt exist, trying again soon");
 					}
 					else if (authResp.result == EAuthResponseResult::WAITING_USER_ACTION)
 					{
-						NetworkLog("LOGIN: Waiting for user action");
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Waiting for user action");
 					}
 					else if (authResp.result == EAuthResponseResult::SUCCEEDED)
 					{
-						NetworkLog("LOGIN: Logged in");
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Logged in");
 						m_bWaitingLogin = false;
 
 						SaveCredentials(DecryptServiceToken(authResp.al_token).c_str());
@@ -325,7 +325,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 					}
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
-						NetworkLog("LOGIN: Login failed");
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed");
 						m_bWaitingLogin = false;
 
 						// trigger callback

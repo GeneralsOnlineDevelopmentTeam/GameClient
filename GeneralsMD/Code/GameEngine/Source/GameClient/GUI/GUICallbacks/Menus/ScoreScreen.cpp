@@ -100,15 +100,11 @@
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 #include "GameClient/InGameUI.h"
 #include "GameClient/ChallengeGenerals.h"
-#include "../NGMPGame.h"
-#include "../ngmp_include.h"
-#include "../ngmp_interfaces.h"
 
-#ifdef RTS_INTERNAL
-// for occasional debugging...
-//#pragma optimize("", off)
-//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
-#endif
+#include "../NGMP_interfaces.h"
+#include "../OnlineServices_Init.h"
+#include "../OnlineServices_StatsInterface.h"
+
 
 //-----------------------------------------------------------------------------
 // DEFINES ////////////////////////////////////////////////////////////////////
@@ -150,7 +146,6 @@ GameWindow *listboxAcademyWindowScoreScreen = NULL;
 NameKeyType staticTextAcademyTitleID = NAMEKEY_INVALID;
 GameWindow *staticTextAcademyTitle = NULL;
 
-extern NGMPGame* TheNGMPGame;
 
 std::string LastReplayFileName;
 static Bool canSaveReplay = FALSE;
@@ -206,7 +201,7 @@ void startNextCampaignGame(void)
 	TheWritableGlobalData->m_pendingFile = TheCampaignManager->getCurrentMap();
 	if (TheCampaignManager->getCurrentCampaign() && TheCampaignManager->getCurrentCampaign()->isChallengeCampaign())
 	{
-		DEBUG_ASSERTCRASH( TheChallengeGameInfo, ("TheChallengeGameInfo doesn't exist.\n") );
+		DEBUG_ASSERTCRASH( TheChallengeGameInfo, ("TheChallengeGameInfo doesn't exist.") );
 		TheChallengeGameInfo->init();  
 		TheChallengeGameInfo->clearSlotList();
 		TheChallengeGameInfo->reset();
@@ -245,15 +240,16 @@ void ScoreScreenEnableControls(Bool enable)
 		buttonContinue->winEnable(enable);
 	}
 
-	if ((buttonBuddies != NULL) && (buttonBuddies->winIsHidden() == FALSE))
-	{
+	// TODO_NGMP: Implement communicator again
 #if defined(GENERALS_ONLINE)
-		// TODO_NGMP: enable social again
+	if ((buttonBuddies != NULL) && (buttonBuddies->winIsHidden() == FALSE)) {
 		buttonBuddies->winEnable(false);
-#else
-		buttonBuddies->winEnable(enable);
-#endif
 	}
+#else
+	if ((buttonBuddies != NULL) && (buttonBuddies->winIsHidden() == FALSE)) {
+		buttonBuddies->winEnable(enable);
+	}
+#endif
 
 	GameWindow *buttonSaveReplay = TheWindowManager->winGetWindowFromId( parent, buttonSaveReplayID );
 	if ((buttonSaveReplay != NULL) && (buttonSaveReplay->winIsHidden() == FALSE)) {
@@ -275,7 +271,7 @@ void ScoreScreenInit( WindowLayout *layout, void *userData )
 	
 	if (TheGameSpyInfo)
 	{
-		DEBUG_LOG(("ScoreScreenInit(): TheGameSpyInfo->stuff(%s/%s/%s)\n", TheGameSpyInfo->getLocalBaseName().str(), TheGameSpyInfo->getLocalEmail().str(), TheGameSpyInfo->getLocalPassword().str()));
+		DEBUG_LOG(("ScoreScreenInit(): TheGameSpyInfo->stuff(%s/%s/%s)", TheGameSpyInfo->getLocalBaseName().str(), TheGameSpyInfo->getLocalEmail().str(), TheGameSpyInfo->getLocalPassword().str()));
 	}
 
 	DontShowMainMenu = TRUE; //KRIS
@@ -392,11 +388,6 @@ void ScoreScreenInit( WindowLayout *layout, void *userData )
 		s_blankLayout->hide(FALSE);
 		s_blankLayout->bringForward();
 	}
-
-#if defined(GENERALS_ONLINE)
-	// TODO_NGMP: enable social again
-	buttonBuddies->winEnable(false);
-#endif
 	
 }
 
@@ -606,7 +597,7 @@ WindowMsgHandledType ScoreScreenSystem( GameWindow *window, UnsignedInt msg,
 			{
 				ScoreScreenEnableControls(FALSE);
         WindowLayout *saveReplayLayout = TheShell->getPopupReplayLayout();
-				DEBUG_ASSERTCRASH( saveReplayLayout, ("Unable to get save replay menu layout.\n") );
+				DEBUG_ASSERTCRASH( saveReplayLayout, ("Unable to get save replay menu layout.") );
 				saveReplayLayout->runInit();
 				saveReplayLayout->hide( FALSE );
 				saveReplayLayout->bringForward();
@@ -1095,10 +1086,15 @@ void initInternetMultiPlayer(void)
 	if (chatBoxBorder)
 		chatBoxBorder->winHide(FALSE);
 
+	// TODO_NGMP: Enable this once friends works
+#if !defined(GENERALS_ONLINE)
 	if(TheGameSpyInfo && TheGameSpyInfo->getLocalProfileID() ==0)
 		buttonBuddies->winHide(TRUE);
 	else
 		buttonBuddies->winHide(FALSE);
+#else
+	buttonBuddies->winHide(TRUE);
+#endif
 
 	if (!TheGameSpyBuddyMessageQueue)
 		return;
@@ -1156,7 +1152,7 @@ static Bool isSlotLocalAlly(GameInfo *game, const GameSlot *slot)
 
 static void updateSkirmishBattleHonors(SkirmishBattleHonors& stats)
 {
-	DEBUG_LOG(("Updating Skirmish battle honors\n"));
+	DEBUG_LOG(("Updating Skirmish battle honors"));
 	Player *localPlayer = ThePlayerList->getLocalPlayer();
 	ScoreKeeper *s = localPlayer->getScoreKeeper();
 
@@ -1290,7 +1286,7 @@ static void updateSkirmishBattleHonors(SkirmishBattleHonors& stats)
 
 static void updateMPBattleHonors(Int& honors, PSPlayerStats& stats)
 {
-	DEBUG_LOG(("Updating MP battle honors\n"));
+	DEBUG_LOG(("Updating MP battle honors"));
 	Player *localPlayer = ThePlayerList->getLocalPlayer();
 	ScoreKeeper *s = localPlayer->getScoreKeeper();
 
@@ -1632,7 +1628,7 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 			// If we died, and are watching sparring AIs, we still get the loss.
 			if (player->isPlayerActive())
 			{
-				DEBUG_LOG(("Skipping skirmish stats update: sandbox:%d defeat:%d victory:%d\n",
+				DEBUG_LOG(("Skipping skirmish stats update: sandbox:%d defeat:%d victory:%d",
 					TheGameInfo->isSandbox(), TheVictoryConditions->isLocalAlliedDefeat(), TheVictoryConditions->isLocalAlliedVictory()));
 				return;
 			}
@@ -1669,22 +1665,37 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 
 		stats.write();
 	}
-	// TODO_NGMP: Lobbies stay alive after matches, we need to flag in game and reset when exiting, so it disappears/reappears in the list
-	// TODO_NGMP: fix end of match flow / score screen
+
 	if ( screenType == SCORESCREEN_INTERNET )
 	{
 		DEBUG_LOG(("populatePlayerInfo() - SCORESCREEN_INTERNET\n"));
+
+#if defined(GENERALS_ONLINE)
 		if (TheNGMPGame && !TheNGMPGame->getUseStats()
-		 && !TheNGMPGame->isQMGame() )  //QuickMatch games always record stats
+			&& !TheNGMPGame->isQMGame())  //QuickMatch games always record stats
+			return;	//the host has requested not to record stats for this game.
+#else
+		if (TheGameSpyGame && !TheGameSpyGame->getUseStats()
+			&& !TheGameSpyGame->isQMGame() )  //QuickMatch games always record stats
 			return;	//the host has requested not to record stats for this game.
 
-		//Int localID = TheNGMPGame->getLocalProfileID();
-		//if (localID)
+		Int localID = TheGameSpyInfo->getLocalProfileID();
+		if (localID)
+#endif
+
 		{
+#if defined(GENERALS_ONLINE)
 			Int localSlotNum = TheNGMPGame->getLocalSlotNum();
+#else
+			Int localSlotNum = TheGameSpyGame->getLocalSlotNum();
+#endif
 			if (player->isLocalPlayer())
 			{
-				NGMPGameSlot *localSlot = TheNGMPGame->getGameSpySlot(localSlotNum);
+#if defined(GENERALS_ONLINE)
+				NGMPGameSlot* localSlot = TheNGMPGame->getGameSpySlot(localSlotNum);
+#else
+				GameSpyGameSlot* localSlot = TheGameSpyGame->getGameSpySlot(localSlotNum);
+#endif
 				if (localSlot)
 				{
 					if (TheVictoryConditions->amIObserver())
@@ -1694,395 +1705,408 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 						return;
 					}
 
+#if defined(GENERALS_ONLINE)
 					int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 
 					// do this part sync from cache, should have our own stats + up to date
 					NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(localID, [=](bool bSuccess, PSPlayerStats stats)
+#else
+					PSPlayerStats stats = TheGameSpyPSMessageQueue->findPlayerStatsByID(localID);
+#endif
+					{
+						UnsignedInt latestHumanInGame = 0;
+						UnsignedInt lastFrameOfGame = 0;
+						Bool gameEndedInDisconnect = TRUE;
+						Bool sawAnyDisconnects = FALSE;
+						Bool anyNonAI = FALSE;
+						Bool anyAI = FALSE;
+						Int i = 0;
+						for (; i < MAX_SLOTS; ++i)
 						{
-							UnsignedInt latestHumanInGame = 0;
-							UnsignedInt lastFrameOfGame = 0;
-							Bool gameEndedInDisconnect = TRUE;
-							Bool sawAnyDisconnects = FALSE;
-							Bool anyNonAI = FALSE;
-							Bool anyAI = FALSE;
-							Int i = 0;
-							for (; i < MAX_SLOTS; ++i)
+							const GameSlot* slot = TheGameInfo->getConstSlot(i);
+							if (slot->isOccupied() && i != localSlotNum)
 							{
-								const GameSlot* slot = TheGameInfo->getConstSlot(i);
-								if (slot->isOccupied() && i != localSlotNum)
+								if (slot->isAI())
+									anyAI = TRUE;
+								else
+									anyNonAI = TRUE;
+							}
+							if (slot->isOccupied())
+							{
+								lastFrameOfGame = max(lastFrameOfGame, slot->lastFrameInGame());
+							}
+							if (slot->isHuman())
+							{
+								if (i != localSlotNum)
 								{
-									if (slot->isAI())
-										anyAI = TRUE;
-									else
-										anyNonAI = TRUE;
-								}
-								if (slot->isOccupied())
-								{
-									lastFrameOfGame = max(lastFrameOfGame, slot->lastFrameInGame());
-								}
-								if (slot->isHuman())
-								{
-									if (i != localSlotNum)
-									{
-										latestHumanInGame = max(latestHumanInGame, slot->lastFrameInGame());
-									}
+									latestHumanInGame = max(latestHumanInGame, slot->lastFrameInGame());
 								}
 							}
-							DEBUG_LOG(("Game ended on frame %d - TheGameLogic->getFrame()=%d\n", lastFrameOfGame - 1, TheGameLogic->getFrame() - 1));
-							for (i = 0; i < MAX_SLOTS; ++i)
+						}
+						DEBUG_LOG(("Game ended on frame %d - TheGameLogic->getFrame()=%d\n", lastFrameOfGame - 1, TheGameLogic->getFrame() - 1));
+						for (i = 0; i < MAX_SLOTS; ++i)
+						{
+							const GameSlot* slot = TheGameInfo->getConstSlot(i);
+							DEBUG_LOG(("latestHumanInGame=%d, slot->isOccupied()=%d, slot->disconnected()=%d, slot->isAI()=%d, slot->lastFrameInGame()=%d\n",
+								latestHumanInGame, slot->isOccupied(), slot->disconnected(), slot->isAI(), slot->lastFrameInGame()));
+							if (slot->isOccupied() && slot->disconnected())
 							{
-								const GameSlot* slot = TheGameInfo->getConstSlot(i);
-								DEBUG_LOG(("latestHumanInGame=%d, slot->isOccupied()=%d, slot->disconnected()=%d, slot->isAI()=%d, slot->lastFrameInGame()=%d\n",
-									latestHumanInGame, slot->isOccupied(), slot->disconnected(), slot->isAI(), slot->lastFrameInGame()));
-								if (slot->isOccupied() && slot->disconnected())
-								{
-									DEBUG_LOG(("Marking game as a possible disconnect game\n"));
-									sawAnyDisconnects = TRUE;
-								}
-								if (slot->isOccupied() && !slot->disconnected() && i != localSlotNum &&
-									(slot->isAI() || (slot->lastFrameInGame() >= lastFrameOfGame/*TheGameLogic->getFrame()*/ - 1)))
-								{
-									DEBUG_LOG(("Marking game as not ending in disconnect\n"));
-									gameEndedInDisconnect = FALSE;
-								}
+								DEBUG_LOG(("Marking game as a possible disconnect game\n"));
+								sawAnyDisconnects = TRUE;
 							}
-
-							if (!sawAnyDisconnects)
+							if (slot->isOccupied() && !slot->disconnected() && i != localSlotNum &&
+								(slot->isAI() || (slot->lastFrameInGame() >= lastFrameOfGame/*TheGameLogic->getFrame()*/ - 1)))
 							{
-								DEBUG_LOG(("Didn't see any disconnects - making gameEndedInDisconnect == FALSE\n"));
+								DEBUG_LOG(("Marking game as not ending in disconnect\n"));
 								gameEndedInDisconnect = FALSE;
 							}
+						}
 
-							if (gameEndedInDisconnect)
+						if (!sawAnyDisconnects)
+						{
+							DEBUG_LOG(("Didn't see any disconnects - making gameEndedInDisconnect == FALSE\n"));
+							gameEndedInDisconnect = FALSE;
+						}
+
+						if (gameEndedInDisconnect)
+						{
+							if (latestHumanInGame == TheNetwork->getPingFrame())
 							{
-								if (latestHumanInGame == TheNetwork->getPingFrame())
+								// we pinged on the last frame someone was there - i.e. game ended in a disconnect.
+								// check if we were to blame.
+								if (TheNetwork->getPingsRecieved() < max(1, TheNetwork->getPingsSent() / 2)) /// @todo: what's a good percent of pings to have gotten?
 								{
-									// we pinged on the last frame someone was there - i.e. game ended in a disconnect.
-									// check if we were to blame.
-									if (TheNetwork->getPingsRecieved() < max(1, TheNetwork->getPingsSent() / 2)) /// @todo: what's a good percent of pings to have gotten?
-									{
-										DEBUG_LOG(("We were to blame.  Leaving gameEndedInDisconnect = true\n"));
-									}
-									else
-									{
-										DEBUG_LOG(("We were not to blame.  Changing gameEndedInDisconnect = false\n"));
-										gameEndedInDisconnect = FALSE;
-									}
+									DEBUG_LOG(("We were to blame.  Leaving gameEndedInDisconnect = true\n"));
 								}
 								else
 								{
-									DEBUG_LOG(("gameEndedInDisconnect, and we didn't ping on last frame.  What's up with that?\n"));
+									DEBUG_LOG(("We were not to blame.  Changing gameEndedInDisconnect = false\n"));
+									gameEndedInDisconnect = FALSE;
 								}
-							}
-
-							if (!anyNonAI)
-							{
-								// play against all ai players -- no stats to gather.
-								return;
-							}
-
-							if (anyAI)
-							{
-								// Holy mis-implemented, Batman, You get no stats for _any_ AI, not _all_ AI.  
-								// No wonder we fired the whole department.
-								return;
-							}
-
-							//Remove the extra disconnection we add to all games when they start.
-							DEBUG_LOG(("populatePlayerInfo() - removing extra disconnect\n"));
-
-							// TODO_NGMP_STATS
-							//if (TheGameSpyInfo)
-								//TheGameSpyInfo->updateAdditionalGameSpyDisconnections(-1);
-
-							Bool sawEndOfGame = FALSE;
-							if (TheVictoryConditions->isLocalAlliedDefeat() || TheVictoryConditions->isLocalAlliedVictory())
-							{
-								sawEndOfGame = TRUE;
-							}
-							if (TheVictoryConditions->isLocalDefeat())
-							{
-								sawEndOfGame = TRUE;
-							}
-							if (TheNetwork->sawCRCMismatch() || gameEndedInDisconnect)
-							{
-								sawEndOfGame = TRUE;
-							}
-							if (!sawEndOfGame)
-							{
-								DEBUG_LOG(("Not sending results - we didn't finish a game. %d\n", TheVictoryConditions->getEndFrame()));
-								return;
-							}
-							// TODO_NGMP_STATS: Impl ladders again, how did these work in the base game?
-							// send ladder results (even if we end the game in the first N seconds)
-							/*
-							if (TheGameSpyGame->getLadderPort() && TheGameSpyGame->getLadderIP().isNotEmpty())
-							{
-								GameResultsRequest gameResReq;
-								gameResReq.hostname = TheGameSpyGame->getLadderIP().str();
-								gameResReq.port = TheGameSpyGame->getLadderPort();
-								gameResReq.results = TheGameSpyGame->generateLadderGameResultsPacket().str();
-								DEBUG_ASSERTCRASH(TheGameResultsQueue, ("No Game Results queue!\n"));
-								if (TheGameResultsQueue)
-								{
-									TheGameResultsQueue->addRequest(gameResReq);
-								}
-							}
-							*/
-
-							// TODO_NGMP: Why did they do this? dont register short games?
-							//if (TheVictoryConditions->getEndFrame() < LOGICFRAMES_PER_SECOND * 25 && TheVictoryConditions->getEndFrame())
-							{
-								//return;
-							}
-
-							// TODO_NGMP_STATS
-							// generate and send a gameres packet
-							/*
-							AsciiString resultsPacket = TheGameSpyGame->generateGameSpyGameResultsPacket();
-							DEBUG_LOG(("About to send results packet: %s\n", resultsPacket.str()));
-							PSRequest grReq;
-							grReq.requestType = PSRequest::PSREQUEST_SENDGAMERESTOGAMESPY;
-							grReq.results = resultsPacket.str();
-							TheGameSpyPSMessageQueue->addRequest(grReq);
-							*/
-
-							Int ptIdx;
-							const PlayerTemplate* myTemplate = player->getPlayerTemplate();
-							DEBUG_LOG(("myTemplate = %X(%s)\n", myTemplate, myTemplate->getName().str()));
-							for (ptIdx = 0; ptIdx < ThePlayerTemplateStore->getPlayerTemplateCount(); ++ptIdx)
-							{
-								const PlayerTemplate* nthTemplate = ThePlayerTemplateStore->getNthPlayerTemplate(ptIdx);
-								DEBUG_LOG(("nthTemplate = %X(%s)\n", nthTemplate, nthTemplate->getName().str()));
-								if (nthTemplate == myTemplate)
-								{
-									break;
-								}
-							}
-
-							if (stats.id == 0)
-							{
-								// we haven't gotten stats for ourselves yet.  Bummer.
-								// what we'll do is just update our disconnects in the registry if we disconnected.
-								// other than that, there's not much we can do.  :P
-								if (gameEndedInDisconnect || TheNetwork->sawCRCMismatch())
-								{
-									/* @todo: this the right way
-									UnsignedInt discons = 0;
-									UnsignedInt syncs = 0;
-									GetUnsignedIntFromRegistry("", "dc", discons);
-									GetUnsignedIntFromRegistry("", "se", sync);
-									++discons;
-									++syncs;
-									SetUnsignedIntInRegistry("", "dc", discons);
-									SetUnsignedIntInRegistry("", "se", syncs);
-									*/
-									DEBUG_LOG(("populatePlayerInfo() - need to save off info for disconnect games!\n"));
-									// TODO_NGMP_STATS
-
-									/*
-									PSRequest req;
-									req.requestType = PSRequest::PSREQUEST_UPDATEPLAYERSTATS;
-									req.email = TheGameSpyInfo->getLocalEmail().str();
-									req.nick = TheGameSpyInfo->getLocalBaseName().str();
-									req.password = "";
-									req.player = stats;
-									req.addDesync = TheNetwork->sawCRCMismatch();
-									req.addDiscon = gameEndedInDisconnect;
-									req.lastHouse = ptIdx;
-									TheGameSpyPSMessageQueue->addRequest(req);
-									*/
-								}
-								DEBUG_CRASH(("populatePlayerInfo() - not tracking stats - we haven't gotten the original stuff yet\n"));
-								return;
-							}
-
-							if (TheNetwork->sawCRCMismatch())
-							{
-								++stats.desyncs[ptIdx];
-							}
-							else if (gameEndedInDisconnect)
-							{
-								++stats.discons[ptIdx];
-							}
-							else if (TheVictoryConditions->isLocalAlliedDefeat() || !TheVictoryConditions->getEndFrame())
-							{
-								++stats.losses[ptIdx];
 							}
 							else
 							{
-								++stats.wins[ptIdx];
+								DEBUG_LOG(("gameEndedInDisconnect, and we didn't ping on last frame.  What's up with that?\n"));
 							}
+						}
 
-							ScoreKeeper* s = player->getScoreKeeper();
-							stats.buildingsBuilt[ptIdx] += s->getTotalBuildingsBuilt();
-							stats.buildingsKilled[ptIdx] += s->getTotalBuildingsDestroyed();
-							stats.buildingsLost[ptIdx] += s->getTotalBuildingsLost();
+						if (!anyNonAI)
+						{
+							// play against all ai players -- no stats to gather.
+							return;
+						}
 
-							if (TheNGMPGame->isQMGame())
-							{
-								stats.QMGames[ptIdx]++;
-							}
-							else
-							{
-								stats.customGames[ptIdx]++;
-							}
+						if (anyAI)
+						{
+							// Holy mis-implemented, Batman, You get no stats for _any_ AI, not _all_ AI.  
+							// No wonder we fired the whole department.
+							return;
+						}
 
-							if (TheNetwork->sawCRCMismatch())
-							{
-								stats.lossesInARow = 0;
-								stats.desyncsInARow++;
-								stats.disconsInARow = 0;
-								stats.winsInARow = 0;
-								stats.maxDesyncsInARow = max(stats.desyncsInARow, stats.maxDesyncsInARow);
-							}
-							else if (gameEndedInDisconnect)
-							{
-								stats.lossesInARow = 0;
-								stats.desyncsInARow = 0;
-								stats.disconsInARow++;
-								stats.winsInARow = 0;
-								stats.maxDisconsInARow = max(stats.disconsInARow, stats.maxDisconsInARow);
-							}
-							else if (TheVictoryConditions->isLocalAlliedVictory())
-							{
-								stats.lossesInARow = 0;
-								stats.desyncsInARow = 0;
-								stats.disconsInARow = 0;
-								stats.winsInARow++;
-								stats.maxWinsInARow = max(stats.winsInARow, stats.maxWinsInARow);
-							}
-							else
-							{
-								stats.lossesInARow++;
-								stats.desyncsInARow = 0;
-								stats.disconsInARow = 0;
-								stats.winsInARow = 0;
-								stats.maxLossesInARow = max(stats.lossesInARow, stats.maxLossesInARow);
-							}
+						//Remove the extra disconnection we add to all games when they start.
+						DEBUG_LOG(("populatePlayerInfo() - removing extra disconnect\n"));
 
-							stats.earnings[ptIdx] += s->getTotalMoneyEarned();
-							stats.duration[ptIdx] += TheGameLogic->getFrame() / LOGICFRAMES_PER_SECOND / 60; // in minutes
-							stats.games[ptIdx]++;
-							//since we raise this number when game starts, we need to lower it back on completion
-							Int disCons;
-							disCons = stats.discons[ptIdx];
-							disCons -= 1;
-							if (disCons >= 0)
-								stats.discons[ptIdx] = disCons;
+						// TODO_NGMP_STATS
+						//if (TheGameSpyInfo)
+							//TheGameSpyInfo->updateAdditionalGameSpyDisconnections(-1);
 
-							stats.gamesAsRandom += (localSlot->getOriginalPlayerTemplate() == PLAYERTEMPLATE_RANDOM);
+						Bool sawEndOfGame = FALSE;
+						if (TheVictoryConditions->isLocalAlliedDefeat() || TheVictoryConditions->isLocalAlliedVictory())
+						{
+							sawEndOfGame = TRUE;
+						}
+						if (TheVictoryConditions->isLocalDefeat())
+						{
+							sawEndOfGame = TRUE;
+						}
+						if (TheNetwork->sawCRCMismatch() || gameEndedInDisconnect)
+						{
+							sawEndOfGame = TRUE;
+						}
+						if (!sawEndOfGame)
+						{
+							DEBUG_LOG(("Not sending results - we didn't finish a game. %d\n", TheVictoryConditions->getEndFrame()));
+							return;
+						}
 
-							if (stats.lastGeneral != ptIdx)
-								stats.gamesInRowWithLastGeneral = 0;
-							stats.gamesInRowWithLastGeneral++;
-							stats.lastGeneral = ptIdx;
+#if !defined(GENERALS_ONLINE)
+						// TODO_NGMP_STATS: Impl ladders again, how did these work in the base game?
+						// send ladder results (even if we end the game in the first N seconds)
 
-							Int gameSize = 0;
-							for (int i = 0; i < MAX_SLOTS; ++i)
+						if (TheGameSpyGame->getLadderPort() && TheGameSpyGame->getLadderIP().isNotEmpty())
+						{
+							GameResultsRequest gameResReq;
+							gameResReq.hostname = TheGameSpyGame->getLadderIP().str();
+							gameResReq.port = TheGameSpyGame->getLadderPort();
+							gameResReq.results = TheGameSpyGame->generateLadderGameResultsPacket().str();
+							DEBUG_ASSERTCRASH(TheGameResultsQueue, ("No Game Results queue!\n"));
+							if (TheGameResultsQueue)
 							{
-								if (TheNGMPGame->getConstSlot(i)->isOccupied() && TheNGMPGame->getConstSlot(i)->getPlayerTemplate() != PLAYERTEMPLATE_OBSERVER)
-									++gameSize;
+								TheGameResultsQueue->addRequest(gameResReq);
 							}
-							switch (gameSize)
+						}
+
+						// TODO_NGMP: Why did they do this? dont register short games?
+						if (TheVictoryConditions->getEndFrame() < LOGICFRAMES_PER_SECOND * 25 && TheVictoryConditions->getEndFrame())
+						{
+							return;
+						}
+
+						// generate and send a gameres packet
+						AsciiString resultsPacket = TheGameSpyGame->generateGameSpyGameResultsPacket();
+						DEBUG_LOG(("About to send results packet: %s\n", resultsPacket.str()));
+						PSRequest grReq;
+						grReq.requestType = PSRequest::PSREQUEST_SENDGAMERESTOGAMESPY;
+						grReq.results = resultsPacket.str();
+						TheGameSpyPSMessageQueue->addRequest(grReq);
+#endif
+
+						Int ptIdx;
+						const PlayerTemplate* myTemplate = player->getPlayerTemplate();
+						DEBUG_LOG(("myTemplate = %X(%s)\n", myTemplate, myTemplate->getName().str()));
+						for (ptIdx = 0; ptIdx < ThePlayerTemplateStore->getPlayerTemplateCount(); ++ptIdx)
+						{
+							const PlayerTemplate* nthTemplate = ThePlayerTemplateStore->getNthPlayerTemplate(ptIdx);
+							DEBUG_LOG(("nthTemplate = %X(%s)\n", nthTemplate, nthTemplate->getName().str()));
+							if (nthTemplate == myTemplate)
 							{
-							case 2:
-								stats.gamesOf2p[ptIdx]++;
 								break;
-							case 3:
-								stats.gamesOf3p[ptIdx]++;
-								break;
-							case 4:
-								stats.gamesOf4p[ptIdx]++;
-								break;
-							case 5:
-								stats.gamesOf5p[ptIdx]++;
-								break;
-							case 6:
-								stats.gamesOf6p[ptIdx]++;
-								break;
-							case 7:
-								stats.gamesOf7p[ptIdx]++;
-								break;
-							case 8:
-								stats.gamesOf8p[ptIdx]++;
-								break;
-							default:
-								return; // nothing to track.
 							}
+						}
 
-							stats.lastFPS = TheDisplay->getAverageFPS(); ///@todo: need something more than this, really. :(
-
-							stats.surrenders[ptIdx] += TheGameInfo->haveWeSurrendered() || !TheVictoryConditions->getEndFrame();
-
-							AsciiString systemSpec;
-							systemSpec.format("LOD%d", TheGameLODManager->findStaticLODLevel());
-							stats.systemSpec = systemSpec.str();
-
-							stats.techCaptured[ptIdx] += s->getTotalTechBuildingsCaptured();
-
-							stats.unitsBuilt[ptIdx] += s->getTotalUnitsBuilt();
-							stats.unitsKilled[ptIdx] += s->getTotalUnitsDestroyed();
-							stats.unitsLost[ptIdx] += s->getTotalUnitsLost();
-
-							DEBUG_LOG(("Before game built scud:%d, cannon:%d, nuke:%d\n", stats.builtSCUD, stats.builtParticleCannon, stats.builtNuke));
-							stats.builtSCUD += CheckForApocalypse(s, "GLAScudStorm");
-							stats.builtSCUD += CheckForApocalypse(s, "Chem_GLAScudStorm");
-							stats.builtSCUD += CheckForApocalypse(s, "Demo_GLAScudStorm");
-							stats.builtSCUD += CheckForApocalypse(s, "Slth_GLAScudStorm");
-							stats.builtParticleCannon += CheckForApocalypse(s, "AmericaParticleCannonUplink");
-							stats.builtParticleCannon += CheckForApocalypse(s, "AirF_AmericaParticleCannonUplink");
-							stats.builtParticleCannon += CheckForApocalypse(s, "Lazr_AmericaParticleCannonUplink");
-							stats.builtParticleCannon += CheckForApocalypse(s, "SupW_AmericaParticleCannonUplink");
-							stats.builtNuke += CheckForApocalypse(s, "ChinaNuclearMissileLauncher");
-							stats.builtNuke += CheckForApocalypse(s, "Nuke_ChinaNuclearMissileLauncher");
-							stats.builtNuke += CheckForApocalypse(s, "Infa_ChinaNuclearMissileLauncher");
-							stats.builtNuke += CheckForApocalypse(s, "Tank_ChinaNuclearMissileLauncher");
-							DEBUG_LOG(("After game built scud:%d, cannon:%d, nuke:%d\n", stats.builtSCUD, stats.builtParticleCannon, stats.builtNuke));
-
-							// TODO_NGMP_STATS: ladders
-							/*
-							if (TheNGMPGame->getLadderPort() && TheNGMPGame->getLadderIP().isNotEmpty())
+						if (stats.id == 0)
+						{
+							// we haven't gotten stats for ourselves yet.  Bummer.
+							// what we'll do is just update our disconnects in the registry if we disconnected.
+							// other than that, there's not much we can do.  :P
+							if (gameEndedInDisconnect || TheNetwork->sawCRCMismatch())
 							{
-								stats.lastLadderPort = TheGameSpyGame->getLadderPort();
-								stats.lastLadderHost = TheGameSpyGame->getLadderIP().str();
+								/* @todo: this the right way
+								UnsignedInt discons = 0;
+								UnsignedInt syncs = 0;
+								GetUnsignedIntFromRegistry("", "dc", discons);
+								GetUnsignedIntFromRegistry("", "se", sync);
+								++discons;
+								++syncs;
+								SetUnsignedIntInRegistry("", "dc", discons);
+								SetUnsignedIntInRegistry("", "se", syncs);
+								*/
+								DEBUG_LOG(("populatePlayerInfo() - need to save off info for disconnect games!\n"));
+
+#if !defined(GENERALS_ONLINE)
+								PSRequest req;
+								req.requestType = PSRequest::PSREQUEST_UPDATEPLAYERSTATS;
+								req.email = TheGameSpyInfo->getLocalEmail().str();
+								req.nick = TheGameSpyInfo->getLocalBaseName().str();
+								req.password = "";
+								req.player = stats;
+								req.addDesync = TheNetwork->sawCRCMismatch();
+								req.addDiscon = gameEndedInDisconnect;
+								req.lastHouse = ptIdx;
+								TheGameSpyPSMessageQueue->addRequest(req);
+#endif
 							}
-							*/
+							DEBUG_CRASH(("populatePlayerInfo() - not tracking stats - we haven't gotten the original stuff yet\n"));
+							return;
+						}
 
-							if (!TheNetwork->sawCRCMismatch() && !gameEndedInDisconnect && !TheVictoryConditions->isLocalAlliedDefeat() && TheVictoryConditions->getEndFrame())
-							{
-								updateMPBattleHonors(stats.battleHonors, stats);
-								updateChallengeMedals(stats.challengeMedals);
-							}
+						if (TheNetwork->sawCRCMismatch())
+						{
+							++stats.desyncs[ptIdx];
+						}
+						else if (gameEndedInDisconnect)
+						{
+							++stats.discons[ptIdx];
+						}
+						else if (TheVictoryConditions->isLocalAlliedDefeat() || !TheVictoryConditions->getEndFrame())
+						{
+							++stats.losses[ptIdx];
+						}
+						else
+						{
+							++stats.wins[ptIdx];
+						}
 
-							//DEBUG_LOG(("populatePlayerInfo() - tracking stats for %s/%s/%s\n", TheNGMPGame->getLocalBaseName().str(), TheNGMPGame->getLocalEmail().str(), TheNGMPGame->getLocalPassword().str()));
-														/*
-							PSRequest req;
-							req.requestType = PSRequest::PSREQUEST_UPDATEPLAYERSTATS;
-							req.email = TheGameSpyInfo->getLocalEmail().str();
-							req.nick = TheGameSpyInfo->getLocalBaseName().str();
-							req.password = TheGameSpyInfo->getLocalPassword().str();
-							req.player = stats;
-							req.addDesync = TheNetwork->sawCRCMismatch();
-							req.addDiscon = gameEndedInDisconnect;
-							req.lastHouse = ptIdx;
-							TheGameSpyPSMessageQueue->addRequest(req);
-							TheGameSpyPSMessageQueue->trackPlayerStats(stats);
+						ScoreKeeper* s = player->getScoreKeeper();
+						stats.buildingsBuilt[ptIdx] += s->getTotalBuildingsBuilt();
+						stats.buildingsKilled[ptIdx] += s->getTotalBuildingsDestroyed();
+						stats.buildingsLost[ptIdx] += s->getTotalBuildingsLost();
 
-							// force an update of our shtuff
-							PSResponse newResp;
-							newResp.responseType = PSResponse::PSRESPONSE_PLAYERSTATS;
-							newResp.player = stats;
-							TheGameSpyPSMessageQueue->addResponse(newResp);
+#if defined(GENERALS_ONLINE)
+						if (TheNGMPGame->isQMGame())
+#else
+						if (TheGameSpyGame->isQMGame())
+#endif
+						{
+							stats.QMGames[ptIdx]++;
+						}
+						else
+						{
+							stats.customGames[ptIdx]++;
+						}
 
-							// cache our stuff for easy reading next time
-							GameSpyMiscPreferences mPref;
-							mPref.setCachedStats(GameSpyPSMessageQueueInterface::formatPlayerKVPairs(stats).c_str());
-							mPref.write();
-							*/
+						if (TheNetwork->sawCRCMismatch())
+						{
+							stats.lossesInARow = 0;
+							stats.desyncsInARow++;
+							stats.disconsInARow = 0;
+							stats.winsInARow = 0;
+							stats.maxDesyncsInARow = max(stats.desyncsInARow, stats.maxDesyncsInARow);
+						}
+						else if (gameEndedInDisconnect)
+						{
+							stats.lossesInARow = 0;
+							stats.desyncsInARow = 0;
+							stats.disconsInARow++;
+							stats.winsInARow = 0;
+							stats.maxDisconsInARow = max(stats.disconsInARow, stats.maxDisconsInARow);
+						}
+						else if (TheVictoryConditions->isLocalAlliedVictory())
+						{
+							stats.lossesInARow = 0;
+							stats.desyncsInARow = 0;
+							stats.disconsInARow = 0;
+							stats.winsInARow++;
+							stats.maxWinsInARow = max(stats.winsInARow, stats.maxWinsInARow);
+						}
+						else
+						{
+							stats.lossesInARow++;
+							stats.desyncsInARow = 0;
+							stats.disconsInARow = 0;
+							stats.winsInARow = 0;
+							stats.maxLossesInARow = max(stats.lossesInARow, stats.maxLossesInARow);
+						}
+
+						stats.earnings[ptIdx] += s->getTotalMoneyEarned();
+						stats.duration[ptIdx] += TheGameLogic->getFrame() / LOGICFRAMES_PER_SECOND / 60; // in minutes
+						stats.games[ptIdx]++;
+						//since we raise this number when game starts, we need to lower it back on completion
+						Int disCons;
+						disCons = stats.discons[ptIdx];
+						disCons -= 1;
+						if (disCons >= 0)
+							stats.discons[ptIdx] = disCons;
+
+						stats.gamesAsRandom += (localSlot->getOriginalPlayerTemplate() == PLAYERTEMPLATE_RANDOM);
+
+						if (stats.lastGeneral != ptIdx)
+							stats.gamesInRowWithLastGeneral = 0;
+						stats.gamesInRowWithLastGeneral++;
+						stats.lastGeneral = ptIdx;
+
+						Int gameSize = 0;
+						for (int i = 0; i < MAX_SLOTS; ++i)
+						{
+#if defined(GENERALS_ONLINE)
+							if (TheNGMPGame->getConstSlot(i)->isOccupied() && TheNGMPGame->getConstSlot(i)->getPlayerTemplate() != PLAYERTEMPLATE_OBSERVER)
+#else
+							if (TheGameSpyGame->getConstSlot(i)->isOccupied() && TheGameSpyGame->getConstSlot(i)->getPlayerTemplate() != PLAYERTEMPLATE_OBSERVER)
+#endif
+								++gameSize;
+						}
+						switch (gameSize)
+						{
+						case 2:
+							stats.gamesOf2p[ptIdx]++;
+							break;
+						case 3:
+							stats.gamesOf3p[ptIdx]++;
+							break;
+						case 4:
+							stats.gamesOf4p[ptIdx]++;
+							break;
+						case 5:
+							stats.gamesOf5p[ptIdx]++;
+							break;
+						case 6:
+							stats.gamesOf6p[ptIdx]++;
+							break;
+						case 7:
+							stats.gamesOf7p[ptIdx]++;
+							break;
+						case 8:
+							stats.gamesOf8p[ptIdx]++;
+							break;
+						default:
+							return; // nothing to track.
+						}
+
+						stats.lastFPS = TheDisplay->getAverageFPS(); ///@todo: need something more than this, really. :(
+
+						stats.surrenders[ptIdx] += TheGameInfo->haveWeSurrendered() || !TheVictoryConditions->getEndFrame();
+
+						AsciiString systemSpec;
+						systemSpec.format("LOD%d", TheGameLODManager->findStaticLODLevel());
+						stats.systemSpec = systemSpec.str();
+
+						stats.techCaptured[ptIdx] += s->getTotalTechBuildingsCaptured();
+
+						stats.unitsBuilt[ptIdx] += s->getTotalUnitsBuilt();
+						stats.unitsKilled[ptIdx] += s->getTotalUnitsDestroyed();
+						stats.unitsLost[ptIdx] += s->getTotalUnitsLost();
+
+						DEBUG_LOG(("Before game built scud:%d, cannon:%d, nuke:%d\n", stats.builtSCUD, stats.builtParticleCannon, stats.builtNuke));
+						stats.builtSCUD += CheckForApocalypse(s, "GLAScudStorm");
+						stats.builtSCUD += CheckForApocalypse(s, "Chem_GLAScudStorm");
+						stats.builtSCUD += CheckForApocalypse(s, "Demo_GLAScudStorm");
+						stats.builtSCUD += CheckForApocalypse(s, "Slth_GLAScudStorm");
+						stats.builtParticleCannon += CheckForApocalypse(s, "AmericaParticleCannonUplink");
+						stats.builtParticleCannon += CheckForApocalypse(s, "AirF_AmericaParticleCannonUplink");
+						stats.builtParticleCannon += CheckForApocalypse(s, "Lazr_AmericaParticleCannonUplink");
+						stats.builtParticleCannon += CheckForApocalypse(s, "SupW_AmericaParticleCannonUplink");
+						stats.builtNuke += CheckForApocalypse(s, "ChinaNuclearMissileLauncher");
+						stats.builtNuke += CheckForApocalypse(s, "Nuke_ChinaNuclearMissileLauncher");
+						stats.builtNuke += CheckForApocalypse(s, "Infa_ChinaNuclearMissileLauncher");
+						stats.builtNuke += CheckForApocalypse(s, "Tank_ChinaNuclearMissileLauncher");
+						DEBUG_LOG(("After game built scud:%d, cannon:%d, nuke:%d\n", stats.builtSCUD, stats.builtParticleCannon, stats.builtNuke));
+
+						// TODO_NGMP_STATS: ladders
+#if !defined(GENERALS_ONLINE)
+						if (TheGameSpyGame->getLadderPort() && TheGameSpyGame->getLadderIP().isNotEmpty())
+						{
+							stats.lastLadderPort = TheGameSpyGame->getLadderPort();
+							stats.lastLadderHost = TheGameSpyGame->getLadderIP().str();
+						}
+#endif
+
+						if (!TheNetwork->sawCRCMismatch() && !gameEndedInDisconnect && !TheVictoryConditions->isLocalAlliedDefeat() && TheVictoryConditions->getEndFrame())
+						{
+							updateMPBattleHonors(stats.battleHonors, stats);
+							updateChallengeMedals(stats.challengeMedals);
+						}
+
+#if !defined(GENERALS_ONLINE)
+						DEBUG_LOG(("populatePlayerInfo() - tracking stats for %s/%s/%s\n", TheGameSpyGame->getLocalBaseName().str(), TheGameSpyGame->getLocalEmail().str(), TheNGMPGameTheGameSpyGamegetLocalPassword().str()));
+
+						PSRequest req;
+						req.requestType = PSRequest::PSREQUEST_UPDATEPLAYERSTATS;
+						req.email = TheGameSpyInfo->getLocalEmail().str();
+						req.nick = TheGameSpyInfo->getLocalBaseName().str();
+						req.password = TheGameSpyInfo->getLocalPassword().str();
+						req.player = stats;
+						req.addDesync = TheNetwork->sawCRCMismatch();
+						req.addDiscon = gameEndedInDisconnect;
+						req.lastHouse = ptIdx;
+						TheGameSpyPSMessageQueue->addRequest(req);
+						TheGameSpyPSMessageQueue->trackPlayerStats(stats);
+
+						// force an update of our shtuff
+						PSResponse newResp;
+						newResp.responseType = PSResponse::PSRESPONSE_PLAYERSTATS;
+						newResp.player = stats;
+						TheGameSpyPSMessageQueue->addResponse(newResp);
+
+						// cache our stuff for easy reading next time
+						GameSpyMiscPreferences mPref;
+						mPref.setCachedStats(GameSpyPSMessageQueueInterface::formatPlayerKVPairs(stats).c_str());
+						mPref.write();
+					}
+#else
 							NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->UpdateMyStats(stats);
 
 						}, EStatsRequestPolicy::CACHED_ONLY); // NOTE: we really need the latest stats here, but this could cause a UI delay...
+#endif
 				}
 			}
 		}
@@ -2094,174 +2118,6 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 //-------------------------------------------------------------------------------------------------
 void grabMultiPlayerInfo( void )
 {
-	// Generals Online NOTE:
-	// We do our important end of game flow here, the populate results flow doesn't execute in certain situations (e.g. quickmatch, custom match with stats off)
-	// but this logic we always need to run at end of game
-	if (TheNetwork != nullptr)
-	{
-		NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
-		if (pOnlineServicesMgr != nullptr)
-		{
-			UnsignedInt latestHumanInGame = 0;
-			UnsignedInt lastFrameOfGame = 0;
-			Bool gameEndedInDisconnect = TRUE;
-			Bool sawAnyDisconnects = FALSE;
-			Bool anyNonAI = FALSE;
-			Bool anyAI = FALSE;
-			Int i = 0;
-			for (; i < MAX_SLOTS; ++i)
-			{
-				const GameSlot* slot = TheGameInfo->getConstSlot(i);
-				if (slot->isOccupied())
-				{
-					if (slot->isAI())
-						anyAI = TRUE;
-					else
-						anyNonAI = TRUE;
-				}
-				if (slot->isOccupied())
-				{
-					lastFrameOfGame = max(lastFrameOfGame, slot->lastFrameInGame());
-				}
-				if (slot->isHuman())
-				{
-					latestHumanInGame = max(latestHumanInGame, slot->lastFrameInGame());
-				}
-			}
-			DEBUG_LOG(("Game ended on frame %d - TheGameLogic->getFrame()=%d\n", lastFrameOfGame - 1, TheGameLogic->getFrame() - 1));
-			for (i = 0; i < MAX_SLOTS; ++i)
-			{
-				const GameSlot* slot = TheGameInfo->getConstSlot(i);
-				DEBUG_LOG(("latestHumanInGame=%d, slot->isOccupied()=%d, slot->disconnected()=%d, slot->isAI()=%d, slot->lastFrameInGame()=%d\n",
-					latestHumanInGame, slot->isOccupied(), slot->disconnected(), slot->isAI(), slot->lastFrameInGame()));
-				if (slot->isOccupied() && slot->disconnected())
-				{
-					DEBUG_LOG(("Marking game as a possible disconnect game\n"));
-					sawAnyDisconnects = TRUE;
-				}
-				if (slot->isOccupied() && !slot->disconnected() &&
-					(slot->isAI() || (slot->lastFrameInGame() >= lastFrameOfGame/*TheGameLogic->getFrame()*/ - 1)))
-				{
-					DEBUG_LOG(("Marking game as not ending in disconnect\n"));
-					gameEndedInDisconnect = FALSE;
-				}
-			}
-
-			if (!sawAnyDisconnects)
-			{
-				DEBUG_LOG(("Didn't see any disconnects - making gameEndedInDisconnect == FALSE\n"));
-				gameEndedInDisconnect = FALSE;
-			}
-
-			if (gameEndedInDisconnect)
-			{
-				if (latestHumanInGame == TheNetwork->getPingFrame())
-				{
-					// we pinged on the last frame someone was there - i.e. game ended in a disconnect.
-					// check if we were to blame.
-					if (TheNetwork->getPingsRecieved() < max(1, TheNetwork->getPingsSent() / 2)) /// @todo: what's a good percent of pings to have gotten?
-					{
-						DEBUG_LOG(("We were to blame.  Leaving gameEndedInDisconnect = true\n"));
-					}
-					else
-					{
-						DEBUG_LOG(("We were not to blame.  Changing gameEndedInDisconnect = false\n"));
-						gameEndedInDisconnect = FALSE;
-					}
-				}
-				else
-				{
-					DEBUG_LOG(("gameEndedInDisconnect, and we didn't ping on last frame.  What's up with that?\n"));
-				}
-			}
-
-			//Remove the extra disconnection we add to all games when they start.
-			DEBUG_LOG(("populatePlayerInfo() - removing extra disconnect\n"));
-
-			// TODO_NGMP_STATS
-			//if (TheGameSpyInfo)
-				//TheGameSpyInfo->updateAdditionalGameSpyDisconnections(-1);
-
-			Bool sawEndOfGame = FALSE;
-			if (TheVictoryConditions->isLocalAlliedDefeat() || TheVictoryConditions->isLocalAlliedVictory())
-			{
-				sawEndOfGame = TRUE;
-			}
-			if (TheVictoryConditions->isLocalDefeat())
-			{
-				sawEndOfGame = TRUE;
-			}
-			if (TheNetwork->sawCRCMismatch() || gameEndedInDisconnect)
-			{
-				sawEndOfGame = TRUE;
-			}
-			if (!sawEndOfGame)
-			{
-				DEBUG_LOG(("Not sending results - we didn't finish a game. %d\n", TheVictoryConditions->getEndFrame()));
-			}
-
-			// record the game data to backend
-			{
-				AsciiString sentryMsg;
-				sentryMsg.format("Match Finished\nPlayers:\n");
-
-				int numPlayers = ThePlayerList->getPlayerCount();
-				for (int i = 0; i < numPlayers; ++i)
-				{
-					Player* player = ThePlayerList->getNthPlayer(i);
-
-					AsciiString sentryMsgPlayer;
-					sentryMsgPlayer.format("Player %d = %ls\n", i,
-						player ? player->getPlayerDisplayName().str() : L"<NONE>");
-
-					sentryMsg.concat(sentryMsgPlayer);
-				}
-
-				// add info about how the game ended
-				sentry_set_extra("crc_mismatch", sentry_value_new_bool(TheNetwork->sawCRCMismatch()));
-				sentry_set_extra("ended_with_disconnect", sentry_value_new_bool(gameEndedInDisconnect));
-				sentry_set_extra("had_any_disconnect", sentry_value_new_bool(sawAnyDisconnects));
-				sentry_set_extra("has_humans", sentry_value_new_bool(anyNonAI));
-				sentry_set_extra("has_ai", sentry_value_new_bool(anyAI));
-				sentry_set_extra("last_frame_of_game", sentry_value_new_int32(lastFrameOfGame));
-
-				int matchLenMinutes = TheGameLogic->getFrame() / LOGICFRAMES_PER_SECOND / 60;
-				sentry_set_extra("match_length_minutes", sentry_value_new_int32(matchLenMinutes));
-
-				// local player info
-				int64_t userID = -1;
-				std::string strDisplayname = "Unknown";
-				if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-				{
-					userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-					strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str();
-				}
-
-				sentry_set_extra("user_id", sentry_value_new_int32(userID));
-				sentry_set_extra("user_displayname", sentry_value_new_string(strDisplayname.c_str()));
-
-				// send event to sentry
-				sentry_capture_event(sentry_value_new_message_event(
-					SENTRY_LEVEL_INFO,
-					"MATCH_FINISHED",
-					sentryMsg.str()
-				));
-			}
-
-			// if we saw end of game, mark game as finished
-			// NGMP: mark the game done, everyone makes this call for safety (host can have left)
-			if (sawEndOfGame)
-			{
-				NGMP_OnlineServices_LobbyInterface* pLobbyInterface = pOnlineServicesMgr->GetLobbyInterface();
-
-				if (pLobbyInterface != nullptr)
-				{
-					pLobbyInterface->MarkCurrentGameAsFinished();
-				}
-			}
-		}
-	}
-	
 	typedef std::map<Int, Player *> ScoreMap;
 	typedef ScoreMap::iterator ScoreMapIt;
 	typedef ScoreMap::reverse_iterator RevScoreMapIt;

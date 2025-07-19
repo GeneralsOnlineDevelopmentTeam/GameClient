@@ -72,11 +72,6 @@ void NGMP_WOLLoginMenu_LoginCallback(bool bSuccess);
 #include "GameNetwork/WOLBrowser/WebBrowser.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
-#ifdef RTS_INTERNAL
-// for occasional debugging...
-//#pragma optimize("", off)
-//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
-#endif
 
 #ifdef ALLOW_NON_PROFILED_LOGIN
 Bool GameSpyUseProfiles = false;
@@ -590,7 +585,7 @@ static void checkLogin( void )
 	{
 		// save off our ping string, and end those threads
 		AsciiString pingStr = ThePinger->getPingString( 1000 );
-		DEBUG_LOG(("Ping string is %s\n", pingStr.str()));
+		DEBUG_LOG(("Ping string is %s", pingStr.str()));
 		TheGameSpyInfo->setPingString(pingStr);
 		//delete ThePinger;
 		//ThePinger = NULL;
@@ -712,7 +707,7 @@ void WOLLoginMenuUpdate( WindowLayout * layout, void *userData)
 					// kill & restart the threads
 					AsciiString motd = TheGameSpyInfo->getMOTD();
 					AsciiString config = TheGameSpyInfo->getConfig();
-					DEBUG_LOG(("Tearing down GameSpy from WOLLoginMenuUpdate(PEERRESPONSE_DISCONNECT)\n"));
+					DEBUG_LOG(("Tearing down GameSpy from WOLLoginMenuUpdate(PEERRESPONSE_DISCONNECT)"));
 					TearDownGameSpy();
 					SetUpGameSpy( motd.str(), config.str() );
 				}
@@ -739,7 +734,7 @@ void WOLLoginMenuUpdate( WindowLayout * layout, void *userData)
 		// kill & restart the threads
 		AsciiString motd = TheGameSpyInfo->getMOTD();
 		AsciiString config = TheGameSpyInfo->getConfig();
-		DEBUG_LOG(("Tearing down GameSpy from WOLLoginMenuUpdate(login timeout)\n"));
+		DEBUG_LOG(("Tearing down GameSpy from WOLLoginMenuUpdate(login timeout)"));
 		TearDownGameSpy();
 		SetUpGameSpy( motd.str(), config.str() );
 	}
@@ -913,17 +908,13 @@ WindowMsgHandledType WOLLoginMenuSystem( GameWindow *window, UnsignedInt msg,
 				trimmedEmail.trim();
 				if (!trimmedNick.isEmpty())
 				{
-					if (trimmedNick.getCharAt(trimmedNick.getLength()-1) == L'\\')
-						trimmedNick.removeLastChar();
-					if (trimmedNick.getCharAt(trimmedNick.getLength()-1) == L'/')
-						trimmedNick.removeLastChar();
+					trimmedNick.trimEnd(L'\\');
+					trimmedNick.trimEnd(L'/');
 				}
 				if (!trimmedEmail.isEmpty())
 				{
-					if (trimmedEmail.getCharAt(trimmedEmail.getLength()-1) == L'\\')
-						trimmedEmail.removeLastChar();
-					if (trimmedEmail.getCharAt(trimmedEmail.getLength()-1) == L'/')
-						trimmedEmail.removeLastChar();
+					trimmedEmail.trimEnd(L'\\');
+					trimmedEmail.trimEnd(L'/');
 				}
 				if (trimmedEmail.getLength() != uEmail.getLength())
 				{
@@ -1120,7 +1111,7 @@ WindowMsgHandledType WOLLoginMenuSystem( GameWindow *window, UnsignedInt msg,
 							//TheGameSpyInfo->setLocalProfileID( resp.player.profileID );
 							TheGameSpyInfo->setLocalEmail( email );
 							TheGameSpyInfo->setLocalPassword( password );
-							DEBUG_LOG(("before create: TheGameSpyInfo->stuff(%s/%s/%s)\n", TheGameSpyInfo->getLocalBaseName().str(), TheGameSpyInfo->getLocalEmail().str(), TheGameSpyInfo->getLocalPassword().str()));
+							DEBUG_LOG(("before create: TheGameSpyInfo->stuff(%s/%s/%s)", TheGameSpyInfo->getLocalBaseName().str(), TheGameSpyInfo->getLocalEmail().str(), TheGameSpyInfo->getLocalPassword().str()));
 
 							TheGameSpyBuddyMessageQueue->addRequest( req );
 							if(checkBoxRememberPassword && GadgetCheckBoxIsChecked(checkBoxRememberPassword))
@@ -1209,7 +1200,7 @@ WindowMsgHandledType WOLLoginMenuSystem( GameWindow *window, UnsignedInt msg,
 							//TheGameSpyInfo->setLocalProfileID( resp.player.profileID );
 							TheGameSpyInfo->setLocalEmail( email );
 							TheGameSpyInfo->setLocalPassword( password );
-							DEBUG_LOG(("before login: TheGameSpyInfo->stuff(%s/%s/%s)\n", TheGameSpyInfo->getLocalBaseName().str(), TheGameSpyInfo->getLocalEmail().str(), TheGameSpyInfo->getLocalPassword().str()));
+							DEBUG_LOG(("before login: TheGameSpyInfo->stuff(%s/%s/%s)", TheGameSpyInfo->getLocalBaseName().str(), TheGameSpyInfo->getLocalEmail().str(), TheGameSpyInfo->getLocalPassword().str()));
 
 							TheGameSpyBuddyMessageQueue->addRequest( req );
 							if(checkBoxRememberPassword && GadgetCheckBoxIsChecked(checkBoxRememberPassword))
@@ -1313,20 +1304,8 @@ WindowMsgHandledType WOLLoginMenuSystem( GameWindow *window, UnsignedInt msg,
 								{
 									UnicodeString uniLine;
 									uniLine = UnicodeString(MultiByteToWideCharSingleLine(asciiLine.str()).c_str());
-									int len = uniLine.getLength();
-									for (int index = len-1; index >= 0; index--)
-									{
-										if (iswspace(uniLine.getCharAt(index)))
-										{
-											uniLine.removeLastChar();
-										}
-										else
-										{
-											break;
-										}
-									}
-									//uniLine.trim();
-									DEBUG_LOG(("adding TOS line: [%ls]\n", uniLine.str()));
+									uniLine.trimEnd();
+									DEBUG_LOG(("adding TOS line: [%ls]", uniLine.str()));
 									GadgetListBoxAddEntryText(listboxTOS, uniLine, tosColor, -1);
 								}
 

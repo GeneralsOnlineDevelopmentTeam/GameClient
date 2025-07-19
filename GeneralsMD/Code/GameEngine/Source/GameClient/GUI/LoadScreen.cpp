@@ -91,11 +91,6 @@
 // DEFINES ////////////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
 
-#ifdef RTS_INTERNAL
-// for occasional debugging...
-//#pragma optimize("", off)
-//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
-#endif
 
 //-----------------------------------------------------------------------------
 // PRIVATE TYPES //////////////////////////////////////////////////////////////
@@ -1328,7 +1323,7 @@ void MultiPlayerLoadScreen::init( GameInfo *game )
 //	if(loadScreenImage)
 //		m_loadScreen->winSetEnabledImage(0, loadScreenImage);
 	//DEBUG_ASSERTCRASH(TheNetwork, ("Where the Heck is the Network!!!!"));
-	//DEBUG_LOG(("NumPlayers %d\n", TheNetwork->getNumPlayers()));
+	//DEBUG_LOG(("NumPlayers %d", TheNetwork->getNumPlayers()));
 
 	GameWindow *teamWin[MAX_SLOTS];
 	Int i = 0;
@@ -1476,10 +1471,10 @@ void MultiPlayerLoadScreen::processProgress(Int playerId, Int percentage)
 	
 	if( percentage < 0 || percentage > 100 || playerId >= MAX_SLOTS || playerId < 0 || m_playerLookup[playerId] == -1)
 	{
-		DEBUG_ASSERTCRASH(FALSE, ("Percentage %d was passed in for Player %d\n", percentage, playerId));
+		DEBUG_ASSERTCRASH(FALSE, ("Percentage %d was passed in for Player %d", percentage, playerId));
 		return;
 	}
-	//DEBUG_LOG(("Percentage %d was passed in for Player %d (in loadscreen position %d)\n", percentage, playerId, m_playerLookup[playerId]));
+	//DEBUG_LOG(("Percentage %d was passed in for Player %d (in loadscreen position %d)", percentage, playerId, m_playerLookup[playerId]));
 	if(m_progressBars[m_playerLookup[playerId]])
 		GadgetProgressBarSetProgress(m_progressBars[m_playerLookup[playerId]], percentage );	
 }
@@ -1546,7 +1541,7 @@ void GameSpyLoadScreen::init( GameInfo *game )
 	m_loadScreen->winBringToTop();
 	m_mapPreview = TheWindowManager->winGetWindowFromId( m_loadScreen,TheNameKeyGenerator->nameToKey( "GameSpyLoadScreen.wnd:WinMapPreview"));
 	DEBUG_ASSERTCRASH(TheNetwork, ("Where the Heck is the Network!!!!"));
-	DEBUG_LOG(("NumPlayers %d\n", TheNetwork->getNumPlayers()));
+	DEBUG_LOG(("NumPlayers %d", TheNetwork->getNumPlayers()));
 GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 	const PlayerTemplate* pt;
 	if (lSlot->getPlayerTemplate() >= 0)
@@ -1680,7 +1675,7 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		// TODO_NGMP: Impl
 		/*
 		PSPlayerStats stats = TheGameSpyPSMessageQueue->findPlayerStatsByID(slot->getProfileID());
-		DEBUG_LOG(("LoadScreen - populating info for %ls(%d) - stats returned id %d\n",
+		DEBUG_LOG(("LoadScreen - populating info for %ls(%d) - stats returned id %d",
 			slot->getName().str(), slot->getProfileID(), stats.id));
 
 		Bool isPreorder = TheGameSpyInfo->didPlayerPreorder(stats.id);
@@ -1870,10 +1865,10 @@ void GameSpyLoadScreen::processProgress(Int playerId, Int percentage)
 	
 	if( percentage < 0 || percentage > 100 || playerId >= MAX_SLOTS || playerId < 0 || m_playerLookup[playerId] == -1)
 	{
-		DEBUG_ASSERTCRASH(FALSE, ("Percentage %d was passed in for Player %d\n", percentage, playerId));
+		DEBUG_ASSERTCRASH(FALSE, ("Percentage %d was passed in for Player %d", percentage, playerId));
 		return;
 	}
-	//DEBUG_LOG(("Percentage %d was passed in for Player %d (in loadscreen position %d)\n", percentage, playerId, m_playerLookup[playerId]));
+	//DEBUG_LOG(("Percentage %d was passed in for Player %d (in loadscreen position %d)", percentage, playerId, m_playerLookup[playerId]));
 	if(m_progressBars[m_playerLookup[playerId]])
 		GadgetProgressBarSetProgress(m_progressBars[m_playerLookup[playerId]], percentage );	
 }
@@ -1924,7 +1919,7 @@ void MapTransferLoadScreen::init( GameInfo *game )
 	m_loadScreen->winBringToTop();
 
 	DEBUG_ASSERTCRASH(TheNetwork, ("Where the Heck is the Network?!!!!"));
-	DEBUG_LOG(("NumPlayers %d\n", TheNetwork->getNumPlayers()));
+	DEBUG_LOG(("NumPlayers %d", TheNetwork->getNumPlayers()));
 
 	AsciiString winName;
 	Int i;
@@ -2029,7 +2024,7 @@ void MapTransferLoadScreen::processProgress(Int playerId, Int percentage, AsciiS
 	
 	if( percentage < 0 || percentage > 100 || playerId >= MAX_SLOTS || playerId < 0 || m_playerLookup[playerId] == -1)
 	{
-		DEBUG_ASSERTCRASH(FALSE, ("Percentage %d was passed in for Player %d\n", percentage, playerId));
+		DEBUG_ASSERTCRASH(FALSE, ("Percentage %d was passed in for Player %d", percentage, playerId));
 		return;
 	}
 

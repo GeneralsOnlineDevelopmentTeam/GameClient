@@ -21,34 +21,6 @@ class NGMP_OnlineServices_StatsInterface;
 #include "GameClient/DisplayStringManager.h"
 #include "Common/GameEngine.h"
 
-class NetworkHUD
-{
-public:
-	NetworkHUD()
-	{
-		m_DisplayString = TheDisplayStringManager->newDisplayString();
-		m_DisplayString->reset();
-		m_DisplayString->setFont(TheFontLibrary->getFont("FixedSys", 8, false));
-		m_DisplayString->setText(UnicodeString::TheEmptyString);
-	}
-
-	void Render();
-
-	~NetworkHUD()
-	{
-		if (m_DisplayString)
-			TheDisplayStringManager->freeDisplayString(m_DisplayString);
-		m_DisplayString = NULL;
-	}
-
-private:
-	DisplayString* m_DisplayString = nullptr;
-
-	int m_lastFPS = -1;
-	int m_currentFPS = -1;
-	int64_t lastFPSUpdate = -1;
-};
-
 enum EWebSocketMessageID
 {
 	UNKNOWN = -1,
@@ -237,9 +209,6 @@ public:
 		PROD
 	};
 
-	NetworkHUD m_HUD;
-	void DrawUI();
-
 #if defined(USE_TEST_ENV)
 	const static EEnvironment g_Environment = EEnvironment::TEST;
 	#pragma message ("Building for TEST environment")
@@ -394,7 +363,5 @@ private:
 
 	std::string m_patcher_name;
 	std::string m_patcher_path;
-	std::string m_patchfile_path;
 	int64_t m_patcher_size;
-	int64_t m_patchfile_size;
 };

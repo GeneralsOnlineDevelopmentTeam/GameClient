@@ -63,7 +63,6 @@ struct LobbyEntry
 	std::string password;
 
 	std::vector<BYTE> EncKey;
-	std::vector<BYTE> EncIV;
 	std::vector<LobbyMemberEntry> members;
 };
 
@@ -292,7 +291,7 @@ public:
 
 	std::vector<LobbyMemberEntry>& GetMembersListForCurrentRoom()
 	{
-		NetworkLog("[NGMP] Refreshing network room roster");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Refreshing network room roster");
 		return m_CurrentLobby.members;
 	}
 

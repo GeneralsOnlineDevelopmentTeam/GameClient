@@ -523,7 +523,6 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 
 				// NOTE: These fields won't be present becauase they're private properties
 				//memberEntryIter["enc_key"].get_to(strEncKey);
-				//memberEntryIter["enc_nonce"].get_to(strEncIV)
 
 				for (const auto& memberEntryIter : lobbyEntryIter["members"])
 				{
@@ -672,23 +671,14 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						}
 
 						std::string strEncKey;
-						std::string strEncIV;
 						lobbyEntryJSON["enc_key"].get_to(strEncKey);
-						lobbyEntryJSON["enc_nonce"].get_to(strEncIV);
 						lobbyEntry.EncKey.resize(32);
-						lobbyEntry.EncIV.resize(12);
 						lobbyEntry.EncKey.clear();
-						lobbyEntry.EncIV.clear();
 
 
 						for (char c : strEncKey)
 						{
 							lobbyEntry.EncKey.push_back((BYTE)c);
-						}
-
-						for (char c : strEncIV)
-						{
-							lobbyEntry.EncIV.push_back((BYTE)c);
 						}
 
 						bool bFoundSelfInOld = false;
@@ -788,7 +778,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 
 						if (bFoundSelfInOld && !bFoundSelfInNew)
 						{
-							NetworkLog("We were kicked from the lobby...");
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "We were kicked from the lobby...");
 							OnKickedFromLobby();
 						}
 
@@ -864,7 +854,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 {
 	if (m_bAttemptingToJoinLobby)
 	{
-		NetworkLog("Not attempting to join lobby because a join attempt is already in progress");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Not attempting to join lobby because a join attempt is already in progress");
 		return;
 	}
 
@@ -874,7 +864,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), lobbyInfo.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
-	NetworkLog("[NGMP] Joining lobby with id %d", lobbyInfo.lobbyID);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Joining lobby with id %d", lobbyInfo.lobbyID);
 
 	bool bHasMap = TheMapCache->findMap(AsciiString(lobbyInfo.map_path.c_str()));
 
@@ -915,14 +905,14 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 			// no response body from this, just http codes
 			if (JoinResult == EJoinLobbyResult::JoinLobbyResult_Success)
 			{
-				NetworkLog("[NGMP] Joined lobby");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Joined lobby");
 
 				m_CurrentLobby = lobbyInfo;
 
 				// for safety
 				if (TheNGMPGame != nullptr)
 				{
-					NetworkLog("NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
 					delete TheNGMPGame;
 					TheNGMPGame = nullptr;
 				}
@@ -970,15 +960,15 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 			}
 			else if (statusCode == 401)
 			{
-				NetworkLog("[NGMP] Couldn't join lobby, unauthorized, probably the wrong password");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Couldn't join lobby, unauthorized, probably the wrong password");
 			}
 			else if (statusCode == 404)
 			{
-				NetworkLog("[NGMP] Failed to join lobby: Lobby not found");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to join lobby: Lobby not found");
 			}
 			else if (statusCode == 406)
 			{
-				NetworkLog("[NGMP] Failed to join lobby: Lobby is full");
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to join lobby: Lobby is full");
 			}
 			
 
@@ -1100,7 +1090,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					// for safety
 					if (TheNGMPGame != nullptr)
 					{
-						NetworkLog("NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
 						delete TheNGMPGame;
 						TheNGMPGame = nullptr;
 					}
@@ -1163,7 +1153,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 				}
 				else
 				{
-					NetworkLog("[NGMP] Failed to create lobby!\n");
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to create lobby!\n");
 
 					// TODO_NGMP: Impl
 					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);

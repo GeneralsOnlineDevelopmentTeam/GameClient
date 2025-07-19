@@ -1,7 +1,20 @@
 #pragma once
 
 
-void NetworkLog(const char* fmt, ...);
+enum class ELogVerbosity
+{
+	LOG_DEBUG = 0,
+	LOG_RELEASE = 1
+};
+
+static const ELogVerbosity g_LogVerbosity =
+#if _DEBUG
+ELogVerbosity::LOG_DEBUG;
+#else
+ELogVerbosity::LOG_RELEASE;
+#endif
+
+void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...);
 
 
 int RoundUpLatencyToFrameInterval(int latency, int frameInterval);
@@ -70,7 +83,9 @@ static std::unordered_map<int, std::string> g_mapServiceIndexToPlayerTemplateStr
 #include "../Console/Console.h"
 #endif
 
+#include "../json.hpp"
+
 std::string Base64Encode(const std::vector<uint8_t>& data);
 std::vector<uint8_t> Base64Decode(const std::string& encodedData);
-std::string PrepareChallenge();
+void PrepareChallenge(nlohmann::json& json);
 std::string DecryptServiceToken(std::string strServiceToken);

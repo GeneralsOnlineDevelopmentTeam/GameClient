@@ -89,11 +89,6 @@ enum
 #include "d3dx8tex.h"
 #include "GameClient/GameClient.h"
 
-#ifdef RTS_INTERNAL
-// for occasional debugging...
-//#pragma optimize("", off)
-//#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
-#endif
 
 // If TEST_AND_BLEND is defined, it will do an alpha test and blend.  Otherwise just alpha test. jba. [5/30/2003]
 #define dontTEST_AND_BLEND 1
@@ -515,7 +510,7 @@ void W3DTreeBuffer::updateTexture(void)
 			}
 			theFile->close();
 		} else {
-			DEBUG_CRASH(("Could not find texture %s\n", m_treeTypes[i].m_data->m_textureName.str()));
+			DEBUG_CRASH(("Could not find texture %s", m_treeTypes[i].m_data->m_textureName.str()));
 			m_treeTypes[i].m_firstTile = 0;
 			m_treeTypes[i].m_tileWidth = 0;
 			m_treeTypes[i].m_numTiles = 0;
@@ -1287,6 +1282,8 @@ void W3DTreeBuffer::clearAllTrees(void)
 		m_areaPartition[i] = END_OF_PARTITION;
 	}
 	m_numTreeTypes = 0;
+
+	m_lastLogicFrame = 0;
 }
 
 //=============================================================================
@@ -1352,7 +1349,7 @@ Int W3DTreeBuffer::addTreeType(const W3DTreeDrawModuleData *data)
 	RenderObjClass *robj=WW3DAssetManager::Get_Instance()->Create_Render_Obj(data->m_modelName.str());
 
 	if (robj==NULL) {
-		DEBUG_CRASH(("Unable to find model for tree %s\n", data->m_modelName.str()));
+		DEBUG_CRASH(("Unable to find model for tree %s", data->m_modelName.str()));
 		return 0;
 	}
 	AABoxClass box;
@@ -1371,7 +1368,7 @@ Int W3DTreeBuffer::addTreeType(const W3DTreeDrawModuleData *data)
 		m_treeTypes[m_numTreeTypes].m_mesh = (MeshClass*)robj;
 
 	if (m_treeTypes[m_numTreeTypes].m_mesh==NULL) {
-		DEBUG_CRASH(("Tree %s is not simple mesh. Tell artist to re-export. Don't Ignore!!!\n", data->m_modelName.str()));
+		DEBUG_CRASH(("Tree %s is not simple mesh. Tell artist to re-export. Don't Ignore!!!", data->m_modelName.str()));
 		return 0;
 	}
 
@@ -1553,13 +1550,14 @@ void W3DTreeBuffer::drawTrees(CameraClass* camera, RefRenderObjListIterator* pDy
 		pause = true;
 	}
 
-#if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
-	if (TheGameClient && !TheGameClient->HasLegacyFrameAdvanced())
-	{
-		pause = true;
+	// TheSuperHackers @bugfix Mauller 04/07/2025 decouple the tree sway position updates from the client fps
+	if (TheGameLogic) {
+		UnsignedInt currentFrame = TheGameLogic->getFrame();
+		if (m_lastLogicFrame == currentFrame) {
+			pause = true;
+		}
+		m_lastLogicFrame = currentFrame;
 	}
-
-#endif
 
 	Int i;
 	if (!pause) {

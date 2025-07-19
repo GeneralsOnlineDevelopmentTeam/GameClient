@@ -15,20 +15,26 @@ CBitStream::CBitStream(EPacketID packetID)
 }
 
 #define ENABLE_ENCRYPTION
-void CBitStream::Decrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
+void CBitStream::Decrypt(std::vector<BYTE>& vecKey)
 {
 #if defined(ENABLE_ENCRYPTION)
+
+	// first N bytes (crypto_aead_xchacha20poly1305_ietf_NPUBBYTES) is the nonce
+	std::vector<uint8_t> nonce(crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+	memcpy(nonce.data(), &m_memBuffer.GetData()[0], crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+
+	// data is at membuffer + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES
 	std::vector<unsigned char> vecDecryptedBytes(m_memBuffer.GetAllocatedSize());
 	unsigned long long decrypted_len = 0;
 	if (crypto_aead_xchacha20poly1305_ietf_decrypt(&vecDecryptedBytes.data()[0], &decrypted_len,
 		NULL,
-		&m_memBuffer.GetData()[0], m_memBuffer.GetAllocatedSize(),
+		&m_memBuffer.GetData()[0] + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES, m_memBuffer.GetAllocatedSize() - crypto_aead_xchacha20poly1305_ietf_NPUBBYTES,
 		nullptr,
 		0,
-		&vecIV.data()[0], &vecKey.data()[0]) != 0)
+		nonce.data(), &vecKey.data()[0]) != 0)
 	{
 		/* message forged! */
-		NetworkLog("[NGMP]: Message forged! Decrypt failed");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP]: Message forged! Decrypt failed");
 	}
 	else
 	{
@@ -47,28 +53,37 @@ void CBitStream::Decrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
 
 
 
-void CBitStream::Encrypt(std::vector<BYTE>& vecKey, std::vector<BYTE>& vecIV)
+void CBitStream::Encrypt(std::vector<BYTE>& vecKey)
 {
 #if defined(ENABLE_ENCRYPTION)
 	std::vector<unsigned char> ciphertext(GetNumBytesUsed() + crypto_aead_xchacha20poly1305_ietf_ABYTES);
 
 	unsigned long long ciphertext_len;
 
-	//NetworkLog("Encrypting message %s", MESSAGE);
+	// create nonce
+	std::vector<uint8_t> nonce(crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+	randombytes_buf(nonce.data(), nonce.size());
 
-	
-
+	// encrypt current buffer
 	crypto_aead_xchacha20poly1305_ietf_encrypt(&ciphertext.data()[0], &ciphertext_len,
 		GetRawBuffer(), GetNumBytesUsed(),
 		nullptr, 0,
-		NULL, &vecIV.data()[0], &vecKey.data()[0]);
+		NULL, nonce.data(), &vecKey.data()[0]);
 
 	// resize buffer and copy back
 	ciphertext.resize(ciphertext_len);
 
-	m_memBuffer.ReAllocate(ciphertext_len);
-	memcpy(&m_memBuffer.GetData()[0], &ciphertext[0], ciphertext.size());
-	m_Offset = ciphertext.size();
+	// make sure there is enough space for encrypted data + nonce
+	m_memBuffer.ReAllocate(ciphertext_len + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+
+	// copy back the nonce
+	memcpy(&m_memBuffer.GetData()[0], nonce.data(), crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
+
+	// copy back encrypted data
+	memcpy(&m_memBuffer.GetData()[0] + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES, &ciphertext[0], ciphertext.size());
+
+	// fix the offset
+	m_Offset = ciphertext.size() + crypto_aead_xchacha20poly1305_ietf_NPUBBYTES;
 #endif
 }
 
