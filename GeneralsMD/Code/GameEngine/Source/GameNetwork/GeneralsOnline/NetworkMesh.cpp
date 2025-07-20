@@ -1396,7 +1396,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	{
 		bitstream.Encrypt(currentLobby.EncKey);
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED); // TODO_NGMP: Support flags
+		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
 
 		if (GetPeerToUse() != nullptr)
 		{
@@ -1420,7 +1420,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 		bitstream.Write<uint8_t>(gameChannel);
 
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED); // TODO_NGMP: Support flags
+		ENetPacket* pENetPacket = enet_packet_create((void*)bitstream.GetRawBuffer(), bitstream.GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE); // TODO_NGMP: Support flags
 
 		// TODO_RELAY: enet_peer_send On failure, the caller still must destroy the packet on its own as ENet has not queued the packet.
 		// TODO_RELAY: When relay connection fails too, eventually timeout and leave lobby (only if not host, but what if 2 clients cant connect? one can stay...)
@@ -1459,7 +1459,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 		CBitStream* pBitStream = packet.Serialize();
 		pBitStream->Encrypt(currentLobby.EncKey);
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED);
+		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
 
 		if (m_peer == m_pRelayPeer && m_pRelayPeer != nullptr)
 		{
@@ -1513,7 +1513,7 @@ int PlayerConnection::SendPacket(NetworkPacket& packet, int channel)
 		pBitStream->Write<uint32_t>(m_userID);
 		pBitStream->Write<uint8_t>(channel);
 
-		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_UNSEQUENCED);
+		ENetPacket* pENetPacket = enet_packet_create((void*)pBitStream->GetRawBuffer(), pBitStream->GetNumBytesUsed(), ENET_PACKET_FLAG_RELIABLE);
 
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "Attempting to send relayed packet to %ld", m_userID);
 
