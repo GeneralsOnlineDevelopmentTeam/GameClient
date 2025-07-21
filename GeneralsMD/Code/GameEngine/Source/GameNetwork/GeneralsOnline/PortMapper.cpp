@@ -610,7 +610,7 @@ struct IPCapabilitiesResponse
 void PortMapper::CheckIPCapabilities()
 {
 	std::string strToken = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken();
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("DETERMINEIPCAPABILITIES", true);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("DetermineIPCapabilities", true);
 	std::map<std::string, std::string> mapHeaders;
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)

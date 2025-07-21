@@ -1,6 +1,7 @@
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h"
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
 size_t WriteMemoryCallback(void* contents, size_t sizePerByte, size_t numBytes, void* userp)
 {
@@ -188,6 +189,12 @@ void HTTPRequest::PlatformStartRequest()
 			curl_easy_setopt(m_pCURL, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
 		}
 		
+
+		// Are we authenticated? attach our auth header
+		if (NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->IsLoggedIn())
+		{
+			m_mapHeaders["Authorization"] = "Bearer " + NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken();
+		}
 
 		for (auto& kvPair : m_mapHeaders)
 		{

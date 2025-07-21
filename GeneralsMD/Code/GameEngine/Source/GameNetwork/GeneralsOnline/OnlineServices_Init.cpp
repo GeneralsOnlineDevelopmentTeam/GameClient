@@ -57,7 +57,8 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 
 		if (g_Environment == EEnvironment::DEV)
 		{
-			return std::format("http://localhost:9000/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
+			//return std::format("https://localhost:9000/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
+			return std::format("https://localhost:9000/env/dev/contract/1/{}", szEndpoint);
 		}
 		else if (g_Environment == EEnvironment::TEST)
 		{
@@ -73,7 +74,8 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 	{
 		if (g_Environment == EEnvironment::DEV)
 		{
-			return std::format("http://localhost:9000/cloud/env:dev/{}", szEndpoint);
+			//return std::format("http://localhost:9000/cloud/env:dev/{}", szEndpoint);
+			return std::format("https://localhost:9000/env/dev/contract/1/{}", szEndpoint);
 		}
 		else if (g_Environment == EEnvironment::TEST)
 		{
@@ -401,23 +403,6 @@ void NGMP_OnlineServicesManager::Tick()
 	{
 		m_pLobbyInterface->Tick();
 	}
-
-	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-	if ((currTime - m_lastUserPut) > m_timeBetweenUserPuts)
-	{
-		m_lastUserPut = currTime;
-
-		if (m_pAuthInterface != nullptr && m_pAuthInterface->IsLoggedIn())
-		{
-			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("User", true);
-
-			std::map<std::string, std::string> mapHeaders;
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-				{
-					// TODO_NGMP: Handle 404 (session terminated)
-				});
-		}
-	};
 }
 
 void NGMP_OnlineServicesManager::InitSentry()

@@ -346,9 +346,6 @@ private:
 
 	HTTPManager* m_pHTTPManager = nullptr;
 
-	int64_t m_lastUserPut = -1;
-	int64_t m_timeBetweenUserPuts = 60000;
-
 	WebSocket* m_pWebSocket = nullptr;
 
 	std::string m_strMOTD;
