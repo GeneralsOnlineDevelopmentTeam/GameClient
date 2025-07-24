@@ -12,7 +12,11 @@
 #include "GameNetwork/GameSpyOverlay.h"
 #include "../json.hpp"
 
+#if defined(USE_TEST_ENV)
+#define CREDENTIALS_FILENAME "credentials_env_test.json"
+#else
 #define CREDENTIALS_FILENAME "credentials.json"
+#endif
 
 #include "GameNetwork/GeneralsOnline/vendor/libcurl/curl.h"
 #include "libsodium/sodium/crypto_aead_aes256gcm.h"
@@ -136,7 +140,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 {
 	std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginWithToken", false);
 
-#if defined(DEBUG) || defined(USE_TEST_ENV)
+#if defined(DEBUG)
 	static HANDLE MPMutex = NULL;
 	MPMutex = CreateMutex(NULL, FALSE, "685EAFF2-3216-4265-FFFF-251C5F4B82F3");
 
@@ -244,7 +248,11 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 								m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 								m_strCode = GenerateGamecode();
 
+#if defined(USE_TEST_ENV)
+								std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
+#else
 								std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+#endif
 
 								ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
 							}
@@ -262,7 +270,11 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 				m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 				m_strCode = GenerateGamecode();
 
+#if defined(USE_TEST_ENV)
+				std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
+#else
 				std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+#endif
 
 				ClearGSMessageBoxes();
 				GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);

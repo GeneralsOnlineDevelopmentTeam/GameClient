@@ -83,10 +83,12 @@ void FrameMetrics::init() {
 		for (auto& kvPair : connections)
 		{
 			PlayerConnection& conn = kvPair.second;
-			totalLatency += conn.latency;
+			totalLatency += conn.GetLatency();
 		}
 
 		m_averageLatency = (Real)((Real)totalLatency / 1000.f) / (Real)connections.size();
+
+		m_averageLatency = (Real)0.2;
 	}
 	else
 	{

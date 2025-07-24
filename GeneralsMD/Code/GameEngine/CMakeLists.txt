@@ -1154,19 +1154,18 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/GeneralsOnline_Settings.h
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPManager.h
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h
-    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Lobby_StartGame.h
-    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.h
-    Include/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.h
-    Include/GameNetwork/GeneralsOnline/Packets/NextGenTransport.h
-    Include/GameNetwork/GeneralsOnline/Vendor/ENet/callbacks.h
-    Include/GameNetwork/GeneralsOnline/Vendor/ENet/enet.h
-    Include/GameNetwork/GeneralsOnline/Vendor/ENet/list.h
-    Include/GameNetwork/GeneralsOnline/Vendor/ENet/protocol.h
-    Include/GameNetwork/GeneralsOnline/Vendor/ENet/time.h
-    Include/GameNetwork/GeneralsOnline/Vendor/ENet/types.h
-    Include/GameNetwork/GeneralsOnline/Vendor/ENet/unix.h
-    Include/GameNetwork/GeneralsOnline/Vendor/ENet/utility.h
-    Include/GameNetwork/GeneralsOnline/Vendor/ENet/win32.h
+    Include/GameNetwork/GeneralsOnline/NextGenTransport.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingmessages.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingsockets.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingutils.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/steam_api_common.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/steamclientpublic.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/steamnetworkingcustomsignaling.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/steamnetworkingsockets.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/steamnetworkingsockets_flat.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/steamnetworkingtypes.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/steamtypes.h
+    Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/steamuniverse.h
 
     Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium.h
     Include/GameNetwork/GeneralsOnline/Vendor/libsodium/sodium/core.h
@@ -1352,9 +1351,6 @@ Source/GameNetwork/GeneralsOnline/Vendor/libplum/util.cpp
     Source/GameNetwork/GeneralsOnline/OnlineServices_StatsInterface.cpp
     Source/GameNetwork/GeneralsOnline/NextGenTransport.cpp
     Source/GameNetwork/GeneralsOnline/NetworkBitstream.cpp
-    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Lobby_StartGamePacket.cpp
-    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Ping.cpp
-    Source/GameNetwork/GeneralsOnline/Packets/NetworkPacket_Pong.cpp
 )
 
 if(RTS_GAMEMEMORY_ENABLE)

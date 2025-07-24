@@ -1277,6 +1277,7 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 				minFps = TheGlobalData->m_framesPerSecondLimit; // Cap to 30 FPS.
 		}
 #endif
+			TheWritableGlobalData->m_networkRunAheadSlack = 15;
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::updateRunAhead - minFps after adjustment is %d", minFps));
 			Int newRunAhead = (Int)((getMaximumLatency() / 2.0) * (Real)minFps);
 			newRunAhead += (newRunAhead * TheGlobalData->m_networkRunAheadSlack) / 100; // Add in 10% of slack to the run ahead in case of network hiccups.

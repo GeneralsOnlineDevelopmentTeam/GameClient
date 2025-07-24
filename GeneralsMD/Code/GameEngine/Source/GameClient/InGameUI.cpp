@@ -5904,9 +5904,9 @@ void InGameUI::drawSystemTime()
 			for (auto& kvPair : connections)
 			{
 				PlayerConnection& conn = kvPair.second;
-				if (conn.latency > highestLatency)
+				if (conn.GetLatency() > highestLatency)
 				{
-					highestLatency = conn.latency;
+					highestLatency = conn.GetLatency();
 				}
 			}
 		}

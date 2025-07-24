@@ -371,29 +371,6 @@ public:
 
 	bool IsInLobby() const { return m_CurrentLobby.lobbyID != -1; }
 
-	void SendToMesh(NetworkPacket& packet)
-	{
-		// TODO_NGMP: Respect vecTargetUsers again
-		std::vector<int64_t> vecUsers;
-		/*
-		std::vector<uint64_t> vecUsers;
-		for (auto kvPair : m_CurrentLobby.members)
-		{
-			vecUsers.push_back(kvPair.first);
-		}
-
-		if (m_pLobbyMesh != nullptr)
-		{
-			m_pLobbyMesh->SendToMesh(packet, vecUsers);
-		}
-		*/
-
-		if (m_pLobbyMesh != nullptr)
-		{
-			m_pLobbyMesh->SendToMesh(packet, vecUsers);
-		}
-	}
-
 	NetworkMesh* GetNetworkMesh() { return m_pLobbyMesh; }
 
 	void JoinLobby(int index, const char* szPassword);

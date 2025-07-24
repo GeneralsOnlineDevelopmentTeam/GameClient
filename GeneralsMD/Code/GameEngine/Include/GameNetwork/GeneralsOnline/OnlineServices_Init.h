@@ -34,7 +34,9 @@ enum EWebSocketMessageID
 	PLAYER_CONNECTION_RELAY_UPGRADE = 8,
 	PLAYER_NAME_CHANGE = 9,
 	LOBBY_ROOM_CHAT_FROM_CLIENT = 10,
-	LOBBY_CHAT_FROM_SERVER = 11
+	LOBBY_CHAT_FROM_SERVER = 11,
+	NETWORK_SIGNAL = 12,
+	START_GAME = 13
 };
 
 enum class EQoSRegions
@@ -146,11 +148,17 @@ public:
 	void SendData_MarkReady(bool bReady);
 	void SendData_ConnectionRelayUpgrade(int64_t userID);
 
+	void SendData_Signalling(const std::string& s);
+	void SendData_StartGame();
+
 	void Tick();
 
 	int Ping();
 
 	void Send(const char* message);
+
+	// TODO_STEAM: clear this on connect
+	std::queue<std::string> m_pendingSignals;
 
 private:
 	CURL* m_pCurl = nullptr;

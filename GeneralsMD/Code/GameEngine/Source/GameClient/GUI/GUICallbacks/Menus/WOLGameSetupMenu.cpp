@@ -1147,7 +1147,7 @@ void WOLDisplaySlotList( void )
 					if (pConnection != nullptr)
 					{
 						strConnectionState = "Connected";
-						latency = pConnection->latency;
+						latency = pConnection->GetLatency();
 
 					}
 				}
@@ -1503,20 +1503,53 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 	// connection events (for debug really)
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-	pMesh->RegisterForConnectionEvents([](int64_t userID, std::string strDisplayName, EConnectionState connState)
+	pMesh->RegisterForConnectionEvents([](int64_t userID, std::string strDisplayName, PlayerConnection* connection)
 		{
-			std::string strConnectionType = "Unknown";
-			if (connState == EConnectionState::CONNECTED_DIRECT)
+			std::string strState = "Unknown";
+
+			EConnectionState connState = connection->GetState();
+			std::string strConnectionType = connection->GetConnectionType();
+
+			switch (connState)
 			{
-				strConnectionType = "Direct Connection";
-			}
-			else
-			{
-				strConnectionType = "Relayed Connection";
+			case EConnectionState::NOT_CONNECTED:
+				strState = "Not Connected";
+				break;
+
+			case EConnectionState::CONNECTING_DIRECT:
+				strState = "Connecting";
+				break;
+			case EConnectionState::FINDING_ROUTE:
+				strState = "Connecting (Finding Route)";
+				break;
+
+			case EConnectionState::CONNECTED_DIRECT:
+				strState = "Connected";
+				break;
+
+			case EConnectionState::CONNECTION_FAILED:
+				strState = "Connection Failed";
+				break;
+
+			case EConnectionState::CONNECTION_DISCONNECTED:
+				strState = "Disconnected (Was Connected Previously)";
+				break;
+
+			default:
+				strState = "Unknown";
+				break;
 			}
 
 			UnicodeString strConnectionMessage;
-			strConnectionMessage.format(L"You are now connected to %hs using connection mechanism %hs", strDisplayName.c_str(), strConnectionType.c_str());
+			if (connState == EConnectionState::CONNECTED_DIRECT || connState == EConnectionState::CONNECTION_DISCONNECTED)
+			{
+				strConnectionMessage.format(L"Connection state to %hs changed to: %hs (mechanism: %hs)", strDisplayName.c_str(), strState.c_str(), strConnectionType.c_str());
+			}
+			else
+			{
+				strConnectionMessage.format(L"Connection state to %hs changed to: %hs", strDisplayName.c_str(), strState.c_str());
+			}
+			
 			GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(255, 194, 15, 255), -1, -1);
 		});
 
@@ -2092,15 +2125,12 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 					TheNGMPGame->StopCountdown();
 
 					// send start game packet
-					Lobby_StartGamePacket startGamePacket;
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendToMesh(startGamePacket);
+					//Lobby_StartGamePacket startGamePacket;
+					//NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendToMesh(startGamePacket);
 
-					// process locally too
-					NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-					if (pMesh != nullptr)
+					if (NGMP_OnlineServicesManager::GetInstance()->GetWebSocket())
 					{
-						Lobby_StartGamePacket startGamePacket2;
-						pMesh->ProcessGameStart(startGamePacket2);
+						NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_StartGame();
 					}
 				}
 			}
@@ -3116,6 +3146,22 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	{
 		exit(0);
 	}
+	else if (token == "steam" || token == "advnet")
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Writing advanced networking stats:");
+
+		std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+		for (auto& kvPair : connections)
+		{
+			PlayerConnection& conn = kvPair.second;
+
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Connection to user %lld: %s", kvPair.first, conn.GetStats().c_str());
+		}
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Advanced networking stats dumped");
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Advanced networking debug stats have been written to log file."), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+		return TRUE;
+	}
 	else if (token == "connections" || token == "conns" || token == "c")
 	{
 		// TODO_NGMP: Disable this on retail builds
@@ -3133,7 +3179,6 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		for (auto& kvPair : connections)
 		{
 			PlayerConnection& conn = kvPair.second;
-			std::string strIPAddr = conn.GetIPAddrString();
 
 			std::string strState = "Unknown";
 
@@ -3144,23 +3189,22 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 				break;
 
 			case EConnectionState::CONNECTING_DIRECT:
-				strState = "Connecting (Direct)";
+				strState = "Connecting";
 				break;
-			case EConnectionState::CONNECTING_RELAY:
-				strState = "Connecting (Relay)";
+			case EConnectionState::FINDING_ROUTE:
+				strState = "Connecting (Finding Route)";
 				break;
 
 			case EConnectionState::CONNECTED_DIRECT:
-				strState = "Connected (Direct)";
+				strState = "Connected";
 				break;
-
-			case EConnectionState::CONNECTED_RELAY:
-				strState = "Connected (Relay)";
-				break;
-
 
 			case EConnectionState::CONNECTION_FAILED:
 				strState = "Connection Failed";
+				break;
+
+			case EConnectionState::CONNECTION_DISCONNECTED:
+				strState = "Disconnected (Was Connected Previously)";
 				break;
 
 			default:
@@ -3178,14 +3222,16 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 				}
 			}
 
+			std::string strConnectionType = conn.GetConnectionType();
+
 			UnicodeString msg;
-			msg.format(L"        Connection %d - user %lld - name %hs - addr %hs:%d - State: %hs - Attempts: %d - Latency: %d game frames (%d ms) - %d GenTool frames",
-				i, kvPair.first, strDisplayName.c_str(), strIPAddr.c_str(), conn.m_address.port, strState.c_str(), conn.m_ConnectionAttempts, ConvertMSLatencyToFrames(conn.latency), conn.latency, ConvertMSLatencyToGenToolFrames(conn.latency));
+			msg.format(L"        Connection %d - user %lld - name %hs - State: %hs - Latency: %d game frames (%d ms) - %d GenTool frames - Connection Type %hs",
+				i, kvPair.first, strDisplayName.c_str(), strState.c_str(), ConvertMSLatencyToFrames(conn.GetLatency()), conn.GetLatency(), ConvertMSLatencyToGenToolFrames(conn.GetLatency()), strConnectionType.c_str());
 			GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 
-			if (conn.latency > highestLatency)
+			if (conn.GetLatency() > highestLatency)
 			{
-				highestLatency = conn.latency;
+				highestLatency = conn.GetLatency();
 			}
 
 			++i;

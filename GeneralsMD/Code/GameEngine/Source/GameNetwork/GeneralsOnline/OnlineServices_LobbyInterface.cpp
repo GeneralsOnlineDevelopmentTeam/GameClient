@@ -1189,7 +1189,7 @@ void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpd
 				// join the network mesh too
 				if (m_pLobbyMesh == nullptr)
 				{
-					m_pLobbyMesh = new NetworkMesh(ENetworkMeshType::GAME_LOBBY);
+					m_pLobbyMesh = new NetworkMesh();
 					m_pLobbyMesh->ConnectToMesh(m_CurrentLobby);
 				}
 
