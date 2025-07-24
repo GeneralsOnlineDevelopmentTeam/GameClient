@@ -4,7 +4,9 @@
 #define GENERALS_ONLINE
 #endif
 
-#define USE_TEST_ENV 1
+#if !defined(_DEBUG)
+	#define USE_TEST_ENV 1
+#endif
 
 //#define USE_ENCRYPTED_SERVICE_TOKENS 1
 

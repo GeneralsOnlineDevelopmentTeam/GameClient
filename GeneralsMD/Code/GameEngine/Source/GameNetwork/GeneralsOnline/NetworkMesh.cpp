@@ -136,7 +136,7 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 		{
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[CONNECTION FLAGS]: has k_nSteamNetworkConnectionInfoFlags_DualWifi");
 		}
-		
+
 		pPlayerConnection->UpdateState(EConnectionState::CONNECTED_DIRECT, pMesh);
 
 		break;
@@ -476,7 +476,9 @@ void NetworkMesh::UpdateConnectivity(PlayerConnection* connection)
 {
 	nlohmann::json j;
 	j["target"] = connection->m_userID;
+	j["direct"] = connection->IsDirect();
 	j["outcome"] = connection->GetState();
+	j["ipv4"] = connection->IsIPV4();
 	std::string strPostData = j.dump();
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ConnectionOutcome", true);
 	std::map<std::string, std::string> mapHeaders;
@@ -710,6 +712,14 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	return (int)r;
 }
 
+
+bool PlayerConnection::IsIPV4()
+{
+	SteamNetConnectionInfo_t info;
+	SteamNetworkingSockets()->GetConnectionInfo(m_hSteamConnection, &info);
+
+	return info.m_addrRemote.IsIPv4();
+}
 
 void PlayerConnection::Recv()
 {

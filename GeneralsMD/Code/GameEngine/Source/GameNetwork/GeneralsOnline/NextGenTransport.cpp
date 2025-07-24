@@ -2,7 +2,7 @@
 
 #include "Common/CRC.h"
 #include "GameNetwork/NetworkInterface.h"
-#include "GameNetwork/GeneralsOnline/Packets/NextGenTransport.h"
+#include "GameNetwork/GeneralsOnline/NextGenTransport.h"
 
 #include "GameNetwork/GeneralsOnline/ngmp_include.h"
 #include "GameNetwork/GeneralsOnline/ngmp_interfaces.h"
@@ -137,13 +137,6 @@ Bool NextGenTransport::doRecv(void)
 
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "Game Packet Recv: Read %d packets this frame", numRead);
 
-	// flush now
-	
-	if (pMesh != nullptr)
-	{
-		pMesh->Flush();
-	}
-
 	return bRet;
 }
 
@@ -194,13 +187,6 @@ Bool NextGenTransport::doSend(void)
 	}
 
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "Game Packet Send: Sent %d packets this frame", numSent);
-
-	// flush now
-	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-	if (pMesh != nullptr)
-	{
-		pMesh->Flush();
-	}
 
 	return retval;
 }

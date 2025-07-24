@@ -43,6 +43,13 @@ public:
 
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize);
 
+	bool IsIPV4();
+	bool IsDirect()
+	{
+		std::string strConnectionType = GetConnectionType();
+		return strConnectionType.find("Relayed") == std::string::npos;
+	}
+
 	void Recv();
 
 	std::string GetStats();

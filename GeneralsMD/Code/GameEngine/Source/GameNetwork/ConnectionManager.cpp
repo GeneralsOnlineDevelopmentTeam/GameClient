@@ -52,7 +52,7 @@
 #include "GameLogic/VictoryConditions.h"
 #include "GameClient/DisconnectMenu.h"
 #include "GameClient/InGameUI.h"
-#include "../Packets/NextGenTransport.h"
+#include "../NextGenTransport.h"
 #include "../NetworkMesh.h"
 #include "../ngmp_interfaces.h"
 
