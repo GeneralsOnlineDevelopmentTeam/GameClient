@@ -7,7 +7,7 @@ permissions:
 on:
   push:
     branches:
-      [main, develop, citest, 60hz]
+      [main, develop, citest, 60hz, networking]
   pull_request:
     branches:
       [main, develop]
