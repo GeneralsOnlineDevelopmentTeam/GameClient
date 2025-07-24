@@ -63,74 +63,78 @@ Bool NextGenTransport::doRecv(void)
 
 	int numRead = 0;
 
-	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-	while (pMesh->HasGamePacket())
+	std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+	for (auto& kvPair : connections)
 	{
-		++numRead;
-		bRet = true;
+		SteamNetworkingMessage_t* pMsg[255];
+		int numPackets = kvPair.second.Recv(pMsg);
 
-		QueuedGamePacket gamePacket = pMesh->RecvGamePacket();
+		for (int i = 0; i < numPackets; ++i)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Received message of size %d\n", pMsg[i]->m_cbSize);
+			
+			uint32_t numBytes = pMsg[i]->m_cbSize;
 
-		uint32_t numBytes = gamePacket.m_bs->GetNumBytesAllocated();
+			++numRead;
+			bRet = true;
 
-		// avoiding memcpy, since the game memcpy's it into a free slot anyway
-		//buf = (unsigned char*)gamePacket.m_packet->data;
-		memcpy(buf, gamePacket.m_bs->GetRawBuffer(), numBytes);
+			memcpy(buf, pMsg[i]->m_pData, numBytes);
 
-		// delete the bitstream
-		delete gamePacket.m_bs;
+			// Free message struct and buffer.
+			pMsg[i]->Release();
 
 
-		// generals logic
+			// generals logic
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 // Packet loss simulation
-		if (m_usePacketLoss)
-		{
-			if (TheGlobalData->m_packetLoss >= GameClientRandomValue(0, 100))
+			if (m_usePacketLoss)
 			{
-				continue;
+				if (TheGlobalData->m_packetLoss >= GameClientRandomValue(0, 100))
+				{
+					continue;
+				}
 			}
-		}
 #endif
 
-		incomingMessage.length = numBytes - sizeof(TransportMessageHeader);
+			incomingMessage.length = numBytes - sizeof(TransportMessageHeader);
 
-		// is it a generals packet?
-		if (isGeneralsPacket(&incomingMessage))
-		{
-			//NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is a generals packet");
-		}
-		else
-		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is NOT a generals packet");
-		}
-
-		if (numBytes <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
-		//if (numBytes <= sizeof(TransportMessageHeader))
-		{
-			m_unknownPackets[m_statisticsSlot]++;
-			m_unknownBytes[m_statisticsSlot] += numBytes;
-			continue;
-		}
-
-		// Something there; stick it somewhere
-//		DEBUG_LOG(("Saw %d bytes from %d:%d\n", len, ntohl(from.sin_addr.S_un.S_addr), ntohs(from.sin_port)));
-		m_incomingPackets[m_statisticsSlot]++;
-		m_incomingBytes[m_statisticsSlot] += numBytes;
-
-		for (int i = 0; i < MAX_MESSAGES; ++i)
-		{
-			if (m_inBuffer[i].length == 0)
+			// is it a generals packet?
+			if (isGeneralsPacket(&incomingMessage))
 			{
-				// Empty slot; use it
-				m_inBuffer[i].length = incomingMessage.length;
+				//NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is a generals packet");
+			}
+			else
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is NOT a generals packet");
+			}
 
-				// dont care about address anymore
-				//m_inBuffer[i].addr = ntohl(from.sin_addr.S_un.S_addr);
-				//m_inBuffer[i].port = ntohs(from.sin_port);
+			if (numBytes <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
+				//if (numBytes <= sizeof(TransportMessageHeader))
+			{
+				m_unknownPackets[m_statisticsSlot]++;
+				m_unknownBytes[m_statisticsSlot] += numBytes;
+				continue;
+			}
 
-				memcpy(&m_inBuffer[i], buf, numBytes);
-				break;
+			// Something there; stick it somewhere
+	//		DEBUG_LOG(("Saw %d bytes from %d:%d\n", len, ntohl(from.sin_addr.S_un.S_addr), ntohs(from.sin_port)));
+			m_incomingPackets[m_statisticsSlot]++;
+			m_incomingBytes[m_statisticsSlot] += numBytes;
+
+			for (int i = 0; i < MAX_MESSAGES; ++i)
+			{
+				if (m_inBuffer[i].length == 0)
+				{
+					// Empty slot; use it
+					m_inBuffer[i].length = incomingMessage.length;
+
+					// dont care about address anymore
+					//m_inBuffer[i].addr = ntohl(from.sin_addr.S_un.S_addr);
+					//m_inBuffer[i].port = ntohs(from.sin_port);
+
+					memcpy(&m_inBuffer[i], buf, numBytes);
+					break;
+				}
 			}
 		}
 	}

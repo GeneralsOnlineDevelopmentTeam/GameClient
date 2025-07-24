@@ -50,7 +50,7 @@ public:
 		return strConnectionType.find("Relayed") == std::string::npos;
 	}
 
-	void Recv();
+	int Recv(SteamNetworkingMessage_t** pMsg);
 
 	std::string GetStats();
 

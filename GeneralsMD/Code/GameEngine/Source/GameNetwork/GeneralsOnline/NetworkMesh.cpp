@@ -405,8 +405,6 @@ public:
 
 NetworkMesh::NetworkMesh()
 {
-	TheWritableGlobalData->m_networkRunAheadSlack = 15;
-
 	int64_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 
 	SteamNetworkingIdentity identityLocal;
@@ -675,12 +673,6 @@ void NetworkMesh::Tick()
 	{
 		SteamNetworkingSockets()->RunCallbacks();
 	}
-
-	// Recv
-	for (auto& connectionData : m_mapConnections)
-	{
-		connectionData.second.Recv();
-	}
 }
 
 
@@ -721,37 +713,15 @@ bool PlayerConnection::IsIPV4()
 	return info.m_addrRemote.IsIPv4();
 }
 
-void PlayerConnection::Recv()
+int PlayerConnection::Recv(SteamNetworkingMessage_t** pMsg)
 {
+	int r = -1;
 	if (m_hSteamConnection != k_HSteamNetConnection_Invalid)
 	{
-		// would be kinda weird for this to be null, since recv is called from NetworkMesh...
-		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-
-		if (pMesh != nullptr)
-		{
-			SteamNetworkingMessage_t* pMsg[255];
-			int r = SteamNetworkingSockets()->ReceiveMessagesOnConnection(m_hSteamConnection, pMsg, 255);
-
-			// TODO_STEAM: Handle < 0, its an error
-			if (r > 0) // received something
-			{
-				for (int i = 0; i < r; ++i)
-				{
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Received message of size %d\n", pMsg[i]->m_cbSize);
-
-					// assume game packet for now
-					CBitStream* bitstream = new CBitStream(pMsg[i]->m_cbSize, pMsg[i]->m_pData, pMsg[i]->m_cbSize);
-					
-					pMesh->m_queueQueuedGamePackets.push(QueuedGamePacket{ bitstream, m_userID });
-
-					// Free message struct and buffer.
-					pMsg[i]->Release();
-				}
-
-			}
-		}
+		r = SteamNetworkingSockets()->ReceiveMessagesOnConnection(m_hSteamConnection, pMsg, 255);
 	}
+
+	return r;
 }
 
 
