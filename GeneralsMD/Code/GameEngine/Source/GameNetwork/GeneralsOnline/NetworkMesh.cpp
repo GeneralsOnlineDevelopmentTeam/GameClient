@@ -426,16 +426,14 @@ NetworkMesh::NetworkMesh()
 	}
 
 	// TODO_STEAM: Dont hardcode, get everything from service
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_STUN_ServerList, "stun:stun.cloudflare.com:53");
+	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_STUN_ServerList, "stun:stun.playgenerals.online:53");
 
 	// comma seperated setting lists
-	const char* turnList = "turn:turn.cloudflare.com:3478?transport=udp";
-	const char* userList = "TODO_STEAM";
-	const char* passList = "TODO_STEAM";
+	const char* turnList = "turn:turn.playgenerals.online:3478?transport=udp";
 
 	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_ServerList, turnList);
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, userList);
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, passList);
+	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTurnUsername().c_str());
+	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTurnToken().c_str());
 
 	// Allow sharing of any kind of ICE address.
 	SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All);
@@ -516,8 +514,6 @@ int NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t u
 
 void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEntry> vecLobbyMembers)
 {
-	// TODO_STEAM
-	/*
 	std::vector<int64_t> vecConnectionsToRemove;
 	for (auto& connectionData : m_mapConnections)
 	{
@@ -549,19 +545,16 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 	{
 		if (m_mapConnections.find(userIDToDisconnect) != m_mapConnections.end())
 		{
-			if (m_mapConnections[userIDToDisconnect].m_peer != nullptr)
+			if (m_mapConnections[userIDToDisconnect].m_hSteamConnection != k_HSteamNetConnection_Invalid)
 			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] enet_peer_disconnect_now %lld", userIDToDisconnect);
-
-				uint32_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-				enet_peer_disconnect_now(m_mapConnections[userIDToDisconnect].m_peer, localUserID);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection %lld", userIDToDisconnect);
+				SteamNetworkingSockets()->CloseConnection(m_mapConnections[userIDToDisconnect].m_hSteamConnection, 0, "Client Disconnecting Gracefully (not in lobby list)", false);
 			}
-
+			
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 1] Removing user %lld", m_mapConnections[userIDToDisconnect].m_userID);
 			m_mapConnections.erase(userIDToDisconnect);
 		}
 	}
-	*/
 }
 
 void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsReconnect)
