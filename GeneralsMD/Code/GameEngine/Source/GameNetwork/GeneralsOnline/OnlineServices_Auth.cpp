@@ -362,6 +362,8 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 
 		// move on to network capabilities section
 		ClearGSMessageBoxes();
+
+#if defined(ENABLE_QOS)
 		GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining best server region... this could take a few seconds"), true);
 
 		// Get QoS endpoints
@@ -415,6 +417,10 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 					// NOTE: This is a soft error, if we couldnt get QoS for some reason, we'll pick a relay still, it just wont be the best one
 				}
 			});
+#else
+		// move on
+		GoToDetermineNetworkCaps();
+#endif
 	}
 	else
 	{
