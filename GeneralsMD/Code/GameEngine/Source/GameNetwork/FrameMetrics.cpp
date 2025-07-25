@@ -87,8 +87,6 @@ void FrameMetrics::init() {
 		}
 
 		m_averageLatency = (Real)((Real)totalLatency / 1000.f) / (Real)connections.size();
-
-		m_averageLatency = (Real)0.2;
 	}
 	else
 	{
@@ -175,4 +173,10 @@ Real FrameMetrics::getAverageLatency() {
 
 Int FrameMetrics::getMinimumCushion() {
 	return m_minimumCushion;
+}
+
+void FrameMetrics::SeedLatencyData(int latency)
+{
+	m_averageFps = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+	m_averageLatency = latency / 1000.f;
 }

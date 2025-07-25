@@ -411,8 +411,8 @@ public:
 		return m_LobbyTryingToJoin;
 	}
 
-	std::string& GetLobbyTurnUsername() { return m_strTURNUsername; }
-	std::string& GetLobbyTurnToken() { return m_strTURNToken; }
+	std::string GetLobbyTurnUsername() { return m_strTURNUsername; }
+	std::string GetLobbyTurnToken() { return m_strTURNToken; }
 
 private:
 	std::function<void(bool)> m_cb_CreateLobbyPendingCallback = nullptr;

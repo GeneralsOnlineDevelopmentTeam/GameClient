@@ -140,7 +140,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 {
 	std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginWithToken", false);
 
-#if defined(DEBUG)
+#if defined(DEBUG) && !defined(USE_TEST_ENV)
 	static HANDLE MPMutex = NULL;
 	MPMutex = CreateMutex(NULL, FALSE, "685EAFF2-3216-4265-FFFF-251C5F4B82F3");
 

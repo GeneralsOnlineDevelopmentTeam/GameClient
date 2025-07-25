@@ -43,6 +43,8 @@ public:
 
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize);
 
+	void UpdateLatencyHistogram();
+
 	bool IsIPV4();
 	bool IsDirect()
 	{
@@ -52,6 +54,21 @@ public:
 
 	int Recv(SteamNetworkingMessage_t** pMsg);
 
+	int GetHighestHistoricalLatency()
+	{
+		int highestLatency = 0;
+		for (int latencyHistory : m_vecLatencyHistory)
+		{
+			if (latencyHistory > highestLatency)
+			{
+				highestLatency = latencyHistory;
+			}
+		}
+
+		return highestLatency;
+	}
+
+	std::vector<int> m_vecLatencyHistory;
 	std::string GetStats();
 
 	std::string GetConnectionType();
@@ -121,6 +138,22 @@ public:
 		return highestLatency;
 	}
 
+	Real getMaximumHistoricalLatency()
+	{
+		int highestLatency = 0;
+
+		for (auto& kvPair : m_mapConnections)
+		{
+			PlayerConnection& conn = kvPair.second;
+			if (conn.GetLatency() > highestLatency)
+			{
+				highestLatency = conn.GetHighestHistoricalLatency();
+			}
+		}
+
+		return Real(highestLatency);
+	}
+
 
 	std::queue<QueuedGamePacket> m_queueQueuedGamePackets;
 
@@ -164,4 +197,9 @@ private:
 	ISignalingClient* m_pSignaling = nullptr;
 
 	HSteamListenSocket m_hListenSock = k_HSteamListenSocket_Invalid;
+
+	std::string m_strTurnUsername;
+	std::string m_strTurnToken;
+	std::string m_strTurnUsernameString;
+	std::string m_strTurnTokenString;
 };

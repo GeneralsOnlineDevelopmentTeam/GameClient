@@ -38,6 +38,13 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 		}
 	}
 
+
+	//if (pPlayerConnection != nullptr)
+	{
+		//NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Player Connection was null", pInfo->m_info.m_szConnectionDescription);
+		//return;
+	}
+
 	// What's the state of the connection?
 	switch (pInfo->m_info.m_eState)
 	{
@@ -54,7 +61,7 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 		// Close our end
 		SteamNetworkingSockets()->CloseConnection(pInfo->m_hConn, 0, nullptr, false);
 
-		if (pPlayerConnection != nullptr)
+		if (pPlayerConnection != nullptr && pInfo != nullptr)
 		{
 			pPlayerConnection->SetDisconnected(pInfo->m_info.m_eState == k_ESteamNetworkingConnectionState_ProblemDetectedLocally || pInfo->m_info.m_eEndReason != k_ESteamNetConnectionEnd_App_Generic, pMesh);
 			
@@ -83,36 +90,52 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			// Somebody's knocking
 			// Note that we assume we will only ever receive a single connection
 
+#if _DEBUG
 			assert(pPlayerConnection->m_hSteamConnection == k_HSteamNetConnection_Invalid); // not really a bug in this code, but a bug in the test
+#endif
 
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Accepting\n", pInfo->m_info.m_szConnectionDescription);
-			pPlayerConnection->m_hSteamConnection = pInfo->m_hConn;
-			SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
 
-			pPlayerConnection->UpdateState(EConnectionState::CONNECTING_DIRECT, pMesh);
+			if (pPlayerConnection != nullptr && pInfo != nullptr)
+			{
+				pPlayerConnection->UpdateState(EConnectionState::CONNECTING_DIRECT, pMesh);
+				pPlayerConnection->m_hSteamConnection = pInfo->m_hConn;
+			}
+			SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
 		}
 		else
 		{
 			// Note that we will get notification when our own connection that
 			// we initiate enters this state.
+#if _DEBUG
 			assert(pPlayerConnection->m_hSteamConnection == pInfo->m_hConn);
+#endif
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Entered connecting state\n", pInfo->m_info.m_szConnectionDescription);
 
-			pPlayerConnection->UpdateState(EConnectionState::CONNECTING_DIRECT, pMesh);
+			if (pPlayerConnection != nullptr)
+			{
+				pPlayerConnection->UpdateState(EConnectionState::CONNECTING_DIRECT, pMesh);
+			}
 		}
 		break;
 
 	case k_ESteamNetworkingConnectionState_FindingRoute:
 		// P2P connections will spend a brief time here where they swap addresses
 		// and try to find a route.
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] finding route\n", pInfo->m_info.m_szConnectionDescription);
+		if (pPlayerConnection != nullptr && pInfo != nullptr)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] finding route\n", pInfo->m_info.m_szConnectionDescription);
 
-		pPlayerConnection->UpdateState(EConnectionState::FINDING_ROUTE, pMesh);
+			pPlayerConnection->UpdateState(EConnectionState::FINDING_ROUTE, pMesh);
+		}
 		break;
 
 	case k_ESteamNetworkingConnectionState_Connected:
 		// We got fully connected
+#if _DEBUG
 		assert(pInfo->m_hConn == pPlayerConnection->m_hSteamConnection); // We don't initiate or accept any other connections, so this should be out own connection
+#endif
+
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] connected\n", pInfo->m_info.m_szConnectionDescription);
 
 		if (pInfo->m_info.m_nFlags & k_nSteamNetworkConnectionInfoFlags_Unauthenticated)
@@ -140,12 +163,15 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[CONNECTION FLAGS]: has k_nSteamNetworkConnectionInfoFlags_DualWifi");
 		}
 
-		pPlayerConnection->UpdateState(EConnectionState::CONNECTED_DIRECT, pMesh);
+		if (pPlayerConnection != nullptr)
+		{
+			pPlayerConnection->UpdateState(EConnectionState::CONNECTED_DIRECT, pMesh);
+		}
 
 		break;
 
 	default:
-		assert(false);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM CALLBACK] Unhandled case");
 		break;
 	}
 }
@@ -429,14 +455,26 @@ NetworkMesh::NetworkMesh()
 	}
 
 	// TODO_STEAM: Dont hardcode, get everything from service
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_STUN_ServerList, "stun:stun.playgenerals.online:53");
+	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_STUN_ServerList, "stun:stun.playgenerals.online:53,stun:stun.playgenerals.online:3478,stun.l.google.com:19302,stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302");
 
 	// comma seperated setting lists
-	const char* turnList = "turn:turn.playgenerals.online:3478?transport=udp";
+	const char* turnList = "turn:turn.playgenerals.online:53?transport=udp,turn:turn.playgenerals.online:3478?transport=udp";
+
+	m_strTurnUsername = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTurnUsername();
+	m_strTurnToken = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTurnToken();
+
+	//const char* szUsername = "g04024f26713bae6e055295b6887b7007533f6c236534b725734b37e26ec15cd,g04024f26713bae6e055295b6887b7007533f6c236534b725734b37e26ec15cd";
+	//const char* szToken = "9ea6a5e60216c09a1fa7512987b2ce0514e3204f863f04f70fa870a100db740f,9ea6a5e60216c09a1fa7512987b2ce0514e3204f863f04f70fa870a100db740f";
+
+	//strUsername = "g04024f26713bae6e055295b6887b7007533f6c236534b725734b37e26ec15cd";
+	//strToken = "9ea6a5e60216c09a1fa7512987b2ce0514e3204f863f04f70fa870a100db740f";
+
+	m_strTurnUsernameString = std::format("{},{}", m_strTurnUsername.c_str(), m_strTurnUsername.c_str());
+	m_strTurnTokenString = std::format("{},{}", m_strTurnToken.c_str(), m_strTurnToken.c_str());
 
 	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_ServerList, turnList);
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTurnUsername().c_str());
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTurnToken().c_str());
+	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, m_strTurnUsernameString.c_str());
+	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, m_strTurnTokenString.c_str());
 
 	// Allow sharing of any kind of ICE address.
 	if (g_bForceRelay)
@@ -676,6 +714,13 @@ void NetworkMesh::Tick()
 	{
 		SteamNetworkingSockets()->RunCallbacks();
 	}
+
+	// update connection histograms
+	for (auto& kvPair : m_mapConnections)
+	{
+		PlayerConnection& conn = kvPair.second;
+		conn.UpdateLatencyHistogram();
+	}
 }
 
 
@@ -697,7 +742,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 {
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "[GAME PACKET] Sending msg of size %ld\n", totalDataSize);
 	EResult r = SteamNetworkingSockets()->SendMessageToConnection(
-		m_hSteamConnection, pBuffer, (int)totalDataSize, k_nSteamNetworkingSend_UnreliableNoDelay, nullptr);
+		m_hSteamConnection, pBuffer, (int)totalDataSize, k_nSteamNetworkingSend_ReliableNoNagle | k_nSteamNetworkingSend_AutoRestartBrokenSession, nullptr);
 
 	if (r != k_EResultOK)
 	{
@@ -707,6 +752,23 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	return (int)r;
 }
 
+
+void PlayerConnection::UpdateLatencyHistogram()
+{
+	// update latency history
+	int currLatency = GetLatency();
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	const int connectionHistoryLength = 2000; // 2000 frames
+#else
+	const int connectionHistoryLength = 1000; // 1000 frames
+#endif
+
+	if (m_vecLatencyHistory.size() >= connectionHistoryLength)
+	{
+		m_vecLatencyHistory.erase(m_vecLatencyHistory.begin());
+	}
+	m_vecLatencyHistory.push_back(currLatency);
+}
 
 bool PlayerConnection::IsIPV4()
 {

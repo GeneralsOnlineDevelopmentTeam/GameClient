@@ -98,6 +98,10 @@ public:
 	virtual Real getUnknownBytesPerSecond( void ) = 0;
 	virtual Real getUnknownPacketsPerSecond( void ) = 0;
 
+#if defined(GENERALS_ONLINE)
+	virtual void SeedLatencyData(int highestLatency) = 0;
+#endif
+
 	virtual void updateLoadProgress( Int percent ) = 0;
 	virtual void loadProgressComplete( void ) = 0;
 	virtual void sendTimeOutGameStart( void ) = 0;
