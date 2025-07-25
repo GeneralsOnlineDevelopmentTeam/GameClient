@@ -1293,9 +1293,9 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 				if (pMesh != nullptr)
 				{
 					float maxLatency = (float)pMesh->getMaximumLatency();
-					newRunAhead = (Int)(maxLatency * (1000.f / TheNetwork->getFrameRate()));
+					newRunAhead = (Int)ceil((maxLatency / (1000.f / TheNetwork->getFrameRate())));
 
-					NetworkLog(ELogVerbosity::LOG_DEBUG, "New run ahead is %d, formula is maxlat is %f, minfps is %d", newRunAhead, maxLatency, minFps);
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "New run ahead is %d, formula is maxlat is %f, minfps is %d", newRunAhead, maxLatency, minFps);
 				}
 				
 			}
