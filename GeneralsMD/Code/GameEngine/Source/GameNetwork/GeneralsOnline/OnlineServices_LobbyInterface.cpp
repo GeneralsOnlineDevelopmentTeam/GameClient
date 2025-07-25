@@ -912,7 +912,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 				JoinLobbyResponse resp = jsonObject.get<JoinLobbyResponse>();
 
 				m_strTURNUsername = resp.turn_username;
-				m_strTURNToken = resp.turn_username;
+				m_strTURNToken = resp.turn_token;
 				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got TURN username: %s, token: %s", m_strTURNUsername.c_str(), m_strTURNToken.c_str());
 			}
 			catch (...)
@@ -1099,7 +1099,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 				CreateLobbyResponse resp = jsonObject.get<CreateLobbyResponse>();
 
 				m_strTURNUsername = resp.turn_username;
-				m_strTURNToken = resp.turn_username;
+				m_strTURNToken = resp.turn_token;
 				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got TURN username: %s, token: %s", m_strTURNUsername.c_str(), m_strTURNToken.c_str());
 
 
