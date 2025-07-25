@@ -13,6 +13,9 @@
 #include "ValveNetworkingSockets/steam/isteamnetworkingutils.h"
 #include "ValveNetworkingSockets/steam/steamnetworkingcustomsignaling.h"
 
+bool g_bForceRelay = false;
+UnsignedInt m_exeCRCOriginal = 0;
+
 // Called when a connection undergoes a state transition
 void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t* pInfo)
 {
@@ -436,7 +439,14 @@ NetworkMesh::NetworkMesh()
 	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTurnToken().c_str());
 
 	// Allow sharing of any kind of ICE address.
-	SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All);
+	if (g_bForceRelay)
+	{
+		SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Relay);
+	}
+	else
+	{
+		SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All);
+	}
 
 	m_hListenSock = k_HSteamListenSocket_Invalid;
 	

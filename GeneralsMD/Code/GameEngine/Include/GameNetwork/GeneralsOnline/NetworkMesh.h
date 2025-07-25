@@ -105,6 +105,23 @@ public:
 		m_cbOnConnected = nullptr;
 	}
 
+	int getMaximumLatency()
+	{
+		int highestLatency = 0;
+
+		for (auto& kvPair : m_mapConnections)
+		{
+			PlayerConnection& conn = kvPair.second;
+			if (conn.GetLatency() > highestLatency)
+			{
+				highestLatency = conn.GetLatency();
+			}
+		}
+
+		return highestLatency;
+	}
+
+
 	std::queue<QueuedGamePacket> m_queueQueuedGamePackets;
 
 	bool HasGamePacket();

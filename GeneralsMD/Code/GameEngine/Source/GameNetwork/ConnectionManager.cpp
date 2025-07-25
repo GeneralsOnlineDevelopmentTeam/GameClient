@@ -1279,10 +1279,30 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 #endif
 
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::updateRunAhead - minFps after adjustment is %d", minFps));
-			Int newRunAhead = (Int)((getMaximumLatency() / 2.0) * (Real)minFps);
+			Int newRunAhead = 0;
+			if (TheNGMPGame == nullptr)
+			{
+				newRunAhead = (Int)((getMaximumLatency() / 2.0) * (Real)minFps);
+				NetworkLog(ELogVerbosity::LOG_DEBUG, "New run ahead is %d, formula is maxlat is %f (div 2: %f), minfps is %d", newRunAhead, getMaximumLatency(), getMaximumLatency() / 2.f, minFps);
+			}
+			else
+			{
+				// for NGMP use our data, its more accurate
+				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+
+				if (pMesh != nullptr)
+				{
+					float maxLatency = (float)pMesh->getMaximumLatency();
+					newRunAhead = (Int)(maxLatency * (1000.f / TheNetwork->getFrameRate()));
+
+					NetworkLog(ELogVerbosity::LOG_DEBUG, "New run ahead is %d, formula is maxlat is %f, minfps is %d", newRunAhead, maxLatency, minFps);
+				}
+				
+			}
+
 			newRunAhead += (newRunAhead * TheGlobalData->m_networkRunAheadSlack) / 100; // Add in 10% of slack to the run ahead in case of network hiccups.
 
-			NetworkLog(ELogVerbosity::LOG_DEBUG, "New run ahead is %d, formula is maxlat is %f (div 2: %f), minfps is %d", newRunAhead, getMaximumLatency(), getMaximumLatency()/2.f, minFps);
+			
 			if (newRunAhead < MIN_RUNAHEAD) {
 				newRunAhead = MIN_RUNAHEAD; // make sure its at least MIN_RUNAHEAD.
 			}

@@ -195,6 +195,26 @@ Bool handleLobbySlashCommands(UnicodeString uText)
 		
 		return TRUE; // was a slash command
 	}
+	else if (token == "forcerelay")
+	{
+		extern bool g_bForceRelay;
+		extern UnsignedInt m_exeCRCOriginal;
+		g_bForceRelay = true;
+		m_exeCRCOriginal = TheWritableGlobalData->m_exeCRC;
+		TheWritableGlobalData->m_exeCRC = 123456;
+		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Relays are now forced on. You will only be able to join lobbies where the same option has been set. Use /allowrelay to reset this"), GameMakeColor(255, 0, 0, 255), -1, -1);
+		return TRUE; // was a slash command
+	}
+	else if (token == "allowrelay")
+	{
+		extern bool g_bForceRelay;
+		extern UnsignedInt m_exeCRCOriginal;
+		g_bForceRelay = false;
+		TheWritableGlobalData->m_exeCRC = m_exeCRCOriginal;
+		m_exeCRCOriginal = 0;
+		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Relays are now optional again. You will only be able to join lobbies where the same option has been set. Use /forcerelay to reset this"), GameMakeColor(255, 0, 0, 255), -1, -1);
+		return TRUE; // was a slash command
+	}
 	else if (token == "refresh")
 	{
 		// Added 2/19/03 added the game refresh
