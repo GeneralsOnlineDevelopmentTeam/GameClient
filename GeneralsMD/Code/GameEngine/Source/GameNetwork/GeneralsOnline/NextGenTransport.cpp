@@ -71,7 +71,7 @@ Bool NextGenTransport::doRecv(void)
 
 		for (int i = 0; i < numPackets; ++i)
 		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Received message of size %d\n", pMsg[i]->m_cbSize);
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "[GAME PACKET] Received message of size %d\n", pMsg[i]->m_cbSize);
 			
 			uint32_t numBytes = pMsg[i]->m_cbSize;
 
