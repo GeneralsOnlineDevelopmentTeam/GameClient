@@ -18,7 +18,7 @@ NGMP_OnlineServices_StatsInterface::NGMP_OnlineServices_StatsInterface()
 
 void NGMP_OnlineServices_StatsInterface::GetGlobalStats(std::function<void(GlobalStats)> cb)
 {
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("GlobalStats", true);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("GlobalStats");
 
 	std::map<std::string, std::string> mapHeaders;
 
@@ -93,7 +93,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 
 		if (bDoRequest)
 		{
-			std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("PlayerStats", true), userID);
+			std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("PlayerStats"), userID);
 
 			std::map<std::string, std::string> mapHeaders;
 
@@ -187,7 +187,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 void NGMP_OnlineServices_StatsInterface::UpdateMyStats(PSPlayerStats stats)
 {
 	int64_t userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("PlayerStats", true), userID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("PlayerStats"), userID);
 
 	std::map<std::string, std::string> mapHeaders;
 

@@ -410,7 +410,7 @@ void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> c
 {
 	m_vecRooms.clear();
 
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Rooms", true);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Rooms");
 	std::map<std::string, std::string> mapHeaders;
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)

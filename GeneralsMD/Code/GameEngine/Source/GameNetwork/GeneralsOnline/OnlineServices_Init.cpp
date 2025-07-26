@@ -49,43 +49,19 @@ NGMP_OnlineServicesManager::NGMP_OnlineServicesManager()
 	InitSentry();
 }
 
-std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, bool bAttachToken)
+std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint)
 {
-	if (bAttachToken)
+	if (g_Environment == EEnvironment::DEV)
 	{
-		std::string strToken = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken();
-
-		if (g_Environment == EEnvironment::DEV)
-		{
-			//return std::format("https://localhost:9000/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
-			return std::format("https://localhost:9000/env/test/contract/1/{}", szEndpoint);
-		}
-		else if (g_Environment == EEnvironment::TEST)
-		{
-			return std::format("https://cloud.playgenerals.online:8000/env/dev/contract/1/{}", szEndpoint);
-		}
-		else // PROD
-		{
-			return std::format("https://cloud.playgenerals.online:9000/cloud/env:prod:token:{}/{}", strToken, szEndpoint);
-		}
-
+		return std::format("https://localhost:9000/env/test/contract/1/{}", szEndpoint);
 	}
-	else
+	else if (g_Environment == EEnvironment::TEST)
 	{
-		if (g_Environment == EEnvironment::DEV)
-		{
-			//return std::format("http://localhost:9000/cloud/env:dev/{}", szEndpoint);
-			return std::format("https://localhost:9000/env/dev/contract/1/{}", szEndpoint);
-		}
-		else if (g_Environment == EEnvironment::TEST)
-		{
-			//return std::format("https://cloud.playgenerals.online:8000/cloud/env:test/{}", szEndpoint);
-			return std::format("https://cloud.playgenerals.online:8000/env/test/contract/1/{}", szEndpoint);
-		}
-		else // PROD
-		{
-			return std::format("https://cloud.playgenerals.online:9000/cloud/env:prod/{}", szEndpoint);
-		}
+		return std::format("https://cloud.playgenerals.online:8000/env/dev/contract/1/{}", szEndpoint);
+	}
+	else // PROD
+	{
+		return std::format("https://cloud.playgenerals.online:9000/env/dev/contract/1/{}", szEndpoint);
 	}
 }
 
@@ -106,7 +82,7 @@ void NGMP_OnlineServicesManager::Shutdown()
 
 void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback)
 {
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck", false);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck");
 
 	// NOTE: Generals 'CRCs' are not true CRC's, its a custom algorithm. This is fine for lobby comparisons, but its not good for patch comparisons.
 	

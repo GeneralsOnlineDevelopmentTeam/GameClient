@@ -91,7 +91,7 @@ void PortMapper::Tick()
 			j["ipv4"] = m_IPV4 == ECapabilityState::SUPPORTED;
 			j["ipv6"] = m_IPV6 == ECapabilityState::SUPPORTED;
 			std::string strPostData = j.dump();
-			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Connectivity", true);
+			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Connectivity");
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Check]: Connectivity outcome - Mapping Tech is %d, IPv4 is %d, IPv6 is %d", mappingTechUsed, (int)(m_IPV4 == ECapabilityState::SUPPORTED), m_IPV6 == ECapabilityState::SUPPORTED);
 			std::map<std::string, std::string> mapHeaders;
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
@@ -285,7 +285,7 @@ void PortMapper::StartNATCheck()
 	m_bNATCheckInProgress = true;
 	m_probeStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 	std::string strToken = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken();
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("NATCheck", true);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("NATCheck");
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -619,7 +619,7 @@ struct IPCapabilitiesResponse
 void PortMapper::CheckIPCapabilities()
 {
 	std::string strToken = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken();
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("DetermineIPCapabilities", true);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("DetermineIPCapabilities");
 	std::map<std::string, std::string> mapHeaders;
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::FORCE_IPV4, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)

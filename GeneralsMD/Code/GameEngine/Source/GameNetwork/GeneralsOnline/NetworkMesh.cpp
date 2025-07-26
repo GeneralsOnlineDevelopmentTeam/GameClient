@@ -524,7 +524,7 @@ void NetworkMesh::UpdateConnectivity(PlayerConnection* connection)
 	j["outcome"] = connection->GetState();
 	j["ipv4"] = connection->IsIPV4();
 	std::string strPostData = j.dump();
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ConnectionOutcome", true);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ConnectionOutcome");
 	std::map<std::string, std::string> mapHeaders;
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{

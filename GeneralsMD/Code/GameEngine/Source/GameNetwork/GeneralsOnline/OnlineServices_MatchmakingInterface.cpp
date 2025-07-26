@@ -15,7 +15,7 @@ void NGMP_OnlineServices_MatchmakingInterface::StartMatchmaking(int playlistID, 
 
 	std::map<std::string, std::string> mapHeaders;
 	std::string strPostData = j.dump();
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Matchmaking", true);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Matchmaking");
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			try
@@ -47,7 +47,7 @@ void NGMP_OnlineServices_MatchmakingInterface::CancelMatchmaking()
 
 	std::map<std::string, std::string> mapHeaders;
 	std::string strPostData = j.dump();
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Matchmaking", true);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Matchmaking");
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 		
