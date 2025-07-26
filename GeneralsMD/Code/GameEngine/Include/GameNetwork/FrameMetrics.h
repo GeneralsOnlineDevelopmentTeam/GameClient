@@ -48,6 +48,8 @@ public:
 	Int getAverageFPS();
 	Int getMinimumCushion();
 
+	void SeedLatencyData(int latency);
+
 protected:
 	// These are used for keeping track of parameters to the run ahead equation.
 	// frames per second history variables.

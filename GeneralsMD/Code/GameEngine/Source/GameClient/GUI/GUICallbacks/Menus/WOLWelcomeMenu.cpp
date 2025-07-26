@@ -352,7 +352,7 @@ static void updateNumPlayersOnline(void)
 
 		// add network caps
 
-		ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
+		//ECapabilityState NATDirectConnect = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().HasDirectConnect();
 		int preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 		{
 			Color c = GameMakeColor(255, 194, 15, 255);
@@ -377,6 +377,7 @@ static void updateNumPlayersOnline(void)
 			line.format(L"Network Port: %d (%hs)", preferredPort, strPortState.c_str());
 			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
 
+			/*
 			// direct connect
 			line.format(L"Direct Connect: %hs%hs",
 				NATDirectConnect == ECapabilityState::UNDETERMINED ? "Still Being Determined..." : NATDirectConnect == ECapabilityState::SUPPORTED ? "Supported" : "Unsupported",
@@ -386,16 +387,21 @@ static void updateNumPlayersOnline(void)
 				""
 #endif
 			);
-			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
 			
+			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+			*/
+			
+			/*
 			// relayed connect
 			line.format(L"Relayed Connect: %hs", "Supported");
 			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+			
 
 			// server region
 			line.format(L"Server Region: %hs (%dms)", NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionName().c_str(),
 				NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetPreferredRegionLatency());
 			GadgetListBoxAddEntryText(listboxInfo, line, c, -1, -1);
+			*/
 		}
 		
 	}

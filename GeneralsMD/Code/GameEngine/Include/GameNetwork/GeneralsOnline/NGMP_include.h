@@ -75,9 +75,8 @@ static std::unordered_map<int, std::string> g_mapServiceIndexToPlayerTemplateStr
 #include "GameNetwork/GeneralsOnline/NGMP_types.h"
 #include "GameNetwork/GeneralsOnline/NGMPGame.h"
 
-#include "Packets/NextGenTransport.h"
+#include "NextGenTransport.h"
 
-#include "GameNetwork/GeneralsOnline/Packets/NetworkPacket_Lobby_StartGame.h"
 
 #if defined(GENERALS_ONLINE_BRANCH_JMARSHALL)
 #include "../Console/Console.h"

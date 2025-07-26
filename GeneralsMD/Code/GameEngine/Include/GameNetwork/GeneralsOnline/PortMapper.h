@@ -35,6 +35,7 @@ public:
 		CleanupPorts();
 	}
 
+#if defined(ENABLE_DIRECTCONNECT_TEST)
 	void ForceReleaseNATPort()
 	{
 		if (m_NATSocket != INVALID_SOCKET)
@@ -44,9 +45,13 @@ public:
 			m_NATSocket = INVALID_SOCKET;
 		}
 	}
+#endif
 
 	void Tick();
+
+#if defined(ENABLE_DIRECTCONNECT_TEST)
 	void StartNATCheck();
+#endif
 
 	enum class EMappingTech
 	{
@@ -103,14 +108,15 @@ private:
 
 	std::atomic<uint16_t> m_PreferredPort = 0;
 
+#if defined(ENABLE_DIRECTCONNECT_TEST)
 	SOCKET m_NATSocket = INVALID_SOCKET;
 	bool m_bNATCheckInProgress = false;
-
-	std::atomic<bool> m_bPortMapperWorkComplete = false;
-
 	const int m_probeTimeout = 15000;
 	int64_t m_probeStartTime = -1;
 	bool m_bProbesReceived = false;
+#endif
+
+	std::atomic<bool> m_bPortMapperWorkComplete = false;
 
 	// TODO_NGMP: Do we need to refresh this periodically? or just do it on login. It would be kinda weird if the local network device changed during gameplay...
 	struct UPNPDev* m_pCachedUPnPDevice = nullptr;

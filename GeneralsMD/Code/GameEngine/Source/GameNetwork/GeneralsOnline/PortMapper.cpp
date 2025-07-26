@@ -73,6 +73,7 @@ void PortMapper::Tick()
 	// if one thing succeeded, bail, or if everything is done, also bail
 	if ((m_bPortMapper_AnyMappingSuccess.load() || bEverythingComplete) && bIPChecksComplete)
 	{
+#if defined(ENABLE_DIRECTCONNECT_TEST)
 		if (!m_bNATCheckStarted)
 		{
 			int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
@@ -100,9 +101,14 @@ void PortMapper::Tick()
 
 			// start nat checker
 			StartNATCheck();
+#else
+		// we're done, just return
+		InvokeCallback();
+#endif
 		}
 	}
 
+#if defined(ENABLE_DIRECTCONNECT_TEST)
 	if (m_bNATCheckInProgress)
 	{
 		// send outbound traffic too
@@ -187,7 +193,9 @@ void PortMapper::Tick()
 		}
 	}
 }
+#endif
 
+#if defined(ENABLE_DIRECTCONNECT_TEST)
 void PortMapper::StartNATCheck()
 {
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NAT Checker]: Starting");
@@ -300,6 +308,7 @@ void PortMapper::StartNATCheck()
 			}
 		});
 }
+#endif
 
 void PortMapper::DetermineLocalNetworkCapabilities()
 {
@@ -777,35 +786,6 @@ void PortMapper::ForwardPort_PCP()
 	pcpMapping.internal_port = port;
 	pcpMapping.external_port = port;
 	m_PCPMappingHandle = plum_create_mapping(&pcpMapping, pcpMappingCallback);
-
-/*
-	m_PCPMappingHandle = plum_create_mapping(&pcpMapping, [](int id, plum_state_t state, const plum_mapping_t* mapping)
-		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: PCP Mapping %d: state=%d\n", id, (int)state);
-			switch (state) {
-			case PLUM_STATE_SUCCESS:
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: PCP Mapping %d: success, internal=%hu, external=%s:%hu\n", id, mapping->internal_port,
-					mapping->external_host, mapping->external_port);
-
-				NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(true);
-				break;
-			}
-
-			case PLUM_STATE_FAILURE:
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "PortMapper: PCP Mapping %d: failed\n", id);
-
-				NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().StorePCPOutcome(false);
-				break;
-
-			default:
-				break;
-			}
-
-			// cleanup
-			plum_cleanup();
-		});
-*/
 #endif
 }
 

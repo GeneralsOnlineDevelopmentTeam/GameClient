@@ -112,6 +112,10 @@ public:
 	void liteupdate( void );																	///< Do a lightweight update to send packets and pass messages.
 	Bool deinit( void );																			///< Shutdown connections, release memory
 
+#if defined(GENERALS_ONLINE)
+	virtual void SeedLatencyData(int latency);
+#endif
+
 	void setLocalAddress(UnsignedInt ip, UnsignedInt port);
 	inline UnsignedInt getRunAhead(void) { return m_runAhead; }
 	inline UnsignedInt getFrameRate(void) { return m_frameRate; }
@@ -368,6 +372,15 @@ void Network::init()
 
 	return;
 }
+
+#if defined(GENERALS_ONLINE)
+void Network::SeedLatencyData(int highestLatency)
+{
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[PRESEED] Seeding with highest latency %d", highestLatency);
+
+	m_conMgr->SeedLatencyData(highestLatency);
+}
+#endif
 
 #if defined(GENERALS_ONLINE)
 void Network::setSawCRCMismatch(UnicodeString& strMismatchDetails)

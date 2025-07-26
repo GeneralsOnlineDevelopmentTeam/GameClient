@@ -2,86 +2,89 @@
 
 #include "NGMP_include.h"
 #include <ws2ipdef.h>
-
-/* NET CHANNELS:
-0 = genonline basic traffic - chat etc
-1 = generals game traffic
-2 = handshake
-3 = relay traffic
-*/
+#include "ValveNetworkingSockets/steam/steamnetworkingsockets.h"
 
 class NetRoom_ChatMessagePacket;
-class Lobby_StartGamePacket;
+
 enum class EConnectionState
 {
 	NOT_CONNECTED,
 	CONNECTING_DIRECT,
-	CONNECTING_RELAY,
+	FINDING_ROUTE,
 	CONNECTED_DIRECT,
-	CONNECTED_RELAY,
-	CONNECTION_FAILED
+	CONNECTION_FAILED,
+	CONNECTION_DISCONNECTED
 };
 
+// trivial signalling client interface
+class ISignalingClient
+{
+public:
+	virtual ISteamNetworkingConnectionSignaling* CreateSignalingForConnection(const SteamNetworkingIdentity& identityPeer, SteamNetworkingErrMsg& errMsg) = 0;
+
+	virtual void Poll() = 0;
+
+	/// Disconnect from the server and close down our polling thread.
+	virtual void Release() = 0;
+};
+
+class NetworkMesh;
 class PlayerConnection
 {
 public:
-	// TODO_RELAY: Add destructor that shuts down peers etc, but only shut down relay peer if not being used by another connection
 	PlayerConnection()
 	{
 		
 	}
 
-
-	PlayerConnection(int64_t userID, ENetAddress addr, ENetPeer* peer, bool bStartSendingHellosAgain);
+	PlayerConnection(int64_t userID, HSteamNetConnection hSteamConnection);
 
 	EConnectionState GetState() const { return m_State; }
-	ENetPeer* GetPeerToUse();
-	int SendPacket(NetworkPacket& packet, int channel);
+
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize);
 
-	std::string GetIPAddrString(bool bForceReveal = false)
+	void UpdateLatencyHistogram();
+
+	bool IsIPV4();
+	bool IsDirect()
 	{
-#if defined(_DEBUG)
-		char ip[INET_ADDRSTRLEN + 1] = { 0 };
-		enet_address_get_host_ip(&m_address, ip, sizeof(ip));
-		return std::string(ip);
-#else
-		if (bForceReveal)
-		{
-			char ip[INET_ADDRSTRLEN + 1] = { 0 };
-			enet_address_get_host_ip(&m_address, ip, sizeof(ip));
-			return std::string(ip);
-		}
-		else
-		{
-			return std::string("<redacted>");
-		}
-#endif
+		std::string strConnectionType = GetConnectionType();
+		return strConnectionType.find("Relayed") == std::string::npos;
 	}
 
-	ENetPeer* GetRelayPeer()
+	int Recv(SteamNetworkingMessage_t** pMsg);
+
+	int GetHighestHistoricalLatency()
 	{
-		return m_pRelayPeer;
+		int highestLatency = 0;
+		for (int latencyHistory : m_vecLatencyHistory)
+		{
+			if (latencyHistory > highestLatency)
+			{
+				highestLatency = latencyHistory;
+			}
+		}
+
+		return highestLatency;
 	}
 
-	void Tick();
+	std::vector<int> m_vecLatencyHistory;
+	std::string GetStats();
 
+	std::string GetConnectionType();
+
+	void UpdateState(EConnectionState newState, NetworkMesh* pOwningMesh);
+	void SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh);
 	
 	int64_t m_userID = -1;
-	ENetAddress m_address;
-	ENetPeer* m_peer = nullptr;
-
-	ENetPeer* m_pRelayPeer = nullptr;
 
 	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
-	int m_ConnectionAttempts = 0;
-	int64_t m_lastConnectionAttempt = -1;
-
-	int64_t lastHelloSent = -1;
-	bool m_bNeedsHelloSent = true;
-
+	
 	int64_t pingSent = -1;
-	int latency = -1;
+	
+	int GetLatency();
+
+	HSteamNetConnection m_hSteamConnection = k_HSteamNetConnection_Invalid;
 };
 
 struct LobbyMemberEntry;
@@ -95,88 +98,21 @@ struct QueuedGamePacket
 class NetworkMesh
 {
 public:
-	NetworkMesh(ENetworkMeshType meshType)
-	{
-		m_meshType = meshType;
-
-		// generate the map
-		for (int src = 0; src < 8; ++src)
-		{
-			for (int target = 0; target < 8; ++target)
-			{
-				if (src == target) // no self connections
-				{
-					m_mapConnectionSelection[src][target] = -1;
-				}
-				else
-				{
-					// only if not set already
-					if (m_mapConnectionSelection[src][target] == -2 && m_mapConnectionSelection[target][src] == -2)
-					{
-						bool bUseSrcRelay = (src % 2 == 0);
-
-						m_mapConnectionSelection[src][target] = bUseSrcRelay ? src : target;
-						m_mapConnectionSelection[target][src] = bUseSrcRelay ? src : target;
-					}
-				}
-			}
-		}
-
-		// debug
-#if defined(_DEBUG)
-		for (int src = 0; src < 8; ++src)
-		{
-			for (int target = 0; target < 8; ++target)
-			{
-				if (m_mapConnectionSelection[src][target] == -2)
-				{
-					__debugbreak();
-				}
-
-				if (m_mapConnectionSelection[src][target] != m_mapConnectionSelection[target][src])
-				{
-					__debugbreak();
-				}
-			}
-		}
-#endif
-	}
+	NetworkMesh();
 
 	~NetworkMesh()
 	{
-
-	}
-
-	void Flush()
-	{
-		if (enetInstance != nullptr)
+		if (m_pSignaling != nullptr)
 		{
-			enet_host_flush(enetInstance);
+			delete m_pSignaling;
+			m_pSignaling = nullptr;
 		}
 	}
 
 	void UpdateConnectivity(PlayerConnection* connection);
 
-	void OnRelayUpgrade(int64_t targetUserID);
-
-	// users need to use the SAME relay, this mapping ensures they connect to the same one.
-		// Which one is selected doesn't really matter for latency, but we need to do send/recv on the same route
-		// user slot ID to use is stored in each field, if its us, use ours, otherwise use the other persons
-	int m_mapConnectionSelection[8][8] =
-	{
-		//	  |0| |1| |2| |3| |4| |5| |6| |7| // player 0 to 7
-			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 0
-			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 1
-			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 2
-			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 3
-			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 4
-			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 5
-			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 6
-			{ -2, -2, -2, -2, -2, -2, -2, -2 }, // player 7
-	};
-
-	std::function<void(int64_t, std::string, EConnectionState)> m_cbOnConnected = nullptr;
-	void RegisterForConnectionEvents(std::function<void(int64_t, std::string, EConnectionState)> cb)
+	std::function<void(int64_t, std::string, PlayerConnection*)> m_cbOnConnected = nullptr;
+	void RegisterForConnectionEvents(std::function<void(int64_t, std::string, PlayerConnection*)> cb)
 	{
 		m_cbOnConnected = cb;
 	}
@@ -186,7 +122,38 @@ public:
 		m_cbOnConnected = nullptr;
 	}
 
-	void ProcessGameStart(Lobby_StartGamePacket& startGamePacket);
+	int getMaximumLatency()
+	{
+		int highestLatency = 0;
+
+		for (auto& kvPair : m_mapConnections)
+		{
+			PlayerConnection& conn = kvPair.second;
+			if (conn.GetLatency() > highestLatency)
+			{
+				highestLatency = conn.GetLatency();
+			}
+		}
+
+		return highestLatency;
+	}
+
+	Real getMaximumHistoricalLatency()
+	{
+		int highestLatency = 0;
+
+		for (auto& kvPair : m_mapConnections)
+		{
+			PlayerConnection& conn = kvPair.second;
+			if (conn.GetLatency() > highestLatency)
+			{
+				highestLatency = conn.GetHighestHistoricalLatency();
+			}
+		}
+
+		return Real(highestLatency);
+	}
+
 
 	std::queue<QueuedGamePacket> m_queueQueuedGamePackets;
 
@@ -194,12 +161,9 @@ public:
 	QueuedGamePacket RecvGamePacket();
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
 
-	void SendToMesh(NetworkPacket& packet, std::vector<int64_t> vecTargetUsers);
-
 	void SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEntry> vecLobbyMembers);
 
 	void ConnectToSingleUser(LobbyMemberEntry& member, bool bIsReconnect = false);
-	void ConnectToSingleUser(ENetAddress addr, Int64 user_id, bool bIsReconnect = false);
 
 	void ConnectToUserViaRelay(Int64 user_id);
 
@@ -209,13 +173,7 @@ public:
 
 	void Tick();
 
-	const int64_t m_thresoldToCheckConnected = 10000;
-	int64_t m_connectionCheckGracePeriodStart = -1;
-
-	int64_t m_lastPing = -1;
-	void SendPing();
-
-	ENetworkMeshType GetMeshType() const { return m_meshType; }
+	HSteamListenSocket GetListenSocketHandle() const { return m_hListenSock; }
 
 	std::map<int64_t, PlayerConnection>& GetAllConnections()
 	{
@@ -234,33 +192,14 @@ public:
 
 
 private:
-	PlayerConnection* GetConnectionForPeer(ENetPeer* peer)
-	{
-		// TODO_RELAY: need to update how this works
-		for (auto& connection : m_mapConnections)
-		{
-			if (connection.second.m_peer != nullptr)
-			{
-				if (connection.second.m_peer->address.host == peer->address.host
-					&& connection.second.m_peer->address.port == peer->address.port)
-				{
-					return &connection.second;
-				}
-			}
-		}
-
-		return nullptr;
-	}
-
-private:
-	ENetworkMeshType m_meshType;
-
-	ENetAddress server_address;
-	ENetHost* enetInstance = nullptr;
-
 	std::map<int64_t, PlayerConnection> m_mapConnections;
 
-#if defined(GENERALS_ONLINE_FORCE_RELAY_ONE_PLAYER_ONLY)
-	bool m_bDidOneTimeForceRelay = false;
-#endif
+	ISignalingClient* m_pSignaling = nullptr;
+
+	HSteamListenSocket m_hListenSock = k_HSteamListenSocket_Invalid;
+
+	std::string m_strTurnUsername;
+	std::string m_strTurnToken;
+	std::string m_strTurnUsernameString;
+	std::string m_strTurnTokenString;
 };

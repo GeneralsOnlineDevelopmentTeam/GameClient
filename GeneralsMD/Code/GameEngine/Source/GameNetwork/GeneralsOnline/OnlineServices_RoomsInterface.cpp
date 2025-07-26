@@ -168,6 +168,14 @@ public:
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message, action)
 };
 
+class WebSocketMessage_NetworkSignal : public WebSocketMessageBase
+{
+public:
+	std::string signal;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkSignal, signal)
+};
+
 class WebSocketMessage_LobbyChatIncoming : public WebSocketMessageBase
 {
 public:
@@ -214,15 +222,17 @@ void WebSocket::Tick()
 	// do recv
 	size_t rlen = 0;
 	const struct curl_ws_frame* meta = nullptr;
-	char buffer[8196] = { 0 };
+	char buffer[8196 * 4] = { 0 };
 
 	CURLcode ret = CURL_LAST;
 	ret = curl_ws_recv(m_pCurl, buffer, sizeof(buffer) - 1, &rlen, &meta);
 	buffer[rlen] = 0; // Ensure null-termination
-
+	
 	if (ret != CURLE_RECV_ERROR && ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
 	{
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket msg: %s", buffer);
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket len: %d", rlen);
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket flags: %d", meta->flags);
 
 		// what type of message?
 		if (meta != nullptr)
@@ -233,6 +243,7 @@ void WebSocket::Tick()
 			}
 			else if (meta->flags & CURLWS_TEXT)
 			{
+				NetworkLog(ELogVerbosity::LOG_DEBUG, "websocket buffer is: %s", buffer);
 				try
 				{
 
@@ -262,6 +273,23 @@ void WebSocket::Tick()
 						}
 						break;
 
+						case EWebSocketMessageID::START_GAME:
+						{
+							if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket != nullptr)
+							{
+								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
+							}
+						}
+
+						case EWebSocketMessageID::NETWORK_SIGNAL:
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] GOT SIGNAL!");
+							WebSocketMessage_NetworkSignal signalData = jsonObject.get<WebSocketMessage_NetworkSignal>();
+
+							m_pendingSignals.push(signalData.signal);
+						}
+						break;
+
 						case EWebSocketMessageID::LOBBY_CHAT_FROM_SERVER:
 						{
 							WebSocketMessage_LobbyChatIncoming chatData = jsonObject.get<WebSocketMessage_LobbyChatIncoming>();
@@ -278,6 +306,7 @@ void WebSocket::Tick()
 						}
 						break;
 
+						// TODO_STEAM: remove relay upgrade path from everything
 						case EWebSocketMessageID::PLAYER_CONNECTION_RELAY_UPGRADE:
 						{
 							WebSocketMessage_RelayUpgrade relayUpgrade = jsonObject.get<WebSocketMessage_RelayUpgrade>();
@@ -285,7 +314,8 @@ void WebSocket::Tick()
 							NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
 							if (pMesh != nullptr)
 							{
-								pMesh->OnRelayUpgrade(relayUpgrade.target_user_id);
+								// TODO_STEAM
+								//pMesh->OnRelayUpgrade(relayUpgrade.target_user_id);
 							}
 						}
 						break;
@@ -312,13 +342,18 @@ void WebSocket::Tick()
 						break;
 
 						default:
+							NetworkLog(ELogVerbosity::LOG_DEBUG, "123456a");
 							break;
 						}
+					}
+					else
+					{
+						NetworkLog(ELogVerbosity::LOG_DEBUG, "123456b");
 					}
 				}
 				catch (...)
 				{
-
+					NetworkLog(ELogVerbosity::LOG_DEBUG, "123456c");
 				}
 			}
 			else if (meta->flags & CURLWS_BINARY)
