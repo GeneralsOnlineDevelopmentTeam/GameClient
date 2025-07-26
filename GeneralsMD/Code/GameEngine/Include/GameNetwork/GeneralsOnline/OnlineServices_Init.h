@@ -9,6 +9,7 @@ class NGMP_OnlineServices_AuthInterface;
 class NGMP_OnlineServices_LobbyInterface;
 class NGMP_OnlineServices_RoomsInterface;
 class NGMP_OnlineServices_StatsInterface;
+class NGMP_OnlineServices_MatchmakingInterface;
 
 #pragma comment(lib, "libcurl/libcurl.lib")
 #pragma comment(lib, "sentry/sentry.lib")
@@ -310,6 +311,7 @@ public:
 	NGMP_OnlineServices_LobbyInterface* GetLobbyInterface() const { return m_pLobbyInterface; }
 	NGMP_OnlineServices_RoomsInterface* GetRoomsInterface() const { return m_pRoomInterface; }
 	NGMP_OnlineServices_StatsInterface* GetStatsInterface() const { return m_pStatsInterface; }
+	NGMP_OnlineServices_MatchmakingInterface* GetMatchmakingInterface() const { return m_pMatchmakingInterface; }
 	QoSManager& GetQoSManager() { return m_qosMgr; }
 	QoSManager m_qosMgr;
 
@@ -350,6 +352,7 @@ private:
 	NGMP_OnlineServices_LobbyInterface* m_pLobbyInterface = nullptr;
 	NGMP_OnlineServices_RoomsInterface* m_pRoomInterface = nullptr;
 	NGMP_OnlineServices_StatsInterface* m_pStatsInterface = nullptr;
+	NGMP_OnlineServices_MatchmakingInterface* m_pMatchmakingInterface = nullptr;
 	PortMapper m_PortMapper;
 
 	HTTPManager* m_pHTTPManager = nullptr;

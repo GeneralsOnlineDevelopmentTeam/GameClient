@@ -83,6 +83,7 @@ static Bool s_inQM = FALSE;
 #include "../NGMPGame.h"
 extern NGMPGame* TheNGMPGame;
 #endif
+#include "../OnlineServices_MatchmakingInterface.h"
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 // window ids ------------------------------------------------------------------------------
@@ -572,6 +573,7 @@ void PopulateQMLadderComboBox( void )
 
 static void populateQuickMatchMapSelectListbox( QuickMatchPreferences& pref )
 {
+	// TODO_QUICKMATCH
 	//std::list<AsciiString> maps = TheGameSpyConfig->getQMMaps();
 	std::list<AsciiString> maps;
 	maps.push_back(AsciiString("Maps\\Homeland Alliance\\Homeland Alliance.map"));
@@ -1645,6 +1647,19 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 
 				if ( controlID == buttonStopID )
 				{
+#if defined(GENERALS_ONLINE)
+					buttonWiden->winEnable(FALSE);
+					buttonStart->winEnable(TRUE);
+					buttonStart->winHide(FALSE);
+					buttonStop->winHide(TRUE);
+					enableOptionsGadgets(TRUE);
+
+					Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, TheGameText->fetch("GUI:QMAborted"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+					GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+
+					NGMP_OnlineServices_MatchmakingInterface* pMatchmakingInterface = NGMP_OnlineServicesManager::GetInstance()->GetMatchmakingInterface();
+					pMatchmakingInterface->CancelMatchmaking();
+#else
 					PeerRequest req;
 					req.peerRequestType = PeerRequest::PEERREQUEST_STOPQUICKMATCH;
 					TheGameSpyPeerMessageQueue->addRequest(req);
@@ -1653,6 +1668,7 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 					buttonStop->winHide( TRUE );
 					enableOptionsGadgets(TRUE);
 					TheGameSpyInfo->addText(TheGameText->fetch("GUI:QMAborted"), GameSpyColor[GSCOLOR_DEFAULT], quickmatchTextWindow);
+#endif
 				}
 				else if ( controlID == buttonOptionsID )
 				{
@@ -1679,6 +1695,56 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 				}
 				else if ( controlID == buttonStartID )
 				{
+#if defined(GENERALS_ONLINE)
+
+					// TODO_QUICKMATCH: Support map list
+					/*
+					Int numMaps = GadgetListBoxGetNumEntries(listboxMapSelect);
+					for ( Int i=0; i<numMaps; ++i )
+					{
+						req.qmMaps.push_back(GadgetListBoxGetItemData(listboxMapSelect, i, 0));
+					}
+					*/
+
+					int numPlayersIndex = 0;
+					GadgetComboBoxGetSelectedPos(comboBoxNumPlayers, &numPlayersIndex);
+					if (numPlayersIndex < 0)
+					{
+						numPlayersIndex = 0;
+					}
+
+					// buttons
+					buttonWiden->winEnable(FALSE);
+					buttonStart->winEnable(FALSE);
+					buttonStop->winHide(TRUE);
+
+					NGMP_OnlineServices_MatchmakingInterface* pMatchmakingInterface = NGMP_OnlineServicesManager::GetInstance()->GetMatchmakingInterface();
+					pMatchmakingInterface->StartMatchmaking(numPlayersIndex, [](bool bSuccess)
+						{
+							// TODO_QUICKMATCH: Chat has a sound effect in TheGameSpyInfo, re-eanble it
+							if (bSuccess)
+							{
+								Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, UnicodeString(L"Started matchmaking... searching for players"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+								GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+
+								// buttons
+								buttonWiden->winEnable(FALSE);
+								buttonStart->winHide(TRUE);
+								buttonStop->winHide(FALSE);
+							}
+							else
+							{
+								Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, UnicodeString(L"Failed to start matchmaking."), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+								GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+
+								// buttons
+								buttonWiden->winEnable(FALSE);
+								buttonStart->winHide(FALSE);
+								buttonStart->winEnable(TRUE);
+								buttonStop->winHide(TRUE);
+							}
+						});
+#else
 					PeerRequest req;
 					req.peerRequestType = PeerRequest::PEERREQUEST_STARTQUICKMATCH;
 					req.qmMaps.clear();
@@ -1853,6 +1919,7 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 						ladPref.addRecentLadder( p );
 						ladPref.write();
 					}
+#endif
 				}
 				else if ( controlID == buttonBuddiesID )
 				{

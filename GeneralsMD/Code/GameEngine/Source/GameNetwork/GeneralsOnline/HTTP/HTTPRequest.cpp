@@ -178,7 +178,7 @@ void HTTPRequest::PlatformStartRequest()
 
 		if (m_protover == EIPProtocolVersion::DONT_CARE)
 		{
-			curl_easy_setopt(m_pCURL, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
+			curl_easy_setopt(m_pCURL, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
 		}
 		else if (m_protover == EIPProtocolVersion::FORCE_IPV4)
 		{
