@@ -80,7 +80,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strM
 	// reset autostart if host changes anything (because ready flag will reset too)
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	// sanitize map path
@@ -112,7 +112,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_LimitSuperweapons(bo
 	// reset autostart if host changes anything (because ready flag will reset too)
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -132,7 +132,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 	// reset autostart if host changes anything (because ready flag will reset too)
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -149,7 +149,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 
 void NGMP_OnlineServices_LobbyInterface::MarkCurrentGameAsStarted()
 {
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -172,7 +172,7 @@ void NGMP_OnlineServices_LobbyInterface::MarkCurrentGameAsFinished()
 
 	m_bMarkedGameAsFinished = true;
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -192,7 +192,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_HasMap()
 	// do we have the map?
 	bool bHasMap = TheMapCache->findMap(AsciiString(m_CurrentLobby.map_path.c_str()));
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -213,7 +213,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AISide(int slot, int
 	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -235,7 +235,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AITeam(int slot, int
 	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -256,7 +256,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AIStartPos(int slot,
 	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -283,7 +283,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobbyMaxCameraHeight(uint1
 		// reset autostart if host changes anything (because ready flag will reset too)
 		ClearAutoReadyCountdown();
 
-		std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+		std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 		std::map<std::string, std::string> mapHeaders;
 
 		nlohmann::json j;
@@ -304,7 +304,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AIColor(int slot, in
 	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -326,7 +326,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MySide(int side, int
 	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -347,7 +347,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyColor(int color)
 	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -367,7 +367,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyStartPos(int start
 	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -387,7 +387,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyTeam(int team)
 	// reset autostart if host changes anything (because ready flag will reset too). This occurs on client too, but nothing happens for them
 	ClearAutoReadyCountdown();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -404,7 +404,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_MyTeam(int team)
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_SetSlotState(uint16_t slotIndex, uint16_t slotState)
 {
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -422,7 +422,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_SetSlotState(uint16_
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_KickUser(int64_t userID, UnicodeString name)
 {
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -441,7 +441,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_KickUser(int64_t use
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 {
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	nlohmann::json j;
@@ -489,7 +489,7 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 	m_bSearchInProgress = true;
 	m_vecLobbies.clear();
 
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies", true);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies");
 	std::map<std::string, std::string> mapHeaders;
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
@@ -608,7 +608,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 	// refresh lobby
 	if (m_CurrentLobby.lobbyID != -1 && TheNGMPGame != nullptr)
 	{
-		std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+		std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 		std::map<std::string, std::string> mapHeaders;
 
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
@@ -857,7 +857,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 	m_bAttemptingToJoinLobby = true;
 	m_CurrentLobby = LobbyEntry();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), lobbyInfo.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), lobbyInfo.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Joining lobby with id %d", lobbyInfo.lobbyID);
@@ -1020,7 +1020,7 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 	}
 
 	// leave on service
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby", true), m_CurrentLobby.lobbyID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", nullptr);
 
@@ -1052,8 +1052,8 @@ struct CreateLobbyResponse
 
 void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword, bool bAllowObservers)
 {
-	m_CurrentLobby = LobbyEntry();	
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies", true);
+	m_CurrentLobby = LobbyEntry();
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies");
 	std::map<std::string, std::string> mapHeaders;
 
 	// convert

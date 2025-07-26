@@ -73,7 +73,7 @@ void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 	NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().DetermineLocalNetworkCapabilities();
 
 	// GET MOTD
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("MOTD", true);
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("MOTD");
 	std::map<std::string, std::string> mapHeaders;
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
@@ -138,7 +138,7 @@ void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 
 void NGMP_OnlineServices_AuthInterface::BeginLogin()
 {
-	std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginWithToken", false);
+	std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginWithToken");
 
 #if defined(DEBUG) && !defined(USE_TEST_ENV)
 	static HANDLE MPMutex = NULL;
@@ -296,7 +296,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 			m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
 			// check again
-			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("CheckLogin", false);
+			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("CheckLogin");
 			std::map<std::string, std::string> mapHeaders;
 
 			nlohmann::json j;
@@ -367,7 +367,7 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 		GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining best server region... this could take a few seconds"), true);
 
 		// Get QoS endpoints
-		std::string strQoSURI = NGMP_OnlineServicesManager::GetAPIEndpoint("QOS", true);
+		std::string strQoSURI = NGMP_OnlineServicesManager::GetAPIEndpoint("QOS");
 		std::map<std::string, std::string> mapHeaders;
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strQoSURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
@@ -400,7 +400,7 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 							j["qos_data"] = qosData;
 							std::string strPostData = j.dump();
 
-							std::string strQoSURI = NGMP_OnlineServicesManager::GetAPIEndpoint("UserRegion", true);
+							std::string strQoSURI = NGMP_OnlineServicesManager::GetAPIEndpoint("UserRegion");
 							std::map<std::string, std::string> mapHeaders;
 							NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strQoSURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 								{
@@ -440,7 +440,7 @@ void NGMP_OnlineServices_AuthInterface::LogoutOfMyAccount()
 	j["token"] = GetCredentials();
 	std::string strBody = j.dump();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("User", true), m_userID);
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("User"), m_userID);
 	std::map<std::string, std::string> mapHeaders;
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strBody.c_str(), nullptr);
 

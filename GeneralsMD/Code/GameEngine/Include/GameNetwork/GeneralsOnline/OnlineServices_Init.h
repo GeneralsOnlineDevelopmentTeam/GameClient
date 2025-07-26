@@ -230,7 +230,7 @@ public:
 		#pragma message ("Building for PROD environment")
 	#endif
 #endif
-	static std::string GetAPIEndpoint(const char* szEndpoint, bool bAttachToken);
+	static std::string GetAPIEndpoint(const char* szEndpoint);
 
 	static void CreateInstance()
 	{
