@@ -26,9 +26,6 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	uint16_t m_SlotIndex = 999999;
 	uint16_t m_SlotState = SlotState::SLOT_OPEN;
 
-	std::string strRelayIP;
-	uint16_t relayPort;
-
 
 	bool IsHuman() const
 	{
@@ -62,7 +59,6 @@ struct LobbyEntry
 	bool passworded;
 	std::string password;
 
-	std::vector<BYTE> EncKey;
 	std::vector<LobbyMemberEntry> members;
 };
 
@@ -371,29 +367,6 @@ public:
 
 	bool IsInLobby() const { return m_CurrentLobby.lobbyID != -1; }
 
-	void SendToMesh(NetworkPacket& packet)
-	{
-		// TODO_NGMP: Respect vecTargetUsers again
-		std::vector<int64_t> vecUsers;
-		/*
-		std::vector<uint64_t> vecUsers;
-		for (auto kvPair : m_CurrentLobby.members)
-		{
-			vecUsers.push_back(kvPair.first);
-		}
-
-		if (m_pLobbyMesh != nullptr)
-		{
-			m_pLobbyMesh->SendToMesh(packet, vecUsers);
-		}
-		*/
-
-		if (m_pLobbyMesh != nullptr)
-		{
-			m_pLobbyMesh->SendToMesh(packet, vecUsers);
-		}
-	}
-
 	NetworkMesh* GetNetworkMesh() { return m_pLobbyMesh; }
 
 	void JoinLobby(int index, const char* szPassword);
@@ -438,12 +411,18 @@ public:
 		return m_LobbyTryingToJoin;
 	}
 
+	std::string GetLobbyTurnUsername() { return m_strTURNUsername; }
+	std::string GetLobbyTurnToken() { return m_strTURNToken; }
+
 private:
 	std::function<void(bool)> m_cb_CreateLobbyPendingCallback = nullptr;
 
 	std::function<void(EJoinLobbyResult)> m_callbackJoinedLobby = nullptr;
 
 	LobbyEntry m_CurrentLobby;
+
+	std::string m_strTURNUsername = "";
+	std::string m_strTURNToken = "";
 
 	// TODO_NGMP: cleanup
 	NetworkMesh* m_pLobbyMesh = nullptr;

@@ -83,7 +83,7 @@ void FrameMetrics::init() {
 		for (auto& kvPair : connections)
 		{
 			PlayerConnection& conn = kvPair.second;
-			totalLatency += conn.latency;
+			totalLatency += conn.GetLatency();
 		}
 
 		m_averageLatency = (Real)((Real)totalLatency / 1000.f) / (Real)connections.size();
@@ -173,4 +173,10 @@ Real FrameMetrics::getAverageLatency() {
 
 Int FrameMetrics::getMinimumCushion() {
 	return m_minimumCushion;
+}
+
+void FrameMetrics::SeedLatencyData(int latency)
+{
+	m_averageFps = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+	m_averageLatency = latency / 1000.f;
 }

@@ -4,7 +4,12 @@
 #define GENERALS_ONLINE
 #endif
 
+#if !defined(_DEBUG)
 //#define USE_TEST_ENV 1
+#endif
+
+//#define ENABLE_QOS 1
+//#define ENABLE_DIRECTCONNECT_TEST 1
 
 //#define USE_ENCRYPTED_SERVICE_TOKENS 1
 

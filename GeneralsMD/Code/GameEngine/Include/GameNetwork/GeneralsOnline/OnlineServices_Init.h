@@ -9,6 +9,7 @@ class NGMP_OnlineServices_AuthInterface;
 class NGMP_OnlineServices_LobbyInterface;
 class NGMP_OnlineServices_RoomsInterface;
 class NGMP_OnlineServices_StatsInterface;
+class NGMP_OnlineServices_MatchmakingInterface;
 
 #pragma comment(lib, "libcurl/libcurl.lib")
 #pragma comment(lib, "sentry/sentry.lib")
@@ -34,7 +35,9 @@ enum EWebSocketMessageID
 	PLAYER_CONNECTION_RELAY_UPGRADE = 8,
 	PLAYER_NAME_CHANGE = 9,
 	LOBBY_ROOM_CHAT_FROM_CLIENT = 10,
-	LOBBY_CHAT_FROM_SERVER = 11
+	LOBBY_CHAT_FROM_SERVER = 11,
+	NETWORK_SIGNAL = 12,
+	START_GAME = 13
 };
 
 enum class EQoSRegions
@@ -146,11 +149,17 @@ public:
 	void SendData_MarkReady(bool bReady);
 	void SendData_ConnectionRelayUpgrade(int64_t userID);
 
+	void SendData_Signalling(const std::string& s);
+	void SendData_StartGame();
+
 	void Tick();
 
 	int Ping();
 
 	void Send(const char* message);
+
+	// TODO_STEAM: clear this on connect
+	std::queue<std::string> m_pendingSignals;
 
 private:
 	CURL* m_pCurl = nullptr;
@@ -302,6 +311,7 @@ public:
 	NGMP_OnlineServices_LobbyInterface* GetLobbyInterface() const { return m_pLobbyInterface; }
 	NGMP_OnlineServices_RoomsInterface* GetRoomsInterface() const { return m_pRoomInterface; }
 	NGMP_OnlineServices_StatsInterface* GetStatsInterface() const { return m_pStatsInterface; }
+	NGMP_OnlineServices_MatchmakingInterface* GetMatchmakingInterface() const { return m_pMatchmakingInterface; }
 	QoSManager& GetQoSManager() { return m_qosMgr; }
 	QoSManager m_qosMgr;
 
@@ -342,12 +352,10 @@ private:
 	NGMP_OnlineServices_LobbyInterface* m_pLobbyInterface = nullptr;
 	NGMP_OnlineServices_RoomsInterface* m_pRoomInterface = nullptr;
 	NGMP_OnlineServices_StatsInterface* m_pStatsInterface = nullptr;
+	NGMP_OnlineServices_MatchmakingInterface* m_pMatchmakingInterface = nullptr;
 	PortMapper m_PortMapper;
 
 	HTTPManager* m_pHTTPManager = nullptr;
-
-	int64_t m_lastUserPut = -1;
-	int64_t m_timeBetweenUserPuts = 60000;
 
 	WebSocket* m_pWebSocket = nullptr;
 

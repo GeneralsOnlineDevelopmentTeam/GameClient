@@ -7,13 +7,6 @@ enum ENetworkConnectionState
 	CONNECTED_RELAYED
 };
 
-enum ENetworkMeshType : uint8_t
-{
-	NETWORK_ROOM = 0,
-	GAME_LOBBY = 1,
-	GAME_TRANSPORT = 2
-};
-
 class NetworkMemberBase
 {
 public:

@@ -5897,6 +5897,7 @@ void InGameUI::drawSystemTime()
 		++m_currentFPS;
 
 		// TODO_NGMP: Cache this in a stats interface
+		/*
 		int highestLatency = 0;
 		if (TheNGMPGame != nullptr)
 		{
@@ -5904,12 +5905,15 @@ void InGameUI::drawSystemTime()
 			for (auto& kvPair : connections)
 			{
 				PlayerConnection& conn = kvPair.second;
-				if (conn.latency > highestLatency)
+				if (conn.GetLatency() > highestLatency)
 				{
-					highestLatency = conn.latency;
+					highestLatency = conn.GetLatency();
 				}
 			}
 		}
+		*/
+
+		int highestLatency = TheNetwork->getRunAhead() * (1000 / GENERALS_ONLINE_HIGH_FPS_LIMIT);
 
 		TimeString.format(L"%2.2d:%2.2d:%2.2d - R%d L%ld | Lat: %d frames (%d ms) - %d GenTool frames - RA %d", systemTime.wHour, systemTime.wMinute, systemTime.wSecond,
 			m_lastFPS, TheNetwork->getFrameRate(), ConvertMSLatencyToFrames(highestLatency), highestLatency, ConvertMSLatencyToGenToolFrames(highestLatency), TheNetwork->getRunAhead());

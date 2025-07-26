@@ -7,9 +7,6 @@
 enum EPacketID
 {
 	PACKET_ID_NONE = -1,
-	PACKET_ID_LOBBY_START_GAME,
-	PACKET_ID_PING,
-	PACKET_ID_PONG
 };
 
 class MemoryBuffer

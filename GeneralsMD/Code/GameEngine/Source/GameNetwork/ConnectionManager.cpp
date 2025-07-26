@@ -52,7 +52,7 @@
 #include "GameLogic/VictoryConditions.h"
 #include "GameClient/DisconnectMenu.h"
 #include "GameClient/InGameUI.h"
-#include "../Packets/NextGenTransport.h"
+#include "../NextGenTransport.h"
 #include "../NetworkMesh.h"
 #include "../ngmp_interfaces.h"
 
@@ -1277,11 +1277,15 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 				minFps = TheGlobalData->m_framesPerSecondLimit; // Cap to 30 FPS.
 		}
 #endif
+
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::updateRunAhead - minFps after adjustment is %d", minFps));
-			Int newRunAhead = (Int)((getMaximumLatency() / 2.0) * (Real)minFps);
+			Int newRunAhead = 0;
+			newRunAhead = (Int)((getMaximumLatency() / 2.0) * (Real)minFps);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "New run ahead is %d, formula is maxlat is %f (div 2: %f), minfps is %d", newRunAhead, getMaximumLatency(), getMaximumLatency() / 2.f, minFps);
+
 			newRunAhead += (newRunAhead * TheGlobalData->m_networkRunAheadSlack) / 100; // Add in 10% of slack to the run ahead in case of network hiccups.
 
-			NetworkLog(ELogVerbosity::LOG_DEBUG, "New run ahead is %d, formula is maxlat is %f (div 2: %f), minfps is %d", newRunAhead, getMaximumLatency(), getMaximumLatency()/2.f, minFps);
+			
 			if (newRunAhead < MIN_RUNAHEAD) {
 				newRunAhead = MIN_RUNAHEAD; // make sure its at least MIN_RUNAHEAD.
 			}
@@ -1390,7 +1394,29 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			if (DoesCommandRequireACommandID(msg->getNetCommandType())) {
 				msg->setID(GenerateNextCommandID());
 			}
+
+#if defined(GENERALS_ONLINE)
+			if (TheNGMPGame != nullptr)
+			{
+				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+
+				if (pMesh != nullptr)
+				{
+					float maxLatency = (float)pMesh->getMaximumHistoricalLatency();
+					msg->setAverageLatency(maxLatency / 1000.f);
+				}
+				else
+				{
+					msg->setAverageLatency(m_frameMetrics.getAverageLatency());
+				}
+			}
+			else
+			{
+				msg->setAverageLatency(m_frameMetrics.getAverageLatency());
+			}
+#else
 			msg->setAverageLatency(m_frameMetrics.getAverageLatency());
+#endif
 
 			// see above for explanation.
 //			if (didSelfSlug) {

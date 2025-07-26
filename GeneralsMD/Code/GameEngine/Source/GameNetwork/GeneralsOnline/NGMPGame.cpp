@@ -392,6 +392,13 @@ void NGMPGame::launchGame(void)
 	// Time to initialize TheNetwork for this game.
 	TheNetwork = NetworkInterface::createNetwork();
 	TheNetwork->init();
+	
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	if (pMesh != nullptr)
+	{
+
+		TheNetwork->SeedLatencyData(pMesh->getMaximumHistoricalLatency());
+	}
 
 	// TODO_NGMP: Do we really care about these values anymore
 	TheNetwork->setLocalAddress(getLocalIP(), 8888);

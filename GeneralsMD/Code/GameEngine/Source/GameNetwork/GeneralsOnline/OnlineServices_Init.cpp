@@ -57,11 +57,12 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 
 		if (g_Environment == EEnvironment::DEV)
 		{
-			return std::format("http://localhost:9000/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
+			//return std::format("https://localhost:9000/cloud/env:dev:token:{}/{}", strToken, szEndpoint);
+			return std::format("https://localhost:9000/env/test/contract/1/{}", szEndpoint);
 		}
 		else if (g_Environment == EEnvironment::TEST)
 		{
-			return std::format("https://cloud.playgenerals.online:8000/cloud/env:test:token:{}/{}", strToken, szEndpoint);
+			return std::format("https://cloud.playgenerals.online:8000/env/dev/contract/1/{}", szEndpoint);
 		}
 		else // PROD
 		{
@@ -73,11 +74,13 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint, b
 	{
 		if (g_Environment == EEnvironment::DEV)
 		{
-			return std::format("http://localhost:9000/cloud/env:dev/{}", szEndpoint);
+			//return std::format("http://localhost:9000/cloud/env:dev/{}", szEndpoint);
+			return std::format("https://localhost:9000/env/dev/contract/1/{}", szEndpoint);
 		}
 		else if (g_Environment == EEnvironment::TEST)
 		{
-			return std::format("https://cloud.playgenerals.online:8000/cloud/env:test/{}", szEndpoint);
+			//return std::format("https://cloud.playgenerals.online:8000/cloud/env:test/{}", szEndpoint);
+			return std::format("https://cloud.playgenerals.online:8000/env/test/contract/1/{}", szEndpoint);
 		}
 		else // PROD
 		{
@@ -401,23 +404,6 @@ void NGMP_OnlineServicesManager::Tick()
 	{
 		m_pLobbyInterface->Tick();
 	}
-
-	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-	if ((currTime - m_lastUserPut) > m_timeBetweenUserPuts)
-	{
-		m_lastUserPut = currTime;
-
-		if (m_pAuthInterface != nullptr && m_pAuthInterface->IsLoggedIn())
-		{
-			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("User", true);
-
-			std::map<std::string, std::string> mapHeaders;
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-				{
-					// TODO_NGMP: Handle 404 (session terminated)
-				});
-		}
-	};
 }
 
 void NGMP_OnlineServicesManager::InitSentry()
@@ -491,6 +477,25 @@ void WebSocket::SendData_LobbyChatMessage(const char* szMessage, bool bIsAction,
 void WebSocket::SendData_LeaveNetworkRoom()
 {
 	SendData_JoinNetworkRoom(-1);
+}
+
+
+void WebSocket::SendData_Signalling(const std::string& s)
+{
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] SEND SIGNAL!");
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::NETWORK_SIGNAL;
+	j["signal"] = s;
+	std::string strBody = j.dump();
+	Send(strBody.c_str());
+}
+
+void WebSocket::SendData_StartGame()
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::START_GAME;
+	std::string strBody = j.dump();
+	Send(strBody.c_str());
 }
 
 void QoSManager::Tick()
