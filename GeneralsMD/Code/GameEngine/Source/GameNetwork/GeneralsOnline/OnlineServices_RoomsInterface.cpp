@@ -49,6 +49,14 @@ void WebSocket::Connect(const char* url)
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 0);
 #endif
 
+		// ws needs auth
+		struct curl_slist* headers = nullptr;
+		char szHeaderBuffer[256] = { 0 };
+		sprintf_s(szHeaderBuffer, "Authorization: Bearer %s", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken().c_str());
+		headers = curl_slist_append(headers, szHeaderBuffer);
+
+		curl_easy_setopt(m_pCurl, CURLOPT_HTTPHEADER, headers);
+
 		//curl_easy_setopt(m_pCurl, CURLOPT_TIMEOUT_MS, 1000);
 
 		/* Perform the request, res gets the return code */

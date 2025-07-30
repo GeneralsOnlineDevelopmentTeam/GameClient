@@ -290,7 +290,7 @@ void NGMP_OnlineServicesManager::StartDownloadUpdate(std::function<void(void)> c
 
 }
 
-void NGMP_OnlineServicesManager::OnLogin(bool bSuccess, const char* szWSAddr, const char* szWSToken)
+void NGMP_OnlineServicesManager::OnLogin(bool bSuccess, const char* szWSAddr)
 {
 	// TODO_NGMP: Support websocket reconnects here and on server
 	// TODO_NGMP: disconnect websocket when leaving MP
@@ -301,7 +301,7 @@ void NGMP_OnlineServicesManager::OnLogin(bool bSuccess, const char* szWSAddr, co
 		// TODO_NGMP: Handle WS conn failure
 		m_pWebSocket = new WebSocket();
 
-		m_pWebSocket->Connect(std::format("{}/{}", szWSAddr, szWSToken).c_str());
+		m_pWebSocket->Connect(szWSAddr);
 
 		// TODO_NGMP: This hangs forever if it fails to connect
 	}

@@ -1543,7 +1543,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			UnicodeString strConnectionMessage;
 			if (connState == EConnectionState::CONNECTED_DIRECT || connState == EConnectionState::CONNECTION_DISCONNECTED)
 			{
-				strConnectionMessage.format(L"Connection state to %hs changed to: %hs (mechanism: %hs)", strDisplayName.c_str(), strState.c_str(), strConnectionType.c_str());
+				strConnectionMessage.format(L"Connection state to %hs changed to: %hs (mechanism: %hs | protocol: %s)", strDisplayName.c_str(), strState.c_str(), strConnectionType.c_str(), connection->IsIPV4() ? "IPv4" : "IPv6");
 			}
 			else
 			{

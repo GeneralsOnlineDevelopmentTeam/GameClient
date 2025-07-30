@@ -35,23 +35,7 @@ public:
 		CleanupPorts();
 	}
 
-#if defined(ENABLE_DIRECTCONNECT_TEST)
-	void ForceReleaseNATPort()
-	{
-		if (m_NATSocket != INVALID_SOCKET)
-		{
-			closesocket(m_NATSocket);
-			WSACleanup();
-			m_NATSocket = INVALID_SOCKET;
-		}
-	}
-#endif
-
 	void Tick();
-
-#if defined(ENABLE_DIRECTCONNECT_TEST)
-	void StartNATCheck();
-#endif
 
 	enum class EMappingTech
 	{
@@ -72,14 +56,6 @@ public:
 
 	void CleanupPorts();
 
-	ECapabilityState HasIPV4() { return m_IPV4; }
-	ECapabilityState HasIPV6() { return m_IPV6; }
-
-	ECapabilityState HasDirectConnect()
-	{
-		return m_directConnect;
-	}
-
 	bool IsFullyDone() const { return m_bPortMapper_NATPMP_Complete.load() && m_bPortMapper_UPNP_Complete.load() && m_bPortMapper_PCP_Complete.load(); }
 
 	bool HasPortOpen() const { return m_bPortMapper_AnyMappingSuccess.load(); }
@@ -90,7 +66,6 @@ public:
 
 	void StorePCPOutcome(bool bSucceeded);
 
-	void CheckIPCapabilities();
 
 private:
 
@@ -101,20 +76,7 @@ private:
 	void InvokeCallback();
 
 private:
-	ECapabilityState m_directConnect = ECapabilityState::UNDETERMINED;
-
-	ECapabilityState m_IPV4 = ECapabilityState::UNDETERMINED;
-	ECapabilityState m_IPV6 = ECapabilityState::UNDETERMINED;
-
 	std::atomic<uint16_t> m_PreferredPort = 0;
-
-#if defined(ENABLE_DIRECTCONNECT_TEST)
-	SOCKET m_NATSocket = INVALID_SOCKET;
-	bool m_bNATCheckInProgress = false;
-	const int m_probeTimeout = 15000;
-	int64_t m_probeStartTime = -1;
-	bool m_bProbesReceived = false;
-#endif
 
 	std::atomic<bool> m_bPortMapperWorkComplete = false;
 

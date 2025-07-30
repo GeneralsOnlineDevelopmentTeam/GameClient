@@ -315,7 +315,7 @@ public:
 	QoSManager& GetQoSManager() { return m_qosMgr; }
 	QoSManager m_qosMgr;
 
-	void OnLogin(bool bSuccess, const char* szWSAddr, const char* szWSToken);
+	void OnLogin(bool bSuccess, const char* szWSAddr);
 	
 	void Init();
 
