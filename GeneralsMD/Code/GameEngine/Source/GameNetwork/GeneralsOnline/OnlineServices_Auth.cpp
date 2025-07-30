@@ -185,7 +185,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						m_bWaitingLogin = false;
 
 						// trigger callback
-						OnLoginComplete(false, "", "");
+						OnLoginComplete(false, "");
 					}
 				}
 				catch (...)
