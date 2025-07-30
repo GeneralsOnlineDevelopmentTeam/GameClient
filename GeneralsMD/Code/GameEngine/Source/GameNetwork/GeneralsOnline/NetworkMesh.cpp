@@ -91,23 +91,49 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			// Note that we assume we will only ever receive a single connection
 
 #if _DEBUG
-			assert(pPlayerConnection->m_hSteamConnection == k_HSteamNetConnection_Invalid); // not really a bug in this code, but a bug in the test
+			if (pPlayerConnection != nullptr)
+				assert(pPlayerConnection->m_hSteamConnection == k_HSteamNetConnection_Invalid); // not really a bug in this code, but a bug in the test
 #endif
 
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Accepting\n", pInfo->m_info.m_szConnectionDescription);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Considering Accepting\n", pInfo->m_info.m_szConnectionDescription);
 
 			if (pPlayerConnection != nullptr && pInfo != nullptr)
 			{
 				pPlayerConnection->UpdateState(EConnectionState::CONNECTING_DIRECT, pMesh);
 				pPlayerConnection->m_hSteamConnection = pInfo->m_hConn;
 			}
-			SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
+
+			// check user is in the lobby, otherwise reject
+			auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+			bool bPlayerIsInLobby = false;
+			for (const auto& member : currentLobby.members)
+			{
+				// TODO_NGMP: Use bytes or SteamID instead... string compare is nasty
+				if (std::to_string(member.user_id) == pInfo->m_info.m_identityRemote.GetGenericString())
+				{
+					bPlayerIsInLobby = true;
+					break;
+				}
+			}
+
+			if (bPlayerIsInLobby)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Accepting - Player is in lobby\n", pInfo->m_info.m_szConnectionDescription);
+				SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
+			}
+			else
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Rejecting - Player is not in lobby\n", pInfo->m_info.m_szConnectionDescription);
+				SteamNetworkingSockets()->CloseConnection(pInfo->m_hConn, 1000, "Player is not in lobby", false);
+			}
+			
 		}
 		else
 		{
 			// Note that we will get notification when our own connection that
 			// we initiate enters this state.
 #if _DEBUG
+			if (pPlayerConnection != nullptr)
 			assert(pPlayerConnection->m_hSteamConnection == pInfo->m_hConn);
 #endif
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Entered connecting state\n", pInfo->m_info.m_szConnectionDescription);
