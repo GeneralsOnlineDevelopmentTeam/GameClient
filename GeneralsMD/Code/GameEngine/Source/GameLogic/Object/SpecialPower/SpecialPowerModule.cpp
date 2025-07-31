@@ -97,9 +97,9 @@ SpecialPowerModule::SpecialPowerModule( Thing *thing, const ModuleData *moduleDa
 {
 
 #if RETAIL_COMPATIBLE_CRC
-	m_availableOnFrame = 0;
-#else
 	m_availableOnFrame = 0xFFFFFFFF;
+#else
+	m_availableOnFrame = 0;
 #endif
 	m_pausedCount = 0;
 	m_pausedOnFrame = 0;

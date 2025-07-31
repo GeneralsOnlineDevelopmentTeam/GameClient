@@ -1278,7 +1278,7 @@ static void refreshGameList( Bool forceRefresh )
 		}
 #endif
 	} else {
-		//DEBUG_LOG(("gameListRefreshTime: %d refreshInterval: %d"));
+		//DEBUG_LOG(("gameListRefreshTime: %d refreshInterval: %d", gameListRefreshTime, refreshInterval));
 	}
 }
 //-------------------------------------------------------------------------------------------------
@@ -1777,7 +1777,7 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 				//DEBUG_LOG(("-"));
 			}
 		} else {
-			//DEBUG_LOG(("gameListRefreshTime: %d refreshInterval: %d"));
+			//DEBUG_LOG(("gameListRefreshTime: %d refreshInterval: %d", gameListRefreshTime, refreshInterval));
 		}
 #else
 	refreshGameList();
