@@ -384,9 +384,15 @@ void NGMP_OnlineServicesManager::Tick()
 
 void NGMP_OnlineServicesManager::InitSentry()
 {
+	std::string strDumpPath = std::format("{}/GeneralsOnlineCrashData/", TheGlobalData->getPath_UserData().str());
+	if (!std::filesystem::exists(strDumpPath))
+	{
+		std::filesystem::create_directory(strDumpPath);
+	}
+
 	sentry_options_t* options = sentry_options_new();
 	sentry_options_set_dsn(options, "{REPLACE_SENTRY_DSN}");
-	sentry_options_set_database_path(options, ".sentry-native");
+	sentry_options_set_database_path(options, strDumpPath.c_str());
 	sentry_options_set_release(options, "generalsonline-client@0.1");
 
 #if _DEBUG

@@ -326,6 +326,7 @@ void WebSocket::Tick()
 									NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
 								}
 							}
+							break;
 
 							case EWebSocketMessageID::NETWORK_SIGNAL:
 							{
