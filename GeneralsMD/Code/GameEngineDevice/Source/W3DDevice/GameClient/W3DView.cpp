@@ -1921,10 +1921,15 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight, bool bForce
 void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 #endif
 {
-	// MDC - we no longer want to rotate maps (design made all of them right to begin with)
-	//	m_defaultAngle = angle * M_PI/180.0f;
-	m_defaultPitchAngle = pitch;
+	// TheSuperHackers @fix Mauller adjust the max camera height to compensate for the aspect ratio
+	Real baseAspectRatio = 800.0f / 600.0f;
+	Real currentAspectRatio = (float)TheDisplay->getWidth() / (float)TheDisplay->getHeight();
+	Real aspectWidthScale = fabs((1 + (currentAspectRatio - baseAspectRatio)));
 
+	// MDC - we no longer want to rotate maps (design made all of them right to begin with)
+	//    m_defaultAngle = angle * M_PI/180.0f;
+	m_defaultPitchAngle = pitch;
+	
 	// TODO_NGMP: Better way of doing this
 #if defined(GENERALS_ONLINE)
 	if (bForceDefaultCam)
@@ -1941,7 +1946,7 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 	
 #endif
 
-	m_maxHeightAboveGround = TheGlobalData->m_maxCameraHeight * maxHeight;
+	m_maxHeightAboveGround = TheGlobalData->m_maxCameraHeight * maxHeight * aspectWidthScale;
 	if (m_minHeightAboveGround > m_maxHeightAboveGround)
 		m_maxHeightAboveGround = m_minHeightAboveGround;
 

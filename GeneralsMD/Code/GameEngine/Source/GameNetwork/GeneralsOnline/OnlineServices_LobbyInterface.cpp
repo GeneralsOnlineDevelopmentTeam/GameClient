@@ -616,6 +616,13 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 			// safety, lobby could've been torn down by the time we get our response
 				if (m_CurrentLobby.lobbyID != -1 && TheNGMPGame != nullptr)
 				{
+					// dont let the service be authoritative during gameplay, the game host handles connections at this point
+					if (TheNGMPGame->isGameInProgress())
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Ignoring lobby update request during gameplay.");
+						return;
+					}
+
 					// TODO_NGMP: Error handling
 					try
 					{
@@ -772,6 +779,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							}
 						}
 
+						
 						if (bFoundSelfInOld && !bFoundSelfInNew)
 						{
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "We were kicked from the lobby...");

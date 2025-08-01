@@ -1280,10 +1280,14 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::updateRunAhead - minFps after adjustment is %d", minFps));
 			Int newRunAhead = 0;
-			newRunAhead = (Int)((getMaximumLatency() / 2.0) * (Real)minFps);
+			newRunAhead = (Int)(ceil((getMaximumLatency() / 2.0) * (Real)minFps));
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "New run ahead is %d, formula is maxlat is %f (div 2: %f), minfps is %d", newRunAhead, getMaximumLatency(), getMaximumLatency() / 2.f, minFps);
 
+#if !defined(GENERALS_ONLINE)
 			newRunAhead += (newRunAhead * TheGlobalData->m_networkRunAheadSlack) / 100; // Add in 10% of slack to the run ahead in case of network hiccups.
+#else
+			newRunAhead += ceil(((float)TheGlobalData->m_networkRunAheadSlack / 100.f) * newRunAhead);// Add in 10% of slack to the run ahead in case of network hiccups.
+#endif
 
 			
 			if (newRunAhead < MIN_RUNAHEAD) {

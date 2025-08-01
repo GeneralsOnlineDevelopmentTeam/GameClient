@@ -212,12 +212,33 @@ public:
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkRoomMemberListUpdate, names, ids)
 };
 
+//static std::string strSignal = "str:1 ";
 void WebSocket::Tick()
 {
 	if (!m_bConnected)
 	{
 		return;
 	}
+
+	/*
+	if (strSignal.length() == 6)
+	{
+		for (int i = 0; i < 5000 - 6; ++i)
+		{
+			if (i == 5000 - 6 - 1)
+			{
+				strSignal += "+";
+			}
+			else
+			{
+				strSignal += i % 2 == 0 ? 'a' : 'b';
+			}
+		}
+	}
+
+	WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+	pWS->SendData_Signalling(strSignal);
+	*/
 
 	// ping?
 	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
@@ -252,116 +273,134 @@ void WebSocket::Tick()
 			else if (meta->flags & CURLWS_TEXT)
 			{
 				NetworkLog(ELogVerbosity::LOG_DEBUG, "websocket buffer is: %s", buffer);
-				try
+
+				if (meta->flags & CURLWS_CONT)
 				{
-
-					nlohmann::json jsonObject = nlohmann::json::parse(buffer);
-
-					if (jsonObject.contains("msg_id"))
-					{
-						WebSocketMessageBase msgDetails = jsonObject.get<WebSocketMessageBase>();
-						EWebSocketMessageID msgID = msgDetails.msg_id;
-
-						switch (msgID)
-						{
-
-						case EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_SERVER:
-						{
-							WebSocketMessage_RoomChatIncoming chatData = jsonObject.get<WebSocketMessage_RoomChatIncoming>();
-
-							UnicodeString strChatMsg;
-							strChatMsg.format(L"%hs", chatData.message.c_str());
-
-							GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action);
-
-							if (NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback != nullptr)
-							{
-								NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg, color);
-							}
-						}
-						break;
-
-						case EWebSocketMessageID::START_GAME:
-						{
-							if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket != nullptr)
-							{
-								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
-							}
-						}
-
-						case EWebSocketMessageID::NETWORK_SIGNAL:
-						{
-							NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] GOT SIGNAL!");
-							WebSocketMessage_NetworkSignal signalData = jsonObject.get<WebSocketMessage_NetworkSignal>();
-
-							m_pendingSignals.push(signalData.signal);
-						}
-						break;
-
-						case EWebSocketMessageID::LOBBY_CHAT_FROM_SERVER:
-						{
-							WebSocketMessage_LobbyChatIncoming chatData = jsonObject.get<WebSocketMessage_LobbyChatIncoming>();
-
-							GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action);
-
-							UnicodeString str;
-							str.format(L"%hs", chatData.message.c_str());
-
-							if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback != nullptr)
-							{
-								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
-							}
-						}
-						break;
-
-						// TODO_STEAM: remove relay upgrade path from everything
-						case EWebSocketMessageID::PLAYER_CONNECTION_RELAY_UPGRADE:
-						{
-							WebSocketMessage_RelayUpgrade relayUpgrade = jsonObject.get<WebSocketMessage_RelayUpgrade>();
-							NetworkLog(ELogVerbosity::LOG_RELEASE, "Got relay upgrade for user %lld", relayUpgrade.target_user_id);
-							NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-							if (pMesh != nullptr)
-							{
-								// TODO_STEAM
-								//pMesh->OnRelayUpgrade(relayUpgrade.target_user_id);
-							}
-						}
-						break;
-
-						case EWebSocketMessageID::NETWORK_ROOM_MEMBER_LIST_UPDATE:
-						{
-							WebSocketMessage_NetworkRoomMemberListUpdate memberList = jsonObject.get<WebSocketMessage_NetworkRoomMemberListUpdate>();
-							NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->OnRosterUpdated(memberList.names, memberList.ids);
-						}
-						break;
-
-						case EWebSocketMessageID::LOBBY_CURRENT_LOBBY_UPDATE:
-						{
-							// re-get the room info as it is stale
-							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateRoomDataCache(nullptr);
-						}
-						break;
-
-						case EWebSocketMessageID::NETWORK_ROOM_LOBBY_LIST_UPDATE:
-						{
-							// re-get the room info as it is stale
-							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SetLobbyListDirty();
-						}
-						break;
-
-						default:
-							NetworkLog(ELogVerbosity::LOG_DEBUG, "123456a");
-							break;
-						}
-					}
-					else
-					{
-						NetworkLog(ELogVerbosity::LOG_DEBUG, "123456b");
-					}
+					strBuf.append(buffer, rlen);
+					NetworkLog(ELogVerbosity::LOG_DEBUG, "WEBSOCKET PARTIAL!");
 				}
-				catch (...)
+				else
 				{
-					NetworkLog(ELogVerbosity::LOG_DEBUG, "123456c");
+					try
+					{
+						nlohmann::json jsonObject;
+						if (!strBuf.empty())
+						{
+							strBuf.append(buffer, rlen);
+							jsonObject = nlohmann::json::parse(strBuf);
+
+							strBuf.clear();
+						}
+						else
+						{
+							jsonObject = nlohmann::json::parse(buffer);
+						}
+
+						if (jsonObject.contains("msg_id"))
+						{
+							WebSocketMessageBase msgDetails = jsonObject.get<WebSocketMessageBase>();
+							EWebSocketMessageID msgID = msgDetails.msg_id;
+
+							switch (msgID)
+							{
+							case EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_SERVER:
+							{
+								WebSocketMessage_RoomChatIncoming chatData = jsonObject.get<WebSocketMessage_RoomChatIncoming>();
+
+								UnicodeString strChatMsg;
+								strChatMsg.format(L"%hs", chatData.message.c_str());
+
+								GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action);
+
+								if (NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback != nullptr)
+								{
+									NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg, color);
+								}
+							}
+							break;
+
+							case EWebSocketMessageID::START_GAME:
+							{
+								if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket != nullptr)
+								{
+									NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
+								}
+							}
+
+							case EWebSocketMessageID::NETWORK_SIGNAL:
+							{
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] GOT SIGNAL!");
+								WebSocketMessage_NetworkSignal signalData = jsonObject.get<WebSocketMessage_NetworkSignal>();
+
+								m_pendingSignals.push(signalData.signal);
+							}
+							break;
+
+							case EWebSocketMessageID::LOBBY_CHAT_FROM_SERVER:
+							{
+								WebSocketMessage_LobbyChatIncoming chatData = jsonObject.get<WebSocketMessage_LobbyChatIncoming>();
+
+								GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action);
+
+								UnicodeString str;
+								str.format(L"%hs", chatData.message.c_str());
+
+								if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback != nullptr)
+								{
+									NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
+								}
+							}
+							break;
+
+							// TODO_STEAM: remove relay upgrade path from everything
+							case EWebSocketMessageID::PLAYER_CONNECTION_RELAY_UPGRADE:
+							{
+								WebSocketMessage_RelayUpgrade relayUpgrade = jsonObject.get<WebSocketMessage_RelayUpgrade>();
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "Got relay upgrade for user %lld", relayUpgrade.target_user_id);
+								NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+								if (pMesh != nullptr)
+								{
+									// TODO_STEAM
+									//pMesh->OnRelayUpgrade(relayUpgrade.target_user_id);
+								}
+							}
+							break;
+
+							case EWebSocketMessageID::NETWORK_ROOM_MEMBER_LIST_UPDATE:
+							{
+								WebSocketMessage_NetworkRoomMemberListUpdate memberList = jsonObject.get<WebSocketMessage_NetworkRoomMemberListUpdate>();
+								NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->OnRosterUpdated(memberList.names, memberList.ids);
+							}
+							break;
+
+							case EWebSocketMessageID::LOBBY_CURRENT_LOBBY_UPDATE:
+							{
+								// re-get the room info as it is stale
+								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateRoomDataCache(nullptr);
+							}
+							break;
+
+							case EWebSocketMessageID::NETWORK_ROOM_LOBBY_LIST_UPDATE:
+							{
+								// re-get the room info as it is stale
+								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SetLobbyListDirty();
+							}
+							break;
+
+							default:
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "Unhandled WebSocketMessage: %d", (int)msgID);
+								break;
+							}
+						}
+						else
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "Malformed WebSocketMessage");
+						}
+					}
+					catch (...)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage: %s", buffer);
+					}
 				}
 			}
 			else if (meta->flags & CURLWS_BINARY)
@@ -463,9 +502,21 @@ void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<v
 	// TODO_NGMP: Remove this, its no longer a call really, or make a call
 	onStartCallback();
 	m_CurrentRoomID = roomIndex;
-	NetworkRoom targetNetworkRoom = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(roomIndex);
-	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_JoinNetworkRoom(targetNetworkRoom.GetRoomID());
 
+	// TODO_NGMP: What if there are zero rooms? e.g. the service request failed
+	if (!NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().empty())
+	{
+		// if the room doesnt exist, try the first room
+		if (roomIndex < 0 || roomIndex >= NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().size())
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Invalid room index %d, using first room", roomIndex);
+			roomIndex = 0;
+		}
+
+		NetworkRoom targetNetworkRoom = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(roomIndex);
+		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_JoinNetworkRoom(targetNetworkRoom.GetRoomID());
+	}
+	
 	onCompleteCallback();
 }
 

@@ -15,6 +15,7 @@ size_t WriteMemoryCallback(void* contents, size_t sizePerByte, size_t numBytes, 
 HTTPRequest::HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const char* szURI, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback,
 	std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/, int timeoutMS/*= -1*/) noexcept
 {
+	
 	m_pCURL = curl_easy_init();
 
 	// -1 means use default
@@ -31,6 +32,8 @@ HTTPRequest::HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const 
 	m_mapHeaders = inHeaders;
 
 	m_progressCallback = progressCallback;
+
+	
 }
 
 HTTPRequest::~HTTPRequest()
@@ -58,6 +61,8 @@ void HTTPRequest::SetPostData(const char* szPostData)
 {
 	// TODO_HTTP: Error if verb isnt post
 	m_strPostData = std::string(szPostData);
+
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "[%p|%s] Transfer is created: Body is %s", this, m_strURI.c_str(), szPostData);
 }
 
 void HTTPRequest::StartRequest()
@@ -69,6 +74,7 @@ void HTTPRequest::StartRequest()
 
 	m_currentBufSize_Used = 0;
 
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "[%p|%s] Transfer is starting: Body is %s", this, m_strURI.c_str(), m_strPostData.c_str());
 	PlatformStartRequest();
 }
 

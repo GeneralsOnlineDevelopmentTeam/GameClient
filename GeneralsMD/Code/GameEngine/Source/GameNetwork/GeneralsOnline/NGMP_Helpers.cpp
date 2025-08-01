@@ -152,6 +152,10 @@ void PrepareChallenge(nlohmann::json & json)
 	// prepare challenge
 	const char* szChallenge = "Can we have some shoes?";
 
+	json["challenge"] = szChallenge;
+	json["nonce"] = "";
+	/*
+
 #if defined(_DEBUG)
 	const unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES] = { 1, 4, 2, 6, 1, 9, 3, 5, 6, 2, 1, 0, 0, 7, 0, 1, 7, 9, 4, 4, 6, 1, 3, 9, 3, 1, 2, 2, 3, 4, 1, 6 };
 #else
@@ -175,6 +179,7 @@ void PrepareChallenge(nlohmann::json & json)
 
 	json["challenge"] = Base64Encode(ciphertext);
 	json["nonce"] = Base64Encode(nonce);
+	*/
 }
 
 std::string DecryptServiceToken(std::string strServiceToken)

@@ -356,6 +356,7 @@ void NGMPGame::launchGame(void)
 	TheWritableGlobalData->m_showMetrics = true;
 #endif
 
+	TheWritableGlobalData->m_networkRunAheadMetricsTime = 16;
 	TheWritableGlobalData->m_networkRunAheadSlack = 10;
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)

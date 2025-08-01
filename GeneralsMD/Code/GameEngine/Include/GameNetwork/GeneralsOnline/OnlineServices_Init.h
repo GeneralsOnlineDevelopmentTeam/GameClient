@@ -139,6 +139,8 @@ public:
 		return m_bConnected;
 	}
 
+	std::string strBuf;
+
 	void Shutdown();
 
 	void SendData_ChangeName(const char* szMessage);

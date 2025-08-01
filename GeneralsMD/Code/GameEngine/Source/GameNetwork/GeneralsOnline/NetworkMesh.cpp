@@ -768,7 +768,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 {
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "[GAME PACKET] Sending msg of size %ld\n", totalDataSize);
 	EResult r = SteamNetworkingSockets()->SendMessageToConnection(
-		m_hSteamConnection, pBuffer, (int)totalDataSize, k_nSteamNetworkingSend_ReliableNoNagle | k_nSteamNetworkingSend_AutoRestartBrokenSession, nullptr);
+		m_hSteamConnection, pBuffer, (int)totalDataSize, k_nSteamNetworkingSend_Unreliable, nullptr);
 
 	if (r != k_EResultOK)
 	{
@@ -784,9 +784,9 @@ void PlayerConnection::UpdateLatencyHistogram()
 	// update latency history
 	int currLatency = GetLatency();
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	const int connectionHistoryLength = 2000; // 2000 frames
+	const int connectionHistoryLength = 120000/16; // ~2 min worth of frames
 #else
-	const int connectionHistoryLength = 1000; // 1000 frames
+	const int connectionHistoryLength = 120000/33; // ~2 min worth of frames
 #endif
 
 	if (m_vecLatencyHistory.size() >= connectionHistoryLength)
