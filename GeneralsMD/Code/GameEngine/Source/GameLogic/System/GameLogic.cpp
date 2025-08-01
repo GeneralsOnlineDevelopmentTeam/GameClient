@@ -2064,6 +2064,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 			updateLoadProgress(progressCount++);
 
 		}
+
 	}
 	// update the loadscreen 
 	updateLoadProgress(LOAD_PROGRESS_POST_INITIAL_NETWORK_BUILDINGS);
@@ -2092,6 +2093,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	// update the loadscreen 
 	updateLoadProgress(LOAD_PROGRESS_POST_PRELOAD_ASSETS);
 
+	TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f);
 	TheTacticalView->setAngleAndPitchToDefault();
 	TheTacticalView->setZoomToDefault();
 

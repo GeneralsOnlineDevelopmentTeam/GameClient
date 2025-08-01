@@ -1084,17 +1084,26 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 				{
 					GadgetListBoxReset(listboxLobbyChat);
 
-					UnicodeString msg;
-					msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomDisplayName().str());
-					GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-
-					// process flag related info messages
-					ERoomFlags flags = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomFlags();
-					if (flags == ERoomFlags::ROOM_FLAGS_SHOW_ALL_MATCHES)
+					// TODO_NGMP: What can we do if empty? kick them out back to the front end?
+					if (!NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().empty())
 					{
-						GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: This is a special room where the lobby list shows lobbies from ALL rooms, not just the current room, to make it easier to find a match without room hopping."), GameMakeColor(255, 194, 15, 255), -1, -1);
-						GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: Lobbies created here will only show in here. The members list & chat will also only show players in this room."), GameMakeColor(255, 194, 15, 255), -1, -1);
+						UnicodeString msg;
+						msg.format(TheGameText->fetch("GUI:LobbyJoined"), NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomDisplayName().str());
+						GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+						// process flag related info messages
+						ERoomFlags flags = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(0).GetRoomFlags();
+						if (flags == ERoomFlags::ROOM_FLAGS_SHOW_ALL_MATCHES)
+						{
+							GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: This is a special room where the lobby list shows lobbies from ALL rooms, not just the current room, to make it easier to find a match without room hopping."), GameMakeColor(255, 194, 15, 255), -1, -1);
+							GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: Lobbies created here will only show in here. The members list & chat will also only show players in this room."), GameMakeColor(255, 194, 15, 255), -1, -1);
+						}
 					}
+					else
+					{
+						GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t ERROR: No rooms are available. Try logging in again."), GameMakeColor(255, 0, 0, 255), -1, -1);
+					}
+					
 
 					// refresh on join
 					refreshPlayerList(TRUE);
@@ -1278,7 +1287,7 @@ static void refreshGameList( Bool forceRefresh )
 		}
 #endif
 	} else {
-		//DEBUG_LOG(("gameListRefreshTime: %d refreshInterval: %d"));
+		//DEBUG_LOG(("gameListRefreshTime: %d refreshInterval: %d", gameListRefreshTime, refreshInterval));
 	}
 }
 //-------------------------------------------------------------------------------------------------
@@ -1777,7 +1786,7 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 				//DEBUG_LOG(("-"));
 			}
 		} else {
-			//DEBUG_LOG(("gameListRefreshTime: %d refreshInterval: %d"));
+			//DEBUG_LOG(("gameListRefreshTime: %d refreshInterval: %d", gameListRefreshTime, refreshInterval));
 		}
 #else
 	refreshGameList();

@@ -59,9 +59,8 @@ static std::unordered_map<int, std::string> g_mapServiceIndexToPlayerTemplateStr
 };
 
 // common game engine includes
-#include "../../Common/UnicodeString.h"
-#include "../../Common/AsciiString.h"
-
+#include "Common/UnicodeString.h"
+#include "Common/AsciiString.h"
 // standard libs
 #include <fstream>
 #include <vector>

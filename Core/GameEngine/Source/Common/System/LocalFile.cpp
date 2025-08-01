@@ -127,38 +127,21 @@ LocalFile::LocalFile()
 
 LocalFile::~LocalFile()
 {
-#if USE_BUFFERED_IO
-	if (m_file)
-	{
-		fclose(m_file);
-		m_file = NULL;
-		--s_totalOpen;
-	}
-#else
-	if( m_handle != -1 )
-	{
-		_close( m_handle );
-		m_handle = -1;
-		--s_totalOpen;
-	}
-#endif
-
-	File::close();
-
+	closeFile();
 }
 
 //=================================================================
 // LocalFile::open	
 //=================================================================
 /**
-  *	This function opens a file using the standard C open() call. Access flags
-	* are mapped to the appropriate open flags. Returns true if file was opened
-	* successfully.
+	* This function opens a file using the standard C open() or
+	* fopen() call. Access flags are mapped to the appropriate flags.
+	* Returns true if file was opened successfully.
 	*/
 //=================================================================
 
 //DECLARE_PERF_TIMER(LocalFile)
-Bool LocalFile::open( const Char *filename, Int access )
+Bool LocalFile::open( const Char *filename, Int access, size_t bufferSize )
 {
 	//USE_PERF_TIMER(LocalFile)
 	if( !File::open( filename, access) )
@@ -188,7 +171,6 @@ Bool LocalFile::open( const Char *filename, Int access )
 
 	// Mode string selection (mimics _open flag combinations)
 	// TEXT is implicit for fopen if 'b' is not present
-	// READ is implicit here if not READWRITE or WRITE
 	if (readwrite)
 	{
 		if (append)
@@ -214,6 +196,26 @@ Bool LocalFile::open( const Char *filename, Int access )
 	if (m_file == NULL)
 	{
 		goto error;
+	}
+
+	{
+		Int result = 0;
+
+		if (bufferSize == 0)
+		{
+			result = setvbuf(m_file, NULL, _IONBF, 0); // Uses no buffering
+		}
+		else
+		{
+			const Int bufferMode = (m_access & LINEBUF)
+				? _IOLBF // Uses line buffering
+				: _IOFBF; // Uses full buffering
+
+			// Buffer is expected to lazy allocate on first read or write later
+			result = setvbuf(m_file, NULL, bufferMode, bufferSize);
+		}
+
+		DEBUG_ASSERTCRASH(result == 0, ("LocalFile::open - setvbuf failed"));
 	}
 
 #else
@@ -278,7 +280,8 @@ Bool LocalFile::open( const Char *filename, Int access )
 
 error:
 
-	close();
+	// TheSuperHackers @fix Instance must never delete itself in this function.
+	closeWithoutDelete();
 
 	return FALSE;
 }
@@ -294,7 +297,37 @@ error:
 
 void LocalFile::close( void )
 {
+	closeFile();
 	File::close();
+}
+
+//=================================================================
+
+void LocalFile::closeWithoutDelete()
+{
+	closeFile();
+	File::closeWithoutDelete();
+}
+
+//=================================================================
+
+void LocalFile::closeFile()
+{
+#if USE_BUFFERED_IO
+	if (m_file)
+	{
+		fclose(m_file);
+		m_file = NULL;
+		--s_totalOpen;
+	}
+#else
+	if( m_handle != -1 )
+	{
+		_close( m_handle );
+		m_handle = -1;
+		--s_totalOpen;
+	}
+#endif
 }
 
 //=================================================================
@@ -383,6 +416,15 @@ Int LocalFile::seek( Int pos, seekMode mode)
 	Int ret = _lseek( m_handle, pos, lmode );
 #endif
 	return ret;
+}
+
+//=================================================================
+// LocalFile::flush
+//=================================================================
+
+Bool LocalFile::flush()
+{
+	return fflush(m_file) != EOF;
 }
 
 //=================================================================
@@ -575,18 +617,12 @@ File* LocalFile::convertToRAMFile()
 		if (this->m_deleteOnClose)
 		{
 			ramFile->deleteOnClose();
-			this->close(); // is deleteonclose, so should delete.
 		}
-		else
-		{
-			this->close();
-			deleteInstance(this);
-		}
+		deleteInstance(this);
 		return ramFile;
 	}	
 	else 
 	{
-		ramFile->close();
 		deleteInstance(ramFile);
 		return this;
 	}

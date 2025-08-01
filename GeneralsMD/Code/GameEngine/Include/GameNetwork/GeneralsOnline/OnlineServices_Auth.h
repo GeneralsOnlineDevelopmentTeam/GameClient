@@ -17,7 +17,7 @@ public:
 
 	void Tick();
 
-	void OnLoginComplete(bool bSuccess, const char* szWSAddr, const char* szWSToken);
+	void OnLoginComplete(bool bSuccess, const char* szWSAddr);
 
 	void RegisterForLoginCallback(std::function<void(bool)> callback)
 	{

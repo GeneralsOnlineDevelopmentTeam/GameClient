@@ -37,9 +37,8 @@ struct AuthResponse
 	int64_t user_id = -1;
 	std::string display_name = "";
 	std::string ws_uri = "";
-	std::string ws_token = "";
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(AuthResponse, result, ss_token, al_token, user_id, display_name, ws_uri, ws_token)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(AuthResponse, result, ss_token, al_token, user_id, display_name, ws_uri)
 };
 
 struct MOTDResponse
@@ -177,7 +176,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						m_strDisplayName = authResp.display_name;
 
 						// trigger callback
-						OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str(), DecryptServiceToken(authResp.ws_token).c_str());
+						OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str());
 					}
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
@@ -186,7 +185,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						m_bWaitingLogin = false;
 
 						// trigger callback
-						OnLoginComplete(false, "", "");
+						OnLoginComplete(false, "");
 					}
 				}
 				catch (...)
@@ -234,7 +233,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 								m_strDisplayName = authResp.display_name;
 
 								// trigger callback
-								OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str(), DecryptServiceToken(authResp.ws_token).c_str());
+								OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str());
 							}
 							else if (authResp.result == EAuthResponseResult::FAILED)
 							{
@@ -333,7 +332,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						m_strDisplayName = authResp.display_name;
 
 						// trigger callback
-						OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str(), DecryptServiceToken(authResp.ws_token).c_str());
+						OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str());
 					}
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
@@ -341,7 +340,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						m_bWaitingLogin = false;
 
 						// trigger callback
-						OnLoginComplete(false, "", "");
+						OnLoginComplete(false, "");
 					}
 				}
 				catch (...)
@@ -354,73 +353,15 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 	}
 }
 
-void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const char* szWSAddr, const char* szWSToken)
+void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const char* szWSAddr)
 {
 	if (bSuccess)
 	{
-		NGMP_OnlineServicesManager::GetInstance()->OnLogin(bSuccess, szWSAddr, szWSToken);
+		NGMP_OnlineServicesManager::GetInstance()->OnLogin(bSuccess, szWSAddr);
 
 		// move on to network capabilities section
 		ClearGSMessageBoxes();
-
-#if defined(ENABLE_QOS)
-		GSMessageBoxNoButtons(UnicodeString(L"Network"), UnicodeString(L"Determining best server region... this could take a few seconds"), true);
-
-		// Get QoS endpoints
-		std::string strQoSURI = NGMP_OnlineServicesManager::GetAPIEndpoint("QOS");
-		std::map<std::string, std::string> mapHeaders;
-		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strQoSURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-			{
-				try
-				{
-					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-					std::map<std::pair<std::string, EQoSRegions>, std::string> mapQoSEndpoints;
-
-					for (const auto& qosEntry : jsonObject["Servers"])
-					{
-						std::string strServerURL;
-						std::string strRegion;
-						EQoSRegions regionID;
-
-						qosEntry["ServerURL"].get_to(strServerURL);
-						qosEntry["Region"].get_to(regionID);
-						qosEntry["RegionName"].get_to(strRegion);
-
-						mapQoSEndpoints.emplace(std::make_pair<>(strRegion, regionID), strServerURL);
-					}
-
-					// TODO_RELAY: The network caps stuff should wait on this finishing, they can run in parallel but should never go forward iwthout determining region
-					NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().StartProbing(mapQoSEndpoints, [this]()
-						{
-							std::map<EQoSRegions, int>& qosData = NGMP_OnlineServicesManager::GetInstance()->GetQoSManager().GetQoSData();
-
-							// inform service of outcome
-							//
-							nlohmann::json j;
-							j["qos_data"] = qosData;
-							std::string strPostData = j.dump();
-
-							std::string strQoSURI = NGMP_OnlineServicesManager::GetAPIEndpoint("UserRegion");
-							std::map<std::string, std::string> mapHeaders;
-							NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strQoSURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-								{
-									// dont care about the response
-								});
-							// move on
-							GoToDetermineNetworkCaps();
-						});
-				}
-				catch (...)
-				{
-					// TODO_RELAY: Handle this service side, someone might not have a preferred server set
-					GoToDetermineNetworkCaps();
-					// NOTE: This is a soft error, if we couldnt get QoS for some reason, we'll pick a relay still, it just wont be the best one
-				}
-			});
-#else
-		// move on
 		GoToDetermineNetworkCaps();
-#endif
 	}
 	else
 	{

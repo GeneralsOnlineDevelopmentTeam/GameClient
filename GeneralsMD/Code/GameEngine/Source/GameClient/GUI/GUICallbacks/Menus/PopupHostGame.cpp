@@ -396,7 +396,7 @@ void PopupHostGameInit( WindowLayout *layout, void *userData )
 
 	checkBoxAllowObservers->winSetPosition(xStats, yObs);
 	checkBoxAllowObservers->winHide(false);
-	GadgetCheckBoxSetChecked(checkBoxAllowObservers, false);
+	GadgetCheckBoxSetChecked(checkBoxAllowObservers, true);
 #endif
 
 }

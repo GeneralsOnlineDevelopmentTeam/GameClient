@@ -1318,8 +1318,6 @@ void InitWOLGameGadgets( void )
 		return;
 	}
 
-	std::vector<LobbyMemberEntry>& lobbyRoster = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
-
 	for (Int i = 0; i < MAX_SLOTS; i++)
 	{
 		AsciiString tmpString;
@@ -1338,27 +1336,14 @@ void InitWOLGameGadgets( void )
 		if (bIsHost)
 			staticTextPlayer[i]->winHide(TRUE);
 
-		if(i==0 && bIsHost)
+		if (theGameInfo->getLocalSlotNum() != i)
 		{
-			UnicodeString uName;
-
-			//auto& plrElement = *std::next(lobbyRoster.begin(), i);
-
-			// TODO_NGMP: What if we don't find a user we expect to find?
-			LobbyMemberEntry plrElement = lobbyRoster.at(i);
-
-			uName.translate(plrElement.display_name.c_str());
-			GadgetComboBoxAddEntry(comboBoxPlayer[i],uName,GameSpyColor[GSCOLOR_PLAYER_OWNER]);
-			GadgetComboBoxSetSelectedPos(comboBoxPlayer[0],0);
-		}
-		else
-		{
-			GadgetComboBoxAddEntry(comboBoxPlayer[i],TheGameText->fetch("GUI:Open"),GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
-			GadgetComboBoxAddEntry(comboBoxPlayer[i],TheGameText->fetch("GUI:Closed"),GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
-			GadgetComboBoxAddEntry(comboBoxPlayer[i],TheGameText->fetch("GUI:EasyAI"),GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
-			GadgetComboBoxAddEntry(comboBoxPlayer[i],TheGameText->fetch("GUI:MediumAI"),GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
-			GadgetComboBoxAddEntry(comboBoxPlayer[i],TheGameText->fetch("GUI:HardAI"),GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
-			GadgetComboBoxSetSelectedPos(comboBoxPlayer[i],0);
+			GadgetComboBoxAddEntry(comboBoxPlayer[i], TheGameText->fetch("GUI:Open"), GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
+			GadgetComboBoxAddEntry(comboBoxPlayer[i], TheGameText->fetch("GUI:Closed"), GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
+			GadgetComboBoxAddEntry(comboBoxPlayer[i], TheGameText->fetch("GUI:EasyAI"), GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
+			GadgetComboBoxAddEntry(comboBoxPlayer[i], TheGameText->fetch("GUI:MediumAI"), GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
+			GadgetComboBoxAddEntry(comboBoxPlayer[i], TheGameText->fetch("GUI:HardAI"), GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
+			GadgetComboBoxSetSelectedPos(comboBoxPlayer[i], 0);
 		}
 
 		tmpString.format("GameSpyGameOptionsMenu.wnd:ComboBoxColor%d", i);
@@ -1543,7 +1528,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			UnicodeString strConnectionMessage;
 			if (connState == EConnectionState::CONNECTED_DIRECT || connState == EConnectionState::CONNECTION_DISCONNECTED)
 			{
-				strConnectionMessage.format(L"Connection state to %hs changed to: %hs (mechanism: %hs)", strDisplayName.c_str(), strState.c_str(), strConnectionType.c_str());
+				strConnectionMessage.format(L"Connection state to %hs changed to: %hs (mechanism: %hs | protocol: %hs)", strDisplayName.c_str(), strState.c_str(), strConnectionType.c_str(), connection->IsIPV4() ? "IPv4" : "IPv6");
 			}
 			else
 			{
@@ -1763,6 +1748,9 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 		WOLDisplaySlotList();
 		WOLDisplayGameOptions();
+
+		// TheSuperHackers @tweak disable the combo box for the host's player name
+		comboBoxPlayer[0]->winEnable(FALSE);
 	}
 	else
 	{

@@ -139,6 +139,8 @@ public:
 		return m_bConnected;
 	}
 
+	std::string strBuf;
+
 	void Shutdown();
 
 	void SendData_ChangeName(const char* szMessage);
@@ -315,7 +317,7 @@ public:
 	QoSManager& GetQoSManager() { return m_qosMgr; }
 	QoSManager m_qosMgr;
 
-	void OnLogin(bool bSuccess, const char* szWSAddr, const char* szWSToken);
+	void OnLogin(bool bSuccess, const char* szWSAddr);
 	
 	void Init();
 

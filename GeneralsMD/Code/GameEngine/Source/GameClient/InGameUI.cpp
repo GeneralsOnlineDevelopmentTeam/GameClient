@@ -4394,7 +4394,7 @@ CanAttackResult InGameUI::getCanSelectedObjectsAttack( ActionType action, const 
 			case ACTIONTYPE_MAKE_DEFECTOR:
 			case ACTIONTYPE_SET_RALLY_POINT:
 			default:
-				DEBUG_CRASH( ("Called InGameUI::getCanSelectedObjectsAttack() with actiontype %d. Only accepts attack types! Should you be calling InGameUI::canSelectedObjectsDoAction() instead?") );
+				DEBUG_CRASH( ("Called InGameUI::getCanSelectedObjectsAttack() with actiontype %d. Only accepts attack types! Should you be calling InGameUI::canSelectedObjectsDoAction() instead?", action) );
 				return ATTACKRESULT_INVALID_SHOT;
 
 		}
@@ -5933,6 +5933,48 @@ void InGameUI::drawSystemTime()
 
 void InGameUI::drawGameTime()
 {
+	// draw connections
+	/*
+	if (TheNGMPGame != nullptr)
+	{
+		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+
+		if (pMesh != nullptr)
+		{
+			int i = 0;
+			for (const auto& connection : pMesh->GetAllConnections())
+			{
+				const int k_nLanes = 1;
+				SteamNetConnectionRealTimeStatus_t status;
+				SteamNetConnectionRealTimeLaneStatus_t laneStatus[k_nLanes];
+				EResult res = SteamNetworkingSockets()->GetConnectionRealTimeStatus(connection.second.m_hSteamConnection, &status, k_nLanes, laneStatus);
+
+				UnicodeString netString;
+				netString.format(L"\n[usr %lld | %d] Lat: %i, QualL: %.2f, QualR: %.2f OutP/s: %.2f, OutB/s: %.2f, InP/s: %.2f, InB/s: %.2f, SendRate %i PU: %d, PR: %d",
+					connection.first,
+					(int)res,
+					status.m_nPing,
+					status.m_flConnectionQualityLocal,
+					status.m_flConnectionQualityRemote,
+					status.m_flOutPacketsPerSec,
+					status.m_flOutBytesPerSec,
+					status.m_flInPacketsPerSec,
+					status.m_flInBytesPerSec,
+					status.m_nSendRateBytesPerSecond,
+					status.m_cbPendingUnreliable,
+					status.m_cbPendingReliable);
+
+				int w, h;
+				m_gameTimeString->getSize(&w, &h);
+
+				m_gameTimeString->setText(netString);
+				m_gameTimeString->draw(0, 500 + (i * h/2), m_gameTimeColor, m_gameTimeDropColor);
+				++i;
+			}
+		}
+		
+	}
+	*/
 	Int currentFrame = TheGameLogic->getFrame();
 	Int gameSeconds = (Int) (SECONDS_PER_LOGICFRAME_REAL * currentFrame );
 	Int hours = gameSeconds / 60 / 60;

@@ -96,11 +96,12 @@ class LocalFile : public File
 		//virtual				~LocalFile();
 
 
-		virtual Bool	open( const Char *filename, Int access = 0 );				///< Open a file for access
+		virtual Bool	open( const Char *filename, Int access = NONE, size_t bufferSize = BUFFERSIZE ); ///< Open a file for access
 		virtual void	close( void );																			///< Close the file
 		virtual Int		read( void *buffer, Int bytes );										///< Read the specified number of bytes in to buffer: See File::read
 		virtual Int		write( const void *buffer, Int bytes );							///< Write the specified number of bytes from the buffer: See File::write
 		virtual Int		seek( Int new_pos, seekMode mode = CURRENT );				///< Set file position: See File::seek
+		virtual Bool	flush();													///< flush data to disk
 		virtual void	nextLine(Char *buf = NULL, Int bufSize = 0);				///< moves file position to after the next new-line
 		virtual Bool	scanInt(Int &newInt);																///< return what gets read in as an integer at the current file position.
 		virtual Bool	scanReal(Real &newReal);														///< return what gets read in as a float at the current file position.
@@ -115,6 +116,10 @@ class LocalFile : public File
 		virtual char* readEntireAndClose();
 		virtual File* convertToRAMFile();
 
+	protected:
+
+		void closeWithoutDelete();
+		void closeFile();
 };
 
 
