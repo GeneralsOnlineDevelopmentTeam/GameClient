@@ -50,6 +50,12 @@
 
 //#define GENERALS_ONLINE_HIGH_FPS_SERVER 1
 
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+#define GENERALS_ONLINE_CLIENT_ID "gen_online_60hz"
+#else
+#define GENERALS_ONLINE_CLIENT_ID "gen_online_30hz"
+#endif
+
 
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)

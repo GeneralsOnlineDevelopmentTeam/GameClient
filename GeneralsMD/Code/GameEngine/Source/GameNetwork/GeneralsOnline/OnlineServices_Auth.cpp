@@ -153,6 +153,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 		nlohmann::json j;
 		j["token"] = strToken.c_str();
+		j["client_id"] = GENERALS_ONLINE_CLIENT_ID;
 		PrepareChallenge(j);
 		std::string strPostData = j.dump();
 
@@ -207,6 +208,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 				nlohmann::json j;
 				j["token"] = strToken.c_str();
+				j["client_id"] = GENERALS_ONLINE_CLIENT_ID;
 				PrepareChallenge(j);
 				std::string strPostData = j.dump();
 
@@ -300,6 +302,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 
 			nlohmann::json j;
 			j["code"] = m_strCode.c_str();
+			j["client_id"] = GENERALS_ONLINE_CLIENT_ID;
 			PrepareChallenge(j);
 			std::string strPostData = j.dump();
 
