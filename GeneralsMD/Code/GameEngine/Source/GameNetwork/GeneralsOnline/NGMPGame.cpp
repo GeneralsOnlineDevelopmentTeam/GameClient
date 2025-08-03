@@ -356,8 +356,13 @@ void NGMPGame::launchGame(void)
 	TheWritableGlobalData->m_showMetrics = true;
 #endif
 
-	TheWritableGlobalData->m_networkRunAheadMetricsTime = 16;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	TheWritableGlobalData->m_networkRunAheadMetricsTime = 16 * 10;
+	TheWritableGlobalData->m_networkRunAheadSlack = 20;
+#else
+	TheWritableGlobalData->m_networkRunAheadMetricsTime = 33 * 10;
 	TheWritableGlobalData->m_networkRunAheadSlack = 10;
+#endif
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
 	TheWritableGlobalData->m_horizontalScrollSpeedFactor = NGMP_OnlineServicesManager::Settings.Camera_MoveSpeedRatio();

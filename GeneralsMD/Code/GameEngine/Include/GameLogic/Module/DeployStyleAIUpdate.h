@@ -109,8 +109,8 @@ public:
 	UnsignedInt getUnpackTime()					const { return getDeployStyleAIUpdateModuleData()->m_unpackTime/ GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER; }
 	UnsignedInt getPackTime()						const { return getDeployStyleAIUpdateModuleData()->m_packTime/ GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER; }
 #else
-	UnsignedInt getUnpackTime()					const { return getDeployStyleAIUpdateModuleData()->m_unpackTime / GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER; }
-	UnsignedInt getPackTime()						const { return getDeployStyleAIUpdateModuleData()->m_packTime / GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER; }
+	UnsignedInt getUnpackTime()					const { return getDeployStyleAIUpdateModuleData()->m_unpackTime; }
+	UnsignedInt getPackTime()						const { return getDeployStyleAIUpdateModuleData()->m_packTime; }
 #endif
 	Bool doTurretsFunctionOnlyWhenDeployed() const { return getDeployStyleAIUpdateModuleData()->m_turretsFunctionOnlyWhenDeployed; }
 	Bool doTurretsHaveToCenterBeforePacking() const { return getDeployStyleAIUpdateModuleData()->m_turretsMustCenterBeforePacking; }

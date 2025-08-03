@@ -109,6 +109,8 @@ public:
 		}
 	}
 
+	void Flush();
+
 	void UpdateConnectivity(PlayerConnection* connection);
 
 	std::function<void(int64_t, std::string, PlayerConnection*)> m_cbOnConnected = nullptr;

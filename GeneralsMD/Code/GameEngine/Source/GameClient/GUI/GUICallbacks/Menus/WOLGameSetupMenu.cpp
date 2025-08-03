@@ -1529,13 +1529,21 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			if (connState == EConnectionState::CONNECTED_DIRECT || connState == EConnectionState::CONNECTION_DISCONNECTED)
 			{
 				strConnectionMessage.format(L"Connection state to %hs changed to: %hs (mechanism: %hs | protocol: %hs)", strDisplayName.c_str(), strState.c_str(), strConnectionType.c_str(), connection->IsIPV4() ? "IPv4" : "IPv6");
+				GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(255, 194, 15, 255), -1, -1);
 			}
 			else
 			{
-				strConnectionMessage.format(L"Connection state to %hs changed to: %hs", strDisplayName.c_str(), strState.c_str());
+#if !defined(_DEBUG)
+				if (connState == EConnectionState::CONNECTION_FAILED)
+				{
+#endif
+					strConnectionMessage.format(L"Connection state to %hs changed to: %hs", strDisplayName.c_str(), strState.c_str());
+					GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(255, 194, 15, 255), -1, -1);
+
+#if !defined(_DEBUG)
+				}
+#endif
 			}
-			
-			GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(255, 194, 15, 255), -1, -1);
 		});
 
 	// player doesnt have map events

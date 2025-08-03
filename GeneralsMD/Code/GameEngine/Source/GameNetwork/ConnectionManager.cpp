@@ -1163,9 +1163,17 @@ void ConnectionManager::sendRemoteCommand(NetCommandRef *msg) {
 		if (allCommandsReady(msg->getCommand()->getExecutionFrame(), TRUE)) {
 			UnsignedInt cushion = msg->getCommand()->getExecutionFrame() - TheGameLogic->getFrame();
 			if ((cushion < m_smallestPacketArrivalCushion) || (m_smallestPacketArrivalCushion == -1)) {
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+				m_smallestPacketArrivalCushion = (float)cushion * 1.5f;
+#else
 				m_smallestPacketArrivalCushion = cushion;
+#endif
 			}
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+			m_frameMetrics.addCushion((float)cushion * 1.5f);
+#else
 			m_frameMetrics.addCushion(cushion);
+#endif
 //			DEBUG_LOG(("Adding %d to cushion for frame %d", cushion, msg->getCommand()->getExecutionFrame()));
 		}
 	}
@@ -1286,7 +1294,7 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 #if !defined(GENERALS_ONLINE)
 			newRunAhead += (newRunAhead * TheGlobalData->m_networkRunAheadSlack) / 100; // Add in 10% of slack to the run ahead in case of network hiccups.
 #else
-			newRunAhead += ceil(((float)TheGlobalData->m_networkRunAheadSlack / 100.f) * newRunAhead);// Add in 10% of slack to the run ahead in case of network hiccups.
+			newRunAhead += (Int)ceilf(newRunAhead * (TheGlobalData->m_networkRunAheadSlack / 100.0f));
 #endif
 
 			
@@ -1321,12 +1329,19 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			}
 
 #if defined(GENERALS_ONLINE) // provide instant responsiveness if there are no remote human players
-			NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-			if (pMesh != nullptr)
+			if (TheNGMPGame != nullptr)
 			{
-				if (pMesh->GetAllConnections().size() == 0)
+				auto lobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
+				if (lobbyInterface != nullptr)
 				{
-					newRunAhead = 0;
+					NetworkMesh* pMesh = lobbyInterface->GetNetworkMesh();
+					if (pMesh != nullptr)
+					{
+						if (pMesh->GetAllConnections().size() == 0)
+						{
+							newRunAhead = 0;
+						}
+					}
 				}
 			}
 #endif
@@ -1402,16 +1417,20 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 #if defined(GENERALS_ONLINE)
 			if (TheNGMPGame != nullptr)
 			{
-				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+				auto lobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
+				if (lobbyInterface != nullptr)
+				{
+					NetworkMesh* pMesh = lobbyInterface->GetNetworkMesh();
 
-				if (pMesh != nullptr)
-				{
-					float maxLatency = (float)pMesh->getMaximumHistoricalLatency();
-					msg->setAverageLatency(maxLatency / 1000.f);
-				}
-				else
-				{
-					msg->setAverageLatency(m_frameMetrics.getAverageLatency());
+					if (pMesh != nullptr)
+					{
+						float maxLatency = (float)pMesh->getMaximumHistoricalLatency();
+						msg->setAverageLatency(maxLatency / 1000.f);
+					}
+					else
+					{
+						msg->setAverageLatency(m_frameMetrics.getAverageLatency());
+					}
 				}
 			}
 			else

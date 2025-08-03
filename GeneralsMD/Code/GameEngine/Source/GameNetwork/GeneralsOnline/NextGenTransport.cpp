@@ -51,6 +51,9 @@ Bool NextGenTransport::update(void)
 		retval = FALSE;
 	}
 
+	// flush
+	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->Flush();
+
 	return retval;
 }
 

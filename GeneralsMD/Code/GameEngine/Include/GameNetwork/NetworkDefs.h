@@ -66,7 +66,7 @@ static const Int MAX_PACKET_SIZE = 476;
  * to each player every frame
  */
 #define MAX_MESSAGE_LEN 1024
-#define MAX_MESSAGES 128
+#define MAX_MESSAGES 1024
 static const Int numCommandsPerCommandPacket = (MAX_MESSAGE_LEN - sizeof(UnsignedInt) - sizeof(UnsignedShort))/sizeof(GameMessage);
 #pragma pack(push, 1)
 struct CommandPacket

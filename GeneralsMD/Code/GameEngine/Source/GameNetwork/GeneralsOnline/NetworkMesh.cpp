@@ -542,6 +542,15 @@ NetworkMesh::NetworkMesh()
 	}
 }
 
+
+void NetworkMesh::Flush()
+{
+	for (auto& connectionData : m_mapConnections)
+	{
+		SteamNetworkingSockets()->FlushMessagesOnConnection(connectionData.second.m_hSteamConnection);
+	}
+}
+
 void NetworkMesh::UpdateConnectivity(PlayerConnection* connection)
 {
 	nlohmann::json j;
