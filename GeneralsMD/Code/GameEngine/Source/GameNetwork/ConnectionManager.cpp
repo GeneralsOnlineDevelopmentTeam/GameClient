@@ -1163,17 +1163,9 @@ void ConnectionManager::sendRemoteCommand(NetCommandRef *msg) {
 		if (allCommandsReady(msg->getCommand()->getExecutionFrame(), TRUE)) {
 			UnsignedInt cushion = msg->getCommand()->getExecutionFrame() - TheGameLogic->getFrame();
 			if ((cushion < m_smallestPacketArrivalCushion) || (m_smallestPacketArrivalCushion == -1)) {
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-				m_smallestPacketArrivalCushion = (float)cushion * 1.5f;
-#else
 				m_smallestPacketArrivalCushion = cushion;
-#endif
 			}
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-			m_frameMetrics.addCushion((float)cushion * 1.5f);
-#else
 			m_frameMetrics.addCushion(cushion);
-#endif
 //			DEBUG_LOG(("Adding %d to cushion for frame %d", cushion, msg->getCommand()->getExecutionFrame()));
 		}
 	}

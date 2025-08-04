@@ -21,7 +21,10 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 		auto now = std::chrono::system_clock::now();
 		auto in_time_t = std::chrono::system_clock::to_time_t(now);
 
-		std::stringstream ss;
+
+		m_strNetworkLogFileName = std::format("{}\\GeneralsOnlineData\\GeneralsOnline.log", TheGlobalData->getPath_UserData().str());
+		/*
+			std::stringstream ss;
 
 #if defined(_DEBUG)
 		if (IsDebuggerPresent())
@@ -37,7 +40,7 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 #else
 		ss << "GeneralsOnline.log";
 #endif
-		m_strNetworkLogFileName = ss.str();
+*/
 		std::ofstream overwriteFile(m_strNetworkLogFileName);
 
 		// log start msg

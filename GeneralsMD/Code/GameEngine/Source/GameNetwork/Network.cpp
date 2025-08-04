@@ -820,11 +820,7 @@ Bool Network::timeForNewFrame() {
 		Real runAheadPercentage = m_runAhead * (TheGlobalData->m_networkRunAheadSlack / (Real)100.0); // If we are at least 50% into our slack, we need to slow down.
 		if (cushion < runAheadPercentage) {
 			__int64 oldFrameDelay = frameDelay;
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-			frameDelay += oldFrameDelay / 5; // temporarily decrease the frame rate by 20%.
-#else
 			frameDelay += oldFrameDelay / 10; // temporarily decrease the frame rate by 20%.
-#endif
 //			DEBUG_LOG(("Average cushion = %f, run ahead percentage = %f.  Adjusting frameDelay from %I64d to %I64d", cushion, runAheadPercentage, oldFrameDelay, frameDelay));
 			m_didSelfSlug = TRUE;
 //		} else {
@@ -837,7 +833,7 @@ Bool Network::timeForNewFrame() {
 //		DEBUG_LOG(("Allowing a new frame, frameDelay = %I64d, curTime - m_nextFrameTime = %I64d", frameDelay, curTime - m_nextFrameTime));
 
 //		if (m_nextFrameTime + frameDelay < curTime) {
-		if ((m_nextFrameTime + (2 * frameDelay)) < curTime) {
+		if ((m_nextFrameTime + ((GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER * 2) * frameDelay)) < curTime) {
 			// If we get too far behind on our framerate we need to reset the nextFrameTime thing.
 			m_nextFrameTime = curTime;
 //			DEBUG_LOG(("Initializing m_nextFrameTime to %I64d", m_nextFrameTime));
