@@ -26,6 +26,8 @@ public:
 	bool Graphics_LimitFramerate() const { return m_Render_LimitFramerate; }
 	int Graphics_GetFPSLimit() const { return std::clamp<int>(m_Render_FramerateLimit_FPSVal, 60, 240); }
 
+	bool Debug_VerboseLogging() const { return m_bVerbose; }
+
 	int GetChatLifeSeconds() const { return std::max<int>(m_Chat_LifeSeconds, 10); }
 
 	void Initialize()
@@ -51,6 +53,8 @@ private:
 	bool m_Input_LockCursorToGameWindow = true;
 
 	bool m_bInitialized = false;
+
+	bool m_bVerbose = false;
 
 	bool m_Render_DrawStatsOverlay = true;
 	bool m_Render_LimitFramerate = true;

@@ -19,6 +19,10 @@
 #define SETTINGS_KEY_CHAT "chat"
 #define SETTINGS_KEY_CHAT_LIFE_SECONDS "duration_seconds_until_fade_out"
 
+#define SETTINGS_KEY_DEBUG "debug"
+#define SETTINGS_KEY_DEBUG_VERBOSE_LOGGING "verbose_logging"
+
+
 #define SETTINGS_FILENAME_LEGACY "GeneralsOnline_settings.json"
 #define SETTINGS_FILENAME "settings.json"
 
@@ -156,6 +160,17 @@ void GenOnlineSettings::Load(void)
 				}
 			}
 
+			if (jsonSettings.contains(SETTINGS_KEY_DEBUG))
+			{
+				auto debugSettings = jsonSettings[SETTINGS_KEY_DEBUG];
+
+				if (debugSettings.contains(SETTINGS_KEY_DEBUG_VERBOSE_LOGGING))
+				{
+					m_bVerbose = debugSettings[SETTINGS_KEY_DEBUG_VERBOSE_LOGGING];
+				}
+			}
+
+
 			if (jsonSettings.contains(SETTINGS_KEY_CHAT))
 			{
 				auto chatSettings = jsonSettings[SETTINGS_KEY_CHAT];
@@ -178,6 +193,7 @@ void GenOnlineSettings::Load(void)
 		m_Camera_MinHeight = m_Camera_MinHeight_default;
 		m_Camera_MaxHeight_LobbyHost = m_Camera_MaxHeight_LobbyHost;
 		m_Input_LockCursorToGameWindow = true;
+		m_bVerbose = false;
 		m_Render_LimitFramerate = true;
 		m_Render_FramerateLimit_FPSVal = 60;
 		m_Render_DrawStatsOverlay = true;
@@ -226,7 +242,14 @@ void GenOnlineSettings::Save()
 				{
 					{SETTINGS_KEY_CHAT_LIFE_SECONDS, m_Chat_LifeSeconds}
 				}
-		}
+		},
+
+		{
+			SETTINGS_KEY_DEBUG,
+				{
+					{SETTINGS_KEY_DEBUG_VERBOSE_LOGGING, m_bVerbose},
+				}
+		},
 	};
 	
 	std::string strData = root.dump(1);

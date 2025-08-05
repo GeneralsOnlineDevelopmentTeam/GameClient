@@ -3,15 +3,19 @@
 #include <mutex>
 #include "libsodium/sodium/crypto_aead_xchacha20poly1305.h"
 #include "libsodium/sodium/randombytes.h"
+#include "../OnlineServices_Init.h"
 
 std::string m_strNetworkLogFileName;
 std::mutex m_logMutex;
 
 void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 {
-	if (logVerbosity < g_LogVerbosity)
+	if (!NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
 	{
-		return;
+		if (logVerbosity < g_LogVerbosity)
+		{
+			return;
+		}
 	}
 
 	std::scoped_lock scopedLock { m_logMutex };
