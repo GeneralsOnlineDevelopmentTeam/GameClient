@@ -51,7 +51,7 @@ void WebSocket::Connect(const char* url)
 
 		// ws needs auth
 		struct curl_slist* headers = nullptr;
-		char szHeaderBuffer[256] = { 0 };
+		char szHeaderBuffer[8192] = { 0 };
 		sprintf_s(szHeaderBuffer, "Authorization: Bearer %s", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken().c_str());
 		headers = curl_slist_append(headers, szHeaderBuffer);
 
