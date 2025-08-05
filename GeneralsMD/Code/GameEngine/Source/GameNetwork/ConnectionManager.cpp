@@ -1409,21 +1409,8 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 #if defined(GENERALS_ONLINE)
 			if (TheNGMPGame != nullptr)
 			{
-				auto lobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
-				if (lobbyInterface != nullptr)
-				{
-					NetworkMesh* pMesh = lobbyInterface->GetNetworkMesh();
+				msg->setAverageLatency(m_frameMetrics.getAverageLatency());
 
-					if (pMesh != nullptr)
-					{
-						float maxLatency = (float)pMesh->getMaximumHistoricalLatency();
-						msg->setAverageLatency(maxLatency / 1000.f);
-					}
-					else
-					{
-						msg->setAverageLatency(m_frameMetrics.getAverageLatency());
-					}
-				}
 			}
 			else
 			{
