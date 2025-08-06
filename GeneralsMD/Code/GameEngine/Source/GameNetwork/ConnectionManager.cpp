@@ -1283,6 +1283,20 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			newRunAhead = (Int)(ceil((getMaximumLatency() / 2.0) * (Real)minFps));
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "New run ahead is %d, formula is maxlat is %f (div 2: %f), minfps is %d", newRunAhead, getMaximumLatency(), getMaximumLatency() / 2.f, minFps);
 
+			if (getMaximumLatency() >= 0.4f)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Writing advanced networking stats:");
+
+				std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+				for (auto& kvPair : connections)
+				{
+					PlayerConnection& conn = kvPair.second;
+
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Connection to user %lld: %s", kvPair.first, conn.GetStats().c_str());
+				}
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Advanced networking stats dumped");
+			}
+
 #if !defined(GENERALS_ONLINE)
 			newRunAhead += (newRunAhead * TheGlobalData->m_networkRunAheadSlack) / 100; // Add in 10% of slack to the run ahead in case of network hiccups.
 #else

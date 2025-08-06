@@ -784,7 +784,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 {
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "[GAME PACKET] Sending msg of size %ld\n", totalDataSize);
 	EResult r = SteamNetworkingSockets()->SendMessageToConnection(
-		m_hSteamConnection, pBuffer, (int)totalDataSize, k_nSteamNetworkingSend_Unreliable, nullptr);
+		m_hSteamConnection, pBuffer, (int)totalDataSize, k_nSteamNetworkingSend_Reliable | k_nSteamNetworkingSend_AutoRestartBrokenSession, nullptr);
 
 	if (r != k_EResultOK)
 	{

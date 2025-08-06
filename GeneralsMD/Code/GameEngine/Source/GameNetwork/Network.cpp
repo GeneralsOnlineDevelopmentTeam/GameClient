@@ -821,7 +821,7 @@ Bool Network::timeForNewFrame() {
 		if (cushion < runAheadPercentage) {
 			__int64 oldFrameDelay = frameDelay;
 			frameDelay += oldFrameDelay / 10; // temporarily decrease the frame rate by 20%.
-//			DEBUG_LOG(("Average cushion = %f, run ahead percentage = %f.  Adjusting frameDelay from %I64d to %I64d", cushion, runAheadPercentage, oldFrameDelay, frameDelay));
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "Average cushion = %f, run ahead percentage = %f.  Adjusting frameDelay from %I64d to %I64d", cushion, runAheadPercentage, oldFrameDelay, frameDelay);
 			m_didSelfSlug = TRUE;
 //		} else {
 //			DEBUG_LOG(("Average cushion = %f, run ahead percentage = %f", cushion, runAheadPercentage));
@@ -830,22 +830,22 @@ Bool Network::timeForNewFrame() {
 
 	// Check to see if we can run another frame.
 	if (curTime >= m_nextFrameTime) {
-//		DEBUG_LOG(("Allowing a new frame, frameDelay = %I64d, curTime - m_nextFrameTime = %I64d", frameDelay, curTime - m_nextFrameTime));
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "Allowing a new frame, frameDelay = %I64d, curTime - m_nextFrameTime = %I64d", frameDelay, curTime - m_nextFrameTime);
 
 //		if (m_nextFrameTime + frameDelay < curTime) {
 		if ((m_nextFrameTime + ((GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER * 2) * frameDelay)) < curTime) {
 			// If we get too far behind on our framerate we need to reset the nextFrameTime thing.
 			m_nextFrameTime = curTime;
-//			DEBUG_LOG(("Initializing m_nextFrameTime to %I64d", m_nextFrameTime));
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "Initializing m_nextFrameTime to %I64d", m_nextFrameTime);
 		} else {
 			// Set the soonest possible starting time for the next frame.
 			m_nextFrameTime += frameDelay;
-//			DEBUG_LOG(("m_nextFrameTime = %I64d", m_nextFrameTime));
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "m_nextFrameTime = %I64d", m_nextFrameTime);
 		}
 
 		return TRUE;
 	}
-//	DEBUG_LOG(("Slowing down frame rate. frame rate = %d, frame delay = %I64d, curTime - m_nextFrameTime = %I64d", m_frameRate, frameDelay, curTime - m_nextFrameTime));
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "Slowing down frame rate. frame rate = %d, frame delay = %I64d, curTime - m_nextFrameTime = %I64d", m_frameRate, frameDelay, curTime - m_nextFrameTime);
 	return FALSE;
 }
 
