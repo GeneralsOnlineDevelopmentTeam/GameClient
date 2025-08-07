@@ -1374,7 +1374,9 @@ WindowMsgHandledType WOLBuddyOverlayRCMenuSystem( GameWindow *window, UnsignedIn
 				{
 					DEBUG_LOG(("buttonStatsID was pushed"));
 					GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
-					SetLookAtPlayer(profileID,nick );
+
+					// TODO_NGMP: Need to support unicode again here
+					//SetLookAtPlayer(profileID,nick );
 					GameSpyOpenOverlay(GSOVERLAY_PLAYERINFO);
 					PSRequest req;
 					req.requestType = PSRequest::PSREQUEST_READPLAYERSTATS;

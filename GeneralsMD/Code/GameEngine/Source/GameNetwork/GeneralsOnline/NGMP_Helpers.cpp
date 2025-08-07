@@ -1,12 +1,27 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include <chrono>
 #include <mutex>
+#include <string>
+#include <locale>
+#include <codecvt>
 #include "libsodium/sodium/crypto_aead_xchacha20poly1305.h"
 #include "libsodium/sodium/randombytes.h"
 #include "../OnlineServices_Init.h"
 
 std::string m_strNetworkLogFileName;
 std::mutex m_logMutex;
+
+std::string to_utf8(const std::wstring& wstr)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+	return converter.to_bytes(wstr);
+}
+
+std::wstring from_utf8(const std::string& utf8_str)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+	return converter.from_bytes(utf8_str);
+}
 
 void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 {

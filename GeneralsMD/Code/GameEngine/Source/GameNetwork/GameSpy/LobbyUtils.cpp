@@ -560,17 +560,17 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 		gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
 	}
 
-	std::string strOwnerName = "";
+	std::wstring strOwnerName = L"";
 	for (LobbyMemberEntry& member : lobbyInfo.members)
 	{
 		if (member.user_id == lobbyInfo.owner)
 		{
-			strOwnerName = member.display_name;
+			strOwnerName = from_utf8(member.display_name);
 		}
 	}
 
 	UnicodeString gameName;
-	gameName.format(L"%hs (%hs)", lobbyInfo.name.c_str(), strOwnerName.c_str());
+	gameName.format(L"%s (%s)", UnicodeString(from_utf8(lobbyInfo.name).c_str()), strOwnerName.c_str());
 
 	int numPlayers = lobbyInfo.current_players;
 	int maxPlayers = lobbyInfo.max_players;

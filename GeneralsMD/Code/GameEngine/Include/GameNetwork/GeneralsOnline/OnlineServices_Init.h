@@ -143,9 +143,9 @@ public:
 
 	void Shutdown();
 
-	void SendData_ChangeName(const char* szMessage);
-	void SendData_RoomChatMessage(const char* szMessage, bool bIsAction);
-	void SendData_LobbyChatMessage(const char* szMessage, bool bIsAction, bool bIsAnnouncement, bool bShowAnnouncementToHost);
+	void SendData_ChangeName(UnicodeString& strNewName);
+	void SendData_RoomChatMessage(UnicodeString& msg, bool bIsAction);
+	void SendData_LobbyChatMessage(UnicodeString& msg, bool bIsAction, bool bIsAnnouncement, bool bShowAnnouncementToHost);
 	void SendData_JoinNetworkRoom(int roomID);
 	void SendData_LeaveNetworkRoom();
 	void SendData_MarkReady(bool bReady);

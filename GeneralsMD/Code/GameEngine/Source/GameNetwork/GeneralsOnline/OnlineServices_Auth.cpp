@@ -174,6 +174,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						// store data locally
 						m_strToken = DecryptServiceToken(authResp.ss_token);
 						m_userID = authResp.user_id;
+
 						m_strDisplayName = authResp.display_name;
 
 						// trigger callback
@@ -232,6 +233,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 								// store data locally
 								m_strToken = DecryptServiceToken(authResp.ss_token);
 								m_userID = authResp.user_id;
+
 								m_strDisplayName = authResp.display_name;
 
 								// trigger callback
@@ -332,6 +334,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						// store data locally
 						m_strToken = DecryptServiceToken(authResp.ss_token);
 						m_userID = authResp.user_id;
+
 						m_strDisplayName = authResp.display_name;
 
 						// trigger callback

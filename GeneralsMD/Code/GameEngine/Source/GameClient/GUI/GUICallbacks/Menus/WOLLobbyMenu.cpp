@@ -181,8 +181,7 @@ Bool handleLobbySlashCommands(UnicodeString uText)
 	}
 	else if ((token == "name" && uText.getLength() > 6) || (token == "nick" && uText.getLength() > 6))
 	{
-		AsciiString newName;
-		newName.translate(UnicodeString(uText.str() + 6)); // skip the /name or nick
+		UnicodeString newName(uText.str() + 6); // skip the /name or nick
 
 		if (newName.getLength() < 3 || newName.getLength() > 16)
 		{
@@ -190,7 +189,7 @@ Bool handleLobbySlashCommands(UnicodeString uText)
 		}
 		else
 		{
-			NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_ChangeName(newName.str());
+			NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_ChangeName(newName);
 		}
 		
 		return TRUE; // was a slash command
@@ -298,10 +297,8 @@ static void playerTooltip(GameWindow *window,
 	{
 		if (pRoomMember != nullptr)
 		{
-			std::string strTooltip = std::format("Display Name: {}\nUser ID: {}", pRoomMember->display_name.c_str(), pRoomMember->user_id);
-
 			UnicodeString ucTooltip;
-			ucTooltip.translate(strTooltip.c_str());
+			ucTooltip.format(L"Display Name: %s\nUser ID: %lld", from_utf8(pRoomMember->display_name).c_str(), pRoomMember->user_id);
 
 			TheMouse->setCursorTooltip(ucTooltip, -1, NULL, 1.5f); // the text and width are the only params used.  the others are the default values.
 		}
@@ -317,7 +314,8 @@ static void playerTooltip(GameWindow *window,
 
 	return;
 
-
+	// TODO_NGMP:
+	/*
 	PlayerInfoMap::iterator it = TheGameSpyInfo->getPlayerInfoMap()->find(aName);
 	PlayerInfo *info = &(it->second);
 	Bool isLocalPlayer = (TheGameSpyInfo->getLocalName().compareNoCase(info->m_name) == 0);
@@ -402,6 +400,7 @@ static void playerTooltip(GameWindow *window,
 	tooltip.concat(tmp);
 
 	TheMouse->setCursorTooltip( tooltip, -1, NULL, 1.5f ); // the text and width are the only params used.  the others are the default values.
+	*/
 }
 
 static void populateGroupRoomListbox(GameWindow *lb)
@@ -522,8 +521,12 @@ const Image* LookupSmallRankImage(Int side, Int rankPoints)
 
 static Int insertPlayerInListbox(const PlayerInfo& info, Color color)
 {
+#if defined(GENERALS_ONLINE)
+	UnicodeString uStr = info.m_nameUni;
+#else
 	UnicodeString uStr;
 	uStr.translate(info.m_name);
+#endif
 
 	Int currentRank = info.m_rankPoints;
 	Int currentSide = info.m_side;
@@ -602,7 +605,9 @@ void PopulateLobbyPlayerListbox(void)
 
 				m_vecUsersProcessed.push_back(netRoomMember.user_id);
 				PlayerInfo pi;
+
 				pi.m_name = AsciiString(netRoomMember.display_name.c_str());
+				pi.m_nameUni = UnicodeString(from_utf8(netRoomMember.display_name).c_str());
 
 				// if we don't have the stats from the server, just add us without any stats
 				if (bSuccess)
@@ -2414,9 +2419,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					// Send the message
 					if (!handleLobbySlashCommands(txtInput))
 					{
-						AsciiString txtInputAscii;
-						txtInputAscii.translate(txtInput);
-						NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(txtInputAscii.str(), false);
+						NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(txtInput, false);
 						// TODO_NGMP: Support private message again
 						//TheGameSpyInfo->sendChat( txtInput, false, listboxLobbyPlayers );
 					}

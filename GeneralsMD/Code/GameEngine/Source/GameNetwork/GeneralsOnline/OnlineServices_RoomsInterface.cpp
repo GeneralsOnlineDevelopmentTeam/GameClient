@@ -80,13 +80,13 @@ void WebSocket::Connect(const char* url)
 	}
 }
 
-void WebSocket::SendData_RoomChatMessage(const char* szMessage, bool bIsAction)
+void WebSocket::SendData_RoomChatMessage(UnicodeString& msg, bool bIsAction)
 {
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_CLIENT;
-	j["message"] = szMessage;
+	j["message"] = to_utf8(msg.str());
 	j["action"] = bIsAction;
-	std::string strBody = j.dump();
+	std::string strBody = j.dump(-1, 32, true);
 
 	Send(strBody.c_str());
 }
@@ -307,14 +307,13 @@ void WebSocket::Tick()
 							{
 								WebSocketMessage_RoomChatIncoming chatData = jsonObject.get<WebSocketMessage_RoomChatIncoming>();
 
-								UnicodeString strChatMsg;
-								strChatMsg.format(L"%hs", chatData.message.c_str());
+								UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
 
 								GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action);
 
 								if (NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback != nullptr)
 								{
-									NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(strChatMsg, color);
+									NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(unicodeStr, color);
 								}
 							}
 							break;
@@ -341,14 +340,12 @@ void WebSocket::Tick()
 							{
 								WebSocketMessage_LobbyChatIncoming chatData = jsonObject.get<WebSocketMessage_LobbyChatIncoming>();
 
+								UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
 								GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action);
-
-								UnicodeString str;
-								str.format(L"%hs", chatData.message.c_str());
 
 								if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback != nullptr)
 								{
-									NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(str, color);
+									NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(unicodeStr, color);
 								}
 							}
 							break;
@@ -523,17 +520,13 @@ void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<v
 
 std::map<uint64_t, NetworkRoomMember>& NGMP_OnlineServices_RoomsInterface::GetMembersListForCurrentRoom()
 {
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Refreshing network room roster");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Repopulating network room roster using local data");
 	return m_mapMembers;
 }
 
 void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
-	// TODO_NGMP: Support unicode again
-	AsciiString strChatMsg;
-	strChatMsg.translate(strChatMsgUnicode);
-
-	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(strChatMsg.str(), bIsAction);
+	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(strChatMsgUnicode, bIsAction);
 }
 
 void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string> vecNames, std::vector<int64_t> vecIDs)

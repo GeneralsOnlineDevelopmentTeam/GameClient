@@ -91,6 +91,7 @@ static GameWindow *checkBoxNonAsianFont = NULL;
 static Bool isOverlayActive = false;
 static Bool raiseMessageBox = false;
 static int64_t lookAtPlayerID = 0;
+
 static std::string lookAtPlayerName;
 
 
@@ -267,11 +268,19 @@ RankPoints::RankPoints(void)
 
 RankPoints *TheRankPointValues = NULL;
 
+#if defined(GENERALS_ONLINE)
+void SetLookAtPlayer(int64_t id, UnicodeString nick)
+{
+	lookAtPlayerID = id;
+	lookAtPlayerName = to_utf8(nick.str());
+}
+#else
 void SetLookAtPlayer(int64_t id, AsciiString nick)
 {
 	lookAtPlayerID = id;
 	lookAtPlayerName = nick.str();
 }
+#endif
 
 //	BATTLE_HONOR_LADDER_CHAMP		= 0x0000001,
 //	BATTLE_HONOR_STREAK					= 0x0000002,
@@ -889,7 +898,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 
 				// NGMP: Dont show the "from <locale> anymore...
 #if defined(GENERALS_ONLINE)
-				uStr.format(L"%hs", lookAtPlayerName.c_str());
+				uStr.format(L"%s", from_utf8(lookAtPlayerName).c_str());
 #else
 				uStr.format(TheGameText->fetch("GUI:PlayerStatistics"), lookAtPlayerName.c_str(), TheGameText->fetch(localeID).str());
 #endif

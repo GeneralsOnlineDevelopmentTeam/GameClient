@@ -1136,7 +1136,7 @@ void WOLDisplaySlotList( void )
 			{
 				LobbyMemberEntry member = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromID(slot->m_userID);
 
-				std::string strPingString = "";
+				AsciiString strPingString = "";
 				std::string strConnectionState = "Not Connected";
 				int latency = -1;
 
@@ -1151,14 +1151,14 @@ void WOLDisplaySlotList( void )
 
 					}
 				}
-				
-				strPingString = std::format("Display Name: {}\nUser ID: {}\nConnection Type: {}\nLatency: {}",
-					member.display_name.c_str(),
+
+				UnicodeString ucTooltip;
+				ucTooltip.format(L"Display Name: %s\nUser ID: %lld\nConnection Type: %hs\nLatency: %d", from_utf8(member.display_name).c_str(),
 					member.user_id,
 					strConnectionState.c_str(),
 					latency);
 
-				slot->setPingString(strPingString.c_str());
+				slot->setPingString(ucTooltip);
 			}
 
 			if (genericPingWindow[i])
@@ -1488,7 +1488,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 	// connection events (for debug really)
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-	pMesh->RegisterForConnectionEvents([](int64_t userID, std::string strDisplayName, PlayerConnection* connection)
+	pMesh->RegisterForConnectionEvents([](int64_t userID, std::wstring strDisplayName, PlayerConnection* connection)
 		{
 			std::string strState = "Unknown";
 
@@ -1528,7 +1528,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			UnicodeString strConnectionMessage;
 			if (connState == EConnectionState::CONNECTED_DIRECT || connState == EConnectionState::CONNECTION_DISCONNECTED)
 			{
-				strConnectionMessage.format(L"Connection state to %hs changed to: %hs (mechanism: %hs | protocol: %hs)", strDisplayName.c_str(), strState.c_str(), strConnectionType.c_str(), connection->IsIPV4() ? "IPv4" : "IPv6");
+				strConnectionMessage.format(L"Connection state to %s changed to: %hs (mechanism: %hs | protocol: %hs)", strDisplayName.c_str(), strState.c_str(), strConnectionType.c_str(), connection->IsIPV4() ? "IPv4" : "IPv6");
 				GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(255, 194, 15, 255), -1, -1);
 			}
 			else
@@ -1537,7 +1537,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 				if (connState == EConnectionState::CONNECTION_FAILED)
 				{
 #endif
-					strConnectionMessage.format(L"Connection state to %hs changed to: %hs", strDisplayName.c_str(), strState.c_str());
+					strConnectionMessage.format(L"Connection state to %s changed to: %hs", strDisplayName.c_str(), strState.c_str());
 					GadgetListBoxAddEntryText(listboxGameSetupChat, strConnectionMessage, GameMakeColor(255, 194, 15, 255), -1, -1);
 
 #if !defined(_DEBUG)
@@ -1564,8 +1564,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 				willTransfer = WouldMapTransfer(TheNGMPGame->getMap());
 			}
 
-			UnicodeString strDisplayName;
-			strDisplayName.format(L"%hs", lobbyMember.display_name.c_str());
+			UnicodeString strDisplayName(from_utf8(lobbyMember.display_name).c_str());
 
 			UnicodeString text;
 			if (willTransfer)
@@ -1694,7 +1693,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		hostSlot->setColor(0);
 		hostSlot->setPlayerTemplate(PLAYERTEMPLATE_RANDOM);
 		//hostSlot->setNATBehavior((FirewallHelperClass::FirewallBehaviorType)natPref.getFirewallBehavior());
-		hostSlot->setPingString("TODO_NGMP");
+		hostSlot->setPingString(UnicodeString(L"TODO_NGMP"));
 
 		CustomMatchPreferences customPref;
 
@@ -2685,6 +2684,8 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 							TheNAT->processGlobalMessage(-1, resp.commandOptions.c_str());
 						}
 					}
+					// TODO_NGMP: Probably don't care about this anymore
+					/*
 					else if (!stricmp(resp.command.c_str(), "Pings"))
 					{
 						if (!TheGameSpyInfo->amIHost())
@@ -2707,6 +2708,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 							}
 						}
 					}
+					*/
 				}
 				break;
 
@@ -2935,7 +2937,8 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 								}
 								else if (key == "Ping")
 								{
-									slot->setPingString(options.str()+1);
+									// TODO_NGMP
+									//slot->setPingString(options.str()+1);
 									TheGameSpyInfo->setGameOptions();
 									DEBUG_LOG(("Setting ping string to %s for player %d", options.str()+1, slotNum));
 								}
@@ -3208,12 +3211,12 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 				break;
 			}
 
-			std::string strDisplayName = "Unknown";
+			std::wstring strDisplayName = L"Unknown";
 			for (auto& member : lobbyMembers)
 			{
 				if (member.user_id == kvPair.first)
 				{
-					strDisplayName = member.display_name;
+					strDisplayName = from_utf8(member.display_name);
 					break;
 				}
 			}
@@ -3221,7 +3224,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 			std::string strConnectionType = conn.GetConnectionType();
 
 			UnicodeString msg;
-			msg.format(L"        Connection %d - user %lld - name %hs - State: %hs - Latency: %d game frames (%d ms) - %d GenTool frames - Connection Type %hs",
+			msg.format(L"        Connection %d - user %lld - name %s - State: %hs - Latency: %d game frames (%d ms) - %d GenTool frames - Connection Type %hs",
 				i, kvPair.first, strDisplayName.c_str(), strState.c_str(), ConvertMSLatencyToFrames(conn.GetLatency()), conn.GetLatency(), ConvertMSLatencyToGenToolFrames(conn.GetLatency()), strConnectionType.c_str());
 			GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 

@@ -578,7 +578,7 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 				name.trim();
 				if(name.getLength() <= 0)
 				{
-					name.translate(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName());
+					name.format(L"%s", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName());
 					GadgetTextEntrySetText(textEntryGameName, name);
 				}
 				createGame();

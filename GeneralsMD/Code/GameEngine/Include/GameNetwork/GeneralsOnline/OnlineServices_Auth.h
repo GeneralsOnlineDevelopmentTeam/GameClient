@@ -4,9 +4,14 @@ class NGMP_OnlineServices_AuthInterface
 {
 public:
 
-	AsciiString GetDisplayName()
+	std::string GetDisplayName()
 	{
-		return AsciiString(m_strDisplayName.c_str());
+		return m_strDisplayName;
+	}
+
+	std::wstring GetDisplayNameW()
+	{
+		return from_utf8(m_strDisplayName);
 	}
 
 	int64_t GetUserID() const { return m_userID; }

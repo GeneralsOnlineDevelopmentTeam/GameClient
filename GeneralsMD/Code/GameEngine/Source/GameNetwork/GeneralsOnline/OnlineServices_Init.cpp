@@ -432,22 +432,21 @@ void WebSocket::Shutdown()
 	Disconnect();
 }
 
-void WebSocket::SendData_ChangeName(const char* szNewName)
+void WebSocket::SendData_ChangeName(UnicodeString& strNewName)
 {
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::PLAYER_NAME_CHANGE;
-	j["name"] = szNewName;
+	j["name"] = to_utf8(strNewName.str());
 	std::string strBody = j.dump();
 
 	Send(strBody.c_str());
 }
 
-
-void WebSocket::SendData_LobbyChatMessage(const char* szMessage, bool bIsAction, bool bIsAnnouncement, bool bShowAnnouncementToHost)
+void WebSocket::SendData_LobbyChatMessage(UnicodeString& msg, bool bIsAction, bool bIsAnnouncement, bool bShowAnnouncementToHost)
 {
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::LOBBY_ROOM_CHAT_FROM_CLIENT;
-	j["message"] = szMessage;
+	j["message"] = to_utf8(msg.str());
 	j["action"] = bIsAction;
 	j["announcement"] = bIsAnnouncement;
 	j["show_announcement_to_host"] = bShowAnnouncementToHost;

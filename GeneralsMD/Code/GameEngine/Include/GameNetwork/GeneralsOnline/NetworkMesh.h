@@ -113,8 +113,8 @@ public:
 
 	void UpdateConnectivity(PlayerConnection* connection);
 
-	std::function<void(int64_t, std::string, PlayerConnection*)> m_cbOnConnected = nullptr;
-	void RegisterForConnectionEvents(std::function<void(int64_t, std::string, PlayerConnection*)> cb)
+	std::function<void(int64_t, std::wstring, PlayerConnection*)> m_cbOnConnected = nullptr;
+	void RegisterForConnectionEvents(std::function<void(int64_t, std::wstring, PlayerConnection*)> cb)
 	{
 		m_cbOnConnected = cb;
 	}

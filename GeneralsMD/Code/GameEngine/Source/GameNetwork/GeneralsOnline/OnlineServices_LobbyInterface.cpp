@@ -23,7 +23,7 @@ UnicodeString NGMP_OnlineServices_LobbyInterface::GetCurrentLobbyDisplayName()
 
 	if (IsInLobby())
 	{
-		strDisplayName.format(L"%hs", m_CurrentLobby.name.c_str());
+		strDisplayName = UnicodeString(from_utf8(m_CurrentLobby.name).c_str());
 	}
 
 	return strDisplayName;
@@ -458,20 +458,13 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 
 void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
-	// TODO_NGMP: Support unicode again
-	AsciiString strChatMsg;
-	strChatMsg.translate(strChatMsgUnicode);
-
-	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LobbyChatMessage(strChatMsg.str(), bIsAction, false, false);
+	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LobbyChatMessage(strChatMsgUnicode, bIsAction, false, false);
 }
 
 // TODO_NGMP: Just send a separate packet for each announce, more efficient and less hacky
 void NGMP_OnlineServices_LobbyInterface::SendAnnouncementMessageToCurrentLobby(UnicodeString& strAnnouncementMsgUnicode, bool bShowToHost)
 {
-	AsciiString strChatMsg;
-	strChatMsg.translate(strAnnouncementMsgUnicode);
-
-	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LobbyChatMessage(strChatMsg.str(), false, true, bShowToHost);
+	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LobbyChatMessage(strAnnouncementMsgUnicode, false, true, bShowToHost);
 }
 
 NGMP_OnlineServices_LobbyInterface::NGMP_OnlineServices_LobbyInterface()
@@ -941,9 +934,6 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 			{
 				TheNGMPGame = new NGMPGame();
 
-				AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-				TheNGMPGame->setLocalName(localName);
-
 				// set in game, this actually means in lobby... not in game play, and is necessary to start the game
 				TheNGMPGame->setInGame();
 
@@ -1065,9 +1055,6 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 	std::map<std::string, std::string> mapHeaders;
 
 	// convert
-	AsciiString strName = AsciiString();
-	strName.translate(strLobbyName);
-
 	AsciiString strMapName = AsciiString();
 	strMapName.translate(strInitialMapName);
 
@@ -1081,7 +1068,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 	}
 
 	nlohmann::json j;
-	j["name"] = strName.str();
+	j["name"] = to_utf8(strLobbyName.str());
 	j["map_name"] = strMapName.str();
 	j["map_path"] = sanitizedMapPath.str();
 	j["map_official"] = bIsOfficial;
@@ -1130,14 +1117,16 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 					// reset before copy
 					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ResetCachedRoomData();
-					 
+
 					// TODO: Do we need more info here? we kick off a lobby GET immediately, maybe that should be the response to creating
-					
+
 					// store the basic info (lobby id), we will immediately kick off a full get				
 					m_CurrentLobby.lobbyID = resp.lobby_id;
 					m_CurrentLobby.owner = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 
-					m_CurrentLobby.name = std::string(strName.str());
+					AsciiString strName = AsciiString();
+
+					m_CurrentLobby.name = to_utf8(strLobbyName.str());
 					m_CurrentLobby.map_name = std::string(strMapName.str());
 					m_CurrentLobby.map_path = std::string(sanitizedMapPath.str());
 					m_CurrentLobby.current_players = 1;
@@ -1148,18 +1137,12 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					LobbyMemberEntry me;
 
 					me.user_id = m_CurrentLobby.owner;
-					me.display_name = std::string(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
+					me.display_name = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
 					me.m_bIsReady = true; // host is always ready
 					me.strIPAddress = "127.0.0.1"; // TODO_NGMP: use localhost for non-host players too that are local...
 					me.preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 
 					m_CurrentLobby.members.push_back(me);
-
-					
-
-
-					AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-					TheNGMPGame->setLocalName(localName);
 
 					// set in game, this actually means in lobby... not in game play, and is necessary to start the game
 					TheNGMPGame->setInGame();

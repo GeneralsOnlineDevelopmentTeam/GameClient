@@ -856,13 +856,13 @@ void PlayerConnection::UpdateState(EConnectionState newState, NetworkMesh* pOwni
 	pOwningMesh->UpdateConnectivity(this);
 
 
-	std::string strDisplayName = "Unknown User";
+	std::wstring strDisplayName = L"Unknown User";
 	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
 	for (const auto& member : currentLobby.members)
 	{
 		if (member.user_id == m_userID)
 		{
-			strDisplayName = member.display_name;
+			strDisplayName = from_utf8(member.display_name);
 			break;
 		}
 	}

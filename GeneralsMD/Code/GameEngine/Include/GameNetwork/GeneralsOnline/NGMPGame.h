@@ -10,10 +10,6 @@ public:
 	NGMPGameSlot();
 	Int getProfileID(void) const { return m_profileID; }
 	void setProfileID(Int id) { m_profileID = id; }
-	AsciiString getLoginName(void) const { return m_gameSpyLogin; }
-	void setLoginName(AsciiString name) { m_gameSpyLogin = name; }
-	AsciiString getLocale(void) const { return m_gameSpyLocale; }
-	void setLocale(AsciiString name) { m_gameSpyLocale = name; }
 	Int getWins(void) const { return m_wins; }
 	Int getLosses(void) const { return m_losses; }
 	void setWins(Int wins) { m_wins = wins; }
@@ -24,13 +20,13 @@ public:
 	void setSlotRankPoints(Int val) { m_rankPoints = val; }
 	void setFavoriteSide(Int val) { m_favoriteSide = val; }
 
-	void setPingString(AsciiString pingStr) { m_pingStr = pingStr; }
-	inline AsciiString getPingString(void) const { return m_pingStr; }
+	void setPingString(UnicodeString pingStr) { m_pingStr = pingStr; }
+	inline UnicodeString getPingString(void) const { return m_pingStr; }
 	inline Int getPingAsInt(void) const { return m_pingInt; }
 
 	int64_t m_userID = -1;
 
-	void UpdateLatencyFromConnection(AsciiString pingStr, int ping)
+	void UpdateLatencyFromConnection(UnicodeString pingStr, int ping)
 	{
 		m_pingStr = pingStr;
 		m_pingInt = ping;
@@ -38,10 +34,8 @@ public:
 
 protected:
 	Int m_profileID;
-	AsciiString m_gameSpyLogin;
-	AsciiString m_gameSpyLocale;
 
-	AsciiString m_pingStr;
+	UnicodeString m_pingStr;
 	Int m_pingInt;
 	Int m_wins, m_losses;
 	Int m_rankPoints, m_favoriteSide;
@@ -54,8 +48,6 @@ private:
 	NGMPGameSlot m_Slots[MAX_SLOTS];
 	UnicodeString m_gameName;
 	Int m_id;
-	//Transport* m_transport;
-	AsciiString m_localName;
 	Bool m_requiresPassword;
 	Bool m_allowObservers;
 	UnsignedInt m_version;
@@ -183,6 +175,4 @@ public:
 
 	inline void setGameName(UnicodeString name) { m_gameName = name; }
 	inline UnicodeString getGameName(void) const { return m_gameName; }
-
-	inline void setLocalName(AsciiString name) { m_localName = name; }
 };

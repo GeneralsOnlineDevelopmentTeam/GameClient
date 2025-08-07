@@ -15,8 +15,6 @@
 NGMPGameSlot::NGMPGameSlot()
 {
 	GameSlot();
-	m_gameSpyLogin.clear();
-	m_gameSpyLocale.clear();
 	m_profileID = 0;
 	m_wins = 0;
 	m_losses = 0;
@@ -34,9 +32,6 @@ NGMPGame::NGMPGame()
 	cleanUpSlotPointers();
 
 	setLocalIP(0);
-	//m_transport = NULL;
-
-	m_localName = "localhost";
 
 	m_ladderIP.clear();
 	m_ladderPort = 0;
@@ -81,14 +76,10 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 
 	setHasPassword(lobby.passworded);
 
-	AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-	TheNGMPGame->setLocalName(localName);
-
 	setExeCRC(lobby.exe_crc);
 	setIniCRC(lobby.ini_crc);
 
-	UnicodeString lobbyName;
-	lobbyName.format(L"%hs", lobby.name.c_str());
+	UnicodeString lobbyName = UnicodeString(from_utf8(lobby.name).c_str());
 	setGameName(lobbyName);
 
 	// starting cash
@@ -129,13 +120,10 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		{
 			bool bIsAI = (pLobbyMember.m_SlotState == SlotState::SLOT_EASY_AI || pLobbyMember.m_SlotState == SlotState::SLOT_MED_AI|| pLobbyMember.m_SlotState == SlotState::SLOT_BRUTAL_AI);
 
-			UnicodeString str;
-			str.translate(pLobbyMember.display_name.c_str());
-
 			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(pLobbyMember.m_SlotIndex);
 
 			// NOTE: Internally generals uses 'local ip' to detect which user is local... we dont have an IP, so just use player index for ip
-			slot->setState((SlotState)pLobbyMember.m_SlotState, str, pLobbyMember.m_SlotIndex);
+			slot->setState((SlotState)pLobbyMember.m_SlotState, UnicodeString(from_utf8(pLobbyMember.display_name).c_str()), pLobbyMember.m_SlotIndex);
 
 
 			// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
@@ -284,7 +272,6 @@ void NGMPGame::startGame(Int gameID)
 			++numHumans;
 			AsciiString gsName;
 			gsName.translate(m_Slots[i].getName());
-			m_Slots[i].setLoginName(gsName);
 
 			if (m_isQM)
 			{

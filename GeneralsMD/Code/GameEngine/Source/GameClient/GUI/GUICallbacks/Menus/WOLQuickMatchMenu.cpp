@@ -838,7 +838,7 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 #if !defined(GENERALS_ONLINE)
 		tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), TheGameSpyInfo->getLocalName().str());
 #else
-		tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
+		tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().c_str());
 #endif
 		GadgetStaticTextSetText(staticTextTitle, tmp);
 	}

@@ -636,7 +636,7 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	if (staticTextTitle)
 	{
 		UnicodeString title;
-		title.format(TheGameText->fetch("GUI:WOLWelcome"), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
+		title.format(L"Welcome to Generals Online, %s", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayNameW().c_str());
 		GadgetStaticTextSetText(staticTextTitle, title);
 	}
 #endif
@@ -1051,7 +1051,8 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 				}// else if
 				else if (controlID == buttonMyInfoID )
 				{
-					SetLookAtPlayer(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID(), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName());
+					// TODO_NGMP: This needs work for unicode once we support this
+					SetLookAtPlayer(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID(), UnicodeString(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayNameW().c_str()));
 					GameSpyToggleOverlay(GSOVERLAY_PLAYERINFO);
 				}
 				else if (controlID == buttonLobbyID)
