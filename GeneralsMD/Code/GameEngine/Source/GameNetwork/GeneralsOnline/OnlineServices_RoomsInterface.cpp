@@ -191,8 +191,9 @@ public:
 	bool action;
 	bool announcement;
 	bool show_announcement_to_host;
+	int64_t user_id;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_LobbyChatIncoming, msg_id, message, action, announcement, show_announcement_to_host)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_LobbyChatIncoming, msg_id, message, action, announcement, show_announcement_to_host, user_id)
 };
 
 class WebSocketMessage_RelayUpgrade : public WebSocketMessageBase
@@ -309,7 +310,7 @@ void WebSocket::Tick()
 
 								UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
 
-								GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action);
+								Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action);
 
 								if (NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback != nullptr)
 								{
@@ -341,7 +342,19 @@ void WebSocket::Tick()
 								WebSocketMessage_LobbyChatIncoming chatData = jsonObject.get<WebSocketMessage_LobbyChatIncoming>();
 
 								UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
-								GameSpyColors color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action);
+
+								int lobbySlot = -1;
+								auto lobbyMembers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
+								for (const auto& lobbyMember : lobbyMembers)
+								{
+									if (lobbyMember.user_id == chatData.user_id)
+									{
+										lobbySlot = lobbyMember.m_SlotIndex;
+										break;
+									}
+								}
+
+								Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action, lobbySlot);
 
 								if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback != nullptr)
 								{

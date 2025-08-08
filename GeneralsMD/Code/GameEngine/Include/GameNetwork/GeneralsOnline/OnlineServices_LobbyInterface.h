@@ -334,8 +334,8 @@ public:
 		m_OnCannotConnectToLobbyCallback = nullptr;
 	}
 
-	std::function<void(UnicodeString strMessage, GameSpyColors color)> m_OnChatCallback = nullptr;
-	void RegisterForChatCallback(std::function<void(UnicodeString strMessage, GameSpyColors color)> cb)
+	std::function<void(UnicodeString strMessage, Color color)> m_OnChatCallback = nullptr;
+	void RegisterForChatCallback(std::function<void(UnicodeString strMessage, Color color)> cb)
 	{
 		m_OnChatCallback = cb;
 	}

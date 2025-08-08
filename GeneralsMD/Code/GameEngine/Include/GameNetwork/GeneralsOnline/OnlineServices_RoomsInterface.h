@@ -5,33 +5,50 @@
 #include "../GameSpy/PeerDefs.h"
 #include "OnlineServices_Init.h"
 
+extern Color PlayerSlotColors[MAX_SLOTS];
+
 enum class EChatMessageType
 {
 	CHAT_MESSAGE_TYPE_NETWORK_ROOM,
 	CHAT_MESSAGE_TYPE_LOBBY
 };
-static GameSpyColors DetermineColorForChatMessage(EChatMessageType chatMessageType, Bool isPublic, Bool isAction)
+static Color DetermineColorForChatMessage(EChatMessageType chatMessageType, Bool isPublic, Bool isAction, int lobbySlot = -1)
 {
-	GameSpyColors style;
+	Color style;
 
 	// TODO_NGMP: Support owner chat again
 	Bool isOwner = false;
 
 	if (isPublic && isAction)
 	{
-		style = (isOwner) ? GSCOLOR_CHAT_OWNER_EMOTE : GSCOLOR_CHAT_EMOTE;
+		style = (isOwner) ? GameSpyColor[GSCOLOR_CHAT_OWNER_EMOTE] : GameSpyColor[GSCOLOR_CHAT_EMOTE];
 	}
 	else if (isPublic)
 	{
-		style = (isOwner) ? GSCOLOR_CHAT_OWNER : GSCOLOR_CHAT_NORMAL;
+		// use lobby colors
+		if (chatMessageType == EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY)
+		{
+			if (lobbySlot == -1)
+			{
+				return GameMakeColor(255, 255, 255, 255);
+			}
+			else
+			{
+				style = PlayerSlotColors[lobbySlot];
+			}
+		}
+		else
+		{
+			style = (isOwner) ? GameSpyColor[GSCOLOR_CHAT_OWNER] : GameSpyColor[GSCOLOR_CHAT_NORMAL];
+		}
 	}
 	else if (isAction)
 	{
-		style = (isOwner) ? GSCOLOR_CHAT_PRIVATE_OWNER_EMOTE : GSCOLOR_CHAT_PRIVATE_EMOTE;
+		style = (isOwner) ? GameSpyColor[GSCOLOR_CHAT_PRIVATE_OWNER_EMOTE] : GameSpyColor[GSCOLOR_CHAT_PRIVATE_EMOTE];
 	}
 	else
 	{
-		style = (isOwner) ? GSCOLOR_CHAT_PRIVATE_OWNER : GSCOLOR_CHAT_PRIVATE;
+		style = (isOwner) ? GameSpyColor[GSCOLOR_CHAT_PRIVATE_OWNER] : GameSpyColor[GSCOLOR_CHAT_PRIVATE];
 	}
 
 	// filters language
@@ -69,8 +86,8 @@ public:
 		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LeaveNetworkRoom();
 	}
 
-	std::function<void(UnicodeString strMessage, GameSpyColors color)> m_OnChatCallback = nullptr;
-	void RegisterForChatCallback(std::function<void(UnicodeString strMessage, GameSpyColors color)> cb)
+	std::function<void(UnicodeString strMessage, Color color)> m_OnChatCallback = nullptr;
+	void RegisterForChatCallback(std::function<void(UnicodeString strMessage, Color color)> cb)
 	{
 		m_OnChatCallback = cb;
 	}

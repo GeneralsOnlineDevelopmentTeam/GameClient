@@ -1008,9 +1008,9 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	// TODO_NGMP: player list change callbacks
 	
 	// register for chat events
-	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->RegisterForChatCallback([](UnicodeString strMessage, GameSpyColors color)
+	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->RegisterForChatCallback([](UnicodeString strMessage, Color color)
 		{
-			GadgetListBoxAddEntryText(listboxLobbyChat, strMessage, GameSpyColor[color], -1, -1);
+			GadgetListBoxAddEntryText(listboxLobbyChat, strMessage, color, -1, -1);
 		});
 
 	// register for roster events

@@ -9,6 +9,18 @@
 std::string m_strNetworkLogFileName;
 std::mutex m_logMutex;
 
+Color PlayerSlotColors[MAX_SLOTS] =
+{
+	GameMakeColor(0, 162, 232, 255),
+	GameMakeColor(255, 0, 0, 255),
+	GameMakeColor(0, 255, 0, 255),
+	GameMakeColor(0, 0, 255, 255),
+	GameMakeColor(255, 194, 15, 255),
+	GameMakeColor(163, 73, 164, 255),
+	GameMakeColor(230, 157, 181, 255),
+	GameMakeColor(16, 82, 35, 255),
+};
+
 std::string to_utf8(const std::wstring& wstr)
 {
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;

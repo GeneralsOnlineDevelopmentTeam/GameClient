@@ -14,15 +14,14 @@
 
 #pragma comment(lib, "Crypt32.lib")
 
-#if _DEBUG
-#define CREDENTIALS_FILENAME "credentials_env_dev.json"
-#elif defined(USE_TEST_ENV)
+#if defined(USE_TEST_ENV)
 #define CREDENTIALS_FILENAME "credentials_env_test.json"
-#else
+#elseif !DEBUG
 #define CREDENTIALS_FILENAME "credentials.json"
 #endif
 
 #include "GameNetwork/GeneralsOnline/vendor/libcurl/curl.h"
+#include "GameClient/ClientInstance.h"
 
 enum class EAuthResponseResult : int
 {
@@ -455,6 +454,11 @@ bool NGMP_OnlineServices_AuthInterface::GetCredentials(std::string& strRefreshTo
 
 std::string NGMP_OnlineServices_AuthInterface::GetCredentialsFilePath()
 {
-	std::string strPatcherDirPath = std::format("{}/GeneralsOnlineData/{}", TheGlobalData->getPath_UserData().str(), CREDENTIALS_FILENAME);
-	return strPatcherDirPath;
+	// debug supports multi inst, so needs seperate tokens
+#if _DEBUG
+	std::string strCredsPath = std::format("{}/GeneralsOnlineData/credentials_dev_env_{}.json", TheGlobalData->getPath_UserData().str(), rts::ClientInstance::getInstanceIndex());
+#else
+	std::string strCredsPath = std::format("{}/GeneralsOnlineData/{}", TheGlobalData->getPath_UserData().str(), CREDENTIALS_FILENAME);
+#endif
+	return strCredsPath;
 }
