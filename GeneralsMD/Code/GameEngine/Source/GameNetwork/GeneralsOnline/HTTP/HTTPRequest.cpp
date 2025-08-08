@@ -133,6 +133,7 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 
 	std::string strURIRedacted = m_strURI;
 
+#if !_DEBUG
 	size_t tokenpos = strURIRedacted.find("token:");
 	if (tokenpos != -1)
 	{
@@ -140,18 +141,21 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 		const size_t tokenLen = 32;
 		strURIRedacted = strURIRedacted.replace(tokenpos + 6, tokenLen, strReplace);
 	}
+#endif
 
 	std::string strResponse = std::string(reinterpret_cast<const char*>(m_vecBuffer.data()), m_currentBufSize_Used);
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s] Transfer is complete: %d bytes total! Curl result is %d", this, strURIRedacted.c_str(), m_currentBufSize_Used, result);
 
 	// if we got an error, set the response code to 0
 
+#if !_DEBUG
 	std::transform(strResponse.begin(), strResponse.end(), strResponse.begin(),
 		[](unsigned char c) { return std::tolower(c); });
 	if (strResponse.find("token") != std::string::npos)
 	{
 		strResponse = "<redacted>";
 	}
+#endif
 
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s] Response was %d - %s!", this, strURIRedacted.c_str(), m_responseCode, strResponse.c_str());
 

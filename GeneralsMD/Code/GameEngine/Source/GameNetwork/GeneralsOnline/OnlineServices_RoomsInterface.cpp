@@ -274,7 +274,7 @@ void WebSocket::Tick()
 			{
 				NetworkLog(ELogVerbosity::LOG_DEBUG, "websocket buffer is: %s", buffer);
 
-				if (meta->flags & CURLWS_CONT)
+				if (meta->flags & CURLWS_CONT || meta->bytesleft > 0)
 				{
 					strBuf.append(buffer, rlen);
 					NetworkLog(ELogVerbosity::LOG_DEBUG, "WEBSOCKET PARTIAL!");
@@ -404,11 +404,6 @@ void WebSocket::Tick()
 			else if (meta->flags & CURLWS_BINARY)
 			{
 				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket binary");
-				// noop
-			}
-			else if (meta->flags & CURLWS_CONT)
-			{
-				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket cont");
 				// noop
 			}
 			else if (meta->flags & CURLWS_CLOSE)

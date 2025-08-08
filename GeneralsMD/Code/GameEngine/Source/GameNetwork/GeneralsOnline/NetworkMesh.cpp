@@ -242,7 +242,7 @@ class CSignalingClient : public ISignalingClient
 				signal.push_back(hexdigit[*p >> 4U]);
 				signal.push_back(hexdigit[*p & 0xf]);
 			}
-			signal.push_back('\n');
+			//signal.push_back('\n');
 
 			m_pOwner->Send(signal);
 			return true;
@@ -288,7 +288,7 @@ public:
 	// Send the signal.
 	void Send(const std::string& s)
 	{
-		assert(s.length() > 0 && s[s.length() - 1] == '\n'); // All of our signals are '\n'-terminated
+		//assert(s.length() > 0 && s[s.length() - 1] == '\n'); // All of our signals are '\n'-terminated
 
 		sockMutex.lock();
 
@@ -296,7 +296,7 @@ public:
 		// we are only required to do best-effort delivery.  And old signals are the
 		// most likely to be out of date (either old data, or the client has already
 		// timed them out and queued a retry).
-		while (m_queueSend.size() > 32)
+		while (m_queueSend.size() > 128)
 		{
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "Signaling send queue is backed up.  Discarding oldest signals\n");
 			m_queueSend.pop_front();
