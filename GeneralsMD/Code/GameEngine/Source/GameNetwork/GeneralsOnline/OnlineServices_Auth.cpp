@@ -143,37 +143,36 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 {
 	std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginWithToken");
 
-#if defined(DEBUG) && !defined(USE_TEST_ENV)
-	static HANDLE MPMutex = NULL;
-	MPMutex = CreateMutex(NULL, FALSE, "685EAFF2-3216-4265-FFFF-251C5F4B82F3");
-
-	if (NGMP_OnlineServicesManager::g_Environment == NGMP_OnlineServicesManager::EEnvironment::DEV || NGMP_OnlineServicesManager::g_Environment == NGMP_OnlineServicesManager::EEnvironment::TEST)
+	std::string strRefreshToken;
+	bool bValidCreds = GetCredentials(strRefreshToken);
+	if (bValidCreds)
 	{
-		// use dev account
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Secondary instance detected... using dev account for testing purposes");
 		// login
-		std::string strToken = "ILOVECODE";
 		std::map<std::string, std::string> mapHeaders;
 
 		nlohmann::json j;
-		j["token"] = strToken.c_str();
 		j["client_id"] = GENERALS_ONLINE_CLIENT_ID;
-		PrepareChallenge(j);
 		std::string strPostData = j.dump();
+
+		// attach refresh token
+		mapHeaders["Authorization"] = "Bearer " + strRefreshToken;
 
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
 				try
 				{
-					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+					nlohmann::json jsonObject = nlohmann::json::parse(strBody, nullptr, false, true);
 					AuthResponse authResp = jsonObject.get<AuthResponse>();
 
 					if (authResp.result == EAuthResponseResult::SUCCEEDED)
 					{
+						ClearGSMessageBoxes();
+						GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Logged in!"), true);
+
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Logged in");
 						m_bWaitingLogin = false;
 
-						SaveCredentials(authResp.session_token.c_str(), authResp.refresh_token.c_str());
+						SaveCredentials(authResp.refresh_token.c_str());
 
 						// store data locally
 						m_strToken = authResp.session_token;
@@ -181,16 +180,27 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						m_strDisplayName = authResp.display_name;
 
 						// trigger callback
-						OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str());
+						OnLoginComplete(true, authResp.ws_uri.c_str());
 					}
 					else if (authResp.result == EAuthResponseResult::FAILED)
 					{
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed, dev account cannot reauth");
+						ClearGSMessageBoxes();
+						GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);
 
-						m_bWaitingLogin = false;
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed, trying to re-auth");
 
-						// trigger callback
-						OnLoginComplete(false, "");
+						// do normal login flow, token is bad or expired etc
+						m_bWaitingLogin = true;
+						m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+						m_strCode = GenerateGamecode();
+
+#if defined(USE_TEST_ENV)
+						std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
+#else
+						std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+#endif
+
+						ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
 					}
 				}
 				catch (...)
@@ -201,93 +211,28 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 			}, nullptr);
 	}
 	else
-#endif
 	{
-		std::string strSessionToken;
-		std::string strRefreshToken;
-		bool bValidCreds = GetCredentials(strSessionToken, strRefreshToken);
-		if (bValidCreds)
-		{
-			// login
-			std::map<std::string, std::string> mapHeaders;
-
-			nlohmann::json j;
-			j["session_token"] = strSessionToken.c_str();
-			j["refresh_token"] = strRefreshToken.c_str();
-			j["client_id"] = GENERALS_ONLINE_CLIENT_ID;
-			PrepareChallenge(j);
-			std::string strPostData = j.dump();
-
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-				{
-					try
-					{
-						nlohmann::json jsonObject = nlohmann::json::parse(strBody, nullptr, false, true);
-						AuthResponse authResp = jsonObject.get<AuthResponse>();
-
-						if (authResp.result == EAuthResponseResult::SUCCEEDED)
-						{
-							ClearGSMessageBoxes();
-							GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Logged in!"), true);
-
-							NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Logged in");
-							m_bWaitingLogin = false;
-
-							SaveCredentials(authResp.session_token.c_str(), authResp.refresh_token.c_str());
-
-							// store data locally
-							m_strToken = authResp.session_token;
-							m_userID = authResp.user_id;
-							m_strDisplayName = authResp.display_name;
-
-							// trigger callback
-							OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str());
-						}
-						else if (authResp.result == EAuthResponseResult::FAILED)
-						{
-							ClearGSMessageBoxes();
-							GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);
-
-							NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed, trying to re-auth");
-
-							// do normal login flow, token is bad or expired etc
-							m_bWaitingLogin = true;
-							m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-							m_strCode = GenerateGamecode();
+		m_bWaitingLogin = true;
+		m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		m_strCode = GenerateGamecode();
 
 #if defined(USE_TEST_ENV)
-							std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
+		std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
 #else
-							std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+		std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
 #endif
 
-							ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
-						}
-					}
-					catch (...)
-					{
+		ClearGSMessageBoxes();
+		GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);
 
-					}
-
-				}, nullptr);
-		}
-		else
-		{
-			m_bWaitingLogin = true;
-			m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-			m_strCode = GenerateGamecode();
-
-#if defined(USE_TEST_ENV)
-			std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
+#if _DEBUG
+		m_strCode = "ILOVECODE";
 #else
-			std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+		ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #endif
+			
 
-			ClearGSMessageBoxes();
-			GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);
-
-			ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
-		}
+			
 	}
 }
 
@@ -309,7 +254,6 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 			nlohmann::json j;
 			j["code"] = m_strCode.c_str();
 			j["client_id"] = GENERALS_ONLINE_CLIENT_ID;
-			PrepareChallenge(j);
 			std::string strPostData = j.dump();
 
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
@@ -333,7 +277,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Logged in");
 							m_bWaitingLogin = false;
 
-							SaveCredentials(authResp.session_token.c_str(), authResp.refresh_token.c_str());
+							SaveCredentials(authResp.refresh_token.c_str());
 
 							// store data locally
 							m_strToken = authResp.session_token;
@@ -341,7 +285,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 							m_strDisplayName = authResp.display_name;
 
 							// trigger callback
-							OnLoginComplete(true, DecryptServiceToken(authResp.ws_uri).c_str());
+							OnLoginComplete(true, authResp.ws_uri.c_str());
 						}
 						else if (authResp.result == EAuthResponseResult::FAILED)
 						{
@@ -404,10 +348,10 @@ void NGMP_OnlineServices_AuthInterface::LoginAsSecondaryDevAccount()
 
 }
 
-void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szSessionToken, const char* szRefreshToken)
+void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szRefreshToken)
 {
 	// store in data dir
-	nlohmann::json root = { {"session_token", szSessionToken}, {"refresh_token", szRefreshToken} };
+	nlohmann::json root = { {"refresh_token", szRefreshToken} };
 
 	std::string strData = root.dump(1);
 
@@ -437,7 +381,7 @@ void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szSessionTok
 	}
 }
 
-bool NGMP_OnlineServices_AuthInterface::GetCredentials(std::string& strSessionToken, std::string& strRefreshToken)
+bool NGMP_OnlineServices_AuthInterface::GetCredentials(std::string& strRefreshToken)
 {
 	std::vector<uint8_t> vecBytes;
 	FILE* file = fopen(GetCredentialsFilePath().c_str(), "rb");
@@ -487,12 +431,11 @@ bool NGMP_OnlineServices_AuthInterface::GetCredentials(std::string& strSessionTo
 
 			if (jsonCredentials != nullptr)
 			{
-				if (jsonCredentials.contains("session_token") && jsonCredentials.contains("refresh_token"))
+				if (jsonCredentials.contains("refresh_token"))
 				{
-					strSessionToken = jsonCredentials["session_token"];
 					strRefreshToken = jsonCredentials["refresh_token"];
 
-					if (strSessionToken.empty() || strRefreshToken.empty())
+					if (strRefreshToken.empty())
 					{
 						return false;
 					}

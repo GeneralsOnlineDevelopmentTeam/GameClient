@@ -46,8 +46,8 @@ public:
 private:
 	void LoginAsSecondaryDevAccount();
 
-	void SaveCredentials(const char* szSessionToken, const char* szRefreshToken);
-	bool GetCredentials(std::string& strSessionToken, std::string& strRefreshToken);
+	void SaveCredentials(const char* szRefreshToken);
+	bool GetCredentials(std::string& strRefreshToken);
 
 	std::string GetCredentialsFilePath();
 
