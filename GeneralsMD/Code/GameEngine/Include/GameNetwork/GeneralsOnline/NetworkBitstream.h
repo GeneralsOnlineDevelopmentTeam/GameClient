@@ -91,9 +91,6 @@ public:
 		m_memBuffer = MemoryBuffer();
 	};
 
-	void Encrypt(std::vector<BYTE>& vecKey);
-	void Decrypt(std::vector<BYTE>& vecKey);
-
 	CBitStream(EPacketID packetID);
 	CBitStream(int64_t len);
 	CBitStream(int64_t len, void* pBuffer, size_t sz);

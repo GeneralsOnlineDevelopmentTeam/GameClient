@@ -4,8 +4,6 @@
 #include <string>
 #include <locale>
 #include <codecvt>
-#include "libsodium/sodium/crypto_aead_xchacha20poly1305.h"
-#include "libsodium/sodium/randombytes.h"
 #include "../OnlineServices_Init.h"
 
 std::string m_strNetworkLogFileName;

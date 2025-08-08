@@ -23,7 +23,6 @@
 #endif
 
 #include "GameNetwork/GeneralsOnline/vendor/libcurl/curl.h"
-#include "libsodium/sodium/crypto_aead_aes256gcm.h"
 
 enum class EAuthResponseResult : int
 {
