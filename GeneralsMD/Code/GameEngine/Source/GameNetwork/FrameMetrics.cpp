@@ -33,7 +33,7 @@
 #include "../NetworkMesh.h"
 #include "../NGMP_interfaces.h"
 
-FrameMetrics::FrameMetrics() 
+FrameMetrics::FrameMetrics()
 {
 	//Added By Sadullah Nader
 	//Initializations missing and needed
@@ -174,7 +174,6 @@ Real FrameMetrics::getAverageLatency() {
 Int FrameMetrics::getMinimumCushion() {
 	return m_minimumCushion;
 }
-
 void FrameMetrics::SeedLatencyData(int latency)
 {
 	m_averageFps = GENERALS_ONLINE_HIGH_FPS_LIMIT;

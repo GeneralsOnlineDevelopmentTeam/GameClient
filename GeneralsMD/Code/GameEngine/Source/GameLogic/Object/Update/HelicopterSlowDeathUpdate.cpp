@@ -98,11 +98,11 @@ HelicopterSlowDeathBehaviorModuleData::HelicopterSlowDeathBehaviorModuleData( vo
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-/*static*/ void HelicopterSlowDeathBehaviorModuleData::buildFieldParse( MultiIniFieldParse &p ) 
+/*static*/ void HelicopterSlowDeathBehaviorModuleData::buildFieldParse( MultiIniFieldParse &p )
 {
   SlowDeathBehaviorModuleData::buildFieldParse( p );
 
-	static const FieldParse dataFieldParse[] = 
+	static const FieldParse dataFieldParse[] =
 	{
 		{ "SpiralOrbitTurnRate",	INI::parseAngularVelocityReal, NULL, offsetof( HelicopterSlowDeathBehaviorModuleData, m_spiralOrbitTurnRate ) },
 		{ "SpiralOrbitForwardSpeed", INI::parseVelocityReal, NULL, offsetof( HelicopterSlowDeathBehaviorModuleData, m_spiralOrbitForwardSpeed ) },
@@ -183,7 +183,7 @@ void HelicopterSlowDeathBehavior::beginSlowDeath( const DamageInfo *damageInfo )
 	SlowDeathBehavior::beginSlowDeath( damageInfo );
 
 	// stop the current movement sound
-	if (getObject()->getDrawable()) 
+	if (getObject()->getDrawable())
 	{
 		getObject()->getDrawable()->stopAmbientSound();
 	}
@@ -192,7 +192,7 @@ void HelicopterSlowDeathBehavior::beginSlowDeath( const DamageInfo *damageInfo )
 	const HelicopterSlowDeathBehaviorModuleData *modData = getHelicopterSlowDeathBehaviorModuleData();
 
 	m_deathSound = modData->m_deathSound;
-	
+
 	if (m_deathSound.getEventName().isEmpty() == false)
 	{
 		m_deathSound.setObjectID(getObject()->getID());
@@ -222,7 +222,7 @@ void HelicopterSlowDeathBehavior::beginSlowDeath( const DamageInfo *damageInfo )
 
 	// start our self spinning at the min self spin rate
 	m_selfSpin = modData->m_minSelfSpin;
-	
+
 	// we will start off changing the self spin towards the MaxSelfSpin
 	m_selfSpinTowardsMax = TRUE;
 
@@ -241,7 +241,7 @@ void HelicopterSlowDeathBehavior::beginSlowDeath( const DamageInfo *damageInfo )
 		ParticleSystem *pSys = TheParticleSystemManager->createParticleSystem( modData->m_attachParticleSystem );
 		if( pSys )
 		{
-			
+
 			// where do the offset attachment to
 			if( modData->m_attachParticleBone.isEmpty() == FALSE )
 			{
@@ -335,7 +335,7 @@ UpdateSleepTime HelicopterSlowDeathBehavior::update( void )
 			if( m_selfSpinTowardsMax == TRUE )
 			{
 
-				// we're going towards the max self spin, increase it		
+				// we're going towards the max self spin, increase it
 				m_selfSpin += modData->m_selfSpinUpdateAmount / LOGICFRAMES_PER_SECOND;
 				if( m_selfSpin > modData->m_maxSelfSpin )
 				{
@@ -348,7 +348,7 @@ UpdateSleepTime HelicopterSlowDeathBehavior::update( void )
 			}  // end if
 			else
 			{
-			
+
 				// we're going towards the min self spin, decrease it
 				m_selfSpin -= modData->m_selfSpinUpdateAmount / LOGICFRAMES_PER_SECOND;
 				if( m_selfSpin < modData->m_minSelfSpin )
@@ -372,7 +372,7 @@ UpdateSleepTime HelicopterSlowDeathBehavior::update( void )
 
 		// get the physics update module
 		PhysicsBehavior *physics = copter->getPhysics();
-		DEBUG_ASSERTCRASH( physics, ("HelicopterSlowDeathBehavior: object '%s' does not have a physics module", 
+		DEBUG_ASSERTCRASH( physics, ("HelicopterSlowDeathBehavior: object '%s' does not have a physics module",
 																 copter->getTemplate()->getName().str()) );
 
 		//
@@ -417,16 +417,16 @@ UpdateSleepTime HelicopterSlowDeathBehavior::update( void )
 					draw->convertBonePosToWorldPos( &bladePos, NULL, &bladePos, NULL );
 
 				}  // end if
-		
+
 				// create the blades flying through the air
 	//			const ObjectCreationList *ocl = TheObjectCreationListStore->findObjectCreationList( "OCL_ComancheBlades" );
 	//			ObjectCreationList::create( ocl, &bladePos );
-		
+
 				// run the fx at the blade position
 				FXList::doFXPos( modData->m_fxBlade, &bladePos );
 				ObjectCreationList::create( modData->m_oclBlade, copter, &bladePos, NULL, INVALID_ANGLE );
 
-				//				
+				//
 				// if we have (potentially) a pilot ejection, do it here.
 				// note that we call EjectPilotDie::ejectPilot() rather than ObjectCreationList::create(),
 				// because the former makes the right sounds, and also constrains to veteran-or-better status.
@@ -472,7 +472,7 @@ UpdateSleepTime HelicopterSlowDeathBehavior::update( void )
 
 		if (pos->z <= ground + 1.0f || hitATree )
 		{
-			
+
 			// mark the frame we hit the ground on
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 			m_hitGroundFrame = TheGameLogic->getFrameLegacy();
@@ -499,7 +499,7 @@ UpdateSleepTime HelicopterSlowDeathBehavior::update( void )
 	}
 
 	// if we're on the ground, see if it's time for our final boom
-	if( m_hitGroundFrame && 
+	if( m_hitGroundFrame &&
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 			TheGameLogic->getFrameLegacy() - m_hitGroundFrame > modData->m_delayFromGroundToFinalDeath )
 #else

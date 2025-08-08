@@ -107,7 +107,7 @@ static AsciiString realAsStr(Real val)
 
 
 //-----------------------------------------------------------------------------
-// UserPreferences Class 
+// UserPreferences Class
 //-----------------------------------------------------------------------------
 
 UserPreferences::UserPreferences( void )
@@ -240,7 +240,7 @@ void UserPreferences::setAsciiString(AsciiString key, AsciiString val)
 }
 
 //-----------------------------------------------------------------------------
-// QuickMatchPreferences base class 
+// QuickMatchPreferences base class
 //-----------------------------------------------------------------------------
 
 QuickMatchPreferences::QuickMatchPreferences()
@@ -431,7 +431,7 @@ Int QuickMatchPreferences::getSide( void )
 }
 
 //-----------------------------------------------------------------------------
-// CustomMatchPreferences base class 
+// CustomMatchPreferences base class
 //-----------------------------------------------------------------------------
 
 #include <filesystem>
@@ -701,7 +701,7 @@ AsciiString CustomMatchPreferences::getPreferredMap(void)
 		ret = getDefaultOfficialMap();
 		return ret;
 	}
-	
+
 	//can only use official maps if recording stats
 	if( getUseStats() && !isOfficialMap(ret) )
 		ret = getDefaultOfficialMap();
@@ -723,7 +723,7 @@ Bool CustomMatchPreferences::getSuperweaponRestricted(void) const
   {
     return false;
   }
-  
+
   return ( it->second.compareNoCase( "yes" ) == 0 );
 }
 
@@ -740,19 +740,19 @@ Money CustomMatchPreferences::getStartingCash(void) const
   {
     return TheMultiplayerSettings->getDefaultStartingMoney();
   }
-  
+
   Money money;
   money.deposit( strtoul( it->second.str(), NULL, 10 ), FALSE  );
-  
+
   return money;
 }
 
 void CustomMatchPreferences::setStartingCash( const Money & startingCash )
 {
   AsciiString option;
-  
+
   option.format( "%d", startingCash.countMoney() );
-  
+
   (*this)[startingCashKey] = option;
 }
 
@@ -767,7 +767,7 @@ Bool CustomMatchPreferences::getFactionsLimited(void) const
   {
     return false; // The default
   }
-  
+
   return ( it->second.compareNoCase( "yes" ) == 0 );
 }
 
@@ -786,7 +786,7 @@ Bool CustomMatchPreferences::getUseStats(void) const
   {
     return true; // The default
   }
-  
+
   return ( it->second.compareNoCase( "yes" ) == 0 );
 }
 
@@ -796,7 +796,7 @@ void CustomMatchPreferences::setUseStats( Bool useStats )
 }
 
 //-----------------------------------------------------------------------------
-// GameSpyMiscPreferences base class 
+// GameSpyMiscPreferences base class
 //-----------------------------------------------------------------------------
 
 GameSpyMiscPreferences::GameSpyMiscPreferences()
@@ -847,7 +847,7 @@ Int GameSpyMiscPreferences::getMaxMessagesPerUpdate( void )
 	return getInt("MaxMessagesPerUpdate", 100);
 }
 //-----------------------------------------------------------------------------
-// IgnorePreferences base class 
+// IgnorePreferences base class
 //-----------------------------------------------------------------------------
 
 IgnorePreferences::IgnorePreferences()
@@ -886,7 +886,7 @@ void IgnorePreferences::setIgnore(const AsciiString& userName, Int profileID, Bo
 IgnorePrefMap IgnorePreferences::getIgnores(void)
 {
 	IgnorePrefMap ignores;
-	
+
 	IgnorePreferences::iterator it;
 	for (it = begin(); it != end(); ++it)
 	{
@@ -901,7 +901,7 @@ IgnorePrefMap IgnorePreferences::getIgnores(void)
 }
 
 //-----------------------------------------------------------------------------
-// LadderPreferences base class 
+// LadderPreferences base class
 //-----------------------------------------------------------------------------
 
 LadderPreferences::LadderPreferences()

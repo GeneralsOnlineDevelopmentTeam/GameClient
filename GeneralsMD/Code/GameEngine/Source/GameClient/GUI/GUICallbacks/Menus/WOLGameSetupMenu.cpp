@@ -292,7 +292,7 @@ void WOLPositionStartSpots( void )
 		if (listboxMap != NULL) {
 			Int selected;
 			UnicodeString map;
-			
+
 			// get the selected index
 			GadgetListBoxGetSelected( listboxMap, &selected );
 
@@ -301,8 +301,8 @@ void WOLPositionStartSpots( void )
 
 				// get text of the map to load
 				map = GadgetListBoxGetText( listboxMap, selected, 0 );
-				
-				
+
+
 				// set the map name in the global data map name
 				AsciiString asciiMap;
 				const char *mapFname = (const char *)GadgetListBoxGetItemData( listboxMap, selected );
@@ -314,7 +314,7 @@ void WOLPositionStartSpots( void )
 				}
 
 				positionStartSpots(asciiMap, buttonMapStartPosition, win);
-			}			
+			}
 		}
 
 	} else {
@@ -424,44 +424,44 @@ static void playerTooltip(GameWindow *window,
 			Int totalWins = 0, totalLosses = 0, totalDiscons = 0;
 			PerGeneralMap::iterator it;
 
-			for (it = stats.wins.begin(); it != stats.wins.end(); ++it)
-			{
-				totalWins += it->second;
-			}
-			for (it = stats.losses.begin(); it != stats.losses.end(); ++it)
-			{
-				totalLosses += it->second;
-			}
-			for (it = stats.discons.begin(); it != stats.discons.end(); ++it)
-			{
-				totalDiscons += it->second;
-			}
-			for (it = stats.desyncs.begin(); it != stats.desyncs.end(); ++it)
-			{
-				totalDiscons += it->second;
-			}
-			UnicodeString favoriteSide;
-			Int numGames = 0;
-			Int favorite = 0;
-			for (it = stats.games.begin(); it != stats.games.end(); ++it)
-			{
-				if (it->second >= numGames)
-				{
-					numGames = it->second;
-					favorite = it->first;
-				}
-			}
-			if (numGames == 0)
-				favoriteSide = TheGameText->fetch("GUI:None");
-			else if (stats.gamesAsRandom >= numGames)
-				favoriteSide = TheGameText->fetch("GUI:Random");
-			else
-			{
-				const PlayerTemplate* fac = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
-				if (fac)
-				{
-					AsciiString side;
-					side.format("SIDE:%s", fac->getSide().str());
+	for (it = stats.wins.begin(); it != stats.wins.end(); ++it)
+	{
+		totalWins += it->second;
+	}
+	for (it = stats.losses.begin(); it != stats.losses.end(); ++it)
+	{
+		totalLosses += it->second;
+	}
+	for (it = stats.discons.begin(); it != stats.discons.end(); ++it)
+	{
+		totalDiscons += it->second;
+	}
+	for (it = stats.desyncs.begin(); it != stats.desyncs.end(); ++it)
+	{
+		totalDiscons += it->second;
+	}
+	UnicodeString favoriteSide;
+	Int numGames = 0;
+	Int favorite = 0;
+	for(it = stats.games.begin(); it != stats.games.end(); ++it)
+	{
+		if(it->second >= numGames)
+		{
+			numGames = it->second;
+			favorite = it->first;
+		}
+	}
+	if(numGames == 0)
+		favoriteSide = TheGameText->fetch("GUI:None");
+	else if( stats.gamesAsRandom >= numGames )
+		favoriteSide = TheGameText->fetch("GUI:Random");
+	else
+	{
+		const PlayerTemplate *fac = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
+		if (fac)
+		{
+			AsciiString side;
+			side.format("SIDE:%s", fac->getSide().str());
 
 					favoriteSide = TheGameText->fetch(side);
 				}
@@ -532,7 +532,7 @@ void pingTooltip(GameWindow *window, WinInstanceData *instData, UnsignedInt mous
 	x = LOLONGTOSHORT(mouse);
 	y = HILONGTOSHORT(mouse);
 
-	
+
 	Int winPosX, winPosY, winWidth, winHeight;
 
 	window->winGetScreenPosition(&winPosX, &winPosY);
@@ -685,7 +685,7 @@ static void handlePlayerTemplateSelection(int index)
 static void handleStartPositionSelection(Int player, int startPos)
 {
 	NGMPGame* myGame = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
-	
+
 	if (myGame)
 	{
 		NGMPGameSlot * slot = myGame->getGameSpySlot(player);
@@ -701,7 +701,7 @@ static void handleStartPositionSelection(Int player, int startPos)
 		}
 
 		if(!skip)
-		{	
+		{
 			Bool isAvailable = TRUE;
 			for(Int i = 0; i < MAX_SLOTS; ++i)
 			{
@@ -765,7 +765,8 @@ static void handleTeamSelection(int index)
 
 static void handleStartingCashSelection()
 {
-	// update it on the service
+#if defined(GENERALS_ONLINE)
+// update it on the service
 	Int selIndex;
 	GadgetComboBoxGetSelectedPos(comboBoxStartingCash, &selIndex);
 
@@ -774,13 +775,61 @@ static void handleStartingCashSelection()
 	Money startingCash;
 	startingCash.deposit(startingCashValue, FALSE);
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_StartingCash(startingCashValue);
+#else
+  GameInfo *myGame = TheGameSpyInfo->getCurrentStagingRoom();
+
+  if (myGame)
+  {
+    Int selIndex;
+    GadgetComboBoxGetSelectedPos(comboBoxStartingCash, &selIndex);
+
+    Money startingCash;
+    startingCash.deposit( (UnsignedInt)GadgetComboBoxGetItemData( comboBoxStartingCash, selIndex ), FALSE );
+    myGame->setStartingCash( startingCash );
+    myGame->resetAccepted();
+
+    if (myGame->amIHost())
+    {
+      // send around the new data
+      TheGameSpyInfo->setGameOptions();
+      WOLDisplaySlotList();// Update the accepted button UI
+    }
+  }
+#endif
 }
 
 static void handleLimitSuperweaponsClick()
 {
+
+#if defined(GENERALS_ONLINE)
 	// update it on the service
 	bool bLimitSuperweapons = GadgetCheckBoxIsChecked(checkBoxLimitSuperweapons);
 	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateCurrentLobby_LimitSuperweapons(bLimitSuperweapons);
+#else
+  GameInfo *myGame = TheGameSpyInfo->getCurrentStagingRoom();
+
+  if (myGame)
+  {
+    // At the moment, 1 and 0 are the only choices supported in the GUI, though the system could
+    // support more.
+    if ( GadgetCheckBoxIsChecked( checkBoxLimitSuperweapons ) )
+    {
+      myGame->setSuperweaponRestriction( 1 );
+    }
+    else
+    {
+      myGame->setSuperweaponRestriction( 0 );
+    }
+    myGame->resetAccepted();
+
+    if (myGame->amIHost())
+    {
+      // send around a new slotlist
+      TheGameSpyInfo->setGameOptions();
+      WOLDisplaySlotList();// Update the accepted button UI
+    }
+  }
+#endif
 }
 
 static void StartPressed(void)
@@ -886,7 +935,7 @@ static void StartPressed(void)
 
 	// Check for too few teams
 	int numRandom = 0;
-	std::set<Int> teams; 
+	std::set<Int> teams;
 	for (Int i=0; i<MAX_SLOTS; ++i)
 	{
 		GameSlot *slot = myGame->getSlot(i);
@@ -1074,7 +1123,7 @@ void WOLDisplayGameOptions( void )
     // Repopulate the lists of available armies, since the old list is now wrong
     for (Int i = 0; i < MAX_SLOTS; i++)
     {
-      PopulatePlayerTemplateComboBox(i, comboBoxPlayerTemplate, theGame, theGame->getAllowObservers() );      
+      PopulatePlayerTemplateComboBox(i, comboBoxPlayerTemplate, theGame, theGame->getAllowObservers() );
 
       // Make sure selections are up to date on all machines
       handlePlayerTemplateSelection(i) ;
@@ -1085,7 +1134,7 @@ void WOLDisplayGameOptions( void )
   Bool limitSuperweapons = (theGame->getSuperweaponRestriction() != 0);
   if ( limitSuperweapons != GadgetCheckBoxIsChecked(checkBoxLimitSuperweapons))
     GadgetCheckBoxSetChecked( checkBoxLimitSuperweapons, limitSuperweapons );
-  
+
   Int itemCount = GadgetComboBoxGetLength(comboBoxStartingCash);
   Int index = 0;
   for ( ; index < itemCount; index++ )
@@ -1102,7 +1151,7 @@ void WOLDisplayGameOptions( void )
       break;
     }
   }
-  
+
   DEBUG_ASSERTCRASH( index < itemCount, ("Could not find new starting cash amount %d in list", theGame->getStartingCash().countMoney() ) );
 }
 
@@ -1298,10 +1347,10 @@ void InitWOLGameGadgets( void )
 #endif
 
 	//Added By Sadullah Nader
-	//Tooltip Function set 
+	//Tooltip Function set
 	windowMap->winSetTooltipFunc(MapSelectorTooltip);
 	//
-	
+
 	GameWindow *staticTextTitle = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, staticTextTitleID );
 	if (staticTextTitle)
 	{
@@ -1353,7 +1402,7 @@ void InitWOLGameGadgets( void )
 
 		PopulateColorComboBox(i, comboBoxColor, theGameInfo);
 		GadgetComboBoxSetSelectedPos(comboBoxColor[i], 0);
-		
+
 		tmpString.format("GameSpyGameOptionsMenu.wnd:ComboBoxPlayerTemplate%d", i);
 		comboBoxPlayerTemplateID[i] = TheNameKeyGenerator->nameToKey( tmpString );
 		comboBoxPlayerTemplate[i] = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, comboBoxPlayerTemplateID[i] );
@@ -1370,13 +1419,13 @@ void InitWOLGameGadgets( void )
 
 		PopulateTeamComboBox(i, comboBoxTeam, theGameInfo);
 
-		tmpString.format("GameSpyGameOptionsMenu.wnd:ButtonAccept%d", i); 
+		tmpString.format("GameSpyGameOptionsMenu.wnd:ButtonAccept%d", i);
 		buttonAcceptID[i] = TheNameKeyGenerator->nameToKey( tmpString );
 		buttonAccept[i] = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, buttonAcceptID[i] );
 		DEBUG_ASSERTCRASH(buttonAccept[i], ("Could not find the buttonAccept[%d]",i ));
 		buttonAccept[i]->winSetTooltipFunc(gameAcceptTooltip);
 
-		tmpString.format("GameSpyGameOptionsMenu.wnd:GenericPing%d", i); 
+		tmpString.format("GameSpyGameOptionsMenu.wnd:GenericPing%d", i);
 		genericPingWindowID[i] = TheNameKeyGenerator->nameToKey( tmpString );
 		genericPingWindow[i] = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, genericPingWindowID[i] );
 		DEBUG_ASSERTCRASH(genericPingWindow[i], ("Could not find the genericPingWindow[%d]",i ));
@@ -1438,7 +1487,7 @@ void DeinitWOLGameGadgets( void )
 	checkBoxUseStats = NULL;
   checkBoxLimitSuperweapons = NULL;
   comboBoxStartingCash = NULL;
-  
+
 //	GameWindow *staticTextTitle = NULL;
 	for (Int i = 0; i < MAX_SLOTS; i++)
 	{
@@ -1810,7 +1859,6 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		req.options = options.str();
 		TheGameSpyPeerMessageQueue->addRequest(req);
 		*/
-
 		game->setMapCRC( game->getMapCRC() );		// force a recheck
 		game->setMapSize( game->getMapSize() ); // of if we have the map
 
@@ -1837,10 +1885,10 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 	// Show the Menu
 	layout->hide( FALSE );
-	
+
 	// Make sure the text fields are clear
 	GadgetListBoxReset( listboxGameSetupChat );
-	GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);	
+	GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
 
 	initDone = true;
 
@@ -2006,7 +2054,7 @@ static void fillPlayerInfo(const PeerResponse *resp, PlayerInfo *info)
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 {
-	// We'll only be successful if we've requested to 
+	// We'll only be successful if we've requested to
 	if(isShuttingDown && TheShell->isAnimFinished() && TheTransitionHandler->isFinished())
 	{
 		shutdownComplete(layout);
@@ -2441,7 +2489,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 						// send out new slotlist if I'm host
 						TheGameSpyInfo->setGameOptions();
 						WOLDisplaySlotList();
-						
+
 						if (game && !TheGameSpyInfo->amIHost())
 						{
 							Int idx = game->getSlotNum(resp.nick.c_str());
@@ -2975,7 +3023,7 @@ WindowMsgHandledType WOLGameSetupMenuInput( GameWindow *window, UnsignedInt msg,
 																			 WindowMsgData mData1, WindowMsgData mData2 )
 {
 	/*
-	switch( msg ) 
+	switch( msg )
 	{
 
 		//-------------------------------------------------------------------------------------------------
@@ -3009,7 +3057,7 @@ WindowMsgHandledType WOLGameSetupMenuInput( GameWindow *window, UnsignedInt msg,
 					//
 					if( BitIsSet( state, KEY_STATE_UP ) )
 					{
-						TheWindowManager->winSendSystemMsg( window, GBM_SELECTED, 
+						TheWindowManager->winSendSystemMsg( window, GBM_SELECTED,
 																							(WindowMsgData)buttonBack, buttonBackID );
 					}  // end if
 					// don't let key fall through anywhere else
@@ -3309,7 +3357,7 @@ static Int getFirstSelectablePlayer(const GameInfo *game)
 //-------------------------------------------------------------------------------------------------
 /** WOL Game Options menu window system callback */
 //-------------------------------------------------------------------------------------------------
-WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg, 
+WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg,
 														 WindowMsgData mData1, WindowMsgData mData2 )
 {
 	UnicodeString txtInput;
@@ -3317,7 +3365,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 	static int buttonCommunicatorID = NAMEKEY_INVALID;
 	switch( msg )
 	{
-		//-------------------------------------------------------------------------------------------------	
+		//-------------------------------------------------------------------------------------------------
 		case GWM_CREATE:
 			{
 				buttonCommunicatorID = NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator");
@@ -3333,7 +3381,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 			} // case GWM_DESTROY:
 		//-------------------------------------------------------------------------------------------------
 		case GWM_INPUT_FOCUS:
-			{	
+			{
 				// if we're givin the opportunity to take the keyboard focus we must say we want it
 				if( mData1 == TRUE )
 					*(Bool *)mData2 = TRUE;
@@ -3574,7 +3622,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
    		{
    			if (buttonPushed)
    				break;
-   
+
    			GameWindow *control = (GameWindow *)mData1;
 				Int controlID = control->winGetWindowId();
 				for (Int i = 0; i < MAX_SLOTS; i++)
@@ -3615,7 +3663,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 				// send it to the other clients on the lan
 				if ( controlID == textEntryChatID )
 				{
-					
+
 					// read the user's input
 					txtInput.set(GadgetTextEntryGetText( textEntryChat ));
 					// Clear the text entry line
@@ -3639,7 +3687,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 			return MSG_IGNORED;
 	}//Switch
 	return MSG_HANDLED;
-}//WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg, 
+}//WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg,
 
 
 void OnKickedFromLobby()

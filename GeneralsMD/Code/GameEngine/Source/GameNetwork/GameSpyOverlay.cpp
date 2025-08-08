@@ -341,5 +341,5 @@ void CheckReOpenPlayerInfo(void )
 
 	GameSpyOpenOverlay(GSOVERLAY_PLAYERINFO);
 	reOpenPlayerInfoFlag = FALSE;
-		
+
 }

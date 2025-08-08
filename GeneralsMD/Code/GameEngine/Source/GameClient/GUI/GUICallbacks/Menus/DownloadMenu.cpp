@@ -24,12 +24,12 @@
 
 // FILE: DownloadMenu.cpp /////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
-//                                                                          
-//                       Electronic Arts Pacific.                          
-//                                                                          
-//                       Confidential Information                           
-//                Copyright (C) 2002 - All Rights Reserved                  
-//                                                                          
+//
+//                       Electronic Arts Pacific.
+//
+//                       Confidential Information
+//                Copyright (C) 2002 - All Rights Reserved
+//
 //-----------------------------------------------------------------------------
 //
 // Project:   RTS3
@@ -356,7 +356,7 @@ void DownloadMenuUpdate( WindowLayout *layout, void *userData )
 #endif
 	}
 
-}  // end DownloadMenuUpdate 
+}  // end DownloadMenuUpdate
 
 //-------------------------------------------------------------------------------------------------
 /** menu input callback */
@@ -365,7 +365,7 @@ WindowMsgHandledType DownloadMenuInput( GameWindow *window, UnsignedInt msg,
 																			 WindowMsgData mData1, WindowMsgData mData2 )
 {
 
-	switch( msg ) 
+	switch( msg )
 	{
 
 		// --------------------------------------------------------------------------------------------
@@ -380,7 +380,7 @@ WindowMsgHandledType DownloadMenuInput( GameWindow *window, UnsignedInt msg,
 				// ----------------------------------------------------------------------------------------
 				case KEY_ESC:
 				{
-					
+
 					//
 					// send a simulated selected event to the parent window of the
 					// back/exit button
@@ -391,7 +391,7 @@ WindowMsgHandledType DownloadMenuInput( GameWindow *window, UnsignedInt msg,
 						NameKeyType buttonID = TheNameKeyGenerator->nameToKey( buttonName );
 						GameWindow *button = TheWindowManager->winGetWindowFromId( window, buttonID );
 
-						TheWindowManager->winSendSystemMsg( window, GBM_SELECTED, 
+						TheWindowManager->winSendSystemMsg( window, GBM_SELECTED,
 																								(WindowMsgData)button, buttonID );
 
 					}  // end if
@@ -414,11 +414,11 @@ WindowMsgHandledType DownloadMenuInput( GameWindow *window, UnsignedInt msg,
 //-------------------------------------------------------------------------------------------------
 /** menu window system callback */
 //-------------------------------------------------------------------------------------------------
-WindowMsgHandledType DownloadMenuSystem( GameWindow *window, UnsignedInt msg, 
+WindowMsgHandledType DownloadMenuSystem( GameWindow *window, UnsignedInt msg,
 																		 WindowMsgData mData1, WindowMsgData mData2 )
 {
 
-  switch( msg ) 
+  switch( msg )
 	{
 
 		// --------------------------------------------------------------------------------------------
@@ -452,13 +452,13 @@ WindowMsgHandledType DownloadMenuSystem( GameWindow *window, UnsignedInt msg,
 		{
 			GameWindow *control = (GameWindow *)mData1;
 			Int controlID = control->winGetWindowId();
-      
+
 			if( controlID == buttonCancelID )
 			{
 				HandleCanceledDownload();
 				closeDownloadWindow();
 			}  // end if
-	
+
 			break;
 
 		}  // end selected

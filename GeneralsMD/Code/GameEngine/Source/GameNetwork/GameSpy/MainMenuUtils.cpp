@@ -150,7 +150,7 @@ static void noPatchBeforeOnlineCallback( void )
 
 static Bool hasWriteAccess(bool bFileAccessOnly = false)
 {
-	const char* filename = "PatchAccessTest.txt";	
+	const char* filename = "PatchAccessTest.txt";
 
 	remove(filename);
 
@@ -162,7 +162,7 @@ static Bool hasWriteAccess(bool bFileAccessOnly = false)
 
 	_close(handle);
 	remove(filename);
-	
+
 	// NGMP: We don't care about registry anymore... just disk access
 	if (!bFileAccessOnly)
 	{
@@ -915,7 +915,7 @@ static void reallyStartPatchCheck( void )
 	ghttpGet(mapURL.c_str(), GHTTPFalse, gamePatchCheckCallback, (void *)timeThroughOnline);
 	ghttpHead(configURL.c_str(), GHTTPFalse, configHeadCallback, (void *)timeThroughOnline);
 	ghttpGet(motdURL.c_str(), GHTTPFalse, motdCallback, (void *)timeThroughOnline);
-	
+
 	// check total game stats
 	CheckOverallStats();
 

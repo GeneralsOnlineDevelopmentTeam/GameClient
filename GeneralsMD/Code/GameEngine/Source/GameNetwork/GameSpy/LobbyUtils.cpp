@@ -861,9 +861,9 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
       const Image *img = TheMappedImageCollection->findImageByName("GoodStatsIcon");
       GadgetListBoxAddEntryImage(win, img, index, COLUMN_USE_STATS, img->getImageHeight(), img->getImageWidth());
 	}
-    
+
   }
-  
+
 	s.format(L"%d", game->getPingAsInt());
 	GadgetListBoxAddEntryText(win, s, gameColor, index, COLUMN_PING);
 	Int ping = game->getPingAsInt();

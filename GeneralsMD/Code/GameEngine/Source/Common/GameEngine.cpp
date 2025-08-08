@@ -85,6 +85,7 @@
 #include "GameLogic/ScriptEngine.h"
 #include "GameLogic/SidesList.h"
 
+#include "GameClient/ClientInstance.h"
 #include "GameClient/Display.h"
 #include "GameClient/FXList.h"
 #include "GameClient/GameClient.h"
@@ -197,7 +198,7 @@ SubsystemInterfaceList* TheSubsystemList = NULL;
 
 //-------------------------------------------------------------------------------------------------
 template<class SUBSYSTEM>
-void initSubsystem(SUBSYSTEM*& sysref, AsciiString name, SUBSYSTEM* sys, Xfer *pXfer,  const char* path1 = NULL, 
+void initSubsystem(SUBSYSTEM*& sysref, AsciiString name, SUBSYSTEM* sys, Xfer *pXfer,  const char* path1 = NULL,
 									 const char* path2 = NULL, const char* dirpath = NULL)
 {
 	sysref = sys;
@@ -211,6 +212,76 @@ extern CComModule _Module;
 //-------------------------------------------------------------------------------------------------
 static void updateTGAtoDDS();
 
+//-------------------------------------------------------------------------------------------------
+static void updateWindowTitle()
+{
+	// TheSuperHackers @tweak Now prints product and version information in the Window title.
+
+	DEBUG_ASSERTCRASH(TheVersion != NULL, ("TheVersion is NULL"));
+	DEBUG_ASSERTCRASH(TheGameText != NULL, ("TheGameText is NULL"));
+
+	UnicodeString title;
+
+	if (rts::ClientInstance::getInstanceId() > 1u)
+	{
+		UnicodeString str;
+		str.format(L"Instance:%.2u", rts::ClientInstance::getInstanceId());
+		title.concat(str);
+	}
+
+	UnicodeString productString = TheVersion->getUnicodeProductString();
+
+	if (!productString.isEmpty())
+	{
+		if (!title.isEmpty())
+			title.concat(L" ");
+		title.concat(productString);
+	}
+
+#if RTS_GENERALS
+	const WideChar* defaultGameTitle = L"Command and Conquer Generals";
+#elif RTS_ZEROHOUR
+	const WideChar* defaultGameTitle = L"Command and Conquer Generals Zero Hour";
+#endif
+	UnicodeString gameTitle = TheGameText->FETCH_OR_SUBSTITUTE("GUI:Command&ConquerGenerals", defaultGameTitle);
+
+	if (!gameTitle.isEmpty())
+	{
+		UnicodeString gameTitleFinal;
+		UnicodeString gameVersion = TheVersion->getUnicodeVersion();
+
+		if (productString.isEmpty())
+		{
+			gameTitleFinal = gameTitle;
+		}
+		else
+		{
+			UnicodeString gameTitleFormat = TheGameText->FETCH_OR_SUBSTITUTE("Version:GameTitle", L"for %ls");
+			gameTitleFinal.format(gameTitleFormat.str(), gameTitle.str());
+		}
+
+		if (!title.isEmpty())
+			title.concat(L" ");
+		title.concat(gameTitleFinal.str());
+		title.concat(L" ");
+		title.concat(gameVersion.str());
+	}
+
+	if (!title.isEmpty())
+	{
+		AsciiString titleA;
+		titleA.translate(title);	//get ASCII version for Win 9x
+
+		extern HWND ApplicationHWnd;  ///< our application window handle
+		if (ApplicationHWnd) {
+			//Set it twice because Win 9x does not support SetWindowTextW.
+			::SetWindowText(ApplicationHWnd, titleA.str());
+			::SetWindowTextW(ApplicationHWnd, title.str());
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
 Int GameEngine::getFramesPerSecondLimit( void )
 {
 	return m_maxFPS;
@@ -331,11 +402,11 @@ void GameEngine::init()
 	GetPrecisionTimer(&startTime64);////////////////////////////////////////////////////
   char Buf[256];//////////////////////////////////////////////////////////////////////
 	#endif//////////////////////////////////////////////////////////////////////////////
-		
+
 		m_maxFPS = DEFAULT_MAX_FPS;
 
 		TheSubsystemList = MSGNEW("GameEngineSubsystem") SubsystemInterfaceList;
-		
+
 		TheSubsystemList->addSubsystem(this);
 
 		// initialize the random number system
@@ -402,6 +473,7 @@ void GameEngine::init()
 
 		DEBUG_ASSERTCRASH(TheWritableGlobalData,("TheWritableGlobalData expected to be created"));
 		initSubsystem(TheWritableGlobalData, "TheWritableGlobalData", TheWritableGlobalData, &xferCRC, "Data\\INI\\Default\\GameData.ini", "Data\\INI\\GameData.ini");
+		TheWritableGlobalData->parseCustomDefinition();
 
 
 	#ifdef DUMP_PERF_STATS///////////////////////////////////////////////////////////////////////////
@@ -423,7 +495,7 @@ void GameEngine::init()
 		// If we're in Debug, load the Debug settings as well.
 		ini.load( AsciiString( "Data\\INI\\GameDataDebug.ini" ), INI_LOAD_OVERWRITE, NULL );
 	#endif
-		
+
 		// special-case: parse command-line parameters after loading global data
 		CommandLine::parseCommandLineForEngineInit();
 
@@ -432,7 +504,7 @@ void GameEngine::init()
 		// doesn't require resets so just create a single instance here.
 		TheGameLODManager = MSGNEW("GameEngineSubsystem") GameLODManager;
 		TheGameLODManager->init();
-		
+
 		// after parsing the command line, we may want to perform dds stuff. Do that here.
 		if (TheGlobalData->m_shouldUpdateTGAToDDS) {
 			// update any out of date targas here.
@@ -459,6 +531,7 @@ void GameEngine::init()
 		initSubsystem(TheDeepCRCSanityCheck, "TheDeepCRCSanityCheck", MSGNEW("GameEngineSubystem") DeepCRCSanityCheck, NULL, NULL, NULL, NULL);
 #endif // DEBUG_CRC
 		initSubsystem(TheGameText, "TheGameText", CreateGameTextInterface(), NULL);
+		updateWindowTitle();
 
 	#ifdef DUMP_PERF_STATS///////////////////////////////////////////////////////////////////////////
 	GetPrecisionTimer(&endTime64);//////////////////////////////////////////////////////////////////
@@ -507,8 +580,8 @@ void GameEngine::init()
   startTime64 = endTime64;//Reset the clock ////////////////////////////////////////////////////////
 	DEBUG_LOG(("%s", Buf));////////////////////////////////////////////////////////////////////////////
 	#endif/////////////////////////////////////////////////////////////////////////////////////////////
-    
-    
+
+
 		initSubsystem(TheFXListStore,"TheFXListStore", MSGNEW("GameEngineSubsystem") FXListStore(), &xferCRC, "Data\\INI\\Default\\FXList.ini", "Data\\INI\\FXList.ini");
 		initSubsystem(TheWeaponStore,"TheWeaponStore", MSGNEW("GameEngineSubsystem") WeaponStore(), &xferCRC, NULL, "Data\\INI\\Weapon.ini");
 		initSubsystem(TheObjectCreationListStore,"TheObjectCreationListStore", MSGNEW("GameEngineSubsystem") ObjectCreationListStore(), &xferCRC, "Data\\INI\\Default\\ObjectCreationList.ini", "Data\\INI\\ObjectCreationList.ini");
@@ -536,8 +609,8 @@ void GameEngine::init()
   startTime64 = endTime64;//Reset the clock ////////////////////////////////////////////////////////
 	DEBUG_LOG(("%s", Buf));////////////////////////////////////////////////////////////////////////////
 	#endif/////////////////////////////////////////////////////////////////////////////////////////////
-    
-    
+
+
 		initSubsystem(TheUpgradeCenter,"TheUpgradeCenter", MSGNEW("GameEngineSubsystem") UpgradeCenter, &xferCRC, "Data\\INI\\Default\\Upgrade.ini", "Data\\INI\\Upgrade.ini");
 		initSubsystem(TheGameClient,"TheGameClient", createGameClient(), NULL);
 
@@ -549,7 +622,7 @@ void GameEngine::init()
 	DEBUG_LOG(("%s", Buf));////////////////////////////////////////////////////////////////////////////
 	#endif/////////////////////////////////////////////////////////////////////////////////////////////
 
-	
+
 		initSubsystem(TheAI,"TheAI", MSGNEW("GameEngineSubsystem") AI(), &xferCRC,  "Data\\INI\\Default\\AIData.ini", "Data\\INI\\AIData.ini");
 		initSubsystem(TheGameLogic,"TheGameLogic", createGameLogic(), NULL);
 		initSubsystem(TheTeamFactory,"TheTeamFactory", MSGNEW("GameEngineSubsystem") TeamFactory(), NULL);
@@ -613,7 +686,7 @@ void GameEngine::init()
 		TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_soundsOn, AudioAffect_Sound);
 		TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_sounds3DOn, AudioAffect_Sound3D);
 		TheAudio->setOn(TheGlobalData->m_audioOn && TheGlobalData->m_speechOn, AudioAffect_Speech);
-			
+
 		// We're not in a network game yet, so set the network singleton to NULL.
 		TheNetwork = NULL;
 
@@ -622,7 +695,7 @@ void GameEngine::init()
 
 		// If we turn m_quitting to FALSE here, then we throw away any requests to quit that
 		// took place during loading. :-\ - jkmcd
-		// If this really needs to take place, please make sure that pressing cancel on the audio 
+		// If this really needs to take place, please make sure that pressing cancel on the audio
 		// load music dialog will still cause the game to quit.
 		// m_quitting = FALSE;
 
@@ -645,10 +718,10 @@ void GameEngine::init()
 			//populateMapListbox(NULL, true, true);
 			m_quitting = TRUE;
 		}
-		
+
 		// load the initial shell screen
 		//TheShell->push( AsciiString("Menus/MainMenu.wnd") );
-		
+
 		// This allows us to run a map from the command line
 		if (TheGlobalData->m_initialFile.isEmpty() == FALSE)
 		{
@@ -673,7 +746,7 @@ void GameEngine::init()
 			}
 		}
 
-		// 
+		//
 		if (TheMapCache && TheGlobalData->m_shellMapOn)
 		{
 			AsciiString lowerName = TheGlobalData->m_shellMapName;
@@ -690,7 +763,7 @@ void GameEngine::init()
 			TheWritableGlobalData->m_afterIntro = TRUE;
 
 		//initDisabledMasks();
-		
+
 	}
 	catch (ErrorCode ec)
 	{
@@ -728,7 +801,7 @@ void GameEngine::init()
 }  // end init
 
 /** -----------------------------------------------------------------------------------------------
-	* Reset all necessary parts of the game engine to be ready to accept new game data 
+	* Reset all necessary parts of the game engine to be ready to accept new game data
 	*/
 void GameEngine::reset( void )
 {
@@ -781,12 +854,10 @@ DECLARE_PERF_TIMER(GameEngine_update)
 extern NGMPGame* TheNGMPGame;
 #endif
 
-#if !defined(GENERALS_ONLINE_RUN_FAST)
 void GameEngine::update(void)
 {
 	USE_PERF_TIMER(GameEngine_update)
 	{
-		
 		{
 
 			// VERIFY CRC needs to be in this code block.  Please to not pull TheGameLogic->update() inside this block.
@@ -846,151 +917,6 @@ void GameEngine::update(void)
 	}	// end perfGather
 
 }
-#else
-void GameEngine::update(void)
-{
-	static int m_serverFrame = 0;
-	static int m_clientFrame = 0;
-
-	m_maxFPS = 60;
-	extern INT TheW3DFrameLengthInMsec;
-	DWORD limit = (1000.0f / m_maxFPS) - 1;
-	DWORD clientlimit = (1000.0f / m_maxFPS) - 1;
-
-	//if (limit < clientlimit)
-	//	clientlimit = limit;
-
-	// Lock to slower framerate for cinematics. 
-	//bool inCinematic = limit > 33;
-	TheW3DFrameLengthInMsec = clientlimit;
-
-	USE_PERF_TIMER(GameEngine_update)
-	{
-		static auto lastTimeServer = std::chrono::high_resolution_clock::now();
-		static auto lastTimeClient = std::chrono::high_resolution_clock::now();
-
-		// Grab the current time		
-		auto now = std::chrono::high_resolution_clock::now();
-
-		// Compute how many milliseconds have elapsed since last call
-		auto elapsedMsServer = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeServer).count();
-
-		auto elapsedMsClient = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTimeClient).count();
-
-
-		{
-			{
-				VERIFY_CRC
-
-					TheRadar->UPDATE();
-				TheAudio->UPDATE();
-
-				if (elapsedMsClient >= clientlimit)
-
-				{
-					//StartClientCpuFrameTimer();
-
-					// Get the elapsed duration in milliseconds as a float:
-					float elapsedMs = std::chrono::duration<float, std::milli>(now - lastTimeClient).count();
-
-					// Convert ms ? seconds:
-					float clientDeltaTime = (elapsedMs / 1000.0f) * 30.0f;
-
-					if (clientDeltaTime > 1.0f) {
-						clientDeltaTime = 1.0f;
-					}
-
-					WW3D::Set_DeltaTime(clientDeltaTime);
-					lastTimeClient = now;
-
-					TheGameClient->setFrame(m_clientFrame);
-					m_clientFrame++;
-					TheW3DFrameLengthInMsec = clientlimit;
-					TheGameClient->UPDATE();
-
-					TheMessageStream->propagateMessages();
-
-					// update the shell
-					TheShell->UPDATE();
-
-					
-
-					// update the in game UI 
-					TheInGameUI->UPDATE();
-
-					//EndClientCpuFrameTimer();
-				}
-
-				
-
-				TheCDManager->UPDATE();
-			}
-
-			if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
-			{
-				g_bTearDownGeneralsOnlineRequested = false;
-
-				NGMP_OnlineServicesManager::DestroyInstance();
-
-			}
-			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-			{
-				NGMP_OnlineServicesManager::GetInstance()->Tick();
-			}
-
-			if (elapsedMsServer >= limit)
-			{
-				if (TheNetwork != NULL)
-				{
-					TheNetwork->UPDATE();
-				}
-
-				if ((TheNetwork == NULL && !TheGameLogic->isGamePaused())
-					|| (TheNetwork && TheNetwork->isFrameDataReady()))
-				{
-					//if (elapsedMsServer >= limit)
-					{
-						//StartServerCpuFrameTimer();
-						TheGameLogic->UPDATE();
-						//EndServerCpuFrameTimer();
-
-						lastTimeServer = now;
-						
-
-						// only increment frame if we actually started
-						if (!TheGameLogic->IsStartNewgame())
-						{
-							m_serverFrame++;
-						}
-						else
-						{
-							m_serverFrame = 0;
-						}
-						TheGameLogic->setFrame(m_serverFrame);
-					}
-				}
-			}
-			
-			// If network is absent or we have fresh network data, update the game logic
-			
-// 			TheNetwork->isPlayerConnected(tHEnET)
-// 
-// 			Network* pCastedNetwork = (Network*)TheNetwork;
-// 			if (pCastedNetwork->GetLocalStatus() != NETLOCALSTATUS_INGAME)
-// 			{
-// 				TheGameLogic->UPDATE();
-// 			}
-
-			if (elapsedMsServer >= limit)
-			{
-				
-			}
-
-
-		}
-	} // end perfGather
-}
-#endif
 
 // Horrible reference, but we really, really need to know if we are windowed.
 extern bool DX8Wrapper_IsWindowed;
@@ -1050,13 +976,22 @@ void GameEngine::execute(void)
 #endif
 
 			{
-				if (IsDebuggerPresent())
+				try
 				{
 					// compute a frame
 					update();
 				}
-				else
+				catch (INIException e)
 				{
+					// Release CRASH doesn't return, so don't worry about executing additional code.
+					if (e.mFailureMessage)
+						RELEASE_CRASH((e.mFailureMessage));
+					else
+						RELEASE_CRASH(("Uncaught Exception in GameEngine::update"));
+				}
+				catch (...)
+				{
+					// try to save info off
 					try
 					{
 						// compute a frame
@@ -1094,7 +1029,7 @@ void GameEngine::execute(void)
 
 			{
 
-				if (TheTacticalView->getTimeMultiplier()<=1 && !TheScriptEngine->isTimeFast()) 
+				if (TheTacticalView->getTimeMultiplier()<=1 && !TheScriptEngine->isTimeFast())
 				{
 
 		// I'm disabling this in internal because many people need alt-tab capability.  If you happen to be
@@ -1113,7 +1048,7 @@ void GameEngine::execute(void)
             // limit the framerate
 					  DWORD now = timeGetTime();
 					  DWORD limit = (1000.0f/m_maxFPS)-1;
-					  while (TheGlobalData->m_useFpsLimit && (now - prevTime) < limit) 
+					  while (TheGlobalData->m_useFpsLimit && (now - prevTime) < limit)
 					  {
 						  ::Sleep(0);
 						  now = timeGetTime();
@@ -1123,8 +1058,8 @@ void GameEngine::execute(void)
 
 					  prevTime = now;
 
-          }        
-        
+          }
+
         }
 			}
 
@@ -1173,9 +1108,9 @@ Bool GameEngine::isMultiplayerSession( void )
 void updateTGAtoDDS()
 {
 	// Here's the scoop. We're going to traverse through all of the files in the Art\Textures folder
-	// and determine if there are any .tga files that are newer than associated .dds files. If there 
+	// and determine if there are any .tga files that are newer than associated .dds files. If there
 	// are, then we will re-run the compression tool on them.
-	
+
 	File *fp = TheLocalFileSystem->openFile("buildDDS.txt", File::WRITE | File::CREATE | File::TRUNCATE | File::TEXT);
 	if (!fp) {
 		return;
@@ -1210,8 +1145,8 @@ void updateTGAtoDDS()
 		FileInfo infoDDS;
 		if (TheFileSystem->doesFileExist(filenameDDS.str())) {
 			TheFileSystem->getFileInfo(filenameDDS, &infoDDS);
-			if (infoTGA.timestampHigh > infoDDS.timestampHigh || 
-					(infoTGA.timestampHigh == infoDDS.timestampHigh && 
+			if (infoTGA.timestampHigh > infoDDS.timestampHigh ||
+					(infoTGA.timestampHigh == infoDDS.timestampHigh &&
 					 infoTGA.timestampLow > infoDDS.timestampLow)) {
 				needsToBeUpdated = TRUE;
 			}

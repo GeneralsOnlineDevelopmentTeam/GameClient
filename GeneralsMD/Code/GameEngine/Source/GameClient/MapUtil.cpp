@@ -48,7 +48,7 @@
 #include "Common/ThingFactory.h"
 #include "Common/ThingTemplate.h"
 #include "Common/MapObject.h"
-#include "GameClient/GameText.h" 
+#include "GameClient/GameText.h"
 #include "GameClient/WindowLayout.h"
 #include "GameClient/Gadget.h"
 #include "GameClient/Image.h"
@@ -132,13 +132,13 @@ static Bool ParseObjectDataChunk(DataChunkInput &file, DataChunkInfo *info, void
 	loc.x = file.readReal();
 	loc.y = file.readReal();
 	loc.z = file.readReal();
-	if (info->version <= K_OBJECTS_VERSION_2) 
+	if (info->version <= K_OBJECTS_VERSION_2)
 	{
 		loc.z = 0;
 	}
 
 	Real angle = file.readReal();
-	Int flags = file.readInt(); 
+	Int flags = file.readInt();
 	AsciiString name = file.readAsciiString();
 	Dict d;
 	if (readDict)
@@ -146,9 +146,9 @@ static Bool ParseObjectDataChunk(DataChunkInput &file, DataChunkInfo *info, void
 		d = file.readDict();
 	}
 	MapObject *pThisOne;
-	
+
 	// create the map object
-	pThisOne = newInstance( MapObject )( loc, name, angle, flags, &d, 
+	pThisOne = newInstance( MapObject )( loc, name, angle, flags, &d,
 														TheThingFactory->findTemplate( name, FALSE ) );
 
 //DEBUG_LOG(("obj %s owner %s",name.str(),d.getAsciiString(TheKey_originalOwner).str()));
@@ -212,7 +212,7 @@ static Bool ParseSizeOnly(DataChunkInput &file, DataChunkInfo *info, void *userD
 		throw ERROR_CORRUPT_FILE_FORMAT	;
 	}
 	file.readArrayOfBytes((char *)m_data, m_dataSize);
-	// Resize me. 
+	// Resize me.
 	if (info->version == K_HEIGHT_MAP_VERSION_1) {
 		Int newWidth = (m_width+1)/2;
 		Int newHeight = (m_height+1)/2;
@@ -350,10 +350,9 @@ void WaypointMap::update( void )
 
 const char * MapCache::m_mapCacheName = "MapCacheGO.ini";
 
-
 AsciiString MapCache::getMapDir(bool bCustomMapDebug) const
-{ 
-#if defined(GENERALS_ONLINE_TEST_MAP_TRANSFER)
+{
+	#if defined(GENERALS_ONLINE_TEST_MAP_TRANSFER)
 	
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID() == -2) // dev account 1 doesnt have custom maps, always transfer
 	{
@@ -458,7 +457,7 @@ void MapCache::writeCacheINI( Bool userDir )
 				fprintf(fp, "  techPosition = X:%2.2f Y:%2.2f Z:%2.2f\n", pos.x, pos.y, pos.z);
 				itc3d++;
 			}
-			
+
 			itc3d = md.m_supplyPositions.begin();
 			while (itc3d != md.m_supplyPositions.end())
 			{
@@ -820,10 +819,10 @@ Int populateMapListboxNoReset( GameWindow *listbox, Bool useSystemMaps, Bool isM
 
 	if (!listbox)
 		return -1;
-	
+
 	// reset the listbox content
 	//GadgetListBoxReset( listbox );
-	
+
 	Int numColumns = GadgetListBoxGetNumColumns( listbox );
 	const Image *easyImage = NULL;
 	const Image *mediumImage = NULL;
@@ -906,9 +905,9 @@ typedef MapDisplayToFileNameList::iterator MapDisplayToFileNameListIter;
 					mapDir.str(), it->first.startsWith(mapDir.str())));
 			}
 			*/
-			
+
 			//Patch 1.03 -- Purposely filter out these broken maps that exist in Generals.
-			if( !asciiMapName.compare( "maps\\armored fury\\armored fury.map" ) || 
+			if( !asciiMapName.compare( "maps\\armored fury\\armored fury.map" ) ||
 				!asciiMapName.compare( "maps\\scorched earth\\scorched earth.map" ) )
 			{
 				++tempit;
@@ -935,7 +934,7 @@ typedef MapDisplayToFileNameList::iterator MapDisplayToFileNameListIter;
 							index = GadgetListBoxAddEntryImage( listbox, maxBrutalImage, index, 0, w, h, TRUE);
 							imageItemData = 4;
 						}
-						else	
+						else
 						{
 							index = GadgetListBoxAddEntryImage( listbox, brutalImage, index, 0, w, h, TRUE);
 							imageItemData = 3;
@@ -996,7 +995,7 @@ typedef MapDisplayToFileNameList::iterator MapDisplayToFileNameListIter;
 
 		if (selectionIndex >= bottomIndex)
 		{
-			Int newTop = max( 0, selectionIndex - max( 1, rowsOnScreen / 2 ) ); 
+			Int newTop = max( 0, selectionIndex - max( 1, rowsOnScreen / 2 ) );
 		//The trouble is that rowsonscreen/2 can be zero if bottom is 1 and top is zero
 			GadgetListBoxSetTopVisibleEntry( listbox, newTop );
 		}
@@ -1015,13 +1014,13 @@ Int populateMapListbox( GameWindow *listbox, Bool useSystemMaps, Bool isMultipla
 
 	if (!listbox)
 		return -1;
-	
+
 	// reset the listbox content
 	GadgetListBoxReset( listbox );
 
 	return populateMapListboxNoReset( listbox, useSystemMaps, isMultiplayer, mapToSelect );
 }
-	
+
 
 
 //-------------------------------------------------------------------------------------------------
@@ -1147,9 +1146,9 @@ static void copyFromBigToDir( const AsciiString& infile, const AsciiString& outf
 	} // end if
 	// close the BIG file
 	file->close();
-	
+
 	File *filenew = TheFileSystem->openFile( outfile.str(), File::WRITE | File::CREATE | File::BINARY );
-	
+
 	if( !filenew || filenew->write(buffer, fileSize) < fileSize)
 	{
 		DEBUG_CRASH(( "copyFromBigToDir - Error writing to file '%s'", outfile.str() ));
@@ -1188,12 +1187,12 @@ Image *getMapPreviewImage( AsciiString mapName )
 		else
 			tempName.concat(c);
 	}
-	
+
 	name = tempName;
 	name.concat(".tga");
 
-	
-	// copy file over	
+
+	// copy file over
 	// copy source tgaName, to name
 
 	Image *image = (Image *)TheMappedImageCollection->findImageByName(tempName);
@@ -1201,7 +1200,7 @@ Image *getMapPreviewImage( AsciiString mapName )
 	{
 
 		if(!TheFileSystem->doesFileExist(tgaName.str()))
-			return NULL;	
+			return NULL;
 		AsciiString mapPreviewDir;
 		mapPreviewDir.format(MAP_PREVIEW_DIR_PATH, TheGlobalData->getPath_UserData().str());
 		TheFileSystem->createDirectory(mapPreviewDir);
@@ -1211,14 +1210,14 @@ Image *getMapPreviewImage( AsciiString mapName )
 		Bool success = false;
 		try
 		{
-			copyFromBigToDir(tgaName, mapPreviewDir);	
+			copyFromBigToDir(tgaName, mapPreviewDir);
 			success = true;
-		} 
+		}
 		catch (...)
 		{
 			success = false;	// no rethrow
 		}
-		
+
 		if (success)
 		{
     	image = newInstance(Image);
@@ -1244,8 +1243,8 @@ Image *getMapPreviewImage( AsciiString mapName )
 
 	return image;
 
-	
-	
+
+
 /*
 	// sanity
 	if( mapName.isEmpty() )
@@ -1254,12 +1253,12 @@ Image *getMapPreviewImage( AsciiString mapName )
 	mapPreviewImage = TheMappedImageCollection->findImageByName("MapPreview");
 	if(mapPreviewImage)
 		deleteInstance(mapPreviewImage);
-	
+
 	mapPreviewImage = TheMappedImageCollection->newImage();
 	mapPreviewImage->setName("MapPreview");
 	mapPreviewImage->setStatus(IMAGE_STATUS_RAW_TEXTURE);
 // allocate our terrain texture
-	TextureClass * texture = new TextureClass( size.x, size.y, 
+	TextureClass * texture = new TextureClass( size.x, size.y,
 																			 WW3D_FORMAT_X8R8G8B8, TextureClass::MIP_LEVELS_1 );
 	uv.lo.x = 0.0f;
 	uv.lo.y = 1.0f;
@@ -1274,7 +1273,7 @@ Image *getMapPreviewImage( AsciiString mapName )
 
 
 	CachedFileInputStream theInputStream;
-	if (theInputStream.open(AsciiString(mapName.str()))) 
+	if (theInputStream.open(AsciiString(mapName.str())))
 	{
 		ChunkInputStream *pStrm = &theInputStream;
 		pStrm->absoluteSeek(0);
@@ -1295,10 +1294,10 @@ Image *getMapPreviewImage( AsciiString mapName )
 		deleteInstance(mapPreviewImage);
 		return NULL;
 	}
-	
+
 
 	return mapPreviewImage;
-	
+
 */
 	return NULL;
 }
@@ -1307,7 +1306,7 @@ Bool parseMapPreviewChunk(DataChunkInput &file, DataChunkInfo *info, void *userD
 {
 /*
 	ICoord2D size;
-	
+
 	SurfaceClass *surface;
 	size.x = file.readInt();
 	size.y = file.readInt();
@@ -1315,7 +1314,7 @@ Bool parseMapPreviewChunk(DataChunkInput &file, DataChunkInfo *info, void *userD
 
 	surface = (TextureClass *)mapPreviewImage->getRawTextureData()->Get_Surface_Level();
 	//texture->Get_Surface_Level();
-	
+
 	DEBUG_LOG(("BeginMapPreviewInfo"));
 	UnsignedInt *buffer = new UnsignedInt[size.x * size.y];
 	Int x,y;
@@ -1345,7 +1344,7 @@ void findDrawPositions( Int startX, Int startY, Int width, Int height, Region3D 
 	Coord2D radar;
 	ratioWidth = extent.width()/(width * 1.0f);
 	ratioHeight = extent.height()/(height* 1.0f);
-	
+
 	if( ratioWidth >= ratioHeight)
 	{
 		radar.x = extent.width() / ratioWidth;
