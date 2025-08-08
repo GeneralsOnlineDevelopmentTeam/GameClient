@@ -1394,6 +1394,16 @@ void InitWOLGameGadgets( void )
 			GadgetComboBoxAddEntry(comboBoxPlayer[i], TheGameText->fetch("GUI:HardAI"), GameSpyColor[GSCOLOR_PLAYER_NORMAL]);
 			GadgetComboBoxSetSelectedPos(comboBoxPlayer[i], 0);
 		}
+		else
+		{
+			// Local player, so add the local player name
+			NGMPGameSlot* slot = theGameInfo->getGameSpySlot(i);
+			if (slot)
+			{
+				GadgetComboBoxAddEntry(comboBoxPlayer[i], slot->getName(), GameMakeColor(0, 162, 232, 255));
+				GadgetComboBoxSetSelectedPos(comboBoxPlayer[i], 0);
+			}
+		}
 
 		tmpString.format("GameSpyGameOptionsMenu.wnd:ComboBoxColor%d", i);
 		comboBoxColorID[i] = TheNameKeyGenerator->nameToKey( tmpString );

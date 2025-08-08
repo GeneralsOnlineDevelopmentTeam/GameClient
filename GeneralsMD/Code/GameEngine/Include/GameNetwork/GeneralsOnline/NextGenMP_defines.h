@@ -35,6 +35,10 @@
 #define GENERALS_ONLINE_NET_VERSION 1
 #define GENERALS_ONLINE_SERVICE_VERSION 1
 
+#if _DEBUG
+#define GENERALS_ONLINE_ENCRYPT_CREDENTIALS 1
+#endif
+
 // annoying game assertions, we'll catch real things in the debugger
 #define DISABLE_DEBUG_CRASHING 1
 
