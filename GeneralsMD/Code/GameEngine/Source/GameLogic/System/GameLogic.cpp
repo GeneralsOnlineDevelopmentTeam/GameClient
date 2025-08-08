@@ -2738,7 +2738,7 @@ void GameLogic::processCommandList( CommandList *list )
 				if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 				{
 					userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-					strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str();
+					strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
 				}
 				std::string strUserID = std::format("{}", userID);
 
