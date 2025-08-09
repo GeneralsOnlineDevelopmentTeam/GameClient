@@ -16,7 +16,7 @@
 
 #if defined(USE_TEST_ENV)
 #define CREDENTIALS_FILENAME "credentials_env_test.json"
-#elif !DEBUG
+#elif !defined(DEBUG)
 #define CREDENTIALS_FILENAME "credentials.json"
 #endif
 

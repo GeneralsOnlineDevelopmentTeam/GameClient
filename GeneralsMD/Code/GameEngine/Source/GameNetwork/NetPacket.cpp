@@ -489,7 +489,7 @@ UnsignedInt NetPacket::GetRunAheadMetricsCommandSize(NetCommandMsg *msg) {
 	//return msglen;
 
 	// TheSuperHackers @info GetRunAheadMetricsCommandSize = 15;
-	return 16;
+	return 15;
 }
 
 UnsignedInt NetPacket::GetRunAheadCommandSize(NetCommandMsg *msg) {
