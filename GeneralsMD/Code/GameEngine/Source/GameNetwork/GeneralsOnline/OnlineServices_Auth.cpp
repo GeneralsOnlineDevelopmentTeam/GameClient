@@ -16,7 +16,7 @@
 
 #if defined(USE_TEST_ENV)
 #define CREDENTIALS_FILENAME "credentials_env_test.json"
-#elseif !DEBUG
+#elif !DEBUG
 #define CREDENTIALS_FILENAME "credentials.json"
 #endif
 
@@ -327,7 +327,6 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(bool bSuccess, const cha
 
 void NGMP_OnlineServices_AuthInterface::LogoutOfMyAccount()
 {
-	// TODO_JWT: Impl this again service side, we probably dont even need to send a token anymore, server gets the token automatically
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("User"), m_userID);
 	std::map<std::string, std::string> mapHeaders;
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", nullptr);
