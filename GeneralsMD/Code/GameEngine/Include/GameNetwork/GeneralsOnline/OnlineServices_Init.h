@@ -37,7 +37,9 @@ enum EWebSocketMessageID
 	LOBBY_ROOM_CHAT_FROM_CLIENT = 10,
 	LOBBY_CHAT_FROM_SERVER = 11,
 	NETWORK_SIGNAL = 12,
-	START_GAME = 13
+	START_GAME = 13,
+	PING = 14,
+	PONG = 15
 };
 
 enum class EQoSRegions
@@ -167,8 +169,10 @@ private:
 	CURL* m_pCurl = nullptr;
 	bool m_bConnected = false;
 
+	int64_t m_lastPong = -1;
 	int64_t m_lastPing = -1;
-	int64_t m_timeBetweenUserPings = 5000;
+	const int64_t m_timeBetweenUserPings = 1000;
+	const int64_t m_timeForWSTimeout = 10000;
 };
 
 enum class ERoomFlags : int

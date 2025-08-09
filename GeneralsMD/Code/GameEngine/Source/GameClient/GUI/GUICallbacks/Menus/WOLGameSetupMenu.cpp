@@ -2064,6 +2064,17 @@ static void fillPlayerInfo(const PeerResponse *resp, PlayerInfo *info)
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 {
+	// need to exit?
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->IsPendingFullTeardown())
+	{
+		bool bForceShutdown = true;
+		WOLGameSetupMenuShutdown(layout, (void*)&bForceShutdown); // userdata is 'force shutdown'
+		TearDownGeneralsOnline();
+
+		TheShell->pop();
+		return;
+	}
+	
 	// We'll only be successful if we've requested to
 	if(isShuttingDown && TheShell->isAnimFinished() && TheTransitionHandler->isFinished())
 	{
@@ -2071,80 +2082,87 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		return;
 	}
 
-	if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bHostMigrated)
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
-		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bHostMigrated = false;
-
-		// If we are in-game, nothing to do here, the game handles it for us
-		if (!TheNGMPGame->isGameInProgress()) // in progress is in game, ingame is just in lobby
+		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
+		if (pLobbyInterface != nullptr)
 		{
-			// TODO_NGMP: Make sure we did a lobby get first
-			// did we become the host?
-			bool bIsHost = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost();
-
-			if (bIsHost)
+			if (pLobbyInterface->m_bHostMigrated)
 			{
-				// re init our UI & enable host buttons
-				buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
-				buttonStart->winEnable(TRUE);
-				buttonSelectMap->winEnable(TRUE);
-				initialAcceptEnable = TRUE;
+				pLobbyInterface->m_bHostMigrated = false;
+
+				// If we are in-game, nothing to do here, the game handles it for us
+				if (!TheNGMPGame->isGameInProgress()) // in progress is in game, ingame is just in lobby
+				{
+					// TODO_NGMP: Make sure we did a lobby get first
+					// did we become the host?
+					bool bIsHost = pLobbyInterface->IsHost();
+
+					if (bIsHost)
+					{
+						// re init our UI & enable host buttons
+						buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
+						buttonStart->winEnable(TRUE);
+						buttonSelectMap->winEnable(TRUE);
+						initialAcceptEnable = TRUE;
 
 
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "Host left and server migrated the host to us...");
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Host left and server migrated the host to us...");
 
-				GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. You are now the host."), GameMakeColor(255, 255, 255, 255), -1, -1);
+						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. You are now the host."), GameMakeColor(255, 255, 255, 255), -1, -1);
 
-				// NOTE: don't need to mark ourselves ready, the service did it for us upon migration
+						// NOTE: don't need to mark ourselves ready, the service did it for us upon migration
+					}
+					else
+					{
+						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. a new host has been selected."), GameMakeColor(255, 255, 255, 255), -1, -1);
+					}
+
+					// re-enable critical buttons for everyone
+					if (buttonBack != nullptr)
+					{
+						buttonBack->winEnable(TRUE);
+					}
+
+					if (buttonStart != nullptr)
+					{
+						buttonStart->winEnable(TRUE);
+					}
+
+					GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
+					if (buttonBuddy != nullptr)
+					{
+						buttonBuddy->winEnable(FALSE);
+					}
+				}
+
+				// Force a refresh to get latest lobby data
+				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateRoomDataCache([]()
+					{
+
+					});
+
+
 			}
-			else
-			{
-				GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The previous host has left the lobby. a new host has been selected."), GameMakeColor(255, 255, 255, 255), -1, -1);
-			}
 
-			// re-enable critical buttons for everyone
-			if (buttonBack != nullptr)
+			if (pLobbyInterface->m_bPendingHostHasLeft)
 			{
-				buttonBack->winEnable(TRUE);
-			}
+				pLobbyInterface->m_bPendingHostHasLeft = false;
 
-			if (buttonStart != nullptr)
-			{
-				buttonStart->winEnable(TRUE);
-			}
+				buttonPushed = true;
+				DEBUG_LOG(("Host left lobby\n"));
+				if (TheNGMPGame)
+					TheNGMPGame->reset();
 
-			GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
-			if (buttonBuddy != nullptr)
-			{
-				buttonBuddy->winEnable(FALSE);
+				// TODO_NGMP: Impl host migration, less annoying for users
+
+				GSMessageBoxOk(TheGameText->fetch("GUI:HostLeftTitle"), TheGameText->fetch("GUI:HostLeft"));
+
+				PopBackToLobby();
+
+				return;
 			}
 		}
-
-		// Force a refresh to get latest lobby data
-		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateRoomDataCache([]()
-			{
-
-			});
-
-		
-	}
-
-	if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bPendingHostHasLeft)
-	{
-		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_bPendingHostHasLeft = false;
-
-		buttonPushed = true;
-		DEBUG_LOG(("Host left lobby\n"));
-		if (TheNGMPGame)
-			TheNGMPGame->reset();
-
-		// TODO_NGMP: Impl host migration, less annoying for users
-
-		GSMessageBoxOk(TheGameText->fetch("GUI:HostLeftTitle"), TheGameText->fetch("GUI:HostLeft"));
-
-		PopBackToLobby();
-
-		return;
 	}
 
 #if defined(GENERALS_ONLINE_ENABLE_MATCH_START_COUNTDOWN)

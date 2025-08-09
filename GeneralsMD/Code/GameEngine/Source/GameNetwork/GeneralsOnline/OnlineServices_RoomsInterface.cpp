@@ -21,9 +21,15 @@ WebSocket::~WebSocket()
 int WebSocket::Ping()
 {
 	size_t sent;
-	CURLcode result =
-		curl_ws_send(m_pCurl, "wsping", strlen("wsping"), &sent, 0,
+	CURLcode result = curl_ws_send(m_pCurl, "wsping", strlen("wsping"), &sent, 0,
 			CURLWS_PING);
+
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::PING;
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+
 	return (int)result;
 }
 
@@ -34,6 +40,8 @@ void WebSocket::Connect(const char* url)
 	{
 		return;
 	}
+
+	m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
 	if (m_pCurl != nullptr)
 	{
@@ -304,6 +312,14 @@ void WebSocket::Tick()
 
 							switch (msgID)
 							{
+
+							case EWebSocketMessageID::PONG:
+							{
+								int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+								m_lastPong = currTime;
+							}
+							break;
+
 							case EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_SERVER:
 							{
 								WebSocketMessage_RoomChatIncoming chatData = jsonObject.get<WebSocketMessage_RoomChatIncoming>();
@@ -447,10 +463,18 @@ void WebSocket::Tick()
 	{
 		// TODO_NGMP: Dont do this during gameplay, they can play without the WS, just 'queue' it for when they get back to the front end
 
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (ERROR)");
 		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
 		m_bConnected = false;
 	}
+
+	// time since last pong?
+	if ((currTime - m_lastPong) >= m_timeForWSTimeout)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (Timeout)");
+		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
+		m_bConnected = false;
+	};
 
 }
 
