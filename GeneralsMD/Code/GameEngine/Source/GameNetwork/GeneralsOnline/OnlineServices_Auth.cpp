@@ -52,6 +52,9 @@ struct MOTDResponse
 
 std::string GenerateGamecode()
 {
+#if _DEBUG
+	return "ILOVECODE";
+#else
 	std::string result;
 	const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	const size_t max_index = sizeof(charset) - 1;
@@ -65,6 +68,7 @@ std::string GenerateGamecode()
 	}
 
 	return result;
+#endif
 }
 
 void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
@@ -198,7 +202,9 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
 #endif
 
+#if !_DEBUG
 						ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#endif
 					}
 				}
 				catch (...)
@@ -212,6 +218,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 	{
 		m_bWaitingLogin = true;
 		m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
 		m_strCode = GenerateGamecode();
 
 #if defined(USE_TEST_ENV)
@@ -223,9 +230,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 		ClearGSMessageBoxes();
 		GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);
 
-#if _DEBUG
-		m_strCode = "ILOVECODE";
-#else
+#if !_DEBUG
 		ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #endif
 			

@@ -640,7 +640,12 @@ void NGMP_WOLLoginMenu_LoginCallback(bool bSuccess)
 		}
 		else
 		{
-			GSMessageBoxOk(UnicodeString(L"Logging In"), UnicodeString(L"Login failed."), nullptr);
+			GSMessageBoxOk(UnicodeString(L"Logging In"), UnicodeString(L"Login failed."), []()
+				{
+					TheShell->pop();
+				});
+
+			
 		}
 
 	}
