@@ -161,55 +161,48 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
-				try
+				// if 4XX, just log in again
+				if (statusCode >= 400 && statusCode < 500)
 				{
-					nlohmann::json jsonObject = nlohmann::json::parse(strBody, nullptr, false, true);
-					AuthResponse authResp = jsonObject.get<AuthResponse>();
-
-					if (authResp.result == EAuthResponseResult::SUCCEEDED)
-					{
-						ClearGSMessageBoxes();
-						GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Logged in!"), true);
-
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Logged in");
-						m_bWaitingLogin = false;
-
-						SaveCredentials(authResp.refresh_token.c_str());
-
-						// store data locally
-						m_strToken = authResp.session_token;
-						m_userID = authResp.user_id;
-						m_strDisplayName = authResp.display_name;
-
-						// trigger callback
-						OnLoginComplete(true, authResp.ws_uri.c_str());
-					}
-					else if (authResp.result == EAuthResponseResult::FAILED)
-					{
-						ClearGSMessageBoxes();
-						GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);
-
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed, trying to re-auth");
-
-						// do normal login flow, token is bad or expired etc
-						m_bWaitingLogin = true;
-						m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-						m_strCode = GenerateGamecode();
-
-#if defined(USE_TEST_ENV)
-						std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
-#else
-						std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
-#endif
-
-#if !_DEBUG
-						ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
-#endif
-					}
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed due to 4XX code, trying to re-auth");
+					DoReAuth();
 				}
-				catch (...)
+				else
 				{
+					try
+					{
+						nlohmann::json jsonObject = nlohmann::json::parse(strBody, nullptr, false, true);
+						AuthResponse authResp = jsonObject.get<AuthResponse>();
 
+						if (authResp.result == EAuthResponseResult::SUCCEEDED)
+						{
+							ClearGSMessageBoxes();
+							GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Logged in!"), true);
+
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Logged in");
+							m_bWaitingLogin = false;
+
+							SaveCredentials(authResp.refresh_token.c_str());
+
+							// store data locally
+							m_strToken = authResp.session_token;
+							m_userID = authResp.user_id;
+							m_strDisplayName = authResp.display_name;
+
+							// trigger callback
+							OnLoginComplete(true, authResp.ws_uri.c_str());
+						}
+						else if (authResp.result == EAuthResponseResult::FAILED)
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed, trying to re-auth");
+							DoReAuth();
+						}
+					}
+					catch (...)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Resp parse failed, trying to re-auth");
+						DoReAuth();
+					}
 				}
 
 			}, nullptr);
@@ -237,6 +230,28 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 			
 	}
+}
+
+void NGMP_OnlineServices_AuthInterface::DoReAuth()
+{
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: DoReAuth");
+	ClearGSMessageBoxes();
+	GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), true);
+
+	// do normal login flow, token is bad or expired etc
+	m_bWaitingLogin = true;
+	m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	m_strCode = GenerateGamecode();
+
+#if defined(USE_TEST_ENV)
+	std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
+#else
+	std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+#endif
+
+#if !_DEBUG
+	ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#endif
 }
 
 void NGMP_OnlineServices_AuthInterface::Tick()

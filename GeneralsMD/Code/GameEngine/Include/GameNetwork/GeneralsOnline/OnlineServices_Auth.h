@@ -19,6 +19,7 @@ public:
 	void GoToDetermineNetworkCaps();
 
 	void BeginLogin();
+	void DoReAuth();
 
 	void Tick();
 
