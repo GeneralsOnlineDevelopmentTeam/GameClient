@@ -211,11 +211,11 @@ class CSignalingClient : public ISignalingClient
 	struct ConnectionSignaling : ISteamNetworkingConnectionSignaling
 	{
 		CSignalingClient* const m_pOwner;
-		std::string const m_sPeerIdentity; // Save off the string encoding of the identity we're talking to
+		int64_t const m_targetUserID;
 
-		ConnectionSignaling(CSignalingClient* owner, const char* pszPeerIdentity)
+		ConnectionSignaling(CSignalingClient* owner, int64_t target_user_id)
 			: m_pOwner(owner)
-			, m_sPeerIdentity(pszPeerIdentity)
+			, m_targetUserID(target_user_id)
 		{
 		}
 
@@ -231,20 +231,10 @@ class CSignalingClient : public ISignalingClient
 			(void)info;
 			(void)hConn;
 
-			// We'll use a dumb hex encoding.
-			std::string signal;
-			signal.reserve(m_sPeerIdentity.length() + cbMsg * 2 + 4);
-			signal.append(m_sPeerIdentity);
-			signal.push_back(' ');
-			for (const uint8_t* p = (const uint8_t*)pMsg; cbMsg > 0; --cbMsg, ++p)
-			{
-				static const char hexdigit[] = "0123456789abcdef";
-				signal.push_back(hexdigit[*p >> 4U]);
-				signal.push_back(hexdigit[*p & 0xf]);
-			}
-			//signal.push_back('\n');
+			std::vector<uint8_t> vecPayload(cbMsg);
+			memcpy_s(vecPayload.data(), vecPayload.size(), pMsg, cbMsg);
 
-			m_pOwner->Send(signal);
+			m_pOwner->Send(m_targetUserID, vecPayload);
 			return true;
 		}
 
@@ -255,10 +245,13 @@ class CSignalingClient : public ISignalingClient
 		}
 	};
 
+	struct QueuedSend
+	{
+		int64_t target_user_id;
+		std::vector<uint8_t> vecPayload;
+	};
 	ISteamNetworkingSockets* const m_pSteamNetworkingSockets;
-	std::deque< std::string > m_queueSend;
-
-	std::recursive_mutex sockMutex;
+	std::deque<QueuedSend> m_queueSend;
 
 	void CloseSocket()
 	{
@@ -286,24 +279,28 @@ public:
 	}
 
 	// Send the signal.
-	void Send(const std::string& s)
+	void Send(int64_t target_user_id, std::vector<uint8_t>& vecPayload)
 	{
-		//assert(s.length() > 0 && s[s.length() - 1] == '\n'); // All of our signals are '\n'-terminated
-
-		sockMutex.lock();
-
-		// If we're getting backed up, delete the oldest entries.  Remember,
-		// we are only required to do best-effort delivery.  And old signals are the
-		// most likely to be out of date (either old data, or the client has already
-		// timed them out and queued a retry).
-		while (m_queueSend.size() > 128)
+		WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+		if (pWS != nullptr)
 		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "Signaling send queue is backed up.  Discarding oldest signals\n");
-			m_queueSend.pop_front();
-		}
+			std::scoped_lock<std::recursive_mutex> lock(pWS->GetLock());
 
-		m_queueSend.push_back(s);
-		sockMutex.unlock();
+			// If we're getting backed up, delete the oldest entries.  Remember,
+			// we are only required to do best-effort delivery.  And old signals are the
+			// most likely to be out of date (either old data, or the client has already
+			// timed them out and queued a retry).
+			while (m_queueSend.size() > 128)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "Signaling send queue is backed up.  Discarding oldest signals\n");
+				m_queueSend.pop_front();
+			}
+
+			QueuedSend newEntry = QueuedSend();
+			newEntry.target_user_id = target_user_id;
+			newEntry.vecPayload = vecPayload;
+			m_queueSend.push_back(newEntry);
+		}
 	}
 
 	ISteamNetworkingConnectionSignaling* CreateSignalingForConnection(
@@ -318,8 +315,8 @@ public:
 
 		// Silence warnings
 		(void)errMsg;
-
-		return new ConnectionSignaling(this, sIdentityPeer.c_str());
+		int64_t user_id = std::stoll(identityPeer.GetGenericString());
+		return new ConnectionSignaling(this, user_id);
 	}
 
 	inline int HexDigitVal(char c)
@@ -336,59 +333,36 @@ public:
 	virtual void Poll() override
 	{
 		WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
-
-		// Drain the socket
-		sockMutex.lock();
-
-		// Flush send queue
-		while (!m_queueSend.empty())
+		if (pWS != nullptr)
 		{
-			const std::string& s = m_queueSend.front();
+			pWS->GetLock().lock();
 
-			pWS->SendData_Signalling(s);
-			m_queueSend.pop_front();
-		}
-
-		// Release the lock now.  See the notes below about why it's very important
-		// to release the lock early and not hold it while we try to dispatch the
-		// received callbacks.
-		sockMutex.unlock();
-
-		// Now dispatch any buffered signals
-		if (!pWS->m_pendingSignals.empty())
-		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] PROCESS SIGNAL!");
-			while (!pWS->m_pendingSignals.empty())
+			// Drain the socket
+			// Flush send queue
+			while (!m_queueSend.empty())
 			{
-				// Get the next signal
-				std::string m_sBufferedData = pWS->m_pendingSignals.front();
-				pWS->m_pendingSignals.pop();
+				QueuedSend sendData = m_queueSend.front();
 
-				size_t l = m_sBufferedData.length();
-			
-				// process signal
-				// Locate the space that seperates [from] [payload]
-				size_t spc = m_sBufferedData.find(' ');
-				if (spc != std::string::npos && spc < l)
+				pWS->SendData_Signalling(sendData.target_user_id, sendData.vecPayload);
+				m_queueSend.pop_front();
+			}
+
+			// TODO_NGMP: Avoid copy
+			std::queue<std::vector<uint8_t>> pendingSignals = pWS->m_pendingSignals;
+			pWS->m_pendingSignals = std::queue<std::vector<uint8_t>>();
+			pWS->GetLock().unlock();
+
+			// Now dispatch any buffered signals
+			if (!pendingSignals.empty())
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] PROCESS SIGNAL!");
+				while (!pendingSignals.empty())
 				{
-
-					// Hex decode the payload.  As it turns out, we actually don't
-					// need the sender's identity.  The payload has everything needed
-					// to process the message.  Maybe we should remove it from our
-					// dummy signaling protocol?  It might be useful for debugging, tho.
-					std::string data; data.reserve((l - spc) / 2);
-					for (size_t i = spc + 1; i + 2 <= l; i += 2)
-					{
-						int dh = HexDigitVal(m_sBufferedData[i]);
-						int dl = HexDigitVal(m_sBufferedData[i + 1]);
-						if ((dh | dl) & ~0xf)
-						{
-							// Failed hex decode.  Not a bug in our code here, but this is just example code, so we'll handle it this way
-							assert(!"Failed hex decode from signaling server?!");
-							continue;
-						}
-						data.push_back((char)(dh << 4 | dl));
-					}
+					// NOTE: outbound msg doesnt need sender ID, we only need that to determine target on the server, everything else is included in the payload
+					// 
+					// Get the next signal
+					std::vector<uint8_t> signalData = pendingSignals.front();
+					pendingSignals.pop();
 
 					// Setup a context object that can respond if this signal is a connection request.
 					struct Context : ISteamNetworkingSignalingRecvContext
@@ -443,11 +417,12 @@ public:
 					// To process this call, SteamnetworkingSockets will need take its own internal lock.
 					// That lock may be held by another thread that is asking you to send a signal!  So
 					// be warned that deadlocks are a possibility here.
-					m_pSteamNetworkingSockets->ReceivedP2PCustomSignal(data.c_str(), (int)data.length(), &context);
+					m_pSteamNetworkingSockets->ReceivedP2PCustomSignal(signalData.data(), (int)signalData.size(), &context);
 				}
 			}
 		}
-	}
+		}
+
 
 	virtual void Release() override
 	{

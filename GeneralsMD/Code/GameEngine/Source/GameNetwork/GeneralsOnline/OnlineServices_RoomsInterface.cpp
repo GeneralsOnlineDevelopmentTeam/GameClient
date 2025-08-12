@@ -187,9 +187,10 @@ public:
 class WebSocketMessage_NetworkSignal : public WebSocketMessageBase
 {
 public:
-	std::string signal;
+	int64_t target_user_id = -1;
+	std::vector<uint8_t> payload;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkSignal, signal)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkSignal, target_user_id, payload)
 };
 
 class WebSocketMessage_LobbyChatIncoming : public WebSocketMessageBase
@@ -224,6 +225,8 @@ public:
 //static std::string strSignal = "str:1 ";
 void WebSocket::Tick()
 {
+	std::scoped_lock<std::recursive_mutex> lock(m_mutex);
+
 	if (!m_bConnected)
 	{
 		return;
@@ -349,7 +352,9 @@ void WebSocket::Tick()
 								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] GOT SIGNAL!");
 								WebSocketMessage_NetworkSignal signalData = jsonObject.get<WebSocketMessage_NetworkSignal>();
 
-								m_pendingSignals.push(signalData.signal);
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal User: %lld!", signalData.target_user_id);
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal Payload Size: %d!", (int)signalData.payload.size());
+								m_pendingSignals.push(signalData.payload);
 							}
 							break;
 

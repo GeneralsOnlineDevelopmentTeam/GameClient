@@ -11,6 +11,8 @@ class NGMP_OnlineServices_RoomsInterface;
 class NGMP_OnlineServices_StatsInterface;
 class NGMP_OnlineServices_MatchmakingInterface;
 
+#include <mutex>
+
 #pragma comment(lib, "libcurl/libcurl.lib")
 #pragma comment(lib, "sentry/sentry.lib")
 
@@ -153,7 +155,7 @@ public:
 	void SendData_MarkReady(bool bReady);
 	void SendData_ConnectionRelayUpgrade(int64_t userID);
 
-	void SendData_Signalling(const std::string& s);
+	void SendData_Signalling(int64_t targetUserID, std::vector<uint8_t> vecPayload);
 	void SendData_StartGame();
 
 	void Tick();
@@ -163,7 +165,9 @@ public:
 	void Send(const char* message);
 
 	// TODO_STEAM: clear this on connect
-	std::queue<std::string> m_pendingSignals;
+	std::queue<std::vector<uint8_t>> m_pendingSignals;
+
+	std::recursive_mutex& GetLock() { return m_mutex; }
 
 private:
 	CURL* m_pCurl = nullptr;
@@ -173,6 +177,8 @@ private:
 	int64_t m_lastPing = -1;
 	const int64_t m_timeBetweenUserPings = 1000;
 	const int64_t m_timeForWSTimeout = 10000;
+
+	std::recursive_mutex m_mutex;
 };
 
 enum class ERoomFlags : int
