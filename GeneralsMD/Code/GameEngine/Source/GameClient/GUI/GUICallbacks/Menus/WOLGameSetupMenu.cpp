@@ -2087,6 +2087,8 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
 		if (pLobbyInterface != nullptr)
 		{
+			// TODO_NGMP: Reenable this again and fix the bugs
+			/*
 			if (pLobbyInterface->m_bHostMigrated)
 			{
 				pLobbyInterface->m_bHostMigrated = false;
@@ -2144,9 +2146,11 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 
 
 			}
+			*/
 
-			if (pLobbyInterface->m_bPendingHostHasLeft)
+			if (pLobbyInterface->m_bPendingHostHasLeft || pLobbyInterface->m_bHostMigrated)
 			{
+				pLobbyInterface->m_bHostMigrated = false;
 				pLobbyInterface->m_bPendingHostHasLeft = false;
 
 				buttonPushed = true;
