@@ -424,6 +424,14 @@ void WebSocket::Tick()
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "Malformed WebSocketMessage");
 						}
 					}
+					catch (std::exception& e)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage: %s (%s)", buffer, e.what());
+					}
+					catch (nlohmann::json::exception& jsonException)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage: %s (JSON: %s)", buffer, jsonException.what());
+					}
 					catch (...)
 					{
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage: %s", buffer);

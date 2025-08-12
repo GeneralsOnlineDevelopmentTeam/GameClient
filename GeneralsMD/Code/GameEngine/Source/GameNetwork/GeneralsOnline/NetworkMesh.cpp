@@ -460,6 +460,9 @@ public:
 
 NetworkMesh::NetworkMesh()
 {
+	// try a shutdown
+	GameNetworkingSockets_Kill();
+
 	int64_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
 
 	SteamNetworkingIdentity identityLocal;
