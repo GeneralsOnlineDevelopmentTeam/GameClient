@@ -768,7 +768,7 @@ Int parseSync(char *args[], int)
 
 Int parseNoShellMap(char *args[], int)
 {
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 	return 1;
 #endif
 
@@ -797,7 +797,7 @@ Int parseNoLogo(char *args[], int)
 
 Int parseNoSizzle( char *args[], int )
 {
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 	return 1;
 #endif
 
@@ -831,7 +831,7 @@ Int parseWinCursors(char *args[], int num)
 
 Int parseQuickStart( char *args[], int num )
 {
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 	return 1;
 #endif
 
