@@ -58,9 +58,15 @@ void WebSocket::Connect(const char* url)
 #endif
 
 		// ws needs auth
+		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+		if (pAuthInterface == nullptr)
+		{
+			return;
+		}
+
 		struct curl_slist* headers = nullptr;
 		char szHeaderBuffer[8192] = { 0 };
-		sprintf_s(szHeaderBuffer, "Authorization: Bearer %s", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken().c_str());
+		sprintf_s(szHeaderBuffer, "Authorization: Bearer %s", pAuthInterface->GetAuthToken().c_str());
 		headers = curl_slist_append(headers, szHeaderBuffer);
 
 		curl_easy_setopt(m_pCurl, CURLOPT_HTTPHEADER, headers);
@@ -331,18 +337,20 @@ void WebSocket::Tick()
 
 								Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action);
 
-								if (NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback != nullptr)
+								NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+								if (pRoomsInterface != nullptr && pRoomsInterface->m_OnChatCallback != nullptr)
 								{
-									NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->m_OnChatCallback(unicodeStr, color);
+									pRoomsInterface->m_OnChatCallback(unicodeStr, color);
 								}
 							}
 							break;
 
 							case EWebSocketMessageID::START_GAME:
 							{
-								if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket != nullptr)
+								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+								if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackStartGamePacket != nullptr)
 								{
-									NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackStartGamePacket();
+									pLobbyInterface->m_callbackStartGamePacket();
 								}
 							}
 							break;
@@ -364,22 +372,26 @@ void WebSocket::Tick()
 
 								UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
 
-								int lobbySlot = -1;
-								auto lobbyMembers = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetMembersListForCurrentRoom();
-								for (const auto& lobbyMember : lobbyMembers)
+								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+								if (pLobbyInterface != nullptr)
 								{
-									if (lobbyMember.user_id == chatData.user_id)
+									int lobbySlot = -1;
+									auto lobbyMembers = pLobbyInterface->GetMembersListForCurrentRoom();
+									for (const auto& lobbyMember : lobbyMembers)
 									{
-										lobbySlot = lobbyMember.m_SlotIndex;
-										break;
+										if (lobbyMember.user_id == chatData.user_id)
+										{
+											lobbySlot = lobbyMember.m_SlotIndex;
+											break;
+										}
 									}
-								}
 
-								Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action, lobbySlot);
+									Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action, lobbySlot);
 
-								if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback != nullptr)
-								{
-									NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_OnChatCallback(unicodeStr, color);
+									if (pLobbyInterface->m_OnChatCallback != nullptr)
+									{
+										pLobbyInterface->m_OnChatCallback(unicodeStr, color);
+									}
 								}
 							}
 							break;
@@ -389,7 +401,7 @@ void WebSocket::Tick()
 							{
 								WebSocketMessage_RelayUpgrade relayUpgrade = jsonObject.get<WebSocketMessage_RelayUpgrade>();
 								NetworkLog(ELogVerbosity::LOG_RELEASE, "Got relay upgrade for user %lld", relayUpgrade.target_user_id);
-								NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+								NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
 								if (pMesh != nullptr)
 								{
 									// TODO_STEAM
@@ -401,21 +413,33 @@ void WebSocket::Tick()
 							case EWebSocketMessageID::NETWORK_ROOM_MEMBER_LIST_UPDATE:
 							{
 								WebSocketMessage_NetworkRoomMemberListUpdate memberList = jsonObject.get<WebSocketMessage_NetworkRoomMemberListUpdate>();
-								NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->OnRosterUpdated(memberList.names, memberList.ids);
+								NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+								if (pRoomsInterface != nullptr)
+								{
+									pRoomsInterface->OnRosterUpdated(memberList.names, memberList.ids);
+								}
 							}
 							break;
 
 							case EWebSocketMessageID::LOBBY_CURRENT_LOBBY_UPDATE:
 							{
 								// re-get the room info as it is stale
-								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->UpdateRoomDataCache(nullptr);
+								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+								if (pLobbyInterface != nullptr)
+								{
+									pLobbyInterface->UpdateRoomDataCache(nullptr);
+								}
 							}
 							break;
 
 							case EWebSocketMessageID::NETWORK_ROOM_LOBBY_LIST_UPDATE:
 							{
 								// re-get the room info as it is stale
-								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SetLobbyListDirty();
+								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+								if (pLobbyInterface != nullptr)
+								{
+									pLobbyInterface->SetLobbyListDirty();
+								}
 							}
 							break;
 
@@ -547,17 +571,26 @@ void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<v
 	m_CurrentRoomID = roomIndex;
 
 	// TODO_NGMP: What if there are zero rooms? e.g. the service request failed
-	if (!NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().empty())
+	NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+	if (pRoomsInterface != nullptr)
 	{
-		// if the room doesnt exist, try the first room
-		if (roomIndex < 0 || roomIndex >= NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().size())
+		if (!pRoomsInterface->GetGroupRooms().empty())
 		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Invalid room index %d, using first room", roomIndex);
-			roomIndex = 0;
-		}
+			// if the room doesnt exist, try the first room
+			if (roomIndex < 0 || roomIndex >= pRoomsInterface->GetGroupRooms().size())
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Invalid room index %d, using first room", roomIndex);
+				roomIndex = 0;
+			}
 
-		NetworkRoom targetNetworkRoom = NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->GetGroupRooms().at(roomIndex);
-		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_JoinNetworkRoom(targetNetworkRoom.GetRoomID());
+			NetworkRoom targetNetworkRoom = pRoomsInterface->GetGroupRooms().at(roomIndex);
+
+			WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+			if (pWS != nullptr)
+			{
+				pWS->SendData_JoinNetworkRoom(targetNetworkRoom.GetRoomID());
+			}
+		}
 	}
 	
 	onCompleteCallback();
@@ -571,7 +604,11 @@ std::map<uint64_t, NetworkRoomMember>& NGMP_OnlineServices_RoomsInterface::GetMe
 
 void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
-	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_RoomChatMessage(strChatMsgUnicode, bIsAction);
+	WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+	if (pWS != nullptr)
+	{
+		pWS->SendData_RoomChatMessage(strChatMsgUnicode, bIsAction);
+	}
 }
 
 void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string> vecNames, std::vector<int64_t> vecIDs)

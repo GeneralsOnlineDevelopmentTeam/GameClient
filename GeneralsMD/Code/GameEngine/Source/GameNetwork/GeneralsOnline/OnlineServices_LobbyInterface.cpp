@@ -278,7 +278,12 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobbyMaxCameraHeight(uint1
 	{
 		UnicodeString strInform;
 		strInform.format(L"The host has set the maximum camera height to %lu.", maxCameraHeight);
-		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform, true);
+
+		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+		if (pLobbyInterface != nullptr)
+		{
+			pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, true);
+		}
 
 		// reset autostart if host changes anything (because ready flag will reset too)
 		ClearAutoReadyCountdown();
@@ -458,13 +463,21 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 
 void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
-	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LobbyChatMessage(strChatMsgUnicode, bIsAction, false, false);
+	WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+	if (pWS != nullptr)
+	{
+		pWS->SendData_LobbyChatMessage(strChatMsgUnicode, bIsAction, false, false);
+	}
 }
 
 // TODO_NGMP: Just send a separate packet for each announce, more efficient and less hacky
 void NGMP_OnlineServices_LobbyInterface::SendAnnouncementMessageToCurrentLobby(UnicodeString& strAnnouncementMsgUnicode, bool bShowToHost)
 {
-	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LobbyChatMessage(strAnnouncementMsgUnicode, false, true, bShowToHost);
+	WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+	if (pWS != nullptr)
+	{
+		pWS->SendData_LobbyChatMessage(strAnnouncementMsgUnicode, false, true, bShowToHost);
+	}
 }
 
 NGMP_OnlineServices_LobbyInterface::NGMP_OnlineServices_LobbyInterface()
@@ -571,7 +584,8 @@ bool NGMP_OnlineServices_LobbyInterface::IsHost()
 {
 	if (IsInLobby())
 	{
-		int64_t myUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+		int64_t myUserID = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 		return m_CurrentLobby.owner == myUserID;
 	}
 
@@ -585,14 +599,18 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 	// TODO_NGMP: Support unreadying again when player changes team etc
 	// are we ready?
 
-	GameSlot* pLocalSlot = TheNGMPGame->getSlot(TheNGMPGame->getLocalSlotNum());
-	if (IsHost())
+	WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+	if (pWS != nullptr)
 	{
-		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_MarkReady(true);
-	}
-	else
-	{
-		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_MarkReady(pLocalSlot->isAccepted());
+		GameSlot* pLocalSlot = TheNGMPGame->getSlot(TheNGMPGame->getLocalSlotNum());
+		if (IsHost())
+		{
+			pWS->SendData_MarkReady(true);
+		}
+		else
+		{
+			pWS->SendData_MarkReady(pLocalSlot->isAccepted());
+		}
 	}
 }
 
@@ -681,7 +699,8 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 
 						bool bFoundSelfInOld = false;
 						bool bFoundSelfInNew = false;
-						int64_t	myUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+						NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+						int64_t myUserID = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 
 						// check for user in old lobby data
 						for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
@@ -960,9 +979,10 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 					OnJoinedOrCreatedLobby(false, [=]()
 						{
 							m_bAttemptingToJoinLobby = false;
-							if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby != nullptr)
+							NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+							if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackJoinedLobby != nullptr)
 							{
-								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(JoinResult);
+								pLobbyInterface->m_callbackJoinedLobby(JoinResult);
 							}
 						});
 				});
@@ -983,9 +1003,10 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 
 		if (JoinResult != EJoinLobbyResult::JoinLobbyResult_Success)
 		{
-			if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby != nullptr)
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+			if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackJoinedLobby != nullptr)
 			{
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(JoinResult);
+				pLobbyInterface->m_callbackJoinedLobby(JoinResult);
 			}
 			m_bAttemptingToJoinLobby = false;
 		}
@@ -1090,6 +1111,9 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 		{
 			try
 			{
+				NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+				NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
 				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 				CreateLobbyResponse resp = jsonObject.get<CreateLobbyResponse>();
 
@@ -1116,13 +1140,13 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					}
 
 					// reset before copy
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ResetCachedRoomData();
+					pLobbyInterface->ResetCachedRoomData();
 
 					// TODO: Do we need more info here? we kick off a lobby GET immediately, maybe that should be the response to creating
 
 					// store the basic info (lobby id), we will immediately kick off a full get				
 					m_CurrentLobby.lobbyID = resp.lobby_id;
-					m_CurrentLobby.owner = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+					m_CurrentLobby.owner = pAuthInterface->GetUserID();
 
 					AsciiString strName = AsciiString();
 
@@ -1137,7 +1161,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					LobbyMemberEntry me;
 
 					me.user_id = m_CurrentLobby.owner;
-					me.display_name = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
+					me.display_name = pAuthInterface->GetDisplayName();
 					me.m_bIsReady = true; // host is always ready
 					me.strIPAddress = "127.0.0.1"; // TODO_NGMP: use localhost for non-host players too that are local...
 					me.preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
@@ -1151,13 +1175,13 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					TheNGMPGame->UpdateSlotsFromCurrentLobby();
 
 					// we always need to get the enc key etc
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->OnJoinedOrCreatedLobby(false, [=]()
+					pLobbyInterface->OnJoinedOrCreatedLobby(false, [=]()
 						{
 							// TODO_NGMP: Impl
-							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
+							pLobbyInterface->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
 
 							// Set our properties
-							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ApplyLocalUserPropertiesToCurrentNetworkRoom();
+							pLobbyInterface->ApplyLocalUserPropertiesToCurrentNetworkRoom();
 						});
 				}
 				else
@@ -1165,10 +1189,10 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to create lobby!\n");
 
 					// TODO_NGMP: Impl
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
+					pLobbyInterface->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
 
 					// Set our properties
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ApplyLocalUserPropertiesToCurrentNetworkRoom();
+					pLobbyInterface->ApplyLocalUserPropertiesToCurrentNetworkRoom();
 				}
 
 				

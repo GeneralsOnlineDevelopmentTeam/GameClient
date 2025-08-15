@@ -1706,10 +1706,17 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 					}
 
 #if defined(GENERALS_ONLINE)
-					int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+					NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+					int64_t localID = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 
 					// do this part sync from cache, should have our own stats + up to date
-					NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(localID, [=](bool bSuccess, PSPlayerStats stats)
+					NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
+					if (pStatsInterface == nullptr)
+					{
+						return;
+					}
+
+					pStatsInterface->findPlayerStatsByID(localID, [=](bool bSuccess, PSPlayerStats stats)
 #else
 					PSPlayerStats stats = TheGameSpyPSMessageQueue->findPlayerStatsByID(localID);
 #endif
@@ -2103,7 +2110,12 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 						mPref.write();
 					}
 #else
-							NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->UpdateMyStats(stats);
+
+						NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
+						if (pStatsInterface != nullptr)
+						{
+							pStatsInterface->UpdateMyStats(stats);
+						}
 
 						}, EStatsRequestPolicy::CACHED_ONLY); // NOTE: we really need the latest stats here, but this could cause a UI delay...
 #endif

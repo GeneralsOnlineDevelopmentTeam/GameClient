@@ -11,6 +11,8 @@ class NGMP_OnlineServices_RoomsInterface;
 class NGMP_OnlineServices_StatsInterface;
 class NGMP_OnlineServices_MatchmakingInterface;
 
+class NetworkMesh;
+
 #include <mutex>
 
 #pragma comment(lib, "libcurl/libcurl.lib")
@@ -268,6 +270,39 @@ public:
 		return m_pOnlineServicesManager;
 	}
 
+	template<typename T>
+	static T* GetInterface()
+	{
+		// need the root mgr first
+		if (m_pOnlineServicesManager != nullptr)
+		{
+			if constexpr (std::is_same<T, NGMP_OnlineServices_AuthInterface>::value)
+			{
+				return m_pOnlineServicesManager->m_pAuthInterface;
+			}
+			else if constexpr (std::is_same<T, NGMP_OnlineServices_LobbyInterface>::value)
+			{
+				return m_pOnlineServicesManager->m_pLobbyInterface;
+			}
+			else if constexpr (std::is_same<T, NGMP_OnlineServices_RoomsInterface>::value)
+			{
+				return m_pOnlineServicesManager->m_pRoomInterface;
+			}
+			else if constexpr (std::is_same<T, NGMP_OnlineServices_StatsInterface>::value)
+			{
+				return m_pOnlineServicesManager->m_pStatsInterface;
+			}
+			else if constexpr (std::is_same<T, NGMP_OnlineServices_MatchmakingInterface>::value)
+			{
+				return m_pOnlineServicesManager->m_pMatchmakingInterface;
+			}
+		}
+
+		return nullptr;
+	}
+
+	static NetworkMesh* GetNetworkMesh();
+
 	void Shutdown();
 
 	~NGMP_OnlineServicesManager()
@@ -319,11 +354,13 @@ public:
 	void StartDownloadUpdate(std::function<void(void)> cb);
 	void ContinueUpdate();
 
+	/*
 	NGMP_OnlineServices_AuthInterface* GetAuthInterface() const { return m_pAuthInterface; }
 	NGMP_OnlineServices_LobbyInterface* GetLobbyInterface() const { return m_pLobbyInterface; }
 	NGMP_OnlineServices_RoomsInterface* GetRoomsInterface() const { return m_pRoomInterface; }
 	NGMP_OnlineServices_StatsInterface* GetStatsInterface() const { return m_pStatsInterface; }
 	NGMP_OnlineServices_MatchmakingInterface* GetMatchmakingInterface() const { return m_pMatchmakingInterface; }
+	*/
 	QoSManager& GetQoSManager() { return m_qosMgr; }
 	QoSManager m_qosMgr;
 
@@ -359,12 +396,14 @@ private:
 
 		std::string GetPatcherDirectoryPath();
 
-private:
+public:
 	NGMP_OnlineServices_AuthInterface* m_pAuthInterface = nullptr;
 	NGMP_OnlineServices_LobbyInterface* m_pLobbyInterface = nullptr;
 	NGMP_OnlineServices_RoomsInterface* m_pRoomInterface = nullptr;
 	NGMP_OnlineServices_StatsInterface* m_pStatsInterface = nullptr;
 	NGMP_OnlineServices_MatchmakingInterface* m_pMatchmakingInterface = nullptr;
+
+private:
 	PortMapper m_PortMapper;
 
 	HTTPManager* m_pHTTPManager = nullptr;

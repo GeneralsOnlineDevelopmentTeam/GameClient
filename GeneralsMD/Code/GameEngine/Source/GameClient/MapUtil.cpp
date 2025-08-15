@@ -354,7 +354,8 @@ AsciiString MapCache::getMapDir(bool bCustomMapDebug) const
 {
 	#if defined(GENERALS_ONLINE_TEST_MAP_TRANSFER)
 	
-	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID() == -2) // dev account 1 doesnt have custom maps, always transfer
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (pAuthInterface != nullptr && pAuthInterface->GetUserID() == -2) // dev account 1 doesnt have custom maps, always transfer
 	{
 		return AsciiString("MapsEmpty");
 

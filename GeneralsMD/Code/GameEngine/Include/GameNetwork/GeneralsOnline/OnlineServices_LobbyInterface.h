@@ -367,7 +367,7 @@ public:
 
 	bool IsInLobby() const { return m_CurrentLobby.lobbyID != -1; }
 
-	NetworkMesh* GetNetworkMesh() { return m_pLobbyMesh; }
+	NetworkMesh* GetNetworkMeshForLobby() { return m_pLobbyMesh; }
 
 	void JoinLobby(int index, const char* szPassword);
 	void JoinLobby(LobbyEntry lobby, const char* szPassword);

@@ -19,6 +19,21 @@ extern "C"
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 
+
+NetworkMesh* NGMP_OnlineServicesManager::GetNetworkMesh()
+{
+	if (m_pOnlineServicesManager != nullptr)
+	{
+		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = GetInterface< NGMP_OnlineServices_LobbyInterface>();
+		if (pLobbyInterface != nullptr)
+		{
+			return pLobbyInterface->GetNetworkMeshForLobby();
+		}
+	}
+
+	return nullptr;
+}
+
 NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager = nullptr;
 
 enum class EVersionCheckResponseResult : int

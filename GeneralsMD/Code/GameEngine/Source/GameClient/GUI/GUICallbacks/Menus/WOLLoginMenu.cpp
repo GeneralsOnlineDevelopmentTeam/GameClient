@@ -457,8 +457,14 @@ void WOLLoginMenuInit( WindowLayout *layout, void *userData )
 	GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Please wait..."), true);
 
 	// NGMP: Register for login callback
-	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->RegisterForLoginCallback(NGMP_WOLLoginMenu_LoginCallback);
-	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->BeginLogin();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (pAuthInterface == nullptr)
+	{
+		return;
+	}
+
+	pAuthInterface->RegisterForLoginCallback(NGMP_WOLLoginMenu_LoginCallback);
+	pAuthInterface->BeginLogin();
 
 
 	/*
@@ -543,7 +549,12 @@ void WOLLoginMenuInit( WindowLayout *layout, void *userData )
 static Bool loggedInOK = false;
 void WOLLoginMenuShutdown( WindowLayout *layout, void *userData )
 {
-	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->DeregisterForLoginCallback();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (pAuthInterface != nullptr)
+	{
+		pAuthInterface->DeregisterForLoginCallback();
+	}
+
 
 	isShuttingDown = true;
 	loggedInOK = false;

@@ -1287,7 +1287,7 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			{
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Writing advanced networking stats:");
 
-				std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+				std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetNetworkMesh()->GetAllConnections();
 				for (auto& kvPair : connections)
 				{
 					PlayerConnection& conn = kvPair.second;
@@ -1337,16 +1337,12 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 #if defined(GENERALS_ONLINE) // provide instant responsiveness if there are no remote human players
 			if (TheNGMPGame != nullptr)
 			{
-				auto lobbyInterface = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface();
-				if (lobbyInterface != nullptr)
+				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+				if (pMesh != nullptr)
 				{
-					NetworkMesh* pMesh = lobbyInterface->GetNetworkMesh();
-					if (pMesh != nullptr)
+					if (pMesh->GetAllConnections().size() == 0)
 					{
-						if (pMesh->GetAllConnections().size() == 0)
-						{
-							newRunAhead = 0;
-						}
+						newRunAhead = 0;
 					}
 				}
 			}

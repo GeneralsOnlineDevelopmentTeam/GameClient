@@ -29,6 +29,12 @@ NGMPGameSlot::NGMPGameSlot()
 
 NGMPGame::NGMPGame()
 {
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		return;
+	}
+
 	cleanUpSlotPointers();
 
 	setLocalIP(0);
@@ -39,7 +45,7 @@ NGMPGame::NGMPGame()
 	enterGame(); // this is done on join in the GS impl, and must be called before setMap
 
 	// NGMP: Store map
-	setMap(NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobbyMapPath());
+	setMap(pLobbyInterface->GetCurrentLobbyMapPath());
 
 	// init
 	//init();
@@ -99,10 +105,16 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		return;
 	}
 
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		return;
+	}
+
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
 		// this list is provided by the service, ordered by slot index, so we dont need to look up / use the slot index from the member
-		LobbyMemberEntry pLobbyMember = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromIndex(i);
+		LobbyMemberEntry pLobbyMember = pLobbyInterface->GetRoomMemberFromIndex(i);
 
 		// TODO_NGMP: Support spectators
 		int playerTemplate = -1;
@@ -198,7 +210,8 @@ void NGMPGame::setPingString(AsciiString pingStr)
 
 Bool NGMPGame::amIHost(void) const
 {
-	return NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost();
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	return pLobbyInterface == nullptr ? false : pLobbyInterface->IsHost();
 }
 
 void NGMPGame::resetAccepted(void)
@@ -221,7 +234,13 @@ Int NGMPGame::getLocalSlotNum(void) const
 	if (!m_inGame)
 		return -1;
 
-	Int64 localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (pAuthInterface == nullptr)
+	{
+		return -1;
+	}
+
+	Int64 localUserID = pAuthInterface->GetUserID();
 
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
@@ -234,20 +253,6 @@ Int NGMPGame::getLocalSlotNum(void) const
 			return i;
 		}
 	}
-
-	//AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-	// NGMP_CHANGE: This was using a string compare... moved it to use user id comparison, quicker
-	/*
-	for (Int i = 0; i < MAX_SLOTS; ++i)
-	{
-		const GameSlot* slot = getConstSlot(i);
-		if (slot == NULL) {
-			continue;
-		}
-		if (slot->isPlayer(localName))
-			return i;
-	}
-	*/
 
 	return -1;
 }
@@ -392,7 +397,7 @@ void NGMPGame::launchGame(void)
 	TheNetwork = NetworkInterface::createNetwork();
 	TheNetwork->init();
 	
-	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
 	if (pMesh != nullptr)
 	{
 

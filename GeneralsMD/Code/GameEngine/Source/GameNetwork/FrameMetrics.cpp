@@ -76,10 +76,11 @@ void FrameMetrics::init() {
 #if defined(GENERALS_ONLINE)
 	// NGMP_NOTE: Don't start with the assumption that we have latency. Connections are now formed earlier, so we have latency data earlier too.
 
-	if (TheNGMPGame != nullptr)
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	if (TheNGMPGame != nullptr && pMesh != nullptr)
 	{
 		int totalLatency = 0;
-		std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+		std::map<int64_t, PlayerConnection>& connections = pMesh->GetAllConnections();
 		for (auto& kvPair : connections)
 		{
 			PlayerConnection& conn = kvPair.second;

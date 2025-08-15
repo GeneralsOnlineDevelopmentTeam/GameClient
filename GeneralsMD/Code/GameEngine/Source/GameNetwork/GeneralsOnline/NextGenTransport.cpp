@@ -52,7 +52,15 @@ Bool NextGenTransport::update(void)
 	}
 
 	// flush
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->Flush();
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	if (pMesh != nullptr)
+	{
+		pMesh->Flush();
+	}
+	else
+	{
+		retval = FALSE;
+	}
 
 	return retval;
 }
@@ -66,13 +74,13 @@ Bool NextGenTransport::doRecv(void)
 
 	int numRead = 0;
 
-	auto pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
-	if (pOnlineServicesMgr != nullptr)
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface != nullptr)
 	{
-		auto lobbyInterface = pOnlineServicesMgr->GetLobbyInterface();
-		if (lobbyInterface != nullptr)
+		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+		if (pMesh != nullptr)
 		{
-			std::map<int64_t, PlayerConnection>& connections = lobbyInterface->GetNetworkMesh()->GetAllConnections();
+			std::map<int64_t, PlayerConnection>& connections = pMesh->GetAllConnections();
 			for (auto& kvPair : connections)
 			{
 				SteamNetworkingMessage_t* pMsg[255];
@@ -169,11 +177,24 @@ Bool NextGenTransport::doSend(void)
 			// TODO_NGMP: Get this from game info, not the lobby, we should tear lobby down probably
 			// addr is actually player index...
 			// TODO: What if it's empty?
-			NGMPGameSlot* pSlot = (NGMPGameSlot*)NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame()->getSlot(m_outBuffer[i].addr);
+			NGMP_OnlineServicesManager* pOnlineServicesManager = NGMP_OnlineServicesManager::GetInstance();
+
+			if (pOnlineServicesManager == nullptr)
+			{
+				return FALSE;
+			}
+
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+			if (pLobbyInterface == nullptr)
+			{
+				return FALSE;
+			}
+
+			NGMPGameSlot* pSlot = (NGMPGameSlot*)pLobbyInterface->GetCurrentGame()->getSlot(m_outBuffer[i].addr);
 
 			if (pSlot != nullptr)
 			{
-				retval = (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->SendGamePacket((void*)(&m_outBuffer[i]), (uint32_t)m_outBuffer[i].length + sizeof(TransportMessageHeader), pSlot->m_userID) >= 0);
+				retval = (NGMP_OnlineServicesManager::GetNetworkMesh()->SendGamePacket((void*)(&m_outBuffer[i]), (uint32_t)m_outBuffer[i].length + sizeof(TransportMessageHeader), pSlot->m_userID) >= 0);
 			}
 			else
 			{

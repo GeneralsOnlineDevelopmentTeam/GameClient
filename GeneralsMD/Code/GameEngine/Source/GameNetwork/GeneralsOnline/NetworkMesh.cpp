@@ -19,7 +19,7 @@ UnsignedInt m_exeCRCOriginal = 0;
 // Called when a connection undergoes a state transition
 void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t* pInfo)
 {
-	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
 
 	if (pMesh == nullptr)
 	{
@@ -104,7 +104,15 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			}
 
 			// check user is in the lobby, otherwise reject
-			auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+			if (pLobbyInterface == nullptr)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Rejecting - Lobby interface is null\n", pInfo->m_info.m_szConnectionDescription);
+				SteamNetworkingSockets()->CloseConnection(pInfo->m_hConn, 1000, "Lobby interface is null (Rejected)", false);
+				return;
+			}
+
+			auto currentLobby = pLobbyInterface->GetCurrentLobby();
 			bool bPlayerIsInLobby = false;
 			for (const auto& member : currentLobby.members)
 			{
@@ -438,7 +446,22 @@ NetworkMesh::NetworkMesh()
 	// try a shutdown
 	GameNetworkingSockets_Kill();
 
-	int64_t localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (pAuthInterface == nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "pAuthInterface is invalid");
+		return;
+	}
+
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "pLobbyInterface is invalid");
+		return;
+	}
+
+
+	int64_t localUserID = pAuthInterface->GetUserID();
 
 	SteamNetworkingIdentity identityLocal;
 	identityLocal.Clear();
@@ -464,8 +487,8 @@ NetworkMesh::NetworkMesh()
 	// comma seperated setting lists
 	const char* turnList = "turn:turn.playgenerals.online:53?transport=udp,turn:turn.playgenerals.online:3478?transport=udp";
 
-	m_strTurnUsername = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTurnUsername();
-	m_strTurnToken = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTurnToken();
+	m_strTurnUsername = pLobbyInterface->GetLobbyTurnUsername();
+	m_strTurnToken = pLobbyInterface->GetLobbyTurnToken();
 
 	//const char* szUsername = "g04024f26713bae6e055295b6887b7007533f6c236534b725734b37e26ec15cd,g04024f26713bae6e055295b6887b7007533f6c236534b725734b37e26ec15cd";
 	//const char* szToken = "9ea6a5e60216c09a1fa7512987b2ce0514e3204f863f04f70fa870a100db740f,9ea6a5e60216c09a1fa7512987b2ce0514e3204f863f04f70fa870a100db740f";
@@ -630,8 +653,16 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 
 void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsReconnect)
 {
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+
+	if (pAuthInterface == nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - Auth interface is null");
+		return;
+	}
+
 	// never connect to ourself
-	if (lobbyMember.user_id == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
+	if (lobbyMember.user_id == pAuthInterface->GetUserID())
 	{
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - Skipping connection to user %lld - user is local", lobbyMember.user_id);
 		return;
@@ -754,7 +785,7 @@ PlayerConnection::PlayerConnection(int64_t userID, HSteamNetConnection hSteamCon
 	// no connection yet
 	m_hSteamConnection = hSteamConnection;
 
-	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
 	if (pMesh != nullptr)
 	{
 		pMesh->UpdateConnectivity(this);
@@ -836,9 +867,14 @@ void PlayerConnection::UpdateState(EConnectionState newState, NetworkMesh* pOwni
 	m_State = newState;
 	pOwningMesh->UpdateConnectivity(this);
 
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		return;
+	}
 
 	std::wstring strDisplayName = L"Unknown User";
-	auto currentLobby = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobby();
+	auto currentLobby = pLobbyInterface->GetCurrentLobby();
 	for (const auto& member : currentLobby.members)
 	{
 		if (member.user_id == m_userID)

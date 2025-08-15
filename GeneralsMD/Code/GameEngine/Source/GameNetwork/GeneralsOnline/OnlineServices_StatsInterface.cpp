@@ -186,7 +186,8 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 
 void NGMP_OnlineServices_StatsInterface::UpdateMyStats(PSPlayerStats stats)
 {
-	int64_t userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	int64_t userID = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("PlayerStats"), userID);
 
 	std::map<std::string, std::string> mapHeaders;

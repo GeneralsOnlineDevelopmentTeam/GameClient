@@ -201,9 +201,10 @@ void HTTPRequest::PlatformStartRequest()
 		
 
 		// Are we authenticated? attach our auth header
-		if (NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->IsLoggedIn())
+		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+		if (pAuthInterface != nullptr && pAuthInterface->IsLoggedIn())
 		{
-			m_mapHeaders["Authorization"] = "Bearer " + NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetAuthToken();
+			m_mapHeaders["Authorization"] = "Bearer " + pAuthInterface->GetAuthToken();
 		}
 
 		for (auto& kvPair : m_mapHeaders)

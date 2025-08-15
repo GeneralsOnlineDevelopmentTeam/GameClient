@@ -5931,7 +5931,7 @@ void InGameUI::drawSystemTime()
 		int highestLatency = 0;
 		if (TheNGMPGame != nullptr)
 		{
-			std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
+			std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetNetworkMesh()->GetAllConnections();
 			for (auto& kvPair : connections)
 			{
 				PlayerConnection& conn = kvPair.second;
@@ -5967,7 +5967,7 @@ void InGameUI::drawGameTime()
 	/*
 	if (TheNGMPGame != nullptr)
 	{
-		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
 
 		if (pMesh != nullptr)
 		{

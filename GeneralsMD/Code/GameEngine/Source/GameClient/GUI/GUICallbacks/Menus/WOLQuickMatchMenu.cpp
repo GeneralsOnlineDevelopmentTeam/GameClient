@@ -410,7 +410,9 @@ void PopulateQMLadderListBox( GameWindow *win )
 
 #if defined(GENERALS_ONLINE)
 	// TODO_NGMP: We should move to int32 for user IDs
-	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+
+	int64_t localProfile = pAuthInterface != nullptr ? pAuthInterface->GetUserID() : -1;
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
 #endif
@@ -510,7 +512,9 @@ void PopulateQMLadderComboBox( void )
 	QuickMatchPreferences pref;
 
 #if defined(GENERALS_ONLINE)
-	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+
+	int64_t localProfile = pAuthInterface != nullptr ? pAuthInterface->GetUserID() : -1;
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
 #endif
@@ -838,7 +842,8 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 #if !defined(GENERALS_ONLINE)
 		tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), TheGameSpyInfo->getLocalName().str());
 #else
-		tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().c_str());
+		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+		tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), pAuthInterface->GetDisplayName().c_str());
 #endif
 		GadgetStaticTextSetText(staticTextTitle, tmp);
 	}
@@ -1657,8 +1662,11 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 					Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, TheGameText->fetch("GUI:QMAborted"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 					GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
 
-					NGMP_OnlineServices_MatchmakingInterface* pMatchmakingInterface = NGMP_OnlineServicesManager::GetInstance()->GetMatchmakingInterface();
-					pMatchmakingInterface->CancelMatchmaking();
+					NGMP_OnlineServices_MatchmakingInterface* pMatchmakingInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_MatchmakingInterface>();
+					if (pMatchmakingInterface != nullptr)
+					{
+						pMatchmakingInterface->CancelMatchmaking();
+					}
 #else
 					PeerRequest req;
 					req.peerRequestType = PeerRequest::PEERREQUEST_STOPQUICKMATCH;
@@ -1718,32 +1726,35 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 					buttonStart->winEnable(FALSE);
 					buttonStop->winHide(TRUE);
 
-					NGMP_OnlineServices_MatchmakingInterface* pMatchmakingInterface = NGMP_OnlineServicesManager::GetInstance()->GetMatchmakingInterface();
-					pMatchmakingInterface->StartMatchmaking(numPlayersIndex, [](bool bSuccess)
-						{
-							// TODO_QUICKMATCH: Chat has a sound effect in TheGameSpyInfo, re-eanble it
-							if (bSuccess)
+					NGMP_OnlineServices_MatchmakingInterface* pMatchmakingInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_MatchmakingInterface>();
+					if (pMatchmakingInterface != nullptr)
+					{
+						pMatchmakingInterface->StartMatchmaking(numPlayersIndex, [](bool bSuccess)
 							{
-								Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, UnicodeString(L"Started matchmaking... searching for players"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-								GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+								// TODO_QUICKMATCH: Chat has a sound effect in TheGameSpyInfo, re-eanble it
+								if (bSuccess)
+								{
+									Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, UnicodeString(L"Started matchmaking... searching for players"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+									GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
 
-								// buttons
-								buttonWiden->winEnable(FALSE);
-								buttonStart->winHide(TRUE);
-								buttonStop->winHide(FALSE);
-							}
-							else
-							{
-								Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, UnicodeString(L"Failed to start matchmaking."), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-								GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+									// buttons
+									buttonWiden->winEnable(FALSE);
+									buttonStart->winHide(TRUE);
+									buttonStop->winHide(FALSE);
+								}
+								else
+								{
+									Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, UnicodeString(L"Failed to start matchmaking."), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+									GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
 
-								// buttons
-								buttonWiden->winEnable(FALSE);
-								buttonStart->winHide(FALSE);
-								buttonStart->winEnable(TRUE);
-								buttonStop->winHide(TRUE);
-							}
-						});
+									// buttons
+									buttonWiden->winEnable(FALSE);
+									buttonStart->winHide(FALSE);
+									buttonStart->winEnable(TRUE);
+									buttonStop->winHide(TRUE);
+								}
+							});
+					}
 #else
 					PeerRequest req;
 					req.peerRequestType = PeerRequest::PEERREQUEST_STARTQUICKMATCH;

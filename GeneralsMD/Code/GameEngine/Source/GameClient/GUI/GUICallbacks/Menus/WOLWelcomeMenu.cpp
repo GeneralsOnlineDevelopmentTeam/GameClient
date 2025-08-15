@@ -472,7 +472,13 @@ void HandleOverallStats( const char* szHTTPStats, unsigned len )
 //called only from WOLWelcomeMenuInit to set %win stats
 static void updateOverallStats(void)
 {
-	NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->GetGlobalStats([=](GlobalStats stats)
+	NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
+	if (pStatsInterface == nullptr)
+	{
+		return;
+	}
+
+	pStatsInterface->GetGlobalStats([=](GlobalStats stats)
 		{
 			UnicodeString percStr;
 			AsciiString wndName;
@@ -636,8 +642,13 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	if (staticTextTitle)
 	{
 		UnicodeString title;
-		title.format(L"Welcome to Generals Online, %s", NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayNameW().c_str());
-		GadgetStaticTextSetText(staticTextTitle, title);
+
+		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+		if (pAuthInterface != nullptr)
+		{
+			title.format(L"Welcome to Generals Online, %s", pAuthInterface->GetDisplayNameW().c_str());
+			GadgetStaticTextSetText(staticTextTitle, title);
+		}
 	}
 #endif
 
@@ -1051,8 +1062,12 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 				else if (controlID == buttonMyInfoID )
 				{
 					// TODO_NGMP: This needs work for unicode once we support this
-					SetLookAtPlayer(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID(), UnicodeString(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayNameW().c_str()));
-					GameSpyToggleOverlay(GSOVERLAY_PLAYERINFO);
+					NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+					if (pAuthInterface != nullptr)
+					{
+						SetLookAtPlayer(pAuthInterface->GetUserID(), UnicodeString(pAuthInterface->GetDisplayNameW().c_str()));
+						GameSpyToggleOverlay(GSOVERLAY_PLAYERINFO);
+					}
 				}
 				else if (controlID == buttonLobbyID)
 				{

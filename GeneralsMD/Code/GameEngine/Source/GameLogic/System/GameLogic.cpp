@@ -1242,8 +1242,12 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 		{
 			DEBUG_LOG(("Starting gamespy game"));
 			// NGMP_CHANGE
-			NGMPGame* NextGenMPGame = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame();
-			TheGameInfo = game = NextGenMPGame;	/// @todo: MDC add back in after demo
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+			if (pLobbyInterface != nullptr)
+			{
+				NGMPGame* NextGenMPGame = pLobbyInterface->GetCurrentGame();
+				TheGameInfo = game = NextGenMPGame;	/// @todo: MDC add back in after demo
+			}
 		}
 	}
 	else
@@ -2735,10 +2739,11 @@ void GameLogic::processCommandList( CommandList *list )
 				// local player info
 				int64_t userID = -1;
 				std::string strDisplayname = "Unknown";
-				if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+				NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+				if (pAuthInterface != nullptr)
 				{
-					userID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-					strDisplayname = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
+					userID = pAuthInterface->GetUserID();
+					strDisplayname = pAuthInterface->GetDisplayName();
 				}
 				std::string strUserID = std::format("{}", userID);
 

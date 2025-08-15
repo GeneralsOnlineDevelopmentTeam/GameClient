@@ -34,19 +34,15 @@ GenOnlineSettings::GenOnlineSettings()
 float GenOnlineSettings::DetermineCameraMaxHeight()
 {
 	// Are we in a lobby? use it's settings
-	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
-	if (pOnlineServicesMgr != nullptr)
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+	if (pLobbyInterface != nullptr)
 	{
-		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = pOnlineServicesMgr->GetLobbyInterface();
-
-		if (pLobbyInterface != nullptr)
+		if (pLobbyInterface->IsInLobby())
 		{
-			if (pLobbyInterface->IsInLobby())
-			{
-				LobbyEntry& theLobby = pLobbyInterface->GetCurrentLobby();
+			LobbyEntry& theLobby = pLobbyInterface->GetCurrentLobby();
 
-				return (float)theLobby.max_cam_height;;
-			}
+			return (float)theLobby.max_cam_height;;
 		}
 	}
 

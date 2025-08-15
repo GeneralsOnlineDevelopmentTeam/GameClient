@@ -101,7 +101,14 @@ void PopupJoinGameInit( WindowLayout *layout, void *userData )
 
 	buttonCancelID = NAMEKEY("PopupJoinGame.wnd:ButtonCancel");
 
-	LobbyEntry lobbyTryingToJoin = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTryingToJoin();
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		DEBUG_LOG(("NGMP_OnlineServices_LobbyInterface is not initialized!"));
+		return;
+	}
+
+	LobbyEntry lobbyTryingToJoin = pLobbyInterface->GetLobbyTryingToJoin();
 	UnicodeString lobbyName(from_utf8(lobbyTryingToJoin.name).c_str());
 	GadgetStaticTextSetText(staticTextGameName, lobbyName);
 
@@ -245,7 +252,17 @@ WindowMsgHandledType PopupJoinGameSystem( GameWindow *window, UnsignedInt msg, W
 
 static void joinGame( AsciiString password )
 {
-	LobbyEntry lobbyTryingToJoin = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetLobbyTryingToJoin();
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		DEBUG_LOG(("NGMP_OnlineServices_LobbyInterface is not initialized!"));
+		GameSpyCloseOverlay(GSOVERLAY_GAMEPASSWORD);
+		SetLobbyAttemptHostJoin(FALSE);
+		parentPopup = NULL;
+		return;
+	}
+
+	LobbyEntry lobbyTryingToJoin = pLobbyInterface->GetLobbyTryingToJoin();
 
 	if (lobbyTryingToJoin.lobbyID == -1)
 	{
@@ -256,7 +273,7 @@ static void joinGame( AsciiString password )
 	}
 
 #if defined(GENERALS_ONLINE)
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->JoinLobby(lobbyTryingToJoin, password.str());
+	pLobbyInterface->JoinLobby(lobbyTryingToJoin, password.str());
 	
 	DEBUG_LOG(("Attempting to join game %d(%s) with password [%s]\n", lobbyTryingToJoin.lobbyID, lobbyTryingToJoin.name.c_str(), password.str()));
 #else

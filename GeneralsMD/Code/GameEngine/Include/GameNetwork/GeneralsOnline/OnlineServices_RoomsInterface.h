@@ -83,7 +83,11 @@ public:
 
 	void LeaveRoom()
 	{
-		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LeaveNetworkRoom();
+		WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+		if (pWS != nullptr)
+		{
+			pWS->SendData_LeaveNetworkRoom();
+		}
 	}
 
 	std::function<void(UnicodeString strMessage, Color color)> m_OnChatCallback = nullptr;

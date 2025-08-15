@@ -248,7 +248,9 @@ QuickMatchPreferences::QuickMatchPreferences()
 	AsciiString userPrefFilename;
 	
 #if defined(GENERALS_ONLINE)
-	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+
+	int64_t localProfile = pAuthInterface != nullptr ? pAuthInterface->GetUserID() : -1;
 	userPrefFilename.format("GeneralsOnlineData\\QMPref%lld.ini", localProfile);
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
@@ -441,7 +443,9 @@ CustomMatchPreferences::CustomMatchPreferences()
 
 #if defined(GENERALS_ONLINE)
 	// NOTE: We need to use a different folder to avoid conflict with GS/Revora
-	int64_t user_id = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+
+	int64_t user_id = pAuthInterface != nullptr ? pAuthInterface->GetUserID() : -1;
 	userPrefFilename.format("GeneralsOnlineData\\CustomPref%lld.ini", user_id);
 
 	AsciiString prefsDirectory = TheGlobalData->getPath_UserData();
@@ -804,7 +808,8 @@ GameSpyMiscPreferences::GameSpyMiscPreferences()
 	AsciiString userPrefFilename;
 	
 #if defined(GENERALS_ONLINE)
-	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	int64_t localProfile = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 	userPrefFilename.format("GeneralsOnlineData\\GSMiscPref%lld.ini", localProfile);
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
@@ -856,7 +861,8 @@ IgnorePreferences::IgnorePreferences()
 //	if(!TheGameSpyInfo)
 	
 #if defined(GENERALS_ONLINE)
-	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	int64_t localProfile = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 	userPrefFilename.format("GeneralsOnlineData\\IgnorePref%lld.ini", localProfile);
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();

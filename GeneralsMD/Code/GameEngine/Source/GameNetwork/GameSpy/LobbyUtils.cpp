@@ -897,6 +897,12 @@ void RefreshGameListBox( GameWindow *win, Bool showMap )
 	if (!win)
 		return;
 
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		return;
+	}
+
 	// save off selection
 	Int selectedIndex = -1;
 	Int indexToSelect = -1;
@@ -911,7 +917,7 @@ void RefreshGameListBox( GameWindow *win, Bool showMap )
 	// empty listbox
 	GadgetListBoxReset(win);
 
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SearchForLobbies(
+	pLobbyInterface->SearchForLobbies(
 		[=]()
 		{
 			win->winEnable(false);
