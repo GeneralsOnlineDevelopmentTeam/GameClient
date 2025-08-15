@@ -53,7 +53,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint)
 {
 	if (g_Environment == EEnvironment::DEV)
 	{
-		return std::format("https://api.playgenerals.online/env/test/contract/1/{}", szEndpoint);
+		return std::format("https://localhost:9000/env/dev/contract/1/{}", szEndpoint);
 	}
 	else if (g_Environment == EEnvironment::TEST)
 	{

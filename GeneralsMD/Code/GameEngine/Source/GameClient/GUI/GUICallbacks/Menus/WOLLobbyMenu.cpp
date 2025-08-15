@@ -1315,7 +1315,15 @@ void ExitState()
 		return;
 
 	// Leave any group room, then pop off the screen
-	NGMP_OnlineServicesManager::GetInstance()->GetRoomsInterface()->LeaveRoom();
+	auto pOnlineServicesManager = NGMP_OnlineServicesManager::GetInstance();
+	if (pOnlineServicesManager != nullptr)
+	{
+		NGMP_OnlineServices_RoomsInterface* pRoomsInterface = pOnlineServicesManager->GetRoomsInterface();
+		if (pRoomsInterface != nullptr)
+		{
+			pRoomsInterface->LeaveRoom();
+		}
+	}
 
 	SetLobbyAttemptHostJoin(TRUE); // pretend, since we don't want to queue up another action
 	buttonPushed = true;

@@ -124,7 +124,7 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			else
 			{
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Rejecting - Player is not in lobby\n", pInfo->m_info.m_szConnectionDescription);
-				SteamNetworkingSockets()->CloseConnection(pInfo->m_hConn, 1000, "Player is not in lobby", false);
+				SteamNetworkingSockets()->CloseConnection(pInfo->m_hConn, 1000, "Player is not in lobby (Rejected)", false);
 			}
 			
 		}
@@ -609,6 +609,8 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 	}
 
 	// now delete + remove from map
+	// TODO_NGMP: Reimpl in safer way
+	/*
 	for (int64_t userIDToDisconnect : vecConnectionsToRemove)
 	{
 		if (m_mapConnections.find(userIDToDisconnect) != m_mapConnections.end())
@@ -623,6 +625,7 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 			m_mapConnections.erase(userIDToDisconnect);
 		}
 	}
+	*/
 }
 
 void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsReconnect)

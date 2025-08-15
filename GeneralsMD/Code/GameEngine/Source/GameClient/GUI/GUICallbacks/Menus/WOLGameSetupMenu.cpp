@@ -69,6 +69,7 @@
 #include <ws2ipdef.h>
 #include <format>
 #include "../OnlineServices_Init.h"
+#include "GameLogic/GameLogic.h"
 NGMPGame* TheNGMPGame = NULL;
 
 void WOLDisplaySlotList( void );
@@ -2067,12 +2068,16 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 	// need to exit?
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->IsPendingFullTeardown())
 	{
-		bool bForceShutdown = true;
-		WOLGameSetupMenuShutdown(layout, (void*)&bForceShutdown); // userdata is 'force shutdown'
-		TearDownGeneralsOnline();
+		// Only if not in game
+		if (!TheGameLogic->isInGame())
+		{
+			bool bForceShutdown = true;
+			WOLGameSetupMenuShutdown(layout, (void*)&bForceShutdown); // userdata is 'force shutdown'
+			TearDownGeneralsOnline();
 
-		TheShell->pop();
-		return;
+			TheShell->pop();
+			return;
+		}
 	}
 	
 	// We'll only be successful if we've requested to
