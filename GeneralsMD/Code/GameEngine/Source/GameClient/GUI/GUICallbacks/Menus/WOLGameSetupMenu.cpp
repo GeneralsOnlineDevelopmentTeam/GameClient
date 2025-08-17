@@ -865,10 +865,35 @@ static void StartPressed(void)
 		}
 	}
 
-	if (pMesh->GetAllConnections().size() != numHumanPlayers - 1)
+	if (pMesh->GetAllConnections().size() < numHumanPlayers - 1)
 	{
-		UnicodeString text(L"Some players are still connecting... please try again soon");
-		GadgetListBoxAddEntryText(listboxGameSetupChat, text, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+		UnicodeString text(L"The following players are still connecting, please try again soon:");
+		GadgetListBoxAddEntryText(listboxGameSetupChat, text, GameMakeColor(255, 0, 0, 255), -1, -1);
+
+		auto lobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+		auto vecLobbyMembers = lobbyInterface->GetCurrentLobby().members;
+		auto allConnections = pMesh->GetAllConnections();
+
+		for (LobbyMemberEntry& lobbyMember : vecLobbyMembers)
+		{
+			if (lobbyMember.IsHuman())
+			{
+				bool bFoundLobbyMemberForConnection = false;
+
+				if (allConnections.find(lobbyMember.user_id) != allConnections.end())
+				{
+					// we have a connection for this lobby member
+					bFoundLobbyMemberForConnection = true;
+				}
+				
+				if (!bFoundLobbyMemberForConnection)
+				{
+					UnicodeString strDisplayName(from_utf8(lobbyMember.display_name).c_str());
+					GadgetListBoxAddEntryText(listboxGameSetupChat, strDisplayName, GameMakeColor(255, 0, 0, 255), -1, -1);
+				}
+			}
+		}
+		
 		return;
 	}
 
