@@ -217,7 +217,7 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 	case k_ESteamNetworkingConnectionState_Connected:
 		// We got fully connected
 #if _DEBUG
-		assert(pInfo->m_hConn == pPlayerConnection->m_hSteamConnection); // We don't initiate or accept any other connections, so this should be out own connection
+		//assert(pInfo->m_hConn == pPlayerConnection->m_hSteamConnection); // We don't initiate or accept any other connections, so this should be out own connection
 #endif
 
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] connected\n", pInfo->m_info.m_szConnectionDescription);
@@ -653,64 +653,20 @@ int NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t u
 	return -2;
 }
 
-void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEntry> vecLobbyMembers)
-{
-	std::vector<int64_t> vecConnectionsToRemove;
-	for (auto& connectionData : m_mapConnections)
-	{
-		int64_t thisConnectionUserID = connectionData.first;
 
-		// do we have a lobby member for it? otherwise disconnect
-		bool bFoundLobbyMemberForConnection = false;
-		for (LobbyMemberEntry& lobbyMember : vecLobbyMembers)
-		{
-			if (lobbyMember.IsHuman())
-			{
-				if (lobbyMember.user_id == thisConnectionUserID)
-				{
-					bFoundLobbyMemberForConnection = true;
-					break;
-				}
-			}
-		}
-
-		if (!bFoundLobbyMemberForConnection)
-		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "We have a connection open to user id %d, but no lobby member exists, disconnecting", thisConnectionUserID);
-			vecConnectionsToRemove.push_back(thisConnectionUserID);
-		}
-	}
-
-	// now delete + remove from map
-	for (int64_t userIDToDisconnect : vecConnectionsToRemove)
-	{
-		if (m_mapConnections.find(userIDToDisconnect) != m_mapConnections.end())
-		{
-			if (m_mapConnections[userIDToDisconnect].m_hSteamConnection != k_HSteamNetConnection_Invalid)
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection %lld", userIDToDisconnect);
-				SteamNetworkingSockets()->CloseConnection(m_mapConnections[userIDToDisconnect].m_hSteamConnection, 0, "Client Disconnecting Gracefully (not in lobby list)", false);
-			}
-			
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 1] Removing user %lld", m_mapConnections[userIDToDisconnect].m_userID);
-			m_mapConnections.erase(userIDToDisconnect);
-		}
-	}
-}
-
-void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsReconnect)
+void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort)
 {
 	// if we already have a connection to this use, drop it, having a single-direction connection will break signalling
-	if (m_mapConnections.find(lobbyMember.user_id) != m_mapConnections.end())
+	if (m_mapConnections.find(remoteUserID) != m_mapConnections.end())
 	{
-		if (m_mapConnections[lobbyMember.user_id].m_hSteamConnection != k_HSteamNetConnection_Invalid)
+		if (m_mapConnections[remoteUserID].m_hSteamConnection != k_HSteamNetConnection_Invalid)
 		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection %lld, new connection is being negotiated", lobbyMember.user_id);
-			SteamNetworkingSockets()->CloseConnection(m_mapConnections[lobbyMember.user_id].m_hSteamConnection, 0, "Client Disconnecting Gracefully (new connection being negotiated)", false);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection %lld, new connection is being negotiated", remoteUserID);
+			SteamNetworkingSockets()->CloseConnection(m_mapConnections[remoteUserID].m_hSteamConnection, 0, "Client Disconnecting Gracefully (new connection being negotiated)", false);
 		}
 
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 3] Removing user %lld", m_mapConnections[lobbyMember.user_id].m_userID);
-		m_mapConnections.erase(lobbyMember.user_id);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 3] Removing user %lld", m_mapConnections[remoteUserID].m_userID);
+		m_mapConnections.erase(remoteUserID);
 	}
 
 	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
@@ -722,15 +678,15 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 	}
 
 	// never connect to ourself
-	if (lobbyMember.user_id == pAuthInterface->GetUserID())
+	if (remoteUserID == pAuthInterface->GetUserID())
 	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - Skipping connection to user %lld - user is local", lobbyMember.user_id);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - Skipping connection to user %lld - user is local", remoteUserID);
 		return;
 	}
 
 	SteamNetworkingIdentity identityRemote;
 	identityRemote.Clear();
-	identityRemote.SetGenericString(std::to_string(lobbyMember.user_id).c_str());
+	identityRemote.SetGenericString(std::to_string(remoteUserID).c_str());
 
 	if (identityRemote.IsInvalid())
 	{
@@ -741,7 +697,7 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 
 	std::vector<SteamNetworkingConfigValue_t > vecOpts;
 
-	int g_nVirtualPortRemote = lobbyMember.preferredPort;
+	int g_nVirtualPortRemote = preferredPort;
 
 	// Our remote and local port don't match, so we need to set it explicitly
 	if (g_nVirtualPortRemote != NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort())
@@ -761,7 +717,7 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 
 	// create a signaling object for this connection
 	SteamNetworkingErrMsg errMsg;
-	ISteamNetworkingConnectionSignaling* pConnSignaling = m_pSignaling->CreateSignalingForConnection( identityRemote, errMsg);
+	ISteamNetworkingConnectionSignaling* pConnSignaling = m_pSignaling->CreateSignalingForConnection(identityRemote, errMsg);
 
 	if (pConnSignaling == nullptr)
 	{
@@ -781,20 +737,23 @@ void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsRec
 	}
 
 	// create a local user type
-	m_mapConnections[lobbyMember.user_id] = PlayerConnection(lobbyMember.user_id, hSteamConnection);
+	m_mapConnections[remoteUserID] = PlayerConnection(remoteUserID, hSteamConnection);
 }
 
-bool NetworkMesh::ConnectToMesh(LobbyEntry& lobby)
-{
-	for (LobbyMemberEntry& lobbyMember : lobby.members)
-	{
-		if (lobbyMember.IsHuman())
-		{
-			ConnectToSingleUser(lobbyMember);
-		}
-	}
 
-	return true;
+void NetworkMesh::DisconnectUser(int64_t remoteUserID)
+{
+	if (m_mapConnections.find(remoteUserID) != m_mapConnections.end())
+	{
+		if (m_mapConnections[remoteUserID].m_hSteamConnection != k_HSteamNetConnection_Invalid)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection %lld", remoteUserID);
+			SteamNetworkingSockets()->CloseConnection(m_mapConnections[remoteUserID].m_hSteamConnection, 0, "Client Disconnecting Gracefully (not in lobby list)", false);
+		}
+
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 1] Removing user %lld", m_mapConnections[remoteUserID].m_userID);
+		m_mapConnections.erase(remoteUserID);
+	}
 }
 
 void NetworkMesh::Disconnect()

@@ -850,9 +850,10 @@ static void StartPressed(void)
 	Int humanCount = 0;
 
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 	NGMPGame* myGame = pLobbyInterface == nullptr ? nullptr : pLobbyInterface->GetCurrentGame();
 
-	if (pLobbyInterface == nullptr || !myGame)
+	if (pLobbyInterface == nullptr || !myGame || pAuthInterface == nullptr)
 		return;
 
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
@@ -870,13 +871,14 @@ static void StartPressed(void)
 		UnicodeString text(L"The following players are still connecting, please try again soon:");
 		GadgetListBoxAddEntryText(listboxGameSetupChat, text, GameMakeColor(255, 0, 0, 255), -1, -1);
 
-		auto lobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-		auto vecLobbyMembers = lobbyInterface->GetCurrentLobby().members;
+		
+		int64_t myUserID = pAuthInterface->GetUserID();
+		auto vecLobbyMembers = pLobbyInterface->GetCurrentLobby().members;
 		auto allConnections = pMesh->GetAllConnections();
 
 		for (LobbyMemberEntry& lobbyMember : vecLobbyMembers)
 		{
-			if (lobbyMember.IsHuman())
+			if (lobbyMember.IsHuman() && lobbyMember.user_id != myUserID) // dont show AI or self
 			{
 				bool bFoundLobbyMemberForConnection = false;
 

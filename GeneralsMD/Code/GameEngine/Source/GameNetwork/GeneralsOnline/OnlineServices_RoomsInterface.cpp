@@ -189,6 +189,26 @@ public:
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessageBase, msg_id)
 };
 
+class WebSocketMessage_NetworkStartSignalling : public WebSocketMessageBase
+{
+public:
+	int64_t lobby_id;
+	int64_t user_id;
+	uint16_t preferred_port;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkStartSignalling, msg_id, lobby_id, user_id, preferred_port)
+};
+
+class WebSocketMessage_NetworkDisconnectPlayer : public WebSocketMessageBase
+{
+public:
+	int64_t lobby_id;
+	int64_t user_id;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkDisconnectPlayer, msg_id, lobby_id, user_id)
+};
+
+
 class WebSocketMessage_RoomChatIncoming : public WebSocketMessageBase
 {
 public:
@@ -371,6 +391,69 @@ void WebSocket::Tick()
 								if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackStartGamePacket != nullptr)
 								{
 									pLobbyInterface->m_callbackStartGamePacket();
+								}
+							}
+							break;
+
+
+							case EWebSocketMessageID::NETWORK_CONNECTION_START_SIGNALLING:
+							{
+								WebSocketMessage_NetworkStartSignalling startSignallingData = jsonObject.get<WebSocketMessage_NetworkStartSignalling>();
+
+								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+								if (pLobbyInterface != nullptr)
+								{
+									NetworkMesh* pMesh = pLobbyInterface->GetNetworkMeshForLobby();
+
+									if (pMesh != nullptr)
+									{
+										pMesh->StartConnectionSignalling(startSignallingData.user_id, startSignallingData.preferred_port);
+									}
+									else
+									{
+										NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_START_SIGNALLING] Network mesh is null");
+										break;
+									}
+								}
+								else
+								{
+									NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_START_SIGNALLING] Lobby interface is null");
+									break;
+								}
+							}
+							break;
+
+							case EWebSocketMessageID::NETWORK_CONNECTION_DISCONNECT_PLAYER:
+							{
+								WebSocketMessage_NetworkDisconnectPlayer disconnectPlayerData = jsonObject.get<WebSocketMessage_NetworkDisconnectPlayer>();
+
+								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+								if (pLobbyInterface != nullptr)
+								{
+									int64_t currentLobbyID = pLobbyInterface->GetCurrentLobby().lobbyID;
+
+									if (currentLobbyID == -1 || currentLobbyID != disconnectPlayerData.lobby_id)
+									{
+										NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_DISCONNECT_PLAYER] Lobby ID mismatch! Expected %lld, got %lld", currentLobbyID, disconnectPlayerData.lobby_id);
+										break;
+									}
+
+									NetworkMesh* pMesh = pLobbyInterface->GetNetworkMeshForLobby();
+
+									if (pMesh != nullptr)
+									{
+										pMesh->DisconnectUser(disconnectPlayerData.user_id);
+									}
+									else
+									{
+										NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_DISCONNECT_PLAYER] Network mesh is null");
+										break;
+									}
+								}
+								else
+								{
+									NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_DISCONNECT_PLAYER] Lobby interface is null");
+									break;
 								}
 							}
 							break;

@@ -163,14 +163,8 @@ public:
 	QueuedGamePacket RecvGamePacket();
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
 
-	void SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEntry> vecLobbyMembers);
-
-	void ConnectToSingleUser(LobbyMemberEntry& member, bool bIsReconnect = false);
-
-	void ConnectToUserViaRelay(Int64 user_id);
-
-	bool ConnectToMesh(LobbyEntry& lobby);
-
+	void StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort);
+	void DisconnectUser(int64_t remoteUserID);
 	void Disconnect();
 
 	void Tick();

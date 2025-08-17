@@ -740,44 +740,6 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							// TODO_NGMP: handle failure to connect to some users
 
 							bool bMapOwnershipStateChanged = true;
-
-							// is it a new member? connect
-							bool bIsNew = true;
-							for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
-							{
-								if (memberEntry.IsHuman())
-								{
-									// detect local kick
-									if (memberEntry.user_id == myUserID)
-									{
-										bFoundSelfInNew = true;
-									}
-
-									if (currentMember.user_id == memberEntry.user_id)
-									{
-										// check if the map state changes
-										if (currentMember.has_map == memberEntry.has_map)
-										{
-											bMapOwnershipStateChanged = false;
-										}
-
-										bIsNew = false;
-										break;
-									}
-								}
-							}
-							if (bIsNew)
-							{
-								// if we're joining as a client (not host), lobby mesh will be null here, but it's ok because the initial creation will sync to everyone
-								if (m_pLobbyMesh != nullptr)
-								{
-									if (memberEntry.IsHuman())
-									{
-										m_pLobbyMesh->ConnectToSingleUser(memberEntry);
-									}
-								}
-							}
-
 							if (bMapOwnershipStateChanged)
 							{
 								// changed and the person no longer has the map
@@ -796,12 +758,6 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						{
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "We were kicked from the lobby...");
 							OnKickedFromLobby();
-						}
-
-						// disconnect from anyone who is no longer in the lobby
-						if (m_pLobbyMesh != nullptr)
-						{
-							m_pLobbyMesh->SyncConnectionListToLobbyMemberList(lobbyEntry.members);
 						}
 
 						// did the host change?
@@ -895,6 +851,12 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 
 	std::string strPostData = j.dump();
 
+	// create our mesh
+	if (m_pLobbyMesh == nullptr)
+	{
+		m_pLobbyMesh = new NetworkMesh();
+	}
+
 	// convert
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 	{
@@ -973,18 +935,20 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 				*/
 			}
 
-			// we need to get more lobby info before triggering the game callback...
+			OnJoinedOrCreatedLobby(false, [=]()
+				{
+					m_bAttemptingToJoinLobby = false;
+					NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+					if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackJoinedLobby != nullptr)
+					{
+						pLobbyInterface->m_callbackJoinedLobby(JoinResult);
+					}
+				});
+
+			// get latest lobby info immediately
 			UpdateRoomDataCache([=]()
 				{
-					OnJoinedOrCreatedLobby(false, [=]()
-						{
-							m_bAttemptingToJoinLobby = false;
-							NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-							if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackJoinedLobby != nullptr)
-							{
-								pLobbyInterface->m_callbackJoinedLobby(JoinResult);
-							}
-						});
+					
 				});
 		}
 		else if (statusCode == 401)
@@ -1208,6 +1172,12 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(void)> fnCallback)
 {
+	// join the network mesh too
+	if (m_pLobbyMesh == nullptr)
+	{
+		m_pLobbyMesh = new NetworkMesh();
+	}
+
 	m_bMarkedGameAsFinished = false;
 
 	// reset timer
@@ -1219,13 +1189,6 @@ void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpd
 	{
 		UpdateRoomDataCache([=]()
 			{
-				// join the network mesh too
-				if (m_pLobbyMesh == nullptr)
-				{
-					m_pLobbyMesh = new NetworkMesh();
-					m_pLobbyMesh->ConnectToMesh(m_CurrentLobby);
-				}
-
 				fnCallback();
 			});
 	}
