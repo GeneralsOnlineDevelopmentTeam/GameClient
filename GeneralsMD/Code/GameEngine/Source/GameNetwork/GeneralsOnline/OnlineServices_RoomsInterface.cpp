@@ -52,6 +52,8 @@ void WebSocket::Connect(const char* url)
 #if _DEBUG
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 0);
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 0);
+
+		curl_easy_setopt(m_pCurl, CURLOPT_VERBOSE, 1L);
 #else
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYPEER, 0);
 		curl_easy_setopt(m_pCurl, CURLOPT_SSL_VERIFYHOST, 0);
@@ -79,6 +81,7 @@ void WebSocket::Connect(const char* url)
 		if (res != CURLE_OK)
 		{
 			m_bConnected = false;
+			m_vecWSPartialBuffer.clear();
 			fprintf(stderr, "curl_easy_perform() failed: %s\n",
 				curl_easy_strerror(res));
 
@@ -88,6 +91,7 @@ void WebSocket::Connect(const char* url)
 		{
 			/* connected and ready */
 			m_bConnected = true;
+			m_vecWSPartialBuffer.clear();
 
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Connected");
 		}
@@ -154,10 +158,14 @@ void WebSocket::Disconnect()
 		curl_easy_cleanup(m_pCurl);
 		m_pCurl = nullptr;
 	}
+
+	m_vecWSPartialBuffer.clear();
 }
 
 void WebSocket::Send(const char* send_payload)
 {
+	std::scoped_lock<std::recursive_mutex> lock(m_mutex);
+
 	if (!m_bConnected)
 	{
 		return;
@@ -254,7 +262,7 @@ void WebSocket::Tick()
 		}
 	}
 
-	WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+	WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();;
 	pWS->SendData_Signalling(strSignal);
 	*/
 
@@ -269,15 +277,15 @@ void WebSocket::Tick()
 	// do recv
 	size_t rlen = 0;
 	const struct curl_ws_frame* meta = nullptr;
-	char buffer[8196 * 4] = { 0 };
+	char bufferThisRecv[8196 * 4] = { 0 };
 
 	CURLcode ret = CURL_LAST;
-	ret = curl_ws_recv(m_pCurl, buffer, sizeof(buffer) - 1, &rlen, &meta);
-	buffer[rlen] = 0; // Ensure null-termination
+	ret = curl_ws_recv(m_pCurl, bufferThisRecv, sizeof(bufferThisRecv) - 1, &rlen, &meta);
+	bufferThisRecv[rlen] = 0; // Ensure null-termination
 	
 	if (ret != CURLE_RECV_ERROR && ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
 	{
-		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket msg: %s", buffer);
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket msg: %s", bufferThisRecv);
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket len: %d", rlen);
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket flags: %d", meta->flags);
 
@@ -290,29 +298,41 @@ void WebSocket::Tick()
 			}
 			else if (meta->flags & CURLWS_TEXT)
 			{
-				NetworkLog(ELogVerbosity::LOG_DEBUG, "websocket buffer is: %s", buffer);
+				NetworkLog(ELogVerbosity::LOG_DEBUG, "websocket recv buffer is: %s", bufferThisRecv);
 
-				if (meta->flags & CURLWS_CONT || meta->bytesleft > 0)
+				bool bMessageComplete = false;
+
+				m_vecWSPartialBuffer.resize(m_vecWSPartialBuffer.size() + rlen);
+				memcpy_s(m_vecWSPartialBuffer.data() + m_vecWSPartialBuffer.size() - rlen, rlen, bufferThisRecv, rlen);
+
+				if (meta->flags & CURLWS_CONT)
 				{
-					strBuf.append(buffer, rlen);
-					NetworkLog(ELogVerbosity::LOG_DEBUG, "WEBSOCKET PARTIAL!");
+					bMessageComplete = false;
+					NetworkLog(ELogVerbosity::LOG_DEBUG, "WEBSOCKET PARTIAL (CONT) OF SIZE %d, offset %d, bytes left %d! [MESSAGE COMPLETE: %d]", rlen, meta->offset, meta->bytesleft, bMessageComplete);
+				}
+				else if (meta->bytesleft > 0)
+				{
+					bMessageComplete = false;
+					NetworkLog(ELogVerbosity::LOG_DEBUG, "WEBSOCKET PARTIAL (BYTESLEFT) OF SIZE %d, offset %d! [MESSAGE COMPLETE: %d]", rlen, meta->offset, bMessageComplete);
 				}
 				else
 				{
+					// if we got in here, it's a whole message, or the last part of a fragmented message
+					bMessageComplete = true;
+					NetworkLog(ELogVerbosity::LOG_DEBUG, "WEBSOCKET LAST FRAME OF SIZE %d!", rlen);
+				}
+
+				if (bMessageComplete)
+				{
 					try
 					{
-						nlohmann::json jsonObject;
-						if (!strBuf.empty())
-						{
-							strBuf.append(buffer, rlen);
-							jsonObject = nlohmann::json::parse(strBuf);
+						// process it
+						nlohmann::json jsonObject = nlohmann::json::parse(m_vecWSPartialBuffer);
 
-							strBuf.clear();
-						}
-						else
-						{
-							jsonObject = nlohmann::json::parse(buffer);
-						}
+						// clear buffer and resize
+						m_vecWSPartialBuffer.clear();
+						m_vecWSPartialBuffer.resize(0);
+
 
 						if (jsonObject.contains("msg_id"))
 						{
@@ -453,17 +473,25 @@ void WebSocket::Tick()
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "Malformed WebSocketMessage");
 						}
 					}
-					catch (std::exception& e)
-					{
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage: %s (%s)", buffer, e.what());
-					}
 					catch (nlohmann::json::exception& jsonException)
 					{
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage: %s (JSON: %s)", buffer, jsonException.what());
+
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage 101: %s (JSON: %s)", bufferThisRecv, jsonException.what());
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Buildup buffer is: %s", m_vecWSPartialBuffer.data());
+
+						m_vecWSPartialBuffer.clear();
+					}
+					catch (std::exception& e)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage 100: %s (%s)", bufferThisRecv, e.what());
+
+						m_vecWSPartialBuffer.clear();
 					}
 					catch (...)
 					{
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage: %s", buffer);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage 102: %s", bufferThisRecv);
+
+						m_vecWSPartialBuffer.clear();
 					}
 				}
 			}
@@ -479,6 +507,7 @@ void WebSocket::Tick()
 				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket close");
 				NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
 				m_bConnected = false;
+				m_vecWSPartialBuffer.clear();
 				// TODO_NGMP: Handle this
 			}
 			else if (meta->flags & CURLWS_PING)
@@ -503,6 +532,7 @@ void WebSocket::Tick()
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (ERROR)");
 		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
 		m_bConnected = false;
+		m_vecWSPartialBuffer.clear();
 	}
 
 	// time since last pong?
@@ -511,6 +541,7 @@ void WebSocket::Tick()
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (Timeout)");
 		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
 		m_bConnected = false;
+		m_vecWSPartialBuffer.clear();
 	};
 
 }
@@ -585,7 +616,7 @@ void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<v
 
 			NetworkRoom targetNetworkRoom = pRoomsInterface->GetGroupRooms().at(roomIndex);
 
-			WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+			WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();;
 			if (pWS != nullptr)
 			{
 				pWS->SendData_JoinNetworkRoom(targetNetworkRoom.GetRoomID());
@@ -604,7 +635,7 @@ std::map<uint64_t, NetworkRoomMember>& NGMP_OnlineServices_RoomsInterface::GetMe
 
 void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
-	WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+	WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();;
 	if (pWS != nullptr)
 	{
 		pWS->SendData_RoomChatMessage(strChatMsgUnicode, bIsAction);

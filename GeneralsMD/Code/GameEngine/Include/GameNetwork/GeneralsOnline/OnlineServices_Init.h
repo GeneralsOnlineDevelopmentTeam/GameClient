@@ -145,7 +145,7 @@ public:
 		return m_bConnected;
 	}
 
-	std::string strBuf;
+	std::vector<char> m_vecWSPartialBuffer;
 
 	void Shutdown();
 
@@ -270,6 +270,16 @@ public:
 		return m_pOnlineServicesManager;
 	}
 
+	static WebSocket* GetWebSocket()
+	{
+		if (m_pOnlineServicesManager != nullptr)
+		{
+			return m_pOnlineServicesManager->Internal_GetWebSocket();
+		}
+
+		return nullptr;
+	}
+
 	template<typename T>
 	static T* GetInterface()
 	{
@@ -346,7 +356,7 @@ public:
 
 	void StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback);
 
-	WebSocket* GetWebSocket() const { return m_pWebSocket; }
+	WebSocket* Internal_GetWebSocket() const { return m_pWebSocket; }
 	HTTPManager* GetHTTPManager() const { return m_pHTTPManager; }
 
 	void CancelUpdate();

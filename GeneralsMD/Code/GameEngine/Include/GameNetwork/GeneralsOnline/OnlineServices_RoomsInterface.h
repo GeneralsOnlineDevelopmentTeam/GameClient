@@ -83,7 +83,7 @@ public:
 
 	void LeaveRoom()
 	{
-		WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+		WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();
 		if (pWS != nullptr)
 		{
 			pWS->SendData_LeaveNetworkRoom();

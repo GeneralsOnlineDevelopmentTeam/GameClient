@@ -289,7 +289,7 @@ public:
 	// Send the signal.
 	void Send(int64_t target_user_id, std::vector<uint8_t>& vecPayload)
 	{
-		WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+		WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();
 		if (pWS != nullptr)
 		{
 			std::scoped_lock<std::recursive_mutex> lock(pWS->GetLock());
@@ -340,7 +340,7 @@ public:
 
 	virtual void Poll() override
 	{
-		WebSocket* pWS = NGMP_OnlineServicesManager::GetInstance()->GetWebSocket();
+		WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();
 		if (pWS != nullptr)
 		{
 			pWS->GetLock().lock();
@@ -632,8 +632,6 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 	}
 
 	// now delete + remove from map
-	// TODO_NGMP: Reimpl in safer way
-	/*
 	for (int64_t userIDToDisconnect : vecConnectionsToRemove)
 	{
 		if (m_mapConnections.find(userIDToDisconnect) != m_mapConnections.end())
@@ -648,11 +646,23 @@ void NetworkMesh::SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEnt
 			m_mapConnections.erase(userIDToDisconnect);
 		}
 	}
-	*/
 }
 
 void NetworkMesh::ConnectToSingleUser(LobbyMemberEntry& lobbyMember, bool bIsReconnect)
 {
+	// if we already have a connection to this use, drop it, having a single-direction connection will break signalling
+	if (m_mapConnections.find(lobbyMember.user_id) != m_mapConnections.end())
+	{
+		if (m_mapConnections[lobbyMember.user_id].m_hSteamConnection != k_HSteamNetConnection_Invalid)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection %lld, new connection is being negotiated", lobbyMember.user_id);
+			SteamNetworkingSockets()->CloseConnection(m_mapConnections[lobbyMember.user_id].m_hSteamConnection, 0, "Client Disconnecting Gracefully (new connection being negotiated)", false);
+		}
+
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 3] Removing user %lld", m_mapConnections[lobbyMember.user_id].m_userID);
+		m_mapConnections.erase(lobbyMember.user_id);
+	}
+
 	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 
 	if (pAuthInterface == nullptr)
