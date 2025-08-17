@@ -740,6 +740,29 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							// TODO_NGMP: handle failure to connect to some users
 
 							bool bMapOwnershipStateChanged = true;
+							for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
+							{
+								if (memberEntry.IsHuman())
+								{
+									// detect local kick
+									if (memberEntry.user_id == myUserID)
+									{
+										bFoundSelfInNew = true;
+									}
+
+									if (currentMember.user_id == memberEntry.user_id)
+									{
+										// check if the map state changes
+										if (currentMember.has_map == memberEntry.has_map)
+										{
+											bMapOwnershipStateChanged = false;
+										}
+
+										break;
+									}
+								}
+							}
+
 							if (bMapOwnershipStateChanged)
 							{
 								// changed and the person no longer has the map
