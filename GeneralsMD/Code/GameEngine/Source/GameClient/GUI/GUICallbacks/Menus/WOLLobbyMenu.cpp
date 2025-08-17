@@ -1370,7 +1370,7 @@ void ExitState()
 	SetLobbyAttemptHostJoin(TRUE); // pretend, since we don't want to queue up another action
 	buttonPushed = true;
 
-	if (NGMP_OnlineServicesManager::GetInstance()->IsPendingFullTeardown()) // go back to the front end
+	if (pOnlineServicesManager == nullptr || pOnlineServicesManager->IsPendingFullTeardown()) // go back to the front end
 	{
 		nextScreen = nullptr;
 	}

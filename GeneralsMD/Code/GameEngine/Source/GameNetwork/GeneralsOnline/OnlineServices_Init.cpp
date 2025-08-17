@@ -160,7 +160,7 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 
 void NGMP_OnlineServicesManager::ContinueUpdate()
 {
-	if (m_vecFilesToDownload.size() > 0) // download next
+	if (m_vecFilesToDownload.size() > 0 && m_pHTTPManager != nullptr) // download next
 	{
 		std::string strDownloadPath = m_vecFilesToDownload.front();
 		m_vecFilesToDownload.pop();
@@ -173,7 +173,7 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 
 		// this isnt a super nice way of doing this, lets make a download manager
 		std::map<std::string, std::string> mapHeaders;
-		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		m_pHTTPManager->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
 				// set done
 				TheDownloadManager->OnProgressUpdate(downloadSize, downloadSize, 0, 0);
