@@ -476,6 +476,16 @@ void WebSocket::SendData_LeaveNetworkRoom()
 }
 
 
+void WebSocket::SendData_RequestSignalling(int64_t targetUserID)
+{
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] SEND REQUEST SIGNALING!");
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::NETWORK_CONNECTION_CLIENT_REQUEST_SIGNALLING;
+	j["target_user_id"] = targetUserID;
+	std::string strBody = j.dump();
+	Send(strBody.c_str());
+}
+
 void WebSocket::SendData_Signalling(int64_t targetUserID, std::vector<uint8_t> vecPayload)
 {
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] SEND SIGNAL!");

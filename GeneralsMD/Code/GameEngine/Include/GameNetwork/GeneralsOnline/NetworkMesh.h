@@ -74,13 +74,15 @@ public:
 	std::string GetConnectionType();
 
 	void UpdateState(EConnectionState newState, NetworkMesh* pOwningMesh);
-	void SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh);
+	void SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh, bool bIsRetrying);
 	
 	int64_t m_userID = -1;
 
 	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
 	
 	int64_t pingSent = -1;
+
+	int m_SignallingAttempts = 0;
 	
 	int GetLatency();
 

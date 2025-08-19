@@ -63,53 +63,84 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 
 		if (pPlayerConnection != nullptr && pInfo != nullptr)
 		{
+			const int numSignallingAttempts = 3;
+			bool bShouldRetry = pPlayerConnection->m_SignallingAttempts < numSignallingAttempts;
+
 			bool bWasError = pInfo->m_info.m_eState == k_ESteamNetworkingConnectionState_ProblemDetectedLocally || pInfo->m_info.m_eEndReason != k_ESteamNetConnectionEnd_App_Generic;
-			pPlayerConnection->SetDisconnected(bWasError, pMesh);
+			pPlayerConnection->SetDisconnected(bWasError, pMesh, bShouldRetry && bWasError);
 			
 			// the highest slot player, should leave. In most cases, this is the most recently joined player, but this may not be 100% accurate due to backfills.
 			// TODO_NGMP: In the future, we should pick the most recently joined by timestamp
 			if (bWasError) // only if it wasn't a clean disconnect (e.g. lobby leave)
 			{
-				int myLobbySlot = -1;
-				int disconnectedLobbySlot = -1;
+				
+				
 
-				NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-				NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-				if (pLobbyInterface != nullptr && pAuthInterface != nullptr)
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined we didn't connect due to an error, Retrying: %d (currently at %d/%d attempts)", bShouldRetry, pPlayerConnection->m_SignallingAttempts, numSignallingAttempts);
+				// should we retry signaling?
+				if (bShouldRetry)
 				{
-					int64_t myUserID = pAuthInterface->GetUserID();
-
-					auto lobbyMembers = pLobbyInterface->GetMembersListForCurrentRoom();
-					for (const auto& lobbyMember : lobbyMembers)
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Retrying...");
+					WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();
+					if (pWS != nullptr)
 					{
-						if (lobbyMember.user_id == pPlayerConnection->m_userID)
-						{
-							NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined target player slot to be %d\n", lobbyMember.m_SlotIndex);
-							disconnectedLobbySlot = lobbyMember.m_SlotIndex;
-						}
-						else if (lobbyMember.user_id == myUserID)
-						{
-							NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined my slot to be %d\n", lobbyMember.m_SlotIndex);
-							myLobbySlot = lobbyMember.m_SlotIndex;
-						}
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Send signal start request...");
 
-						if (myLobbySlot != -1 && disconnectedLobbySlot != -1)
-						{
-							break; // we are done
-						}
+						++pPlayerConnection->m_SignallingAttempts;
+						pWS->SendData_RequestSignalling(pPlayerConnection->m_userID);
+					}
+					else
+					{
+						// Should always have a websocket... so lets just fail
+						bShouldRetry = false;
 					}
 				}
 
-				// Behavior:
-				// disconnected slot is higher than ours, do nothing, they will leave
-				// disconnected slot is lower than ours, we leave
-				// -1, meaning we didnt determine slots properly, we leave
-				if ((myLobbySlot == -1 || disconnectedLobbySlot == -1) || (myLobbySlot > disconnectedLobbySlot))
+				if (!bShouldRetry)
 				{
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] My Lobby slot is %d, target lobby slot is %d, performing local removal from lobby due to failure to connect\n", myLobbySlot, disconnectedLobbySlot);
-					if (pLobbyInterface->m_OnCannotConnectToLobbyCallback != nullptr)
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Not retrying, handling disconnect as failure...");
+
+					int myLobbySlot = -1;
+					int disconnectedLobbySlot = -1;
+
+					NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+					NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+					if (pLobbyInterface != nullptr && pAuthInterface != nullptr)
 					{
-						pLobbyInterface->m_OnCannotConnectToLobbyCallback();
+						int64_t myUserID = pAuthInterface->GetUserID();
+
+						auto lobbyMembers = pLobbyInterface->GetMembersListForCurrentRoom();
+						for (const auto& lobbyMember : lobbyMembers)
+						{
+							if (lobbyMember.user_id == pPlayerConnection->m_userID)
+							{
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined target player slot to be %d\n", lobbyMember.m_SlotIndex);
+								disconnectedLobbySlot = lobbyMember.m_SlotIndex;
+							}
+							else if (lobbyMember.user_id == myUserID)
+							{
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined my slot to be %d\n", lobbyMember.m_SlotIndex);
+								myLobbySlot = lobbyMember.m_SlotIndex;
+							}
+
+							if (myLobbySlot != -1 && disconnectedLobbySlot != -1)
+							{
+								break; // we are done
+							}
+						}
+					}
+
+					// Behavior:
+					// disconnected slot is higher than ours, do nothing, they will leave
+					// disconnected slot is lower than ours, we leave
+					// -1, meaning we didnt determine slots properly, we leave
+					if ((myLobbySlot == -1 || disconnectedLobbySlot == -1) || (myLobbySlot > disconnectedLobbySlot))
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] My Lobby slot is %d, target lobby slot is %d, performing local removal from lobby due to failure to connect\n", myLobbySlot, disconnectedLobbySlot);
+						if (pLobbyInterface->m_OnCannotConnectToLobbyCallback != nullptr)
+						{
+							pLobbyInterface->m_OnCannotConnectToLobbyCallback();
+						}
 					}
 				}
 			}
@@ -738,6 +769,9 @@ void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t prefe
 
 	// create a local user type
 	m_mapConnections[remoteUserID] = PlayerConnection(remoteUserID, hSteamConnection);
+
+	// we are already signalling
+	m_mapConnections[remoteUserID].m_SignallingAttempts = 1;
 }
 
 
@@ -909,17 +943,29 @@ void PlayerConnection::UpdateState(EConnectionState newState, NetworkMesh* pOwni
 	}
 }
 
-void PlayerConnection::SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh)
+void PlayerConnection::SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh, bool bIsRetrying)
 {
 	if (bWasError)
 	{
-		m_State = EConnectionState::CONNECTION_FAILED;
+		if (bIsRetrying)
+		{
+			m_State = EConnectionState::NOT_CONNECTED;
+		}
+		else
+		{
+			m_State = EConnectionState::CONNECTION_FAILED;
+		}
 	}
 	else
 	{
 		m_State = EConnectionState::CONNECTION_DISCONNECTED;
 	}
-	UpdateState(m_State, pOwningMesh);
+
+	// Dont update backend until we're actually done
+	if (!bIsRetrying)
+	{
+		UpdateState(m_State, pOwningMesh);
+	}
 
 	m_hSteamConnection = k_HSteamNetConnection_Invalid; // invalidate connection handle
 }

@@ -46,7 +46,8 @@ enum EWebSocketMessageID
 	PONG = 15,
 	PROBE = 16,
 	NETWORK_CONNECTION_START_SIGNALLING = 17,
-	NETWORK_CONNECTION_DISCONNECT_PLAYER = 18
+	NETWORK_CONNECTION_DISCONNECT_PLAYER = 18,
+	NETWORK_CONNECTION_CLIENT_REQUEST_SIGNALLING = 19,
 };
 
 enum class EQoSRegions
@@ -160,6 +161,7 @@ public:
 	void SendData_MarkReady(bool bReady);
 	void SendData_ConnectionRelayUpgrade(int64_t userID);
 
+	void SendData_RequestSignalling(int64_t targetUserID);
 	void SendData_Signalling(int64_t targetUserID, std::vector<uint8_t> vecPayload);
 	void SendData_StartGame();
 
