@@ -349,13 +349,13 @@ void NGMPGame::launchGame(void)
 #endif
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	TheWritableGlobalData->m_networkRunAheadSlack = 20;
+	TheWritableGlobalData->m_networkRunAheadSlack = 25;
 
 	TheWritableGlobalData->m_networkFPSHistoryLength = 10;
 	TheWritableGlobalData->m_networkLatencyHistoryLength = 10;
 	TheWritableGlobalData->m_networkRunAheadMetricsTime = 100;
 #else
-	TheWritableGlobalData->m_networkRunAheadSlack = 10;
+	TheWritableGlobalData->m_networkRunAheadSlack = 25;
 
 	TheWritableGlobalData->m_networkFPSHistoryLength = 10;
 	TheWritableGlobalData->m_networkLatencyHistoryLength = 10;
