@@ -640,6 +640,23 @@ void NetworkMesh::Flush()
 	}
 }
 
+
+void NetworkMesh::RegisterConnectivity(int64_t userID)
+{
+	nlohmann::json j;
+	j["target"] = userID;
+	j["direct"] = false;
+	j["outcome"] = EConnectionState::NOT_CONNECTED;
+	j["ipv4"] = true;
+	std::string strPostData = j.dump();
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ConnectionOutcome");
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			// dont care about the response
+		});
+}
+
 void NetworkMesh::UpdateConnectivity(PlayerConnection* connection)
 {
 	nlohmann::json j;
@@ -841,7 +858,7 @@ PlayerConnection::PlayerConnection(int64_t userID, HSteamNetConnection hSteamCon
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
 	if (pMesh != nullptr)
 	{
-		pMesh->UpdateConnectivity(this);
+		pMesh->RegisterConnectivity(userID);
 	}
 }
 

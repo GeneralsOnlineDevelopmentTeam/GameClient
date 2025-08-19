@@ -113,6 +113,7 @@ public:
 
 	void Flush();
 
+	void RegisterConnectivity(int64_t userID);
 	void UpdateConnectivity(PlayerConnection* connection);
 
 	std::function<void(int64_t, std::wstring, PlayerConnection*)> m_cbOnConnected = nullptr;
