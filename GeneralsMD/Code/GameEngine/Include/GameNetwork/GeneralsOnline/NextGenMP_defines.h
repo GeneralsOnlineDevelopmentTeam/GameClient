@@ -29,8 +29,6 @@
 #define NATPMP_STATICLIB 1
 #define PLUM_STATIC 1
 
-#define FRAME_GROUPING_CAP 1
-
 #define GENERALS_ONLINE_VERSION 1
 #define GENERALS_ONLINE_NET_VERSION 1
 #define GENERALS_ONLINE_SERVICE_VERSION 1
@@ -71,6 +69,12 @@
 	#define GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER 1
 
 	#define GENERALS_ONLINE_HIGH_FPS_RENDER 1 // This is optional on 30fps, but will boost/unlock the framerate, similar to gentool
+#endif
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+#define FRAME_GROUPING_CAP 32
+#else
+#define FRAME_GROUPING_CAP 64
 #endif
 
 // useful for testing release builds with multiple logins

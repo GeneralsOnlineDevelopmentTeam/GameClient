@@ -1280,7 +1280,13 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::updateRunAhead - minFps after adjustment is %d", minFps));
 			Int newRunAhead = 0;
+
+#if defined(GENERALS_ONLINE)
+			float latency = getMaximumLatency() * (1.0f + TheGlobalData->m_networkRunAheadSlack / 100.0f);
+			newRunAhead = ceilf(latency * (Real)minFps);
+#else
 			newRunAhead = (Int)(ceil((getMaximumLatency() / 2.0) * (Real)minFps));
+#endif
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "New run ahead is %d, formula is maxlat is %f (div 2: %f), minfps is %d", newRunAhead, getMaximumLatency(), getMaximumLatency() / 2.f, minFps);
 
 			if (getMaximumLatency() >= 0.4f)
@@ -1296,12 +1302,6 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 				}
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Advanced networking stats dumped");
 			}
-
-#if !defined(GENERALS_ONLINE)
-			newRunAhead += (newRunAhead * TheGlobalData->m_networkRunAheadSlack) / 100; // Add in 10% of slack to the run ahead in case of network hiccups.
-#else
-			newRunAhead += (Int)ceilf(newRunAhead * (TheGlobalData->m_networkRunAheadSlack / 100.0f));
-#endif
 
 			
 			if (newRunAhead < MIN_RUNAHEAD) {
@@ -1449,6 +1449,18 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 }
 
 Real ConnectionManager::getMaximumLatency() {
+#if defined(GENERALS_ONLINE)
+	Real Maxlat = 0.0f;
+
+	for (Int i = 0; i < MAX_SLOTS; ++i) {
+		if (isPlayerConnected(i) && m_latencyAverages[i] > Maxlat) {
+			Maxlat = m_latencyAverages[i];
+		}
+	}
+
+	// TheSuperHackers @info the latencyAverage is the roundtrip latency
+	return Maxlat;
+#else
 	// This works for 2 player games because the latency for the packet router is always 0.
 	Real lat1 = 0.0;
 	Real lat2 = 0.0;
@@ -1467,6 +1479,7 @@ Real ConnectionManager::getMaximumLatency() {
 	}
 
 	return (lat1 + lat2);
+#endif
 }
 
 void ConnectionManager::getMinimumFps(Int &minFps, Int &minFpsPlayer) {
