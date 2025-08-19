@@ -151,10 +151,7 @@ public:
 
 	void Tick()
 	{
-		if (m_pNetRoomMesh != nullptr)
-		{
-			m_pNetRoomMesh->Tick();
-		}
+
 	}
 
 	std::vector<NetworkRoom> GetGroupRooms()
@@ -169,9 +166,6 @@ public:
 
 private:
 	int m_CurrentRoomID = -1;
-	
-	// TODO_NGMP: cleanup
-	NetworkMesh* m_pNetRoomMesh = nullptr;
 
 	std::vector<NetworkRoom> m_vecRooms;
 
