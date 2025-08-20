@@ -845,7 +845,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index, const char* szPass
 	JoinLobby(lobbyInfo, szPassword);
 }
 
-void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const char* szPassword)
+void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const char* szPasswordIn)
 {
 	if (m_bAttemptingToJoinLobby)
 	{
@@ -856,6 +856,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 	m_bAttemptingToJoinLobby = true;
 	m_CurrentLobby = LobbyEntry();
 
+	std::string strPassword(szPasswordIn);
 	NGMP_OnlineServicesManager::GetInstance()->GetAndParseServiceConfig([=]()
 		{
 			std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), lobbyInfo.lobbyID);
@@ -869,9 +870,9 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 			j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
 			j["has_map"] = bHasMap;
 
-			if (szPassword != nullptr && strlen(szPassword) > 0)
+			if (!strPassword.empty())
 			{
-				j["password"] = szPassword;
+				j["password"] = strPassword.c_str();
 			}
 
 			std::string strPostData = j.dump();
@@ -1059,8 +1060,10 @@ struct CreateLobbyResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateLobbyResponse, result, lobby_id, turn_username, turn_token)
 };
 
-void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword, bool bAllowObservers)
+void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPasswordIn, bool bAllowObservers)
 {
+	std::string strPassword(szPasswordIn);
+
 	NGMP_OnlineServicesManager::GetInstance()->GetAndParseServiceConfig([=]()
 		{
 			m_CurrentLobby = LobbyEntry();
@@ -1091,7 +1094,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 			j["track_stats"] = bTrackStats;
 			j["starting_cash"] = startingCash;
 			j["passworded"] = bPassworded;
-			j["password"] = szPassword;
+			j["password"] = strPassword.c_str();
 			j["allow_observers"] = bAllowObservers;
 			j["exe_crc"] = TheGlobalData->m_exeCRC;
 			j["ini_crc"] = TheGlobalData->m_iniCRC;
@@ -1148,7 +1151,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 							m_CurrentLobby.current_players = 1;
 							m_CurrentLobby.max_players = initialMaxSize;
 							m_CurrentLobby.passworded = bPassworded;
-							m_CurrentLobby.password = std::string(szPassword);
+							m_CurrentLobby.password = strPassword;
 
 							LobbyMemberEntry me;
 

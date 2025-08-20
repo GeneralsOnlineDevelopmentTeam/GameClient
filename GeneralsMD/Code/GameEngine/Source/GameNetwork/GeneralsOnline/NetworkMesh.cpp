@@ -63,8 +63,9 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 
 		if (pPlayerConnection != nullptr && pInfo != nullptr)
 		{
+			ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
 			const int numSignallingAttempts = 3;
-			bool bShouldRetry = pPlayerConnection->m_SignallingAttempts < numSignallingAttempts;
+			bool bShouldRetry = pPlayerConnection->m_SignallingAttempts < numSignallingAttempts && serviceConf.retry_signalling;
 
 			bool bWasError = pInfo->m_info.m_eState == k_ESteamNetworkingConnectionState_ProblemDetectedLocally || pInfo->m_info.m_eEndReason != k_ESteamNetConnectionEnd_App_Generic;
 			pPlayerConnection->SetDisconnected(bWasError, pMesh, bShouldRetry && bWasError);
@@ -77,6 +78,7 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 				
 
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined we didn't connect due to an error, Retrying: %d (currently at %d/%d attempts)", bShouldRetry, pPlayerConnection->m_SignallingAttempts, numSignallingAttempts);
+				
 				// should we retry signaling?
 				if (bShouldRetry)
 				{
@@ -86,7 +88,6 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 					{
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Send signal start request...");
 
-						++pPlayerConnection->m_SignallingAttempts;
 						pWS->SendData_RequestSignalling(pPlayerConnection->m_userID);
 					}
 					else
@@ -801,8 +802,8 @@ void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t prefe
 	// create a local user type
 	m_mapConnections[remoteUserID] = PlayerConnection(remoteUserID, hSteamConnection);
 
-	// we are already signalling
-	m_mapConnections[remoteUserID].m_SignallingAttempts = 1;
+	// add attempt
+	++m_mapConnections[remoteUserID].m_SignallingAttempts;
 }
 
 

@@ -221,6 +221,7 @@ private:
 
 struct ServiceConfig
 {
+	bool retry_signalling = false;
 	bool use_mapped_port = true;
 	int min_run_ahead_frames = 4;
 	int ra_update_frequency_frames = 10;
