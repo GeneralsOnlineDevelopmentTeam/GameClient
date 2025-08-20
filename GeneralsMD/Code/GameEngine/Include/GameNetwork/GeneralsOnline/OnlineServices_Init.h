@@ -219,6 +219,18 @@ private:
 	ERoomFlags m_RoomFlags = ERoomFlags::ROOM_FLAGS_DEFAULT;
 };
 
+struct ServiceConfig
+{
+	bool use_mapped_port = true;
+	int min_run_ahead_frames = 4;
+	int ra_update_frequency_frames = 10;
+	bool relay_all_traffic = false;
+	int ra_slack_percent = 20;
+	int frame_grouping_frames = 2;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(ServiceConfig, use_mapped_port, min_run_ahead_frames, ra_update_frequency_frames, relay_all_traffic, ra_slack_percent, frame_grouping_frames)
+};
+
 class NGMP_OnlineServicesManager
 {
 private:
@@ -320,6 +332,8 @@ public:
 
 	void Shutdown();
 
+	void GetAndParseServiceConfig(std::function<void(void)> cbOnDone);
+
 	~NGMP_OnlineServicesManager()
 	{
 		if (m_pAuthInterface != nullptr)
@@ -418,8 +432,12 @@ public:
 	NGMP_OnlineServices_StatsInterface* m_pStatsInterface = nullptr;
 	NGMP_OnlineServices_MatchmakingInterface* m_pMatchmakingInterface = nullptr;
 
+	ServiceConfig& GetServiceConfig() { return m_ServiceConfig; }
+
 private:
 	PortMapper m_PortMapper;
+
+	ServiceConfig m_ServiceConfig;
 
 	HTTPManager* m_pHTTPManager = nullptr;
 

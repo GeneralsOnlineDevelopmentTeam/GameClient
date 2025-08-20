@@ -527,6 +527,13 @@ NetworkMesh::NetworkMesh()
 	// try a shutdown
 	GameNetworkingSockets_Kill();
 
+	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+	if (pOnlineServicesMgr == nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "pOnlineServicesMgr is invalid");
+		return;
+	}
+
 	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 	if (pAuthInterface == nullptr)
 	{
@@ -584,8 +591,10 @@ NetworkMesh::NetworkMesh()
 	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, m_strTurnUsernameString.c_str());
 	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, m_strTurnTokenString.c_str());
 
+	ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
+
 	// Allow sharing of any kind of ICE address.
-	if (g_bForceRelay)
+	if (g_bForceRelay || serviceConf.relay_all_traffic)
 	{
 		SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Relay);
 	}
@@ -620,10 +629,12 @@ NetworkMesh::NetworkMesh()
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING LOGFUNC] %s", pszMsg);
 		});
 
+	int localPort = serviceConf.use_mapped_port ? NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort() : 0;
+
 	// create sockets
 	SteamNetworkingConfigValue_t opt;
 	opt.SetInt32(k_ESteamNetworkingConfig_SymmetricConnect, 1); // << Note we set symmetric mode on the listen socket
-	m_hListenSock = SteamNetworkingSockets()->CreateListenSocketP2P(NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort(), 1, &opt);
+	m_hListenSock = SteamNetworkingSockets()->CreateListenSocketP2P(localPort, 1, &opt);
 
 	if (m_hListenSock == k_HSteamListenSocket_Invalid)
 	{
@@ -717,11 +728,12 @@ void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t prefe
 		m_mapConnections.erase(remoteUserID);
 	}
 
+	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
 	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 
-	if (pAuthInterface == nullptr)
+	if (pAuthInterface == nullptr || pOnlineServicesMgr == nullptr)
 	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - Auth interface is null");
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - Auth or OSM interface is null");
 		return;
 	}
 
@@ -745,13 +757,16 @@ void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t prefe
 
 	std::vector<SteamNetworkingConfigValue_t > vecOpts;
 
-	int g_nVirtualPortRemote = preferredPort;
+	ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
+
+	int g_nLocalPort = serviceConf.use_mapped_port ? pOnlineServicesMgr->GetPortMapper().GetOpenPort() : 0;
+	int g_nVirtualPortRemote = serviceConf.use_mapped_port ? preferredPort : 0;
 
 	// Our remote and local port don't match, so we need to set it explicitly
-	if (g_nVirtualPortRemote != NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort())
+	if (g_nVirtualPortRemote != g_nLocalPort)
 	{
 		SteamNetworkingConfigValue_t opt;
-		opt.SetInt32(k_ESteamNetworkingConfig_LocalVirtualPort, NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort());
+		opt.SetInt32(k_ESteamNetworkingConfig_LocalVirtualPort, g_nLocalPort);
 		vecOpts.push_back(opt);
 	}
 
@@ -760,8 +775,7 @@ void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t prefe
 	opt.SetInt32(k_ESteamNetworkingConfig_SymmetricConnect, 1);
 	vecOpts.push_back(opt);
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "Connecting to '%s' in symmetric mode, virtual port %d, from local virtual port %d.\n",
-		SteamNetworkingIdentityRender(identityRemote).c_str(), g_nVirtualPortRemote,
-		NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort());
+		SteamNetworkingIdentityRender(identityRemote).c_str(), g_nVirtualPortRemote, g_nLocalPort);
 
 	// create a signaling object for this connection
 	SteamNetworkingErrMsg errMsg;

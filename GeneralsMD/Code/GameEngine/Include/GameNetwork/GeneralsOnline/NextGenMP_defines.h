@@ -72,9 +72,9 @@
 #endif
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-#define FRAME_GROUPING_CAP 32
+static int FRAME_GROUPING_CAP = 32;
 #else
-#define FRAME_GROUPING_CAP 64
+static int FRAME_GROUPING_CAP = 64;
 #endif
 
 // useful for testing release builds with multiple logins

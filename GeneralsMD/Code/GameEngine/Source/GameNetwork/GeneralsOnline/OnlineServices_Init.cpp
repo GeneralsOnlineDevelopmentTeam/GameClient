@@ -34,6 +34,42 @@ NetworkMesh* NGMP_OnlineServicesManager::GetNetworkMesh()
 	return nullptr;
 }
 
+
+void NGMP_OnlineServicesManager::GetAndParseServiceConfig(std::function<void(void)> cbOnDone)
+{
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ServiceConfig");
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			try
+			{
+				if (bSuccess && statusCode == 200)
+				{
+					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+					m_ServiceConfig = jsonObject.get<ServiceConfig>();
+				}
+				else
+				{
+					// It's OK to fail, we'll just use the sensible defaults
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to get service config, using defaults. Status code: %d", statusCode);
+					m_ServiceConfig = ServiceConfig();
+				}
+				
+			}
+			catch (...)
+			{
+				// It's OK to fail, we'll just use the sensible defaults
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to get service config, using defaults. Exception.");
+				m_ServiceConfig = ServiceConfig();
+			}
+
+			if (cbOnDone != nullptr)
+			{
+				cbOnDone();
+			}
+		});
+}
+
 NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager = nullptr;
 
 enum class EVersionCheckResponseResult : int

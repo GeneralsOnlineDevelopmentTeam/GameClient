@@ -349,18 +349,26 @@ void NGMPGame::launchGame(void)
 #endif
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	TheWritableGlobalData->m_networkRunAheadSlack = 25;
-
 	TheWritableGlobalData->m_networkFPSHistoryLength = 10;
 	TheWritableGlobalData->m_networkLatencyHistoryLength = 10;
-	TheWritableGlobalData->m_networkRunAheadMetricsTime = 100;
 #else
-	TheWritableGlobalData->m_networkRunAheadSlack = 25;
-
 	TheWritableGlobalData->m_networkFPSHistoryLength = 10;
 	TheWritableGlobalData->m_networkLatencyHistoryLength = 10;
-	TheWritableGlobalData->m_networkRunAheadMetricsTime = 100;
 #endif
+
+	// process service config
+	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+	if (pOnlineServicesMgr != nullptr)
+	{
+		ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
+		MIN_RUNAHEAD = serviceConf.min_run_ahead_frames;
+
+		TheWritableGlobalData->m_networkRunAheadSlack = serviceConf.ra_slack_percent;
+		TheWritableGlobalData->m_networkRunAheadMetricsTime = serviceConf.ra_update_frequency_frames * (float)(1000.f/GENERALS_ONLINE_HIGH_FPS_LIMIT);
+
+		FRAME_GROUPING_CAP = serviceConf.frame_grouping_frames * (float)(1000.f / GENERALS_ONLINE_HIGH_FPS_LIMIT);
+	}
+	
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
 	TheWritableGlobalData->m_horizontalScrollSpeedFactor = NGMP_OnlineServicesManager::Settings.Camera_MoveSpeedRatio();
