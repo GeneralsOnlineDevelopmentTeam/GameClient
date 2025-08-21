@@ -74,7 +74,35 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			// TODO_NGMP: In the future, we should pick the most recently joined by timestamp
 			if (bWasError) // only if it wasn't a clean disconnect (e.g. lobby leave)
 			{
-				
+				int myLobbySlot = -1;
+				int disconnectedLobbySlot = -1;
+
+				NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+				NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+				if (pLobbyInterface != nullptr && pAuthInterface != nullptr)
+				{
+					int64_t myUserID = pAuthInterface->GetUserID();
+
+					auto lobbyMembers = pLobbyInterface->GetMembersListForCurrentRoom();
+					for (const auto& lobbyMember : lobbyMembers)
+					{
+						if (lobbyMember.user_id == pPlayerConnection->m_userID)
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined target player slot to be %d\n", lobbyMember.m_SlotIndex);
+							disconnectedLobbySlot = lobbyMember.m_SlotIndex;
+						}
+						else if (lobbyMember.user_id == myUserID)
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined my slot to be %d\n", lobbyMember.m_SlotIndex);
+							myLobbySlot = lobbyMember.m_SlotIndex;
+						}
+
+						if (myLobbySlot != -1 && disconnectedLobbySlot != -1)
+						{
+							break; // we are done
+						}
+					}
+				}
 				
 
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined we didn't connect due to an error, Retrying: %d (currently at %d/%d attempts)", bShouldRetry, pPlayerConnection->m_SignallingAttempts, numSignallingAttempts);
@@ -86,9 +114,21 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 					WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();
 					if (pWS != nullptr)
 					{
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Send signal start request...");
+						// Behavior:
+						// disconnected slot is higher than ours, do nothing, they will signal
+						// disconnected slot is lower than ours, we signal
+						// -1, meaning we didnt determine slots properly, we signal anyway
+						if ((myLobbySlot == -1 || disconnectedLobbySlot == -1) || (myLobbySlot > disconnectedLobbySlot))
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Send signal start request...");
 
-						pWS->SendData_RequestSignalling(pPlayerConnection->m_userID);
+							pWS->SendData_RequestSignalling(pPlayerConnection->m_userID);
+						}
+						else
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Not sending signal start request, other player should");
+						}
+
 					}
 					else
 					{
@@ -101,35 +141,7 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Not retrying, handling disconnect as failure...");
 
-					int myLobbySlot = -1;
-					int disconnectedLobbySlot = -1;
-
-					NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-					NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-					if (pLobbyInterface != nullptr && pAuthInterface != nullptr)
-					{
-						int64_t myUserID = pAuthInterface->GetUserID();
-
-						auto lobbyMembers = pLobbyInterface->GetMembersListForCurrentRoom();
-						for (const auto& lobbyMember : lobbyMembers)
-						{
-							if (lobbyMember.user_id == pPlayerConnection->m_userID)
-							{
-								NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined target player slot to be %d\n", lobbyMember.m_SlotIndex);
-								disconnectedLobbySlot = lobbyMember.m_SlotIndex;
-							}
-							else if (lobbyMember.user_id == myUserID)
-							{
-								NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Determined my slot to be %d\n", lobbyMember.m_SlotIndex);
-								myLobbySlot = lobbyMember.m_SlotIndex;
-							}
-
-							if (myLobbySlot != -1 && disconnectedLobbySlot != -1)
-							{
-								break; // we are done
-							}
-						}
-					}
+					
 
 					// Behavior:
 					// disconnected slot is higher than ours, do nothing, they will leave
@@ -478,7 +490,7 @@ public:
 							SteamNetworkingErrMsg ignoreErrMsg;
 							return m_pOwner->CreateSignalingForConnection(identityPeer, ignoreErrMsg);
 						}
-
+						
 						virtual void SendRejectionSignal(
 							const SteamNetworkingIdentity& identityPeer,
 							const void* pMsg, int cbMsg
