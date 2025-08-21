@@ -2106,7 +2106,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 							}
 							else
 							{
-								pLobbyInterface->JoinLobby(selected, nullptr);
+								pLobbyInterface->JoinLobby(selected, std::string());
 
 								SetLobbyAttemptHostJoin(TRUE);
 							}
