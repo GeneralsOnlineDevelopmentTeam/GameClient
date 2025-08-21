@@ -229,7 +229,7 @@ struct ServiceConfig
 	int ra_slack_percent = 20;
 	int frame_grouping_frames = 2;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(ServiceConfig, use_mapped_port, min_run_ahead_frames, ra_update_frequency_frames, relay_all_traffic, ra_slack_percent, frame_grouping_frames)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(ServiceConfig, retry_signalling, use_mapped_port, min_run_ahead_frames, ra_update_frequency_frames, relay_all_traffic, ra_slack_percent, frame_grouping_frames)
 };
 
 class NGMP_OnlineServicesManager
