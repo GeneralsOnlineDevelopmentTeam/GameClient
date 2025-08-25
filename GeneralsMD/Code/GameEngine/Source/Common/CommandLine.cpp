@@ -784,7 +784,7 @@ Int parseNoShaders(char *args[], int)
 	return 1;
 }
 
-#if defined(RTS_DEBUG)
+#if defined(RTS_DEBUG) || !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 Int parseNoLogo(char *args[], int)
 {
 	TheWritableGlobalData->m_playIntro = FALSE;
@@ -835,7 +835,7 @@ Int parseQuickStart( char *args[], int num )
 	return 1;
 #endif
 
-#if defined(RTS_DEBUG)
+#if defined(RTS_DEBUG) || !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
   parseNoLogo( args, num );
 #else
 	//Kris: Patch 1.01 -- Allow release builds to skip the sizzle video, but still force the EA logo to show up.
