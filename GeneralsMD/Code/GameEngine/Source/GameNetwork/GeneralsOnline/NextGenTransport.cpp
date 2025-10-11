@@ -190,7 +190,13 @@ Bool NextGenTransport::doSend(void)
 				return FALSE;
 			}
 
-			NGMPGameSlot* pSlot = (NGMPGameSlot*)pLobbyInterface->GetCurrentGame()->getSlot(m_outBuffer[i].addr);
+			NGMPGame* pCurrentGame = pLobbyInterface->GetCurrentGame();
+			if (pCurrentGame == nullptr)
+			{
+				return FALSE;
+			}
+
+			NGMPGameSlot* pSlot = (NGMPGameSlot*)pCurrentGame->getSlot(m_outBuffer[i].addr);
 
 			if (pSlot != nullptr)
 			{
@@ -269,4 +275,4 @@ Bool NextGenTransport::queueSend(UnsignedInt addr, UnsignedShort port, const Uns
 		}
 	}
 	return false;
-}
+}
