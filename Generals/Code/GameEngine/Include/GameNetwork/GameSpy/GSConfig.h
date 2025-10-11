@@ -79,4 +79,12 @@ public:
 
 extern GameSpyConfigInterface *TheGameSpyConfig;
 
+// Helper function to safely check if TheGameSpyConfig pointer is valid
+// Protects against both NULL and corrupted pointer values (e.g., small integers like 0x4)
+inline bool IsGameSpyConfigValid()
+{
+	// A valid pointer on Windows should be >= 0x10000 (64KB) to avoid accessing low memory
+	return (TheGameSpyConfig != NULL) && ((uintptr_t)TheGameSpyConfig >= 0x10000);
+}
+
 #endif // __GSCONFIG_H__

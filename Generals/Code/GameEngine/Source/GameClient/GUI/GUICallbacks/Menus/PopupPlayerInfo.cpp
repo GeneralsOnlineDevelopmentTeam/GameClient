@@ -246,22 +246,36 @@ void GetAdditionalDisconnectsFromUserFile(PSPlayerStats *stats)
 RankPoints::RankPoints(void)
 {
 	m_ranks[RANK_PRIVATE] = 0;
-	// Use default values if TheGameSpyConfig is NULL (can happen if called during teardown)
-	if (TheGameSpyConfig != NULL)
+	
+	// Validate TheGameSpyConfig pointer before use using helper function
+	Bool isValidPointer = IsGameSpyConfigValid();
+	
+	if (isValidPointer)
 	{
-		m_ranks[RANK_CORPORAL]						= TheGameSpyConfig->getPointsForRank(RANK_CORPORAL); // 5
-		m_ranks[RANK_SERGEANT]						= TheGameSpyConfig->getPointsForRank(RANK_SERGEANT); // 10
-		m_ranks[RANK_LIEUTENANT]					= TheGameSpyConfig->getPointsForRank(RANK_LIEUTENANT); // 20
-		m_ranks[RANK_CAPTAIN]							= TheGameSpyConfig->getPointsForRank(RANK_CAPTAIN); // 50
-		m_ranks[RANK_MAJOR]								= TheGameSpyConfig->getPointsForRank(RANK_MAJOR); // 100
-		m_ranks[RANK_COLONEL]							= TheGameSpyConfig->getPointsForRank(RANK_COLONEL); // 200
-		m_ranks[RANK_BRIGADIER_GENERAL]		= TheGameSpyConfig->getPointsForRank(RANK_BRIGADIER_GENERAL); // 500
-		m_ranks[RANK_GENERAL]							= TheGameSpyConfig->getPointsForRank(RANK_GENERAL); // 1000
-		m_ranks[RANK_COMMANDER_IN_CHIEF]	= TheGameSpyConfig->getPointsForRank(RANK_COMMANDER_IN_CHIEF); // 2000
+		// Additional safety: wrap in try-catch to handle any remaining access violations
+		try
+		{
+			m_ranks[RANK_CORPORAL]						= TheGameSpyConfig->getPointsForRank(RANK_CORPORAL); // 5
+			m_ranks[RANK_SERGEANT]						= TheGameSpyConfig->getPointsForRank(RANK_SERGEANT); // 10
+			m_ranks[RANK_LIEUTENANT]					= TheGameSpyConfig->getPointsForRank(RANK_LIEUTENANT); // 20
+			m_ranks[RANK_CAPTAIN]							= TheGameSpyConfig->getPointsForRank(RANK_CAPTAIN); // 50
+			m_ranks[RANK_MAJOR]								= TheGameSpyConfig->getPointsForRank(RANK_MAJOR); // 100
+			m_ranks[RANK_COLONEL]							= TheGameSpyConfig->getPointsForRank(RANK_COLONEL); // 200
+			m_ranks[RANK_BRIGADIER_GENERAL]		= TheGameSpyConfig->getPointsForRank(RANK_BRIGADIER_GENERAL); // 500
+			m_ranks[RANK_GENERAL]							= TheGameSpyConfig->getPointsForRank(RANK_GENERAL); // 1000
+			m_ranks[RANK_COMMANDER_IN_CHIEF]	= TheGameSpyConfig->getPointsForRank(RANK_COMMANDER_IN_CHIEF); // 2000
+		}
+		catch (...)
+		{
+			// If any exception occurs (e.g., access violation), fall back to default values
+			DEBUG_LOG(("RankPoints::RankPoints() - Exception accessing TheGameSpyConfig (possibly corrupted pointer), using defaults"));
+			isValidPointer = false;
+		}
 	}
-	else
+	
+	if (!isValidPointer)
 	{
-		// Use default hardcoded values when TheGameSpyConfig is not available
+		// Use default hardcoded values when TheGameSpyConfig is not available or corrupted
 		m_ranks[RANK_CORPORAL]						= 5;
 		m_ranks[RANK_SERGEANT]						= 10;
 		m_ranks[RANK_LIEUTENANT]					= 20;
