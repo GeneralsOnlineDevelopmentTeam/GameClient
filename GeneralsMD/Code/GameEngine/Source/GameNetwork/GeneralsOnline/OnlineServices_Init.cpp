@@ -263,17 +263,19 @@ void NGMP_OnlineServicesManager::WaitForScreenshotThreads()
 
 void NGMP_OnlineServicesManager::Shutdown()
 {
+	// Shutdown HTTP manager FIRST to complete any pending requests
+	// This ensures all HTTP callbacks complete before we destroy other objects they might reference
+	if (m_pHTTPManager != nullptr)
+	{
+		m_pHTTPManager->Shutdown();
+	}
+
+	// Then shutdown WebSocket after HTTP callbacks have completed
 	if (m_pWebSocket)
 	{
 		m_pWebSocket->Shutdown();
 		// Reset shared_ptr, which will delete WebSocket only when all references are released
 		m_pWebSocket.reset();
-	}
-
-	// Then shutdown HTTP manager to complete any pending requests
-	if (m_pHTTPManager != nullptr)
-	{
-		m_pHTTPManager->Shutdown();
 	}
 
 	// Finally shutdown Sentry
