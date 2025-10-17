@@ -639,7 +639,10 @@ void ShellGameLoadScreen::init( GameInfo *game )
 
 	if(m_loadScreen && firstLoad && TheGameLODManager && TheGameLODManager->didMemPass())
 	{
-		m_loadScreen->winSetEnabledImage(0, TheMappedImageCollection->findImageByName("TitleScreen"));
+		if (TheMappedImageCollection)
+		{
+			m_loadScreen->winSetEnabledImage(0, TheMappedImageCollection->findImageByName("TitleScreen"));
+		}
 		TheWritableGlobalData->m_breakTheMovie = FALSE;
 
 		GameWindow *win = TheWindowManager->winGetWindowFromId( m_loadScreen,TheNameKeyGenerator->nameToKey( AsciiString( "ShellGameLoadScreen.wnd:StaticTextLegal" ) ));
@@ -720,7 +723,11 @@ void MultiPlayerLoadScreen::init( GameInfo *game )
 		pt = ThePlayerTemplateStore->getNthPlayerTemplate(lSlot->getPlayerTemplate());
 	else
 		pt = ThePlayerTemplateStore->findPlayerTemplate( TheNameKeyGenerator->nameToKey("FactionObserver") );
-	const Image *loadScreenImage = TheMappedImageCollection->findImageByName(pt->getLoadScreen());
+	const Image *loadScreenImage = NULL;
+	if (TheMappedImageCollection)
+	{
+		loadScreenImage = TheMappedImageCollection->findImageByName(pt->getLoadScreen());
+	}
 
 
 	AsciiString musicName = pt->getLoadScreenMusic();
@@ -956,7 +963,11 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		pt = ThePlayerTemplateStore->getNthPlayerTemplate(lSlot->getPlayerTemplate());
 	else
 		pt = ThePlayerTemplateStore->findPlayerTemplate( TheNameKeyGenerator->nameToKey("FactionObserver") );
-	const Image *loadScreenImage = TheMappedImageCollection->findImageByName(pt->getLoadScreen());
+	const Image *loadScreenImage = NULL;
+	if (TheMappedImageCollection)
+	{
+		loadScreenImage = TheMappedImageCollection->findImageByName(pt->getLoadScreen());
+	}
 	if(loadScreenImage)
 		m_loadScreen->winSetEnabledImage(0, loadScreenImage);
 
@@ -1047,7 +1058,11 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		Bool isPreorder = TheGameSpyInfo->didPlayerPreorder(stats.id);
 		Int rankPoints = CalculateRank(stats);
 		Int favSide = GetFavoriteSide(stats);
-		const Image *preorderImg = TheMappedImageCollection->findImageByName("OfficersClubsmall");
+		const Image *preorderImg = NULL;
+		if (TheMappedImageCollection)
+		{
+			preorderImg = TheMappedImageCollection->findImageByName("OfficersClubsmall");
+		}
 		if (!isPreorder)
 			preorderImg = NULL;
 		const Image *rankImg = LookupSmallRankImage(favSide, rankPoints);

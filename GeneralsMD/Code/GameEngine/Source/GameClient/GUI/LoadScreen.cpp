@@ -512,22 +512,25 @@ void SinglePlayerLoadScreen::init( GameInfo *game )
 	// and set the background image
 	AsciiString campaignName = TheCampaignManager->getCurrentCampaign()->m_name;
 	GameWindow *backgroundWin = TheWindowManager->winGetWindowFromId( m_loadScreen,TheNameKeyGenerator->nameToKey( AsciiString( "SinglePlayerLoadScreen.wnd:ParentSinglePlayerLoadScreen" ) ));
-	if (campaignName.compareNoCase("USA") == 0)
+	if (TheMappedImageCollection)
 	{
-		backgroundWin->winSetEnabledImage( 0, TheMappedImageCollection->findImageByName("MissionLoad_USA") );
-		m_progressBar->winSetEnabledImage( 6, TheMappedImageCollection->findImageByName("LoadingBar_ProgressCenter2") );
+		if (campaignName.compareNoCase("USA") == 0)
+		{
+			backgroundWin->winSetEnabledImage( 0, TheMappedImageCollection->findImageByName("MissionLoad_USA") );
+			m_progressBar->winSetEnabledImage( 6, TheMappedImageCollection->findImageByName("LoadingBar_ProgressCenter2") );
+		}
+		else if (campaignName.compareNoCase("GLA") == 0)
+		{
+			backgroundWin->winSetEnabledImage( 0, TheMappedImageCollection->findImageByName("MissionLoad_GLA") );
+			m_progressBar->winSetEnabledImage( 6, TheMappedImageCollection->findImageByName("LoadingBar_ProgressCenter3") );
+		}
+		else if (campaignName.compareNoCase("China") == 0)
+		{
+			backgroundWin->winSetEnabledImage( 0, TheMappedImageCollection->findImageByName("MissionLoad_China") );
+			m_progressBar->winSetEnabledImage( 6, TheMappedImageCollection->findImageByName("LoadingBar_ProgressCenter1") );
+		}
+		// else leave the default background screen
 	}
-	else if (campaignName.compareNoCase("GLA") == 0)
-	{
-		backgroundWin->winSetEnabledImage( 0, TheMappedImageCollection->findImageByName("MissionLoad_GLA") );
-		m_progressBar->winSetEnabledImage( 6, TheMappedImageCollection->findImageByName("LoadingBar_ProgressCenter3") );
-	}
-	else if (campaignName.compareNoCase("China") == 0)
-	{
-		backgroundWin->winSetEnabledImage( 0, TheMappedImageCollection->findImageByName("MissionLoad_China") );
-		m_progressBar->winSetEnabledImage( 6, TheMappedImageCollection->findImageByName("LoadingBar_ProgressCenter1") );
-	}
-	// else leave the default background screen
 
 
 	if(TheGameLODManager && TheGameLODManager->didMemPass())
@@ -1198,7 +1201,10 @@ void ShellGameLoadScreen::init( GameInfo *game )
 
 	if(m_loadScreen && firstLoad && TheGameLODManager && TheGameLODManager->didMemPass())
 	{
-		m_loadScreen->winSetEnabledImage(0, TheMappedImageCollection->findImageByName("TitleScreen"));
+		if (TheMappedImageCollection)
+		{
+			m_loadScreen->winSetEnabledImage(0, TheMappedImageCollection->findImageByName("TitleScreen"));
+		}
 		TheWritableGlobalData->m_breakTheMovie = FALSE;
 
 		GameWindow *win = TheWindowManager->winGetWindowFromId( m_loadScreen,TheNameKeyGenerator->nameToKey( AsciiString( "ShellGameLoadScreen.wnd:StaticTextLegal" ) ));
@@ -1298,14 +1304,17 @@ void MultiPlayerLoadScreen::init( GameInfo *game )
 	{
 		// the main original factions don't have associated generals
 		AsciiString imageName;
-		if (pt->getName() == "FactionAmerica")
-			portrait = TheMappedImageCollection->findImageByName("SAFactionLogoLg_US");
-		else if (pt->getName() == "FactionGLA")
-			portrait = TheMappedImageCollection->findImageByName("SUFactionLogoLg_GLA");
-		else if (pt->getName() == "FactionChina")
-			portrait = TheMappedImageCollection->findImageByName("SNFactionLogoLg_China");
-		else
-			DEBUG_ASSERTCRASH(NULL, ("Unexpected player template"));
+		if (TheMappedImageCollection)
+		{
+			if (pt->getName() == "FactionAmerica")
+				portrait = TheMappedImageCollection->findImageByName("SAFactionLogoLg_US");
+			else if (pt->getName() == "FactionGLA")
+				portrait = TheMappedImageCollection->findImageByName("SUFactionLogoLg_GLA");
+			else if (pt->getName() == "FactionChina")
+				portrait = TheMappedImageCollection->findImageByName("SNFactionLogoLg_China");
+			else
+				DEBUG_ASSERTCRASH(NULL, ("Unexpected player template"));
+		}
 
 		localName = pt->getDisplayName();
 	}
@@ -1383,9 +1392,13 @@ void MultiPlayerLoadScreen::init( GameInfo *game )
 		// format the progress bar to house colors
 		AsciiString imageName;
 		imageName.format("LoadingBar_ProgressCenter%d", slot->getApparentColor());
-		const Image *houseImage = TheMappedImageCollection->findImageByName(imageName);
-		if (! houseImage)
-			houseImage = TheMappedImageCollection->findImageByName("LoadingBar_Progress");
+		const Image *houseImage = NULL;
+		if (TheMappedImageCollection)
+		{
+			houseImage = TheMappedImageCollection->findImageByName(imageName);
+			if (! houseImage)
+				houseImage = TheMappedImageCollection->findImageByName("LoadingBar_Progress");
+		}
 		m_progressBars[netSlot]->winSetEnabledImage( 6, houseImage );
 
 		UnicodeString name = slot->getName();
@@ -1577,14 +1590,17 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 	{
 		// the main original factions don't have associated generals
 		AsciiString imageName;
-		if (pt->getName() == "FactionAmerica")
-			portrait = TheMappedImageCollection->findImageByName("SAFactionLogo144_US");
-		else if (pt->getName() == "FactionGLA")
-			portrait = TheMappedImageCollection->findImageByName("SUFactionLogo144_GLA");
-		else if (pt->getName() == "FactionChina")
-			portrait = TheMappedImageCollection->findImageByName("SNFactionLogo144_China");
-		else
-			DEBUG_ASSERTCRASH(NULL, ("Unexpected player template"));
+		if (TheMappedImageCollection)
+		{
+			if (pt->getName() == "FactionAmerica")
+				portrait = TheMappedImageCollection->findImageByName("SAFactionLogo144_US");
+			else if (pt->getName() == "FactionGLA")
+				portrait = TheMappedImageCollection->findImageByName("SUFactionLogo144_GLA");
+			else if (pt->getName() == "FactionChina")
+				portrait = TheMappedImageCollection->findImageByName("SNFactionLogo144_China");
+			else
+				DEBUG_ASSERTCRASH(NULL, ("Unexpected player template"));
+		}
 
 		localName = pt->getDisplayName();
 	}
@@ -1674,9 +1690,13 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		// format the progress bar to house colors
 		AsciiString imageName;
 		imageName.format("LoadingBar_ProgressCenter%d", slot->getApparentColor());
-		const Image *houseImage = TheMappedImageCollection->findImageByName(imageName);
-		if (! houseImage)
-			houseImage = TheMappedImageCollection->findImageByName("LoadingBar_Progress");
+		const Image *houseImage = NULL;
+		if (TheMappedImageCollection)
+		{
+			houseImage = TheMappedImageCollection->findImageByName(imageName);
+			if (! houseImage)
+				houseImage = TheMappedImageCollection->findImageByName("LoadingBar_Progress");
+		}
 		m_progressBars[netSlot]->winSetEnabledImage( 6, houseImage );
 
 		UnicodeString name = slot->getName();
@@ -1707,7 +1727,11 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		Int rankPoints = CalculateRank(stats);
 		Int favSide = GetFavoriteSide(stats);
 
-		const Image *preorderImg = TheMappedImageCollection->findImageByName("OfficersClubsmall");
+		const Image *preorderImg = NULL;
+		if (TheMappedImageCollection)
+		{
+			preorderImg = TheMappedImageCollection->findImageByName("OfficersClubsmall");
+		}
 		if (!isPreorder)
 			preorderImg = NULL;
 		const Image *rankImg = LookupSmallRankImage(favSide, rankPoints);
