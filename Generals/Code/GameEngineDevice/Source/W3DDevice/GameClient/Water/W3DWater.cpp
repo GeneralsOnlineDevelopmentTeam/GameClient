@@ -1287,7 +1287,10 @@ void WaterRenderObjClass::replaceSkyboxTexture(const AsciiString& oldTexName, co
 {
 	W3DAssetManager* assetManager = ((W3DAssetManager*)W3DAssetManager::Get_Instance());
 
-	assetManager->replacePrototypeTexture(m_skyBox, oldTexName.str(), newTextName.str());
+	if (m_skyBox)
+	{
+		assetManager->replacePrototypeTexture(m_skyBox, oldTexName.str(), newTextName.str());
+	}
 
 	//Enable clamping on all textures used by the skybox (to reduce corner seams).
 	if (m_skyBox && m_skyBox->Class_ID() == RenderObjClass::CLASSID_MESH)
