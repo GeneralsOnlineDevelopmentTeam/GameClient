@@ -69,6 +69,12 @@ TextureFilterClass::TextureFilterClass(MipCountType mip_level_count)
 */
 void TextureFilterClass::Apply(unsigned int stage)
 {
+	// Bounds check to prevent array access violation
+	if (stage >= MAX_TEXTURE_STAGES)
+	{
+		return;
+	}
+
 	DX8Wrapper::Set_DX8_Texture_Stage_State(stage,D3DTSS_MINFILTER,_MinTextureFilters[stage][TextureMinFilter]);
 	DX8Wrapper::Set_DX8_Texture_Stage_State(stage,D3DTSS_MAGFILTER,_MagTextureFilters[stage][TextureMagFilter]);
 	DX8Wrapper::Set_DX8_Texture_Stage_State(stage,D3DTSS_MIPFILTER,_MipMapFilters[stage][MipMapFilter]);
