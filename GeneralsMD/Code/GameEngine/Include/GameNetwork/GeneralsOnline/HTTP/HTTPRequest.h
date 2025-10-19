@@ -44,9 +44,9 @@ public:
 		}
 	}
 
-	void InvokeCallbackIfComplete();
+	void InvokeCallbackIfComplete(bool bInvokeCallback = true);
 
-	void Threaded_SetComplete(CURLcode result);
+	void Threaded_SetComplete(CURLcode result, bool bInvokeCallback = true);
 
 	// mainly used for downloads
 	std::vector<uint8_t> GetBuffer() { return m_vecBuffer; }

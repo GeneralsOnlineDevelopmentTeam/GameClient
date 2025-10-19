@@ -88,9 +88,9 @@ void HTTPRequest::OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes)
 	InvokeProgressUpdateCallback();
 }
 
-void HTTPRequest::InvokeCallbackIfComplete()
+void HTTPRequest::InvokeCallbackIfComplete(bool bInvokeCallback)
 {
-	if (m_bIsComplete)
+	if (m_bIsComplete && bInvokeCallback)
 	{
 		if (m_completionCallback != nullptr)
 		{
@@ -109,7 +109,7 @@ void HTTPRequest::InvokeCallbackIfComplete()
 	}
 }
 
-void HTTPRequest::Threaded_SetComplete(CURLcode result)
+void HTTPRequest::Threaded_SetComplete(CURLcode result, bool bInvokeCallback)
 {
 	// store response code
 	curl_easy_getinfo(m_pCURL, CURLINFO_RESPONSE_CODE, &m_responseCode);
@@ -148,7 +148,7 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s] Response was %d - %s!", this, strURIRedacted.c_str(), m_responseCode, strResponse.c_str());
 
 	// trigger callback
-	InvokeCallbackIfComplete();
+	InvokeCallbackIfComplete(bInvokeCallback);
 }
 
 void HTTPRequest::PlatformStartRequest()

@@ -91,7 +91,8 @@ void HTTPManager::Shutdown()
 						HTTPRequest* pRequest = *it;
 						if (pRequest != nullptr && pRequest->EasyHandleMatches(pCurlHandle))
 						{
-							pRequest->Threaded_SetComplete(m->data.result);
+							// Skip callbacks during shutdown to avoid use-after-free
+							pRequest->Threaded_SetComplete(m->data.result, false);
 							delete pRequest;
 							m_vecRequestsInFlight.erase(it);
 							break;
@@ -205,7 +206,8 @@ void HTTPManager::Tick()
 			{
 				if (pRequest != nullptr && pRequest->EasyHandleMatches(pCurlHandle))
 				{
-					pRequest->Threaded_SetComplete(m->data.result);
+					// Invoke callbacks during normal operation
+					pRequest->Threaded_SetComplete(m->data.result, true);
 					vecItemsToRemove.push_back(pRequest);
 				}
 			}
