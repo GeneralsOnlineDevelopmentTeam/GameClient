@@ -59,6 +59,14 @@ public:
 
 	std::string GetURI() { return m_strURI; }
 
+	// Clear callbacks to prevent use-after-free during shutdown
+	void ClearCallbacks()
+	{
+		m_completionCallback = nullptr;
+		m_progressCallback = nullptr;
+	}
+
+
 private:
 	void PlatformStartRequest();
 
@@ -97,4 +105,4 @@ private:
 	std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> m_completionCallback = nullptr;
 
 	std::function<void(size_t bytesReceived)> m_progressCallback = nullptr;
-};
+};
