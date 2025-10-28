@@ -90,7 +90,7 @@ void HTTPRequest::OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes)
 
 void HTTPRequest::InvokeCallbackIfComplete()
 {
-	if (m_bIsComplete)
+	if (m_bIsComplete && !m_bSkipCallback)
 	{
 		if (m_completionCallback != nullptr)
 		{
@@ -133,12 +133,13 @@ bool HTTPRequest::InvokeDelayAction()
 
 #endif
 
-void HTTPRequest::Threaded_SetComplete(CURLcode result)
+void HTTPRequest::Threaded_SetComplete(CURLcode result, bool bSkipCallback)
 {
 	// store response code
 	curl_easy_getinfo(m_pCURL, CURLINFO_RESPONSE_CODE, &m_responseCode);
 
 	m_bIsComplete = true;
+	m_bSkipCallback = bSkipCallback;
 
 	// finalize the size, so we can use .size etc
 	m_vecBuffer.resize(m_currentBufSize_Used);
