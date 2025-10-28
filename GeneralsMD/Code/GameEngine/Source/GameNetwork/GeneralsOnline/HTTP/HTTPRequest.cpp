@@ -123,7 +123,8 @@ bool HTTPRequest::InvokeDelayAction()
 		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 		if (currTime - m_timeRequestComplete > 2000)
 		{
-			Threaded_SetComplete(m_pendingCURLCode);
+			// During normal operation (Tick), invoke callbacks
+			Threaded_SetComplete(m_pendingCURLCode, true);
 			return true;
 		}
 	}
@@ -133,7 +134,7 @@ bool HTTPRequest::InvokeDelayAction()
 
 #endif
 
-void HTTPRequest::Threaded_SetComplete(CURLcode result)
+void HTTPRequest::Threaded_SetComplete(CURLcode result, bool bInvokeCallback)
 {
 	// store response code
 	curl_easy_getinfo(m_pCURL, CURLINFO_RESPONSE_CODE, &m_responseCode);
@@ -171,8 +172,17 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s] Response was %d - %s!", this, strURIRedacted.c_str(), m_responseCode, strResponse.c_str());
 
-	// trigger callback
-	InvokeCallbackIfComplete();
+	// trigger callback if requested, otherwise clear it to avoid use-after-free during shutdown
+	if (bInvokeCallback)
+	{
+		InvokeCallbackIfComplete();
+	}
+	else
+	{
+		// Clear the callback to prevent potential use-after-free in std::function destructor
+		m_completionCallback = nullptr;
+		m_progressCallback = nullptr;
+	}
 }
 
 void HTTPRequest::PlatformStartRequest()

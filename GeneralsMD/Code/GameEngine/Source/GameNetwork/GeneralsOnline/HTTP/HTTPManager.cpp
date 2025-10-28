@@ -91,7 +91,8 @@ void HTTPManager::Shutdown()
 						HTTPRequest* pRequest = *it;
 						if (pRequest != nullptr && pRequest->EasyHandleMatches(pCurlHandle))
 						{
-							pRequest->Threaded_SetComplete(m->data.result);
+							// During shutdown, don't invoke callbacks to avoid use-after-free
+							pRequest->Threaded_SetComplete(m->data.result, false);
 							delete pRequest;
 							m_vecRequestsInFlight.erase(it);
 							break;
@@ -226,7 +227,8 @@ void HTTPManager::Tick()
 #if defined(ARTIFICIAL_DELAY_HTTP_REQUESTS)
 					pRequest->SetWaitingDelay(m->data.result);
 #else
-					pRequest->Threaded_SetComplete(m->data.result);
+					// During normal operation (Tick), invoke callbacks
+					pRequest->Threaded_SetComplete(m->data.result, true);
 					vecItemsToRemove.push_back(pRequest);
 #endif
 				}
