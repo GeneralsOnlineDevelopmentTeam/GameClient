@@ -59,6 +59,9 @@ public:
 
 	std::string GetURI() { return m_strURI; }
 
+	void SetSkipCallback(bool bSkip) { m_bSkipCallback = bSkip; }
+
+
 private:
 	void PlatformStartRequest();
 
@@ -91,10 +94,12 @@ private:
 	bool m_bNeedsProgressUpdate = false;
 	bool m_bIsStarted = false;
 	bool m_bIsComplete = false;
+	bool m_bSkipCallback = false;
+
 
 	struct curl_slist* headers = nullptr;
 
 	std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> m_completionCallback = nullptr;
 
 	std::function<void(size_t bytesReceived)> m_progressCallback = nullptr;
-};
+};

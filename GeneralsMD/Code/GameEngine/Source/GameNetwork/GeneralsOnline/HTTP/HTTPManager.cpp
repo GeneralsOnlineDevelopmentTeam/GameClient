@@ -91,6 +91,8 @@ void HTTPManager::Shutdown()
 						HTTPRequest* pRequest = *it;
 						if (pRequest != nullptr && pRequest->EasyHandleMatches(pCurlHandle))
 						{
+							// Skip callback invocation during shutdown to prevent use-after-free
+							pRequest->SetSkipCallback(true);
 							pRequest->Threaded_SetComplete(m->data.result);
 							delete pRequest;
 							m_vecRequestsInFlight.erase(it);

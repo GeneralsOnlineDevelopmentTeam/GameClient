@@ -92,6 +92,12 @@ void HTTPRequest::InvokeCallbackIfComplete()
 {
 	if (m_bIsComplete)
 	{
+		// Skip callback invocation if we're shutting down to avoid use-after-free
+		if (m_bSkipCallback)
+		{
+			return;
+		}
+
 		if (m_completionCallback != nullptr)
 		{
 			// Convert m_vecBuffer to std::string for m_strResponse
