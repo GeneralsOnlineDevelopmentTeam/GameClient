@@ -51,7 +51,7 @@ public:
 	bool InvokeDelayAction();
 	bool WaitingDelayAction() const { return m_timeRequestComplete != -1; }
 #endif
-	void Threaded_SetComplete(CURLcode result);
+	void Threaded_SetComplete(CURLcode result, bool bSkipCallback = false);
 
 	// mainly used for downloads
 	std::vector<uint8_t> GetBuffer() { return m_vecBuffer; }
@@ -97,4 +97,4 @@ private:
 	std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> m_completionCallback = nullptr;
 
 	std::function<void(size_t bytesReceived)> m_progressCallback = nullptr;
-};
+};

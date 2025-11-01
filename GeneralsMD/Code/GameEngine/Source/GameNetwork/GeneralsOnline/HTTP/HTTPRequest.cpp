@@ -35,8 +35,16 @@ HTTPRequest::HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const 
 
 HTTPRequest::~HTTPRequest()
 {
-	HTTPManager* pHTTPManager = NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager();
-	pHTTPManager->RemoveHandleFromMulti(m_pCURL);
+	// Safely check if the manager is still valid before attempting to use it
+	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+	if (pOnlineServicesMgr != nullptr)
+	{
+		HTTPManager* pHTTPManager = pOnlineServicesMgr->GetHTTPManager();
+		if (pHTTPManager != nullptr)
+		{
+			pHTTPManager->RemoveHandleFromMulti(m_pCURL);
+		}
+	}
 
 	curl_easy_cleanup(m_pCURL);
 
@@ -90,7 +98,7 @@ void HTTPRequest::OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes)
 
 void HTTPRequest::InvokeCallbackIfComplete()
 {
-	if (m_bIsComplete)
+	if (m_bIsComplete && !m_bSkipCallback)
 	{
 		if (m_completionCallback != nullptr)
 		{
@@ -123,7 +131,8 @@ bool HTTPRequest::InvokeDelayAction()
 		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 		if (currTime - m_timeRequestComplete > 2000)
 		{
-			Threaded_SetComplete(m_pendingCURLCode);
+			// Normal operation with artificial delay - invoke callbacks
+			Threaded_SetComplete(m_pendingCURLCode, false);
 			return true;
 		}
 	}
@@ -133,12 +142,13 @@ bool HTTPRequest::InvokeDelayAction()
 
 #endif
 
-void HTTPRequest::Threaded_SetComplete(CURLcode result)
+void HTTPRequest::Threaded_SetComplete(CURLcode result, bool bSkipCallback)
 {
 	// store response code
 	curl_easy_getinfo(m_pCURL, CURLINFO_RESPONSE_CODE, &m_responseCode);
 
 	m_bIsComplete = true;
+	m_bSkipCallback = bSkipCallback;
 
 	// finalize the size, so we can use .size etc
 	m_vecBuffer.resize(m_currentBufSize_Used);
@@ -171,8 +181,11 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s] Response was %d - %s!", this, strURIRedacted.c_str(), m_responseCode, strResponse.c_str());
 
-	// trigger callback
-	InvokeCallbackIfComplete();
+	// trigger callback only if not skipping
+	if (!bSkipCallback)
+	{
+		InvokeCallbackIfComplete();
+	}
 }
 
 void HTTPRequest::PlatformStartRequest()
