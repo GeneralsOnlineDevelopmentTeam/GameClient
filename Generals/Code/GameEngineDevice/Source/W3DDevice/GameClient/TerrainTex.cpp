@@ -129,6 +129,8 @@ int TerrainTextureClass::update(WorldHeightMap *htMap)
 			Int i,j;
 			for (j=0; j<tilePixelExtent; j++) {
 				UnsignedByte *pBGR = pTile->getRGBDataForWidth(tilePixelExtent);
+				// Check if getRGBDataForWidth returned NULL (e.g., corrupted tile data)
+				if (!pBGR) continue;
 				pBGR += (tilePixelExtent-1-j)*TILE_BYTES_PER_PIXEL*tilePixelExtent; // invert to match.
 				Int row = position.y+j;
 				UnsignedByte *pBGRX = ((UnsignedByte*)locked_rect.pBits) +
@@ -414,6 +416,8 @@ int TerrainTextureClass::update256(WorldHeightMap *htMap)
 					Int i,j;
 					for (j=0; j<tilePixelExtent; j++) {
 						UnsignedByte *pBGR = htMap->getSourceTile(tileNdx)->getRGBDataForWidth(tilePixelExtent);
+						// Check if getRGBDataForWidth returned NULL (e.g., corrupted tile data)
+						if (!pBGR) continue;
 						pBGR += (tilePixelExtent-1-j)*TILE_BYTES_PER_PIXEL*tilePixelExtent; // invert to match.
 						Int row = cellY*tilePixelExtent+j;
 						row += tileOffset/2;
@@ -880,6 +884,8 @@ int AlphaEdgeTextureClass::update(WorldHeightMap *htMap)
 			for (j=0; j<tilePixelExtent; j++) {
 				Int row = position.y+j;
 				UnsignedByte *pBGR = htMap->getEdgeTile(tileNdx)->getRGBDataForWidth(tilePixelExtent);
+				// Check if getRGBDataForWidth returned NULL (e.g., corrupted tile data)
+				if (!pBGR) continue;
 				pBGR += (tilePixelExtent-1-j)*TILE_BYTES_PER_PIXEL*tilePixelExtent; // invert to match.
 				UnsignedByte *pBGRX = ((UnsignedByte*)locked_rect.pBits) +
 							(row)*surface_desc.Width*pixelBytes;

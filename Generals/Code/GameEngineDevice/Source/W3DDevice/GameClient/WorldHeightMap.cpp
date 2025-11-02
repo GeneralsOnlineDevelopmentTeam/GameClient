@@ -873,6 +873,14 @@ void WorldHeightMap::readTexClass(TXTextureClass *texClass, TileData **tileData)
 			WorldHeightMap::readTiles(pStr, tileData+texClass->firstTile, width);
 		}
 		theFile->close();
+	} else {
+		// Failed to open texture file - ensure all tiles for this class are NULL
+		// to prevent crashes when rendering tries to use uninitialized data
+		for (Int i = 0; i < texClass->numTiles; i++) {
+			if (tileData[texClass->firstTile + i] == NULL) {
+				tileData[texClass->firstTile + i] = NULL;  // Explicitly set to NULL
+			}
+		}
 	}
 }
 
