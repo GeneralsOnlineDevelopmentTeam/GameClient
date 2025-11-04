@@ -109,6 +109,11 @@ void HTTPRequest::InvokeCallbackIfComplete()
 	}
 }
 
+void HTTPRequest::ClearCompletionCallback()
+{
+	m_completionCallback = nullptr;
+}
+
 #if defined(ARTIFICIAL_DELAY_HTTP_REQUESTS)
 void HTTPRequest::SetWaitingDelay(CURLcode result)
 {

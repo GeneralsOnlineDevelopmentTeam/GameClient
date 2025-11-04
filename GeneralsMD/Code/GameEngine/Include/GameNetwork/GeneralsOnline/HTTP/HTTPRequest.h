@@ -46,6 +46,8 @@ public:
 
 	void InvokeCallbackIfComplete();
 
+	void ClearCompletionCallback();
+
 #if defined(ARTIFICIAL_DELAY_HTTP_REQUESTS)
 	void SetWaitingDelay(CURLcode result);
 	bool InvokeDelayAction();
@@ -97,4 +99,4 @@ private:
 	std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> m_completionCallback = nullptr;
 
 	std::function<void(size_t bytesReceived)> m_progressCallback = nullptr;
-};
+};
