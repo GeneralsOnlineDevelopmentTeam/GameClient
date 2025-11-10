@@ -1154,6 +1154,11 @@ Int HeightMapRenderObjClass::updateBlock(Int x0, Int y0, Int x1, Int y1,  WorldH
 		REF_PTR_SET(m_stageOneTexture, pMap->getAlphaTerrainTexture());
 	}
 
+	// Validate vertex buffer arrays before access to prevent race condition during resource cleanup
+	if (!m_vertexBufferTiles || !m_vertexBufferBackup) {
+		return -1;
+	}
+
 	Int i,j;
 	DX8VertexBufferClass	**pVB;
 	Int originX,originY;
