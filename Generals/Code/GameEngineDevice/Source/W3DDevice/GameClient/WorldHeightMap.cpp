@@ -1768,6 +1768,9 @@ Bool WorldHeightMap::getExtraAlphaUVData(Int xIndex, Int yIndex, float U[4], flo
 		Short blendNdx = m_extraBlendTileNdxes[ndx];
 		if (blendNdx == 0) {
 			return FALSE;
+		} else if (blendNdx < 0 || blendNdx >= m_numBlendedTiles) {
+			// Bounds check failed - treat as no blending to prevent crash
+			return FALSE;
 		} else {
 			*cliff = getUVForTileIndex(ndx, m_blendedTiles[blendNdx].blendNdx, U, V, FALSE);
 			alpha[0] = alpha[1] = alpha[2] = alpha[3] = 0;
@@ -1860,6 +1863,11 @@ void WorldHeightMap::getAlphaUVData(Int xIndex, Int yIndex, float U[4], float V[
 			stretchedForCliff = getUVForTileIndex(ndx, m_tileNdxes[ndx], U, V, fullTile);
 			alpha[0] = alpha[1] = alpha[2] = alpha[3] = 0;
 			// No alpha blend, so never need to flip.
+			needFlip = false;
+		} else if (blendNdx < 0 || blendNdx >= m_numBlendedTiles) {
+			// Bounds check failed - treat as no blending to prevent crash
+			stretchedForCliff = getUVForTileIndex(ndx, m_tileNdxes[ndx], U, V, fullTile);
+			alpha[0] = alpha[1] = alpha[2] = alpha[3] = 0;
 			needFlip = false;
 		} else {
 			stretchedForCliff = getUVForTileIndex(ndx, m_blendedTiles[blendNdx].blendNdx, U, V, fullTile);
