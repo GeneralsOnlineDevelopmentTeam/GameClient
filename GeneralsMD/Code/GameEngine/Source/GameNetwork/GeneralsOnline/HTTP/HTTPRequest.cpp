@@ -110,7 +110,13 @@ void HTTPRequest::InvokeCallbackIfComplete()
 			{
 				strResponse.clear();
 			}
+			
+			// Invoke the callback
 			m_completionCallback(true, m_responseCode, strResponse, this);
+			
+			// Clear the callback immediately after invocation to prevent use-after-free
+			// during std::function cleanup, especially during shutdown scenarios
+			m_completionCallback = nullptr;
 		}
 	}
 }

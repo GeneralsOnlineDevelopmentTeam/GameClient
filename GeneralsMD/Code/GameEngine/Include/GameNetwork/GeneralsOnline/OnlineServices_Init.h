@@ -398,6 +398,15 @@ public:
 
 	~NGMP_OnlineServicesManager()
 	{
+		// IMPORTANT: Delete HTTPManager BEFORE deleting interface objects
+		// HTTPManager::Shutdown() will invoke completion callbacks, which may reference interface objects
+		// We must ensure interfaces are still valid when callbacks execute
+		if (m_pHTTPManager != nullptr)
+		{
+			delete m_pHTTPManager;
+			m_pHTTPManager = nullptr;
+		}
+
 		if (m_pAuthInterface != nullptr)
 		{
 			delete m_pAuthInterface;
@@ -420,12 +429,6 @@ public:
 		{
 			delete m_pRoomInterface;
 			m_pRoomInterface = nullptr;
-		}
-
-		if (m_pHTTPManager != nullptr)
-		{
-			delete m_pHTTPManager;
-			m_pHTTPManager = nullptr;
 		}
 
 		// Reset shared_ptr, which will delete WebSocket only when all references are released
