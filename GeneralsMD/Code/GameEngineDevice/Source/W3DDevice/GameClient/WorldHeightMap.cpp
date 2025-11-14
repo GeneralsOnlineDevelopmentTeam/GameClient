@@ -1968,7 +1968,7 @@ Bool WorldHeightMap::getExtraAlphaUVData(Int xIndex, Int yIndex, float U[4], flo
 	*needFlip = FALSE;
 	*cliff = FALSE;
 
-	if ( (ndx>=0) && (ndx<m_dataSize) && m_tileNdxes) {
+	if ( (ndx>=0) && (ndx<m_dataSize) && m_tileNdxes && m_extraBlendTileNdxes) {
 		Short blendNdx = m_extraBlendTileNdxes[ndx];
 		if (blendNdx == 0) {
 			return FALSE;
