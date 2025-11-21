@@ -853,10 +853,14 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	}
 
-	TheAsciiStringCriticalSection = NULL;
-	TheUnicodeStringCriticalSection = NULL;
-	TheDmaCriticalSection = NULL;
-	TheMemoryPoolCriticalSection = NULL;
+	// TheSuperHackers @bugfix Sentry 05/01/2025 Don't set critical sections to NULL before static destructors run.
+	// Static objects like TheWritableGlobalData contain AsciiString members that need the critical sections
+	// during their destruction. The critical section objects (critSec1-5) are static locals and will be
+	// destroyed automatically after this function returns, which is the correct cleanup order.
+	// TheAsciiStringCriticalSection = NULL;
+	// TheUnicodeStringCriticalSection = NULL;
+	// TheDmaCriticalSection = NULL;
+	// TheMemoryPoolCriticalSection = NULL;
 
 	return exitcode;
 
