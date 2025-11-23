@@ -1140,6 +1140,11 @@ void W3DTreeBuffer::freeTreeBuffers(void)
 //=============================================================================
 void W3DTreeBuffer::unitMoved(Object *unit)
 {
+	// Null pointer check to prevent crash when invalid Object pointer is passed
+	if (unit == NULL) {
+		return;
+	}
+
 	if (unit->isKindOf(KINDOF_IMMOBILE)) {
 		// This is the initial positioning of the object, and we don't care. jba. [6/5/2003]
 		return;
@@ -2034,6 +2039,10 @@ void W3DTreeBuffer::loadPostProcess( void )
 {
 	// empty. jba [8/11/2003]
 }
+
+
+
+
 
 
 
