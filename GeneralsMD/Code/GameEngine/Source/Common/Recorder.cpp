@@ -378,6 +378,7 @@ RecorderClass::RecorderClass()
 	m_archiveReplays = FALSE;
 	m_nextFrame = 0;
 	m_wasDesync = FALSE;
+	m_crcInfo = NULL;
 	//
 
 	init(); // just for the heck of it.
@@ -387,6 +388,10 @@ RecorderClass::RecorderClass()
  * Destructor
  */
 RecorderClass::~RecorderClass() {
+	if (m_crcInfo != NULL) {
+		deleteInstance(m_crcInfo);
+		m_crcInfo = NULL;
+	}
 }
 
 /**
@@ -413,6 +418,11 @@ void RecorderClass::init() {
 	m_doingAnalysis = FALSE;
 	m_playbackFrameCount = 0;
 
+	if (m_crcInfo != NULL) {
+		deleteInstance(m_crcInfo);
+		m_crcInfo = NULL;
+	}
+
 	OptionPreferences optionPref;
 	m_archiveReplays = optionPref.getArchiveReplaysEnabled();
 }
@@ -426,6 +436,11 @@ void RecorderClass::reset() {
 		m_file = NULL;
 	}
 	m_fileName.clear();
+
+	if (m_crcInfo != NULL) {
+		deleteInstance(m_crcInfo);
+		m_crcInfo = NULL;
+	}
 
 	init();
 }
@@ -484,6 +499,11 @@ void RecorderClass::stopPlayback() {
 		m_file = NULL;
 	}
 	m_fileName.clear();
+
+	if (m_crcInfo != NULL) {
+		deleteInstance(m_crcInfo);
+		m_crcInfo = NULL;
+	}
 
 	if (!m_doingAnalysis)
 	{
@@ -1112,11 +1132,18 @@ UnsignedInt CRCInfo::readCRC(void)
 
 Bool RecorderClass::sawCRCMismatch() const
 {
+	if (m_crcInfo == NULL) {
+		return FALSE;
+	}
 	return m_crcInfo->sawCRCMismatch();
 }
 
 void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool fromPlayback)
 {
+	if (m_crcInfo == NULL) {
+		return;
+	}
+
 	if (fromPlayback)
 	{
 		//DEBUG_LOG(("RecorderClass::handleCRCMessage() - Adding CRC of %X from %d to m_crcInfo", newCRC, playerIndex));
