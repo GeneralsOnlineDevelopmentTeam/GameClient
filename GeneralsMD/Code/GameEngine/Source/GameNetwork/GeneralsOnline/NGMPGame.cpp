@@ -2,6 +2,10 @@
 #include "GameLogic/VictoryConditions.h"
 #include "Common/PlayerList.h"
 #include "GameLogic/GameLogic.h"
+	// Initialize slot pointers first to ensure they're valid
+	cleanUpSlotPointers();
+
+
 #include "GameNetwork/FileTransfer.h"
 #include "GameClient/MapUtil.h"
 #include "GameClient/GameText.h"
@@ -542,4 +546,4 @@ void NGMPGame::StartCountdown()
 	{
 		pWS->SendData_CountdownStarted();
 	}
-}
+}
