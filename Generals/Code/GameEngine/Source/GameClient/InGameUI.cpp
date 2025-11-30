@@ -3340,6 +3340,9 @@ void InGameUI::selectDrawable( Drawable *draw )
 //-------------------------------------------------------------------------------------------------
 void InGameUI::deselectDrawable( Drawable *draw )
 {
+	// Prevent crashes from invalid drawable pointers
+	if( draw == NULL )
+		return;
 
 	if( draw->isSelected() )
 	{

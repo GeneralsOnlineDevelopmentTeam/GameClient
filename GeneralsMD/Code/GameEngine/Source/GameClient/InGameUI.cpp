@@ -3453,6 +3453,11 @@ void InGameUI::selectDrawable( Drawable *draw )
 void InGameUI::deselectDrawable( Drawable *draw )
 {
 
+	// Prevent crashes from invalid drawable pointers
+	if( draw == NULL )
+		return;
+
+
 	if( draw->isSelected() )
 	{
 
@@ -6334,4 +6339,4 @@ void InGameUI::drawGameTime()
 
 	m_gameTimeString->draw(horizontalTimerOffset, m_gameTimePosition.y, m_gameTimeColor, m_gameTimeDropColor);
 	m_gameTimeFrameString->draw(horizontalFrameOffset, m_gameTimePosition.y, GameMakeColor(180,180,180,255), m_gameTimeDropColor);
-}
+}
