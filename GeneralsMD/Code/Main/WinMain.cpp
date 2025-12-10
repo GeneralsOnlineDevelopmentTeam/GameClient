@@ -319,7 +319,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
 			//-------------------------------------------------------------------------
 		case WM_NCHITTEST:
 			// Prevent the user from selecting the menu in fullscreen mode
-			if (!TheGlobalData->m_windowed)
+			if (TheGlobalData && !TheGlobalData->m_windowed)
 				return HTCLIENT;
 			break;
 
@@ -358,7 +358,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
 			case SC_SIZE:
 			case SC_MAXIMIZE:
 			case SC_MONITORPOWER:
-				if (!TheGlobalData->m_windowed)
+				if (TheGlobalData && !TheGlobalData->m_windowed)
 					return 1;
 				break;
 			}
