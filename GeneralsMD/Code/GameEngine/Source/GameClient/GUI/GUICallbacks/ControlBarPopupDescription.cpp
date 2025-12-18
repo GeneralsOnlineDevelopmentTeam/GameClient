@@ -132,6 +132,9 @@ void ControlBar::showBuildTooltipLayout( GameWindow *cmdButton )
 		return;
 	}
 
+	if(!m_buildToolTipLayout)
+		return;
+
 	Bool passedWaitTime = FALSE;
 	static Bool isInitialized = FALSE;
 	static UnsignedInt beginWaitTime;
@@ -697,13 +700,14 @@ void ControlBar::deleteBuildTooltipLayout( void )
 {
 	m_showBuildToolTipLayout = FALSE;
 	prevWindow= NULL;
+	
+	if(!m_buildToolTipLayout)
+		return;
+
 	m_buildToolTipLayout->hide(TRUE);
-//	if(!m_buildToolTipLayout)
-//		return;
-//
-//	m_buildToolTipLayout->destroyWindows();
-//	deleteInstance(m_buildToolTipLayout);
-//	m_buildToolTipLayout = NULL;
+	m_buildToolTipLayout->destroyWindows();
+	deleteInstance(m_buildToolTipLayout);
+	m_buildToolTipLayout = NULL;
 
 	delete theAnimateWindowManager;
 	theAnimateWindowManager = NULL;
