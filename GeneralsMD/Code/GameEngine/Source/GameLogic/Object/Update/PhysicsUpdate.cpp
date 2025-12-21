@@ -454,7 +454,11 @@ void PhysicsBehavior::resetDynamicPhysics()
 //-------------------------------------------------------------------------------------------------
 void PhysicsBehavior::applyGravitationalForces()
 {
-	m_accel.z += TheGlobalData->m_gravity;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+    m_accel.z += TheGlobalData->m_gravity * 0.5f;
+#else
+    m_accel.z += TheGlobalData->m_gravity;
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------
