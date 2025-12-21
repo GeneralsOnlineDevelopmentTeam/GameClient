@@ -366,8 +366,11 @@ void PhysicsBehavior::applyShock( const Coord3D *force )
 	Coord3D resistedForce = *force;
 	resistedForce.scale( 1.0f - min( 1.0f, max( 0.0f, getPhysicsBehaviorModuleData()->m_shockResistance ) ) );
 
-	// Apply the processed shock force to the object
-	applyForce(&resistedForce);
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+    // on GO explosions were throwing units higher than retail.
+    // Reduce shock impulse a bit to match retail trajectories.
+    resistedForce.scale(0.5f);
+ #endif
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -454,13 +457,8 @@ void PhysicsBehavior::resetDynamicPhysics()
 //-------------------------------------------------------------------------------------------------
 void PhysicsBehavior::applyGravitationalForces()
 {
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-    m_accel.z += TheGlobalData->m_gravity * 0.5f;
-#else
     m_accel.z += TheGlobalData->m_gravity;
-#endif
 }
-
 //-------------------------------------------------------------------------------------------------
 void PhysicsBehavior::applyFrictionalForces()
 {
@@ -522,7 +520,11 @@ Bool PhysicsBehavior::handleBounce(Real oldZ, Real newZ, Real groundZ, Coord3D* 
 	{
 		const Real MIN_STIFF = 0.01f;
 		const Real MAX_STIFF = 0.99f;
-		Real stiffness = TheGlobalData->m_groundStiffness;
+	#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+        Real stiffness = TheGlobalData->m_groundStiffness * someFactor;
+    #else
+        Real stiffness = TheGlobalData->m_groundStiffness;
+    #endif
 		if (stiffness < MIN_STIFF) stiffness = MIN_STIFF;
 		if (stiffness > MAX_STIFF) stiffness = MAX_STIFF;
 
