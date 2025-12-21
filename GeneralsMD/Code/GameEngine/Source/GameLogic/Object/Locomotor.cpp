@@ -1016,7 +1016,14 @@ void Locomotor::locoUpdate_moveTowardsPosition(Object* obj, const Coord3D& goalP
 		heightAboveSurface -= obj->getCarrierDeckHeight();
 	}
 
-	if (heightAboveSurface > -(3*3)*TheGlobalData->m_gravity)
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+    // 3 frames at 30hz = 0.1 seconds
+    const Real legacyFrames = 3.0f;
+    const Real legacyTime = legacyFrames / 30.0f; // 0.1s
+    if (heightAboveSurface > -(legacyTime * legacyTime) * TheGlobalData->m_gravity)
+#else
+    if (heightAboveSurface > -(3*3)*TheGlobalData->m_gravity)
+#endif
 	{
 		// If we get high enough to stay up for 3 frames, then we left the ground.
 		treatAsAirborne = true;
