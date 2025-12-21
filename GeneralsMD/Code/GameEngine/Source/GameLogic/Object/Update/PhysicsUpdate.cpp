@@ -366,10 +366,6 @@ void PhysicsBehavior::applyShock( const Coord3D *force )
     Coord3D resistedForce = *force;
     resistedForce.scale(1.0f - min(1.0f, max(0.0f, getPhysicsBehaviorModuleData()->m_shockResistance)));
 
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-    resistedForce.scale(0.5f);
-#endif
-
     applyForce(&resistedForce);
 }
 
