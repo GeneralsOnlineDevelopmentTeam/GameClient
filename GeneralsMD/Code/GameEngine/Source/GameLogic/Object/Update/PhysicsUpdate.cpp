@@ -520,11 +520,7 @@ Bool PhysicsBehavior::handleBounce(Real oldZ, Real newZ, Real groundZ, Coord3D* 
 	{
 		const Real MIN_STIFF = 0.01f;
 		const Real MAX_STIFF = 0.99f;
-	#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-        Real stiffness = TheGlobalData->m_groundStiffness * someFactor;
-    #else
         Real stiffness = TheGlobalData->m_groundStiffness;
-    #endif
 		if (stiffness < MIN_STIFF) stiffness = MIN_STIFF;
 		if (stiffness > MAX_STIFF) stiffness = MAX_STIFF;
 
