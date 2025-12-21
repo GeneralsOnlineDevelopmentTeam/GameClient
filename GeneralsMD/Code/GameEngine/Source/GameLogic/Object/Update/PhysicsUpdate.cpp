@@ -363,8 +363,13 @@ void PhysicsBehavior::applyForce( const Coord3D *force )
  */
 void PhysicsBehavior::applyShock( const Coord3D *force )
 {
-	Coord3D resistedForce = *force;
-	resistedForce.scale( 1.0f - min( 1.0f, max( 0.0f, getPhysicsBehaviorModuleData()->m_shockResistance ) ) );
+    Coord3D resistedForce = *force;
+    resistedForce.scale(1.0f - min(1.0f, max(0.0f, getPhysicsBehaviorModuleData()->m_shockResistance)));
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+    resistedForce.scale(0.5f);
+#endif
+
     applyForce(&resistedForce);
 }
 
@@ -383,16 +388,16 @@ void PhysicsBehavior::applyRandomRotation()
 	Real randomModifier;
 
 
-// #if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-//	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
-//	m_yawRate += (getPhysicsBehaviorModuleData()->m_shockMaxYaw/2.f) * randomModifier;
+ #if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
+	m_yawRate += (getPhysicsBehaviorModuleData()->m_shockMaxYaw/2.f) * randomModifier;
 
-//	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
-//	m_pitchRate += (getPhysicsBehaviorModuleData()->m_shockMaxPitch / 2.f) * randomModifier;
+	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
+	m_pitchRate += (getPhysicsBehaviorModuleData()->m_shockMaxPitch / 2.f) * randomModifier;
 
-//	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
-//	m_rollRate += (getPhysicsBehaviorModuleData()->m_shockMaxRoll / 2.f) * randomModifier;
-// #else
+	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
+	m_rollRate += (getPhysicsBehaviorModuleData()->m_shockMaxRoll / 2.f) * randomModifier;
+ #else
 	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
 	m_yawRate += getPhysicsBehaviorModuleData()->m_shockMaxYaw * randomModifier;
 
@@ -401,7 +406,7 @@ void PhysicsBehavior::applyRandomRotation()
 
 	randomModifier = GameLogicRandomValue(-1.0f, 1.0f);
 	m_rollRate += getPhysicsBehaviorModuleData()->m_shockMaxRoll * randomModifier;
-// #endif
+ #endif
 
 #ifdef SLEEPY_PHYSICS
 	if (getFlag(IS_IN_UPDATE))
