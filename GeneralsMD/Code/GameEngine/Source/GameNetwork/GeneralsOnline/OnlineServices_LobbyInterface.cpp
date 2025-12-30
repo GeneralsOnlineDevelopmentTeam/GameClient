@@ -468,6 +468,14 @@ NGMP_OnlineServices_LobbyInterface::NGMP_OnlineServices_LobbyInterface()
 
 }
 
+void NGMP_OnlineServices_LobbyInterface::StopMatchStartCountdownIfRunning()
+{
+	if (TheNGMPGame != nullptr && TheNGMPGame->IsCountdownStarted())
+	{
+		TheNGMPGame->StopCountdown();
+	}
+}
+
 void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> onStartCallback, std::function<void(std::vector<LobbyEntry>)> onCompleteCallback)
 {
 	if (m_bSearchInProgress)
@@ -932,7 +940,14 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 									m_bHostMigrated = true;
 								}
 							}
-
+							// stop countdown if player count actually decreased and we're the host
+							if (IsHost()
+								&& TheNGMPGame != nullptr
+								&& TheNGMPGame->IsCountdownStarted()
+								&& lobbyEntry.current_players < m_CurrentLobby.current_players)
+							{
+								TheNGMPGame->StopCountdown();
+							}
 							// store
 							m_CurrentLobby = lobbyEntry;
 
