@@ -310,10 +310,24 @@ void DisconnectManager::processDisconnectKeepAlive(NetCommandMsg *msg, Connectio
 }
 
 void DisconnectManager::processDisconnectPlayer(NetCommandMsg *msg, ConnectionManager *conMgr) {
-	NetDisconnectPlayerCommandMsg *cmdMsg = (NetDisconnectPlayerCommandMsg *)msg;
-	DEBUG_LOG(("DisconnectManager::processDisconnectPlayer - Got disconnect player command from player %d.  Disconnecting player %d on frame %d", msg->getPlayerID(), cmdMsg->getDisconnectSlot(), cmdMsg->getDisconnectFrame()));
-	DEBUG_ASSERTCRASH(TheGameLogic->getFrame() == cmdMsg->getDisconnectFrame(), ("disconnecting player on the wrong frame!!!"));
-	disconnectPlayer(cmdMsg->getDisconnectSlot(), conMgr);
+    NetDisconnectPlayerCommandMsg *cmdMsg = (NetDisconnectPlayerCommandMsg *)msg;
+    Int slot = cmdMsg->getDisconnectSlot();
+    disconnectPlayer(slot, conMgr);
+
+        Int localSlot = conMgr->getLocalPlayerID();
+        Int translated = translatedSlotPosition(slot, localSlot);
+
+        Bool votedOut = FALSE;
+        Bool timedOut = FALSE;
+
+        if (translated != -1) {
+            votedOut = isPlayerVotedOut(translated, conMgr);
+            timedOut = hasPlayerTimedOut(translated);
+        }
+
+        if (!votedOut && !timedOut) {
+            sendPlayerDestruct(slot, conMgr);
+        }
 }
 
 void DisconnectManager::processPacketRouterQuery(NetCommandMsg *msg, ConnectionManager *conMgr) {
