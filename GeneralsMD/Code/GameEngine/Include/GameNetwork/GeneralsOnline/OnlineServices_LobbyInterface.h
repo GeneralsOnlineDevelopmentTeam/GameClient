@@ -99,6 +99,7 @@ class NGMP_OnlineServices_LobbyInterface
 {
 public:
 	NGMP_OnlineServices_LobbyInterface();
+    void StopMatchStartCountdownIfRunning();
 
 	void SearchForLobbies(std::function<void()> onStartCallback, std::function<void(std::vector<LobbyEntry>)> onCompleteCallback);
 	void DeregisterForSearchForLobbiesCallback()
@@ -407,6 +408,10 @@ public:
 	void ClearAutoReadyCountdown()
 	{
 		m_timeStartAutoReadyCountdown = -1;
+        	if (TheNGMPGame != nullptr && TheNGMPGame->IsCountdownStarted())
+		{
+			TheNGMPGame->StopCountdown();
+		}
 	}
 
 	bool HasAutoReadyCountdown()
