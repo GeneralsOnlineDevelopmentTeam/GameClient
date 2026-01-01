@@ -302,24 +302,40 @@ WindowMsgHandledType BuddyControlSystem( GameWindow *window, UnsignedInt msg,
 				if (selected >= 0)
 				{
 #if defined(GENERALS_ONLINE)
-					int profileID = (int)GadgetListBoxGetItemData(buddyControls.listboxBuddies, selected);
+                    int profileID = (int)GadgetListBoxGetItemData(buddyControls.listboxBuddies, selected);
 
-					// TODO_SOCIAL: Original game didnt let you talk to someone in your game, maybe we should do the same? can you chat via communicator after death?
-					// maybe this doesnt matter anymore? discord exists.
+                    // Block chatting with a buddy who is currently in the same game as us
+                    if (TheNGMPGame && TheNGMPGame->isGameInProgress())
+                    {
+                        for (Int i = 0; i < MAX_SLOTS; ++i)
+                        {
+                            NGMPGameSlot* slot = TheNGMPGame->getGameSpySlot(i);
+                            if (slot && slot->isHuman() && slot->m_userID == (int64_t)profileID)
+                            {
+                                if (buddyControls.listboxChat)
+                                {
+                                    GadgetListBoxAddEntryText(
+                                        buddyControls.listboxChat,
+                                        UnicodeString(L"You cannot send messages to a buddy who is currently in your game."),
+                                        GameSpyColor[GSCOLOR_DEFAULT],
+                                        -1,
+                                        -1);
+                                }
+                                return MSG_HANDLED;
+                            }
+                        }
+                    }
 
-					std::shared_ptr<WebSocket> pWS = NGMP_OnlineServicesManager::GetWebSocket();
-					if (pWS != nullptr)
-					{
-						UnicodeString txtInput;
-						txtInput.set(GadgetTextEntryGetText(buddyControls.textEntryEdit));
-						GadgetTextEntrySetText(buddyControls.textEntryEdit, UnicodeString::TheEmptyString);
-						txtInput.trim();
-						if (!txtInput.isEmpty())
-						{
-							pWS->SendData_FriendMessage(txtInput, profileID);
-						}
-					}
-						
+                    if (auto pWS = NGMP_OnlineServicesManager::GetWebSocket())
+                    {
+                        UnicodeString txtInput;
+                        txtInput.set(GadgetTextEntryGetText(buddyControls.textEntryEdit));
+                        GadgetTextEntrySetText(buddyControls.textEntryEdit, UnicodeString::TheEmptyString);
+                        txtInput.trim();
+
+                        if (!txtInput.isEmpty())
+                            pWS->SendData_FriendMessage(txtInput, profileID);
+                    }
 #else
 					GPProfile selectedProfile = (GPProfile)GadgetListBoxGetItemData(buddyControls.listboxBuddies, selected);
 					BuddyInfoMap *m = TheGameSpyInfo->getBuddyMap();
