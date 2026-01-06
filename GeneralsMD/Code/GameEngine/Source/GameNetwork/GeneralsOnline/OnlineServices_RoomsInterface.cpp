@@ -50,7 +50,7 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 
 	m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
-	// TODO_CACHE: Cleanup multi too
+	// Cleanup old easy handle if it exists
 	if (m_pCurlWS != nullptr)
 	{
         // cleanup
@@ -1361,4 +1361,4 @@ void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string
 	{
 		m_RosterNeedsRefreshCallback();
 	}
-}
+}
