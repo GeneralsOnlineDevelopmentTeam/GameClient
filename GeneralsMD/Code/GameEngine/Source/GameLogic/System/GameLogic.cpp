@@ -2750,16 +2750,51 @@ void GameLogic::processCommandList(CommandList* list)
 			}
 
 			// show all players
+			std::vector<Int> MismatchingSlots;
 			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
 			{
 				// only show users who arent OK, UI isn't huge
-				if (crcIt->second != biggestCRC)
+				const Int slot = crcIt->first;
+				const UnsignedInt crc = crcIt->second;
+				if (crc != biggestCRC)
 				{
-					Player* player = ThePlayerList->getNthPlayer(crcIt->first);
+					MismatchingSlots.push_back(slot);
+
+					UnicodeString playerName;
+					if (TheNetwork)
+					{
+						playerName = TheNetwork->getPlayerName(slot);
+					}
 					UnicodeString strPlayerInfo;
-					strPlayerInfo.format(L"player %d (%s) = %X [MISMATCH]\n", crcIt->first, player ? player->getPlayerDisplayName().str() : L"<NONE>", crcIt->second);
+					strPlayerInfo.format(L"slot %d (%s) = %X [MISMATCH]\n", slot, playerName.getLength() > 0 ? playerName.str() : L"<NONE>", crc);
 
 					strMismatchDetails.concat(strPlayerInfo);
+				}
+			}
+
+			// drop mismatching players and end their game
+			if (!MismatchingSlots.empty() && TheNetwork)
+			{
+				ConnectionManager* conMgr = TheNetwork->GetConnectionManager();
+				if (conMgr)
+				{
+					DisconnectManager* disMgr = conMgr->GetDisconnectManager();
+					if (disMgr)
+					{
+
+						const Int localSlot = conMgr->getLocalPlayerID();
+						Bool localIsMismatcher = FALSE;
+
+						for (Int slot : MismatchingSlots)
+						{
+							if (slot == localSlot)
+							{
+								localIsMismatcher = TRUE;
+							}
+							disMgr->disconnectAndDestructPlayer(slot, conMgr);
+
+						}
+					}
 				}
 			}
 

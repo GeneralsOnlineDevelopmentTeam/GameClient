@@ -50,6 +50,7 @@ public:
 	void init();
 	void update(ConnectionManager *conMgr);
 
+	void disconnectAndDestructPlayer(Int slot, ConnectionManager* conMgr);
 	void processDisconnectCommand(NetCommandRef *ref, ConnectionManager *conMgr);
 	void allCommandsReady(UnsignedInt frame, ConnectionManager *conMgr, Bool waitForPacketRouter = TRUE);
 	void nextFrame(UnsignedInt frame, ConnectionManager *conMgr);

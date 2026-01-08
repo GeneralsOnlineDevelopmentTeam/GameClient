@@ -405,7 +405,8 @@ void Network::setSawCRCMismatch( void )
 #endif
 
 #if defined(GENERALS_ONLINE)
-	TheScriptEngine->startEndGameTimer(true);
+	// No longer end the game on desync, we give the players chance to continue after dropping the mismatching player.
+	//TheScriptEngine->startEndGameTimer(true);
 #else
 	TheScriptEngine->startEndGameTimer();
 #endif
