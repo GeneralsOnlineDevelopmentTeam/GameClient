@@ -2781,18 +2781,9 @@ void GameLogic::processCommandList(CommandList* list)
 					DisconnectManager* disMgr = conMgr->GetDisconnectManager();
 					if (disMgr)
 					{
-
-						const Int localSlot = conMgr->getLocalPlayerID();
-						Bool localIsMismatcher = FALSE;
-
 						for (Int slot : MismatchingSlots)
 						{
-							if (slot == localSlot)
-							{
-								localIsMismatcher = TRUE;
-							}
 							disMgr->disconnectAndDestructPlayer(slot, conMgr);
-
 						}
 					}
 				}
