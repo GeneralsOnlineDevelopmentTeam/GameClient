@@ -961,7 +961,15 @@ void WebSocket::Tick()
 										{
 											NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal User: %lld!", signalData.target_user_id);
 											NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal Payload Size: %d!", (int)signalData.payload.size());
-											m_pendingSignals.push(signalData.payload);
+											// Validate payload is not empty to prevent crashes in OpenSSL CMP validation
+											if (signalData.payload.size() > 0)
+											{
+												m_pendingSignals.push(signalData.payload);
+											}
+											else
+											{
+												NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Warning: Ignoring empty signal payload from user %lld", signalData.target_user_id);
+											}
 										}
 									}
 									break;
@@ -1361,4 +1369,4 @@ void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string
 	{
 		m_RosterNeedsRefreshCallback();
 	}
-}
+}

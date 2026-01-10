@@ -484,6 +484,13 @@ public:
 					std::vector<uint8_t> signalData = pendingSignals.front();
 					pendingSignals.pop();
 
+					// Validate payload is not empty to prevent crashes in OpenSSL CMP validation
+					if (signalData.empty())
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Warning: Skipping empty signal data");
+						continue;
+					}
+
 					// Setup a context object that can respond if this signal is a connection request.
 					struct Context : ISteamNetworkingSignalingRecvContext
 					{
