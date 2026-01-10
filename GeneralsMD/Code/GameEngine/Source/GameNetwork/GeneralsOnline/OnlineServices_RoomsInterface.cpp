@@ -89,6 +89,11 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 		curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
 #endif
 
+		// Explicitly set supported elliptic curves for Schannel to prevent division by zero
+		// in CTlsExtServer::ParseEllipticCurveExtension when using libcurl 8.6.0 with Schannel
+		curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_EC_CURVES, "X25519:P-256:P-384:P-521");
+
+
 
 		// ws needs auth
 		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
@@ -1361,4 +1366,4 @@ void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string
 	{
 		m_RosterNeedsRefreshCallback();
 	}
-}
+}

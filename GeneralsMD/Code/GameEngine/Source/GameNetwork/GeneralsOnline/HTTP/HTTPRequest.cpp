@@ -261,6 +261,10 @@ void HTTPRequest::PlatformStartRequest()
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
 #endif
 
+		// Explicitly set supported elliptic curves for Schannel to prevent division by zero
+		// in CTlsExtServer::ParseEllipticCurveExtension when using libcurl 8.6.0 with Schannel
+		curl_easy_setopt(m_pCURL, CURLOPT_SSL_EC_CURVES, "X25519:P-256:P-384:P-521");
+
 		
 	}
 }
