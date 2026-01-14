@@ -364,6 +364,9 @@ public:  // ********************************************************************
 	InGameUI( void );
 	virtual ~InGameUI( void );
 
+	void refreshObserverStatsResources();
+	void toggleObserverStats() { m_observerStatsHidden = !m_observerStatsHidden; }   // Toggle visibility of the observer stats overlay
+
 	// Inherited from subsystem interface -----------------------------------------------------------
 	virtual	void init( void );															///< Initialize the in-game user interface
 	virtual void update( void );														///< Update the UI by calling preDraw(), draw(), and postDraw()
@@ -595,17 +598,22 @@ private:
 	virtual void updateIdleWorker( void );
 	virtual void resetIdleWorker( void );
 
+
 	void updateRenderFpsString();
 	void drawNetworkLatency(Int &x, Int &y);
 	void drawRenderFps(Int &x, Int &y);
 	void drawSystemTime(Int &x, Int &y);
 	void drawGameTime();
+	void drawObserverStats(Int &x, Int &y);
+	Bool m_observerStatsHidden = false;   // hide/show observer overlay
+
 
 public:
 	void registerWindowLayout(WindowLayout *layout); // register a layout for updates
 	void unregisterWindowLayout(WindowLayout *layout); // stop updates for this layout
 
   void triggerDoubleClickAttackMoveGuardHint( void );
+
 
 
 public:
@@ -650,6 +658,22 @@ protected:
 	};
 
 	enum { MAX_MOVE_HINTS = 256 };
+
+	struct PlayerData {
+		UnicodeString name;
+		UnicodeString faction;
+		Int team;
+		UnsignedInt money;
+		UnsignedInt cpm;
+		Int xp;
+		Real kd;
+		Int sp;
+		Int powerValue;
+		Bool showPower;
+		Bool lowPower;
+		Color color;
+	};
+
 	struct MoveHintStruct
 	{
 		Coord3D pos;						///< World coords of destination point
@@ -809,6 +833,14 @@ protected:
 	Coord2D												m_gameTimePosition;
 	Color												m_gameTimeColor;
 	Color												m_gameTimeDropColor;
+
+	// Observer Stats Overlay
+	DisplayString* m_observerStatsString;
+	AsciiString m_observerStatsFont;
+	Int m_observerStatsPointSize;
+	Bool m_observerStatsBold;
+	Coord2D m_observerStatsPosition;
+	Int m_observerStatsLineStep;
 
 #if defined(GENERALS_ONLINE)
 	Color												m_colorGood;

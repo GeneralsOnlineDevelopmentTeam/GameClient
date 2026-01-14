@@ -940,6 +940,20 @@ Int OptionPreferences::getRenderFpsFontSize(void)
 	return fontSize;
 }
 
+Int OptionPreferences::getObserverStatsFontSize(void)
+{
+	OptionPreferences::const_iterator it = find("ObserverStatsFontSize");
+	if (it == end())
+		return 7;
+
+	Int fontSize = atoi(it->second.str());
+	if (fontSize < 0)
+	{
+		fontSize = 0;
+	}
+	return fontSize;
+}
+
 Int OptionPreferences::getSystemTimeFontSize(void)
 {
 	OptionPreferences::const_iterator it = find("SystemTimeFontSize");
@@ -1529,6 +1543,17 @@ static void saveOptions( void )
 		prefString.format("%d", val);
 		(*pref)["RenderFpsFontSize"] = prefString;
 		TheInGameUI->refreshRenderFpsResources();
+	}
+
+	//-------------------------------------------------------------------------------------------------
+    // Set Observer Stats Font Size
+	val = pref->getObserverStatsFontSize();
+	if (val >= 0)
+	{
+		AsciiString prefString;
+		prefString.format("%d", val);
+		(*pref)["ObserverStatsFontSize"] = prefString;
+		TheInGameUI->refreshObserverStatsResources();
 	}
 
 	//-------------------------------------------------------------------------------------------------

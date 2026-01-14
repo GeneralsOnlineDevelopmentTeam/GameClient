@@ -3397,6 +3397,11 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			}
 
 			ToggleControlBar();
+			if (TheInGameUI)
+			{
+				TheInGameUI->toggleObserverStats();
+			}
+
 		}
 		disp = DESTROY_MESSAGE;
 		break;

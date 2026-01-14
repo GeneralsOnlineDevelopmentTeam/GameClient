@@ -1551,29 +1551,29 @@ void GameLogic::startNewGame(Bool loadingSaveGame)
 	//{
 
 		// Always add in an observer Player
-		Dict d;
-		d.setAsciiString(TheKey_playerName, "ReplayObserver");
-		d.setBool(TheKey_playerIsHuman, TRUE);
-		d.setUnicodeString(TheKey_playerDisplayName, L"Observer");
-		const PlayerTemplate* pt;
-		pt = ThePlayerTemplateStore->findPlayerTemplate( TheNameKeyGenerator->nameToKey("FactionObserver") );
-		if (pt)
-		{
-			d.setAsciiString(TheKey_playerFaction, KEYNAME(pt->getNameKey()));
-		}
-		d.setAsciiString(TheKey_playerAllies, AsciiString::TheEmptyString);
-		d.setAsciiString(TheKey_playerEnemies, AsciiString::TheEmptyString);
-		d.setInt(TheKey_playerColor, TheMultiplayerSettings->getColor(0)->getColor());
-		d.setInt(TheKey_playerNightColor, TheMultiplayerSettings->getColor(0)->getNightColor());
-		d.setInt(TheKey_multiplayerStartIndex, 0);
-		d.setBool(TheKey_multiplayerIsLocal, FALSE);
+	Dict d;
+	d.setAsciiString(TheKey_playerName, "ReplayObserver");
+	d.setBool(TheKey_playerIsHuman, TRUE);
+	d.setUnicodeString(TheKey_playerDisplayName, L"Observer");
+	const PlayerTemplate* pt;
+	pt = ThePlayerTemplateStore->findPlayerTemplate(TheNameKeyGenerator->nameToKey("FactionObserver"));
+	if (pt)
+	{
+		d.setAsciiString(TheKey_playerFaction, KEYNAME(pt->getNameKey()));
+	}
+	d.setAsciiString(TheKey_playerAllies, AsciiString::TheEmptyString);
+	d.setAsciiString(TheKey_playerEnemies, AsciiString::TheEmptyString);
+	d.setInt(TheKey_playerColor, TheMultiplayerSettings->getColor(0)->getColor());
+	d.setInt(TheKey_playerNightColor, TheMultiplayerSettings->getColor(0)->getNightColor());
+	d.setInt(TheKey_multiplayerStartIndex, 0);
+	d.setBool(TheKey_multiplayerIsLocal, FALSE);
 
-		TheSidesList->addSide(&d);
-		d.clear();
-		d.setAsciiString(TheKey_teamName, "teamReplayObserver");
-		d.setAsciiString(TheKey_teamOwner, "ReplayObserver");
-		d.setBool(TheKey_teamIsSingleton, true);
-		TheSidesList->addTeam(&d);
+	TheSidesList->addSide(&d);
+	d.clear();
+	d.setAsciiString(TheKey_teamName, "teamReplayObserver");
+	d.setAsciiString(TheKey_teamOwner, "ReplayObserver");
+	d.setBool(TheKey_teamIsSingleton, true);
+	TheSidesList->addTeam(&d);
 	d.setAsciiString(TheKey_teamOwner, "ReplayObserver");
 	d.setBool(TheKey_teamIsSingleton, true);
 	TheSidesList->addTeam(&d);
@@ -1624,14 +1624,14 @@ void GameLogic::startNewGame(Bool loadingSaveGame)
 			CachedFileInputStream theInputStream;
 			if (theInputStream.open(path))
 			{
-				ChunkInputStream *pStrm = &theInputStream;
-				DataChunkInput file( pStrm );
-				file.registerParser( "PlayerScriptsList", AsciiString::TheEmptyString, ScriptList::ParseScriptsDataChunk );
+				ChunkInputStream* pStrm = &theInputStream;
+				DataChunkInput file(pStrm);
+				file.registerParser("PlayerScriptsList", AsciiString::TheEmptyString, ScriptList::ParseScriptsDataChunk);
 				if (!file.parse(NULL)) {
 					DEBUG_LOG(("ERROR - Unable to read in multiplayer scripts."));
 					return;
 				}
-				ScriptList *scripts[MAX_PLAYER_COUNT];
+				ScriptList* scripts[MAX_PLAYER_COUNT];
 				Int count = ScriptList::getReadScripts(scripts);
 				if (count)
 				{
@@ -1720,23 +1720,23 @@ void GameLogic::startNewGame(Bool loadingSaveGame)
 	// update the loadscreen
 	updateLoadProgress(LOAD_PROGRESS_POST_VICTORY_CONDITION_SETUP);
 
-	Player *localPlayer = ThePlayerList->getLocalPlayer();
-	Player *observerPlayer = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey("ReplayObserver"));
+	Player* localPlayer = ThePlayerList->getLocalPlayer();
+	Player* observerPlayer = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey("ReplayObserver"));
 
 	// set the radar as on a new map
-	TheRadar->newMap( TheTerrainLogic );
+	TheRadar->newMap(TheTerrainLogic);
 
 	// TheSuperHackers @tweak Force on radar for all observers.
 	for (Int i = 0; i < MAX_PLAYER_COUNT; ++i)
 	{
-		Player *player = ThePlayerList->getNthPlayer(i);
+		Player* player = ThePlayerList->getNthPlayer(i);
 		if (player->isPlayerObserver())
 		{
 			TheRadar->forceOn(i, TRUE);
 		}
 	}
 
-	TheInGameUI->setClientQuiet( FALSE ); // okay to start beeping and stuff
+	TheInGameUI->setClientQuiet(FALSE); // okay to start beeping and stuff
 
 	// Tell the multiplayer victory condition singleton that the players are created
 	TheVictoryConditions->cachePlayerPtrs();
@@ -1831,7 +1831,7 @@ void GameLogic::startNewGame(Bool loadingSaveGame)
 	updateLoadProgress(LOAD_PROGRESS_POST_PATHFINDER_NEW_MAP);
 
 	// reveal the map for the permanent observer
-	ThePartitionManager->revealMapForPlayerPermanently( observerPlayer->getPlayerIndex() );
+	ThePartitionManager->revealMapForPlayerPermanently(observerPlayer->getPlayerIndex());
 	DEBUG_LOG(("Reveal shroud for %ls whose index is %d", observerPlayer->getPlayerDisplayName().str(), observerPlayer->getPlayerIndex()));
 
 	if (game)
@@ -2198,7 +2198,7 @@ void GameLogic::startNewGame(Bool loadingSaveGame)
 		// all players on the map are the local player's enemy, except neutral
 		// and civilian players.
 		DEBUG_ASSERTCRASH(localPlayer, ("Local player has not been established for Challenge map."));
-		Player *placeholderThePlayer = ThePlayerList->findPlayerWithNameKey(NAMEKEY("ThePlayer"));
+		Player* placeholderThePlayer = ThePlayerList->findPlayerWithNameKey(NAMEKEY("ThePlayer"));
 		DEBUG_ASSERTCRASH(placeholderThePlayer, ("Challenge maps without player \"ThePlayer\" assume that the local player is mutual enemies with all other players except the neutral and civilian players."));
 
 		if (placeholderThePlayer)
@@ -2312,8 +2312,8 @@ void GameLogic::startNewGame(Bool loadingSaveGame)
 	{
 		if (!TheGlobalData->m_headless)
 		{
-			if(TheShell->getScreenCount() == 0)
-				TheShell->push( "Menus/MainMenu.wnd" );
+			if (TheShell->getScreenCount() == 0)
+				TheShell->push("Menus/MainMenu.wnd");
 			else if (TheShell->top())
 			{
 				TheShell->top()->hide(FALSE);
@@ -3582,18 +3582,18 @@ static void unitTimings(void)
 			const ThingTemplate* btt = g_UT_curThing;
 
 #ifndef SINGLE_UNIT
-      Bool unspecified = FALSE;
+			Bool unspecified = FALSE;
 			if (btt->getDefaultOwningSide() != sides[side])
-      {
-        if (sides[side] == "*")
-        {
-          if ( btt->getDefaultOwningSide().isEmpty() )// wildcard for unspecified side
-            unspecified = TRUE;
-          else
-            continue;
-        }
-        else
-    		  continue;
+			{
+				if (sides[side] == "*")
+				{
+					if (btt->getDefaultOwningSide().isEmpty())// wildcard for unspecified side
+						unspecified = TRUE;
+					else
+						continue;
+				}
+				else
+					continue;
 
 			}
 
@@ -5417,5 +5417,3 @@ void GameLogic::loadPostProcess(void)
 	remakeSleepyUpdate();
 
 }
-
-

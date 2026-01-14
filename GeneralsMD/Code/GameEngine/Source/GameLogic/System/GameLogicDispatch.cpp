@@ -1467,9 +1467,9 @@ void GameLogic::logicMessageDispatcher(GameMessage* msg, void* userData)
 
 		// place the sound for putting a building down
 
-			static AudioEventRTS placeBuilding("PlaceBuilding");
-			placeBuilding.setObjectID(constructorObject->getID());
-			TheAudio->addAudioEvent( &placeBuilding );
+		static AudioEventRTS placeBuilding("PlaceBuilding");
+		placeBuilding.setObjectID(constructorObject->getID());
+		TheAudio->addAudioEvent(&placeBuilding);
 
 
 		// no, this is bad, don't do here, do when POSTING message
