@@ -48,6 +48,7 @@
 #include "Common/Recorder.h"
 #include "Common/BuildAssistant.h"
 #include "Common/SpecialPower.h"
+#include "Common/BorderColors.h"
 
 #include "GameClient/Anim2D.h"
 #include "GameClient/ControlBar.h"
@@ -6263,6 +6264,10 @@ void InGameUI::refreshObserverStatsResources(void)
 	m_observerStatsLineStep = adjustedFontSize + 11;  // Vertical spacing
 }
 
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 void InGameUI::refreshCustomUiResources(void)
 {
 	refreshNetworkLatencyResources();

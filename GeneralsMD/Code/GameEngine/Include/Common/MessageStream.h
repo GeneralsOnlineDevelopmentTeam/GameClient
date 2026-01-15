@@ -246,6 +246,9 @@ public:
 		MSG_META_TOGGLE_CONTROL_BAR,								///< show/hide controlbar
 		MSG_META_TOGGLE_PLAYER_OBSERVER,						///< TheSuperHackers @feature Toggle the player observer view in game
 
+		MSG_META_INCREASE_OBSERVER_STATS_FONT,                ///< Generals Online @feature Increase observer overlay size
+		MSG_META_DECREASE_OBSERVER_STATS_FONT,                ///< Generals Online @feature Decrease observer overlay size
+
 		MSG_META_BEGIN_PATH_BUILD,									///< enter path-building mode
 		MSG_META_END_PATH_BUILD,										///< exit path-building mode
 		MSG_META_BEGIN_FORCEATTACK,									///< enter force-attack mode

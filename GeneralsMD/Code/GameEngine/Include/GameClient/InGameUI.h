@@ -363,8 +363,12 @@ public:  // ********************************************************************
 
 	InGameUI( void );
 	virtual ~InGameUI( void );
+<<<<<<< Updated upstream
 
 	void refreshObserverStatsResources();
+=======
+	void refreshObserverStatsResources();
+>>>>>>> Stashed changes
 	void toggleObserverStats() { m_observerStatsHidden = !m_observerStatsHidden; }   // Toggle visibility of the observer stats overlay
 
 	// Inherited from subsystem interface -----------------------------------------------------------
@@ -604,9 +608,14 @@ private:
 	void drawRenderFps(Int &x, Int &y);
 	void drawSystemTime(Int &x, Int &y);
 	void drawGameTime();
+<<<<<<< Updated upstream
 	void drawObserverStats(Int &x, Int &y);
 	Bool m_observerStatsHidden = false;   // hide/show observer overlay
 
+=======
+	void drawObserverStats(Int& x, Int& y);
+	Bool m_observerStatsHidden = false;   // hide/show observer overlay
+>>>>>>> Stashed changes
 
 public:
 	void registerWindowLayout(WindowLayout *layout); // register a layout for updates
@@ -839,7 +848,11 @@ protected:
 	AsciiString m_observerStatsFont;
 	Int m_observerStatsPointSize;
 	Bool m_observerStatsBold;
+<<<<<<< Updated upstream
 	Coord2D m_observerStatsPosition;
+=======
+	Coord2D m_observerStatsPosition;
+>>>>>>> Stashed changes
 	Int m_observerStatsLineStep;
 
 #if defined(GENERALS_ONLINE)

@@ -189,6 +189,42 @@ Bool hasThingsInProduction(PlayerType playerType)
 
 #endif // defined(RTS_DEBUG) || defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)
 
+enum ObserverStatsFontChange
+{
+	ObserverStatsFontChange_Increase,
+	ObserverStatsFontChange_Decrease,
+};
+
+static bool changeObserverStatsFontSize(ObserverStatsFontChange change)
+{
+	Int fontSize = TheWritableGlobalData->m_observerStatsFontSize;
+
+	const Int minSize = 0;
+	const Int maxSize = 25;
+
+	switch (change)
+	{
+	case ObserverStatsFontChange_Increase:
+		if (fontSize < maxSize)
+			++fontSize;
+		break;
+
+	case ObserverStatsFontChange_Decrease:
+		if (fontSize > minSize)
+			--fontSize;
+		break;
+	}
+
+	if (fontSize == TheWritableGlobalData->m_observerStatsFontSize)
+		return false;
+
+	TheWritableGlobalData->m_observerStatsFontSize = fontSize;
+
+	if (TheInGameUI)
+		TheInGameUI->refreshObserverStatsResources();
+
+	return true;
+}
 
 bool changeMaxRenderFps(FpsValueChange change)
 {
@@ -3297,9 +3333,32 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 	}
 
 	//-----------------------------------------------------------------------------------------
+
 	case GameMessage::MSG_META_DECREASE_MAX_RENDER_FPS:
 	{
 		if (changeMaxRenderFps(FpsValueChange_Decrease))
+		{
+			disp = DESTROY_MESSAGE;
+		}
+		break;
+	}
+
+	//-----------------------------------------------------------------------------------------
+
+	case GameMessage::MSG_META_INCREASE_OBSERVER_STATS_FONT:
+	{
+		if (changeObserverStatsFontSize(ObserverStatsFontChange_Increase))
+		{
+			disp = DESTROY_MESSAGE;
+		}
+		break;
+	}
+
+	//-----------------------------------------------------------------------------------------
+
+	case GameMessage::MSG_META_DECREASE_OBSERVER_STATS_FONT:
+	{
+		if (changeObserverStatsFontSize(ObserverStatsFontChange_Decrease))
 		{
 			disp = DESTROY_MESSAGE;
 		}
