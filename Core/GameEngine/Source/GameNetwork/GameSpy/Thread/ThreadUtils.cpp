@@ -65,6 +65,11 @@ std::wstring MultiByteToWideCharSingleLine( const char *orig )
 std::string WideCharStringToMultiByte( const WideChar *orig )
 {
 	std::string ret;
+	// Check for NULL pointer to prevent crash in wcslen()
+	if (orig == NULL)
+	{
+		return ret;
+	}
 	Int len = WideCharToMultiByte( CP_UTF8, 0, orig, wcslen(orig), NULL, 0, NULL, NULL ) + 1;
 	if (len > 0)
 	{
