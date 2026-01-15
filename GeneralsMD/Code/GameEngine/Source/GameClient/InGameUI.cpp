@@ -6067,14 +6067,7 @@ void InGameUI::drawObserverStats(Int& x, Int& y)
 			}
 			if (skip) continue;
 
-			// Truncate long names
-			if (name.getLength() > 8) {
-				UnicodeString tmp;
-				tmp.format(L"%.*ls.", 8, name.str());
-				name = tmp;
-			}
-
-			// Find team
+            // Find team
 			Int team = -1;
 			if (TheGameInfo) {
 				for (Int s = 0; s < MAX_SLOTS; ++s) {
@@ -6084,6 +6077,14 @@ void InGameUI::drawObserverStats(Int& x, Int& y)
 						break;
 					}
 				}
+			}
+
+
+			// Truncate long names
+			if (name.getLength() > 8) {
+				UnicodeString tmp;
+				tmp.format(L"%.*ls.", 8, name.str());
+				name = tmp;
 			}
 
 			// Gather stats
@@ -6674,5 +6675,6 @@ void InGameUI::drawGameTime()
 	m_gameTimeString->draw(horizontalTimerOffset, m_gameTimePosition.y, m_gameTimeColor, m_gameTimeDropColor);
 	m_gameTimeFrameString->draw(horizontalFrameOffset, m_gameTimePosition.y, GameMakeColor(180,180,180,255), m_gameTimeDropColor);
 }
+
 
 
