@@ -6264,10 +6264,6 @@ void InGameUI::refreshObserverStatsResources(void)
 	m_observerStatsLineStep = adjustedFontSize + 11;  // Vertical spacing
 }
 
-<<<<<<< Updated upstream
-=======
-
->>>>>>> Stashed changes
 void InGameUI::refreshCustomUiResources(void)
 {
 	refreshNetworkLatencyResources();
