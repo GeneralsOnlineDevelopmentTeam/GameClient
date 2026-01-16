@@ -1982,6 +1982,13 @@ void GarrisonContain::loadStationGarrisonPoints( void )
 	const GarrisonContainModuleData *modData = getGarrisonContainModuleData();
 
 	Object *structure = getObject();
+	
+	// Safety check: ensure the structure object is still valid
+	if( structure == NULL )
+	{
+		return;
+	}
+	
 	Bool stationBonesFound = FALSE;
 
 
@@ -1994,6 +2001,13 @@ void GarrisonContain::loadStationGarrisonPoints( void )
 
 		// save the original paramters for the model condition
 		Drawable* draw = structure->getDrawable();
+		
+		// Safety check: ensure the drawable exists before accessing it
+		if( draw == NULL )
+		{
+			return;
+		}
+		
 		const ModelConditionFlags originalFlags = draw->getModelConditionFlags();
 		ModelConditionFlags clearFlags;
 		ModelConditionFlags setFlags;
@@ -2006,6 +2020,12 @@ void GarrisonContain::loadStationGarrisonPoints( void )
 		clearFlags.set( MODELCONDITION_SPECIAL_DAMAGED );
 		clearFlags.set( MODELCONDITION_DAMAGED );
 		setFlags.set( MODELCONDITION_GARRISONED );
+		
+		// Safety check: verify structure and drawable still valid before calling clearAndSetModelConditionFlags
+		if( structure == NULL || structure->getDrawable() == NULL )
+		{
+			return;
+		}
 		structure->clearAndSetModelConditionFlags( clearFlags, setFlags );
 		conditionIndex = GARRISON_POINT_PRISTINE;
 
@@ -2013,8 +2033,20 @@ void GarrisonContain::loadStationGarrisonPoints( void )
     Coord3D tempBuffer[MAX_GARRISON_POINTS];
 		int t = 0;
 		for( ; t < MAX_GARRISON_POINTS; ++t )
+		{
+			// Safety check: verify structure still valid before accessing position
+			if( structure == NULL || structure->getPosition() == NULL )
+			{
+				return;
+			}
 		  tempBuffer[ t ] = *(structure->getPosition());
+		}
 
+		// Safety check: verify structure still valid before calling getMultiLogicalBonePosition
+		if( structure == NULL )
+		{
+			return;
+		}
 		count = structure->getMultiLogicalBonePosition("STATION", modData->m_containMax, tempBuffer, NULL);
 		if ( count > 0) stationBonesFound = TRUE;
 
@@ -2029,7 +2061,11 @@ void GarrisonContain::loadStationGarrisonPoints( void )
       m_stationPointList.push_back( tempStationPointData ); // store for later use
     }
 		// restore the original condition flags
-		draw->replaceModelConditionFlags( originalFlags );
+		// Safety check: verify drawable still valid before restoring flags
+		if( draw != NULL && structure != NULL && structure->getDrawable() == draw )
+		{
+			draw->replaceModelConditionFlags( originalFlags );
+		}
 
     //tempBuffer pops
 
