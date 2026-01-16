@@ -795,12 +795,12 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 		/// @todo remove this force set of working directory later
 		Char buffer[ _MAX_PATH ];
-		GetModuleFileName( NULL, buffer, sizeof( buffer ) );
+		GetModuleFileNameA( NULL, buffer, sizeof( buffer ) );
 		if (Char *pEnd = strrchr(buffer, '\\'))
 		{
 			*pEnd = 0;
 		}
-		::SetCurrentDirectory(buffer);
+		::SetCurrentDirectoryA(buffer);
 
 
 		#ifdef RTS_DEBUG
