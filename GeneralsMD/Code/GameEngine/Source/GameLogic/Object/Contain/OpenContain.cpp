@@ -1162,7 +1162,11 @@ Bool OpenContain::isPassengerAllowedToFire( ObjectID id ) const
 
 	// If we are ourselves contained, our passengers need to check with them if they get past us
 	if( getObject()->getContainedBy() != NULL )
-		return getObject()->getContainedBy()->getContain()->isPassengerAllowedToFire();
+	{
+		ContainModuleInterface* contain = getObject()->getContainedBy()->getContain();
+		if( contain != NULL )
+			return contain->isPassengerAllowedToFire();
+	}
 
 	return TRUE;// We say yes, and we are not inside something.
 }
