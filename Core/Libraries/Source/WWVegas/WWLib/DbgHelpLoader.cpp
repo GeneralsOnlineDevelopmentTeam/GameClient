@@ -21,6 +21,7 @@
 
 DbgHelpLoader* DbgHelpLoader::Inst = NULL;
 CriticalSectionClass DbgHelpLoader::CriticalSection;
+bool DbgHelpLoader::IsLoading = false;
 
 DbgHelpLoader::DbgHelpLoader()
 	: m_symInitialize(NULL)
@@ -72,8 +73,19 @@ bool DbgHelpLoader::load()
 {
 	CriticalSectionClass::LockClass lock(CriticalSection);
 
+	// Prevent re-entrant calls during initialization to avoid stack overflow.
+	// This can happen when Windows.UI.dll or graphics drivers try to load dbghelp.dll
+	// during D3D device creation or memory allocation.
+	if (IsLoading)
+	{
+		return false;
+	}
+
 	if (Inst == NULL)
 	{
+		// Set the loading flag to prevent re-entrant calls
+		IsLoading = true;
+
 		// Cannot use new/delete here when this is loaded during game memory initialization.
 		void* p = GlobalAlloc(GMEM_FIXED, sizeof(DbgHelpLoader));
 		Inst = new (p) DbgHelpLoader();
@@ -103,6 +115,7 @@ bool DbgHelpLoader::load()
 		if (Inst->m_dllModule == HMODULE(0))
 		{
 			Inst->m_failed = true;
+			IsLoading = false;
 			return false;
 		}
 	}
@@ -129,9 +142,12 @@ bool DbgHelpLoader::load()
 	{
 		freeResources();
 		Inst->m_failed = true;
+		IsLoading = false;
 		return false;
 	}
 
+	// Clear the loading flag after successful initialization
+	IsLoading = false;
 	return true;
 }
 

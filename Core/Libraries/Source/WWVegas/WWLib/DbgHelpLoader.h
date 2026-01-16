@@ -39,6 +39,7 @@ private:
 
 	static DbgHelpLoader* Inst; // Is singleton class
 	static CriticalSectionClass CriticalSection; // Required because dbg help is not thread safe for the most part
+	static bool IsLoading; // Prevents re-entrant calls during initialization
 
 	DbgHelpLoader();
 	~DbgHelpLoader();
