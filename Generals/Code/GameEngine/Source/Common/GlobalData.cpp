@@ -1169,12 +1169,39 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	char temp[_MAX_PATH];
 	if (::SHGetSpecialFolderPath(NULL, temp, CSIDL_PERSONAL, true))
 	{
-		if (temp[strlen(temp)-1] != '\\')
-			strcat(temp, "\\");
-		strcat(temp, TheWritableGlobalData->m_userDataLeafName.str());
-		strcat(temp, "\\");
-		CreateDirectory(temp, NULL);
-		TheWritableGlobalData->m_userDataDir = temp;
+		size_t tempLen = strlen(temp);
+		
+		// Ensure we have enough space for backslash + user data leaf name + backslash + null terminator
+		if (tempLen > 0 && tempLen < _MAX_PATH - 1)
+		{
+			// Add trailing backslash if missing
+			if (temp[tempLen - 1] != '\\')
+			{
+				if (tempLen + 1 < _MAX_PATH)
+				{
+					temp[tempLen] = '\\';
+					temp[tempLen + 1] = '\0';
+					tempLen++;
+				}
+				else
+				{
+					// Path too long, cannot proceed
+					return;
+				}
+			}
+			
+			// Check if we have enough space to append the user data leaf name
+			const char* leafName = TheWritableGlobalData->m_userDataLeafName.str();
+			size_t leafLen = strlen(leafName);
+			
+			if (tempLen + leafLen + 2 < _MAX_PATH) // +2 for backslash and null terminator
+			{
+				strcat(temp, leafName);
+				strcat(temp, "\\");
+				CreateDirectory(temp, NULL);
+				TheWritableGlobalData->m_userDataDir = temp;
+			}
+		}
 	}
 
 	// override INI values with user preferences

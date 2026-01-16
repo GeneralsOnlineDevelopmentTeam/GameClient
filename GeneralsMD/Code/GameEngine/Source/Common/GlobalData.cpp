@@ -1050,26 +1050,33 @@ GlobalData::GlobalData()
   char temp[_MAX_PATH + 1];
   if (::SHGetSpecialFolderPath(NULL, temp, CSIDL_PERSONAL, true))
   {
-    AsciiString myDocumentsDirectory = temp;
-
-    if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() -1) != '\\')
-      myDocumentsDirectory.concat( '\\' );
-
-    AsciiString leafName;
-
-    if ( !GetStringFromRegistry( "", "UserDataLeafName", leafName ) )
+    // Ensure null termination and validate the path wasn't truncated
+    temp[_MAX_PATH] = '\0';
+    size_t tempLen = strlen(temp);
+    
+    if (tempLen > 0 && tempLen < _MAX_PATH)
     {
-      // Use something, anything
-      // [MH] had to remove this, otherwise mapcache build step won't run... DEBUG_CRASH( ( "Could not find registry key UserDataLeafName; defaulting to \"Command and Conquer Generals Zero Hour Data\" " ) );
-      leafName = "Command and Conquer Generals Zero Hour Data";
+      AsciiString myDocumentsDirectory = temp;
+
+      if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() -1) != '\\')
+        myDocumentsDirectory.concat( '\\' );
+
+      AsciiString leafName;
+
+      if ( !GetStringFromRegistry( "", "UserDataLeafName", leafName ) )
+      {
+        // Use something, anything
+        // [MH] had to remove this, otherwise mapcache build step won't run... DEBUG_CRASH( ( "Could not find registry key UserDataLeafName; defaulting to \"Command and Conquer Generals Zero Hour Data\" " ) );
+        leafName = "Command and Conquer Generals Zero Hour Data";
+      }
+
+      myDocumentsDirectory.concat( leafName );
+      if (myDocumentsDirectory.getCharAt( myDocumentsDirectory.getLength() - 1) != '\\')
+        myDocumentsDirectory.concat( '\\' );
+
+      CreateDirectory(myDocumentsDirectory.str(), NULL);
+      m_userDataDir = myDocumentsDirectory;
     }
-
-    myDocumentsDirectory.concat( leafName );
-    if (myDocumentsDirectory.getCharAt( myDocumentsDirectory.getLength() - 1) != '\\')
-      myDocumentsDirectory.concat( '\\' );
-
-    CreateDirectory(myDocumentsDirectory.str(), NULL);
-    m_userDataDir = myDocumentsDirectory;
   }
 
 	//-allAdvice feature

@@ -146,9 +146,12 @@ void MiniDumper::Initialize(const AsciiString& userDirPath)
 	}
 
 	DWORD executableSize = ::GetModuleFileNameW(NULL, m_executablePath, ARRAY_SIZE(m_executablePath));
-	if (executableSize == 0 || executableSize == ARRAY_SIZE(m_executablePath))
+	// GetModuleFileNameW returns 0 on failure, or buffer size if path was truncated
+	// In Windows Vista+, if buffer is too small, it returns the buffer size and sets ERROR_INSUFFICIENT_BUFFER
+	// We must check both conditions to ensure we have a valid, non-truncated path
+	if (executableSize == 0 || executableSize >= ARRAY_SIZE(m_executablePath))
 	{
-		DEBUG_LOG(("MiniDumper::Initialize: Could not get executable file name. Returned value=%u", executableSize));
+		DEBUG_LOG(("MiniDumper::Initialize: Could not get executable file name or path was truncated. Returned value=%u, Buffer size=%u", executableSize, ARRAY_SIZE(m_executablePath)));
 		return;
 	}
 
