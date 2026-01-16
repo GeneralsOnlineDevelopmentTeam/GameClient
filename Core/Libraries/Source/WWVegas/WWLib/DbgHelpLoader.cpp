@@ -90,7 +90,8 @@ bool DbgHelpLoader::load()
 	if (Inst->m_referenceCount > 1)
 		return true;
 
-	// Try load dbghelp.dll from the system directory first.
+	// Try load dbghelp.dll from the system directory only.
+	// Do not load from the working directory as it may contain an outdated version that causes crashes.
 	char dllFilename[MAX_PATH];
 	::GetSystemDirectoryA(dllFilename, ARRAY_SIZE(dllFilename));
 	strlcat(dllFilename, "\\dbghelp.dll", ARRAY_SIZE(dllFilename));
@@ -98,18 +99,11 @@ bool DbgHelpLoader::load()
 	Inst->m_dllModule = ::LoadLibraryA(dllFilename);
 	if (Inst->m_dllModule == HMODULE(0))
 	{
-		// Not found. Try load dbghelp.dll from the work directory.
-		Inst->m_dllModule = ::LoadLibraryA("dbghelp.dll");
-		if (Inst->m_dllModule == HMODULE(0))
-		{
-			Inst->m_failed = true;
-			return false;
-		}
+		Inst->m_failed = true;
+		return false;
 	}
-	else
-	{
-		Inst->m_loadedFromSystem = true;
-	}
+
+	Inst->m_loadedFromSystem = true;
 
 	Inst->m_symInitialize = reinterpret_cast<SymInitialize_t>(::GetProcAddress(Inst->m_dllModule, "SymInitialize"));
 	Inst->m_symCleanup = reinterpret_cast<SymCleanup_t>(::GetProcAddress(Inst->m_dllModule, "SymCleanup"));

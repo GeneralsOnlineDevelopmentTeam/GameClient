@@ -648,8 +648,6 @@ bool DX8Wrapper::Create_Device(void)
 		}
 	}
 
-	dbgHelpGuard.deactivate();
-
 	/*
 	** Initialize all subsystems
 	*/
