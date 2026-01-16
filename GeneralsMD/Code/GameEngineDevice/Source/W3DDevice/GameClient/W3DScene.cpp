@@ -180,7 +180,7 @@ RTS3DScene::RTS3DScene()
 	shader.Set_Src_Blend_Func(ShaderClass::SRCBLEND_SRC_ALPHA);
 	shader.Set_Dst_Blend_Func(ShaderClass::DSTBLEND_ONE_MINUS_SRC_ALPHA);
 
-#ifdef USE_NON_STENCIL_OCCLUSION
+	// Always initialize m_occludedMaterialPass to prevent null pointer crashes
 	for (i=0; i<MAX_PLAYER_COUNT; i++)
 	{
 		m_occludedMaterialPass[i]=NEW_REF(MaterialPassClass,());
@@ -192,10 +192,6 @@ RTS3DScene::RTS3DScene()
 		m_occludedMaterialPass[i]->Set_Shader(shader);
 		vmtl->Release_Ref();	//material pass is holding the pointer so release ref.
 	}
-#else
-	for (i=0; i<MAX_PLAYER_COUNT; i++)
-		m_occludedMaterialPass[i]=NULL;
-#endif
 
 }
 

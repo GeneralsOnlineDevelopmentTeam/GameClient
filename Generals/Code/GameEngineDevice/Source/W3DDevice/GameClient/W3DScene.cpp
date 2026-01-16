@@ -164,22 +164,18 @@ RTS3DScene::RTS3DScene()
 	shader.Set_Src_Blend_Func(ShaderClass::SRCBLEND_SRC_ALPHA);
 	shader.Set_Dst_Blend_Func(ShaderClass::DSTBLEND_ONE_MINUS_SRC_ALPHA);
 
-#ifdef USE_NON_STENCIL_OCCLUSION
-		for (i=0; i<MAX_PLAYER_COUNT; i++)
-		{
-			m_occludedMaterialPass[i]=NEW_REF(MaterialPassClass,());
-			VertexMaterialClass * vmtl = NEW_REF(VertexMaterialClass,());
-			vmtl->Set_Lighting(true);
-			vmtl->Set_Ambient(0,0,0);	//we're only using emissive so kill all other lights.
-			vmtl->Set_Diffuse(0,0,0);
-			m_occludedMaterialPass[i]->Set_Material(vmtl);
-			m_occludedMaterialPass[i]->Set_Shader(shader);
-			vmtl->Release_Ref();	//material pass is holding the pointer so release ref.
-		}
-#else
-		for (i=0; i<MAX_PLAYER_COUNT; i++)
-			m_occludedMaterialPass[i]=NULL;
-#endif
+	// Always initialize m_occludedMaterialPass to prevent null pointer crashes
+	for (i=0; i<MAX_PLAYER_COUNT; i++)
+	{
+		m_occludedMaterialPass[i]=NEW_REF(MaterialPassClass,());
+		VertexMaterialClass * vmtl = NEW_REF(VertexMaterialClass,());
+		vmtl->Set_Lighting(true);
+		vmtl->Set_Ambient(0,0,0);	//we're only using emissive so kill all other lights.
+		vmtl->Set_Diffuse(0,0,0);
+		m_occludedMaterialPass[i]->Set_Material(vmtl);
+		m_occludedMaterialPass[i]->Set_Shader(shader);
+		vmtl->Release_Ref();	//material pass is holding the pointer so release ref.
+	}
 
 }
 
