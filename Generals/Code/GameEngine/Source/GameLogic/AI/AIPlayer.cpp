@@ -1737,7 +1737,7 @@ void AIPlayer::buildBySupplies(Int minimumCash, const AsciiString& thingName)
 {
 	Object *bestSupplyWarehouse = findSupplyCenter(minimumCash);
 	const ThingTemplate* tTemplate = TheThingFactory->findTemplate(thingName);
-	if (!tTemplate->isKindOf(KINDOF_CASH_GENERATOR)) {
+	if (tTemplate && !tTemplate->isKindOf(KINDOF_CASH_GENERATOR)) {
 		// Build by the current warehouse.
 		Object *curWarehouse = TheGameLogic->findObjectByID(m_curWarehouseID);
 		if (curWarehouse) {
