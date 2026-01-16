@@ -552,7 +552,8 @@ char* RAMFile::readEntireAndClose()
 	if (m_data == NULL)
 	{
 		DEBUG_CRASH(("m_data is NULL in RAMFile::readEntireAndClose -- should not happen!"));
-		return NEW char[1];	// just to avoid crashing...
+		close();
+		return NULL;	// Return NULL to indicate failure instead of a dummy buffer
 	}
 
 	char* tmp = m_data;
