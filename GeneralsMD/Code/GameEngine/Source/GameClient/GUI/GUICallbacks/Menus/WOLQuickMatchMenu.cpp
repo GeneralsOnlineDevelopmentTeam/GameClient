@@ -136,7 +136,7 @@ static GameWindow *comboBoxColor = NULL;
 
 static Bool isShuttingDown = false;
 static Bool buttonPushed = false;
-static const char *nextScreen = NULL;
+static AsciiString nextScreen;
 static Bool raiseMessageBoxes = false;
 static Bool isInInit = FALSE;
 static const Image *selectedImage = NULL;
@@ -865,7 +865,7 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 		}
 	}
 
-	nextScreen = NULL;
+	nextScreen.clear();
 	buttonPushed = false;
 	isShuttingDown = false;
 	raiseMessageBoxes = true;
@@ -1344,14 +1344,14 @@ static void shutdownComplete( WindowLayout *layout )
 	layout->hide( TRUE );
 
 	// our shutdown is complete
-	TheShell->shutdownComplete( layout, (nextScreen != NULL) );
+	TheShell->shutdownComplete( layout, nextScreen.isNotEmpty() );
 
-	if (nextScreen != NULL)
+	if (nextScreen.isNotEmpty())
 	{
 		TheShell->push(nextScreen);
 	}
 
-	nextScreen = NULL;
+	nextScreen.clear();
 
 }
 

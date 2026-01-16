@@ -72,7 +72,7 @@
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 static Bool isShuttingDown = FALSE;
 static Bool buttonPushed = FALSE;
-static const char *nextScreen = NULL;
+static AsciiString nextScreen;
 
 // window ids ------------------------------------------------------------------------------
 static NameKeyType parentWOLWelcomeID = NAMEKEY_INVALID;
@@ -194,14 +194,14 @@ static void shutdownComplete( WindowLayout *layout )
 	layout->hide( TRUE );
 
 	// our shutdown is complete
-	TheShell->shutdownComplete( layout, (nextScreen != NULL) );
+	TheShell->shutdownComplete( layout, nextScreen.isNotEmpty() );
 
-	if (nextScreen != NULL)
+	if (nextScreen.isNotEmpty())
 	{
 		TheShell->push(nextScreen);
 	}
 
-	nextScreen = NULL;
+	nextScreen.clear();
 
 }
 
@@ -489,7 +489,7 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 {
 	updateNumPlayersOnline();
 
-	nextScreen = NULL;
+	nextScreen.clear();
 	buttonPushed = FALSE;
 	isShuttingDown = FALSE;
 
