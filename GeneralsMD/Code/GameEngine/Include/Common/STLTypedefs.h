@@ -67,6 +67,7 @@ enum DrawableID CPP_11(: Int);
 
 #include <algorithm>
 #include <bitset>
+#include <deque>
 #include <Utility/hash_map_adapter.h>
 #include <list>
 #include <map>
