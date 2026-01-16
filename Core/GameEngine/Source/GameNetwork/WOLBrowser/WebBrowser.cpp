@@ -47,24 +47,11 @@
 #include "GameClient/Display.h"
 
 
-/**
-	* OLEInitializer class - Init and shutdown OLE & COM as a global
-	* object.  Scary, nasty stuff, COM.  /me shivers.
-	*/
-class OLEInitializer
-{
-public:
-	OLEInitializer()
-	{
-		// Initialize this instance
-		OleInitialize(NULL);
-	 }
-	~OLEInitializer()
-	{
-		OleUninitialize();
-	}
-};
-OLEInitializer g_OLEInitializer;
+// TheSuperHackers @bugfix Sentry 2026-01-08
+// Removed global OLEInitializer object to prevent COM/OLE initialization before C runtime is fully initialized.
+// This was causing crashes with EXCEPTION_ACCESS_VIOLATION in __crt_state_management::get_current_state_index
+// on some systems, particularly during startup when the C runtime's security cookie initialization hadn't completed.
+// OLE is now explicitly initialized in WinMain after the C runtime is fully set up.
 CComModule _Module;
 
 CComObject<WebBrowser> * TheWebBrowser = NULL;

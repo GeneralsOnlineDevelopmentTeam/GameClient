@@ -840,8 +840,12 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		}
 
 
-		// BGC - initialize COM
-	//	OleInitialize(NULL);
+		// TheSuperHackers @bugfix Sentry 2026-01-08
+		// Initialize COM/OLE after C runtime is fully initialized to prevent crashes in
+		// __crt_state_management::get_current_state_index during security cookie initialization.
+		// Previously, this was done via a global static object in WebBrowser.cpp which could
+		// initialize before the C runtime was ready, causing EXCEPTION_ACCESS_VIOLATION.
+		OleInitialize(NULL);
 
 
 
@@ -886,8 +890,9 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 		shutdownMemoryManager();
 
-		// BGC - shut down COM
-	//	OleUninitialize();
+		// TheSuperHackers @bugfix Sentry 2026-01-08
+		// Shut down COM/OLE explicitly to match the initialization in WinMain.
+		OleUninitialize();
 	}
 	catch (...)
 	{
