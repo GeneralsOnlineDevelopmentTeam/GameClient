@@ -5971,6 +5971,11 @@ void InGameUI::drawRenderFps(Int &x, Int &y)
 
 void InGameUI::drawSystemTime(Int &x, Int &y)
 {
+	if (!m_systemTimeString)
+	{
+		return;
+	}
+
 	// current system time
 	SYSTEMTIME systemTime;
 	GetLocalTime( &systemTime );
