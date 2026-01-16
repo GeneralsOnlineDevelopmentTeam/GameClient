@@ -223,11 +223,15 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 	// Set the current directory to the app directory.
 	char buf[_MAX_PATH];
-	GetModuleFileName(NULL, buf, sizeof(buf));
-	if (char *pEnd = strrchr(buf, '\\')) {
-		*pEnd = 0;
+	buf[0] = '\0'; // Initialize buffer to empty string
+	DWORD result = GetModuleFileName(NULL, buf, sizeof(buf));
+	if (result > 0 && result < sizeof(buf))
+	{
+		if (char *pEnd = strrchr(buf, '\\')) {
+			*pEnd = 0;
+			::SetCurrentDirectory(buf);
+		}
 	}
-	::SetCurrentDirectory(buf);
 
 	/*
 	** Convert WinMain arguments to simple main argc and argv
