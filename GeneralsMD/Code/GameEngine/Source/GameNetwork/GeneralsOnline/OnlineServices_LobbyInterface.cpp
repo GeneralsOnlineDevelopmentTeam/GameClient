@@ -1054,7 +1054,14 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 			// create our mesh
 			if (m_pLobbyMesh == nullptr)
 			{
-				m_pLobbyMesh = new NetworkMesh();
+				// Lock the mutex when creating the mesh
+				std::lock_guard<std::mutex> lock(m_meshMutex);
+				
+				// Double-check after acquiring the lock
+				if (m_pLobbyMesh == nullptr)
+				{
+					m_pLobbyMesh = new NetworkMesh();
+				}
 			}
 
 			// convert
@@ -1193,9 +1200,22 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 	// kill mesh
 	if (m_pLobbyMesh != nullptr)
 	{
-		m_pLobbyMesh->Disconnect();
-		delete m_pLobbyMesh;
-		m_pLobbyMesh = nullptr;
+		// Set the flag to indicate we're deleting the mesh
+		// This will prevent the callback from trying to access it
+		m_bMeshBeingDeleted.store(true, std::memory_order_release);
+		
+		// Lock the mutex to ensure no callback is currently accessing the mesh
+		{
+			std::lock_guard<std::mutex> lock(m_meshMutex);
+			
+			// Disconnect and delete the mesh
+			m_pLobbyMesh->Disconnect();
+			delete m_pLobbyMesh;
+			m_pLobbyMesh = nullptr;
+		}
+		
+		// Reset the flag after deletion
+		m_bMeshBeingDeleted.store(false, std::memory_order_release);
 	}
 
 	if (TheNGMPGame != nullptr)
@@ -1399,7 +1419,14 @@ void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpd
 	// join the network mesh too
 	if (m_pLobbyMesh == nullptr)
 	{
-		m_pLobbyMesh = new NetworkMesh();
+		// Lock the mutex when creating the mesh
+		std::lock_guard<std::mutex> lock(m_meshMutex);
+		
+		// Double-check after acquiring the lock
+		if (m_pLobbyMesh == nullptr)
+		{
+			m_pLobbyMesh = new NetworkMesh();
+		}
 	}
 
 	m_bMarkedGameAsFinished = false;

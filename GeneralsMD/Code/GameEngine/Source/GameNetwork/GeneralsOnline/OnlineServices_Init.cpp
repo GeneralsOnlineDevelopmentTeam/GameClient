@@ -44,6 +44,21 @@ NetworkMesh* NGMP_OnlineServicesManager::GetNetworkMesh()
 		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = GetInterface< NGMP_OnlineServices_LobbyInterface>();
 		if (pLobbyInterface != nullptr)
 		{
+			// Check if the mesh is being deleted
+			if (pLobbyInterface->m_bMeshBeingDeleted.load(std::memory_order_acquire))
+			{
+				return nullptr;
+			}
+			
+			// Lock the mutex to safely access the mesh pointer
+			std::lock_guard<std::mutex> lock(pLobbyInterface->m_meshMutex);
+			
+			// Double-check after acquiring the lock
+			if (pLobbyInterface->m_bMeshBeingDeleted.load(std::memory_order_acquire))
+			{
+				return nullptr;
+			}
+			
 			return pLobbyInterface->GetNetworkMeshForLobby();
 		}
 	}

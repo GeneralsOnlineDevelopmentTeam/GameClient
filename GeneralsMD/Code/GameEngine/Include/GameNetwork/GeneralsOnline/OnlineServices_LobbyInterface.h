@@ -4,6 +4,8 @@
 #include "OnlineServices_RoomsInterface.h"
 #include "GameNetwork/GameInfo.h"
 #include <chrono>
+#include <mutex>
+#include <atomic>
 #include "Common/PlayerList.h"
 #include "Common/Player.h"
 #include "GameClient/InGameUI.h"
@@ -449,6 +451,8 @@ private:
 
 	// TODO_NGMP: cleanup
 	NetworkMesh* m_pLobbyMesh = nullptr;
+	std::mutex m_meshMutex;
+	std::atomic<bool> m_bMeshBeingDeleted{ false };
 
 	bool m_bLobbyListDirty = false;
 

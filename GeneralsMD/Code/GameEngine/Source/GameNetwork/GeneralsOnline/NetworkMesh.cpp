@@ -19,7 +19,29 @@ UnsignedInt m_exeCRCOriginal = 0;
 // Called when a connection undergoes a state transition
 void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t* pInfo)
 {
-	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	// Get the lobby interface first to check the deletion flag
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		return;
+	}
+	
+	// Check if the mesh is being deleted before trying to access it
+	if (pLobbyInterface->m_bMeshBeingDeleted.load(std::memory_order_acquire))
+	{
+		return;
+	}
+	
+	// Lock the mutex to safely access the mesh
+	std::lock_guard<std::mutex> lock(pLobbyInterface->m_meshMutex);
+	
+	// Double-check after acquiring the lock
+	if (pLobbyInterface->m_bMeshBeingDeleted.load(std::memory_order_acquire))
+	{
+		return;
+	}
+	
+	NetworkMesh* pMesh = pLobbyInterface->GetNetworkMeshForLobby();
 
 	if (pMesh == nullptr)
 	{
