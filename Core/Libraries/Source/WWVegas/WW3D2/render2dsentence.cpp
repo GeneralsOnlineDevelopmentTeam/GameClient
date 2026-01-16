@@ -648,6 +648,14 @@ Render2DSentenceClass::Allocate_New_Surface (const WCHAR *text, bool justCalcExt
 	int char_height = Font->Get_Char_Height ();
 
 	//
+	//	Validate char_height to prevent division by zero
+	//	In rare cases with corrupted fonts, this can be 0 or negative
+	//
+	if (char_height <= 0) {
+		char_height = 1;  // Use minimum safe value
+	}
+
+	//
 	//	Find the best texture size for the remaining text
 	//
 	CurrTextureSize = 256;
@@ -1629,6 +1637,14 @@ FontCharsClass::Create_GDI_Font (const char *font_name)
 	CharOverhang = text_metric.tmOverhang;
 	if (doingGenerals) {
 		CharOverhang = 0;
+	}
+
+	//
+	//	Validate CharHeight to prevent division by zero
+	//	In rare cases with corrupted fonts, tmHeight can be 0 or negative
+	//
+	if (CharHeight <= 0) {
+		CharHeight = 1;  // Use minimum safe value
 	}
 
 	return GDIFont != NULL && GDIBitmap != NULL;
