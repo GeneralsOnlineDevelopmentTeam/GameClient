@@ -841,7 +841,7 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 
 		// BGC - initialize COM
-	//	OleInitialize(NULL);
+		OleInitialize(NULL);
 
 
 
@@ -887,7 +887,7 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		shutdownMemoryManager();
 
 		// BGC - shut down COM
-	//	OleUninitialize();
+		OleUninitialize();
 	}
 	catch (...)
 	{
