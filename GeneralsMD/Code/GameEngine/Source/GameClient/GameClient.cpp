@@ -84,6 +84,7 @@
 #include "GameLogic/GhostObject.h"
 #include "GameLogic/Object.h"
 #include "GameLogic/ScriptEngine.h"		// For TheScriptEngine - jkmcd
+#include "Main/WinMain.h"  // For gIMEInitialized flag
 
 #include "../NextGenMP_defines.h"
 #include <chrono>
@@ -359,6 +360,8 @@ void GameClient::init( void )
 	{
 		TheIMEManager->init();
  		TheIMEManager->setName("TheIMEManager");
+		// Signal that IMEManager is now fully initialized and ready to process messages
+		gIMEInitialized = true;
 	}
 
 	// create the shell

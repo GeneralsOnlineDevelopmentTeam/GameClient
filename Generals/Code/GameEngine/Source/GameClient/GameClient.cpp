@@ -82,6 +82,7 @@
 #include "GameLogic/GhostObject.h"
 #include "GameLogic/Object.h"
 #include "GameLogic/ScriptEngine.h"		// For TheScriptEngine - jkmcd
+#include "Main/WinMain.h"  // For gIMEInitialized flag
 
 #define DRAWABLE_HASH_SIZE	8192
 
@@ -341,6 +342,8 @@ void GameClient::init( void )
 	{
 		TheIMEManager->init();
  		TheIMEManager->setName("TheIMEManager");
+		// Signal that IMEManager is now fully initialized and ready to process messages
+		gIMEInitialized = true;
 	}
 
 	// create the shell

@@ -82,6 +82,7 @@ const char *gAppPrefix = ""; /// So WB can have a different debug log file name.
 static Bool gInitializing = false;
 static Bool gDoPaint = true;
 static Bool isWinMainActive = false;
+static Bool gIMEInitialized = false;  ///< Track if IMEManager has been initialized
 
 static HBITMAP gLoadScreenBitmap = NULL;
 
@@ -297,7 +298,8 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 	try
 	{
 		// First let the IME manager do it's stuff.
-		if ( TheIMEManager )
+		// Only process IME messages if the manager has been fully initialized
+		if ( TheIMEManager && gIMEInitialized )
 		{
 			if ( TheIMEManager->serviceIMEMessage( hWnd, message, wParam, lParam ) )
 			{
