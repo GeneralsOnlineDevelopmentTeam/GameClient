@@ -495,9 +495,6 @@ void GameEngine::init()
 		TheWritableGlobalData->parseCustomDefinition();
 
 
-		// Init sentry ASAP to catch early crashes
-		NGMP_OnlineServicesManager::InitSentry();
-
 	#ifdef DUMP_PERF_STATS///////////////////////////////////////////////////////////////////////////
 	GetPrecisionTimer(&endTime64);//////////////////////////////////////////////////////////////////
 	sprintf(Buf,"----------------------------------------------------------------------------After  TheWritableGlobalData = %f seconds",((double)(endTime64-startTime64)/(double)(freq64)));

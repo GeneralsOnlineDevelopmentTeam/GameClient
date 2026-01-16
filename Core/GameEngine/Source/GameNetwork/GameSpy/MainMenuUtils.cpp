@@ -865,6 +865,9 @@ void StartPatchCheck( void )
 	// GENERALS ONLINE
 	NGMP_OnlineServicesManager::CreateInstance();
 
+	// Init sentry after creating the instance to ensure proper initialization
+	NGMP_OnlineServicesManager::InitSentry();
+
 	onlineCancelWindow = MessageBoxCancel(TheGameText->fetch("GUI:CheckingForPatches"),
 		TheGameText->fetch("GUI:CheckingForPatches"), CancelPatchCheckCallbackAndReopenDropdown);
 
