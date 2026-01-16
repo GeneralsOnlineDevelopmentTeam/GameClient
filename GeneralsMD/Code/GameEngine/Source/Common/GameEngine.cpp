@@ -295,7 +295,20 @@ GameEngine::GameEngine( void )
 	m_quitting = FALSE;
 	m_isActive = FALSE;
 
-	_Module.Init(NULL, ApplicationHInstance, NULL);
+	// TheSuperHackers @bugfix sentry 11/01/2026
+	// Wrap COM module initialization in try-catch to handle Windows compatibility issues.
+	// On some newer Windows builds (e.g., 10.0.26200), InputRedirectionAdapter::Register
+	// can trigger fatal breakpoint exceptions during COM initialization.
+	try
+	{
+		_Module.Init(NULL, ApplicationHInstance, NULL);
+	}
+	catch (...)
+	{
+		// Silently handle COM initialization failures to prevent crashes on incompatible systems.
+		// The application can still function without full COM support.
+		DEBUG_LOG(("COM module initialization failed, continuing without full COM support."));
+	}
 }
 
 //-------------------------------------------------------------------------------------------------
