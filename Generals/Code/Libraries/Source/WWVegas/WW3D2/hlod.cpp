@@ -3347,15 +3347,31 @@ void HLodClass::Update_Sub_Object_Transforms(void)
 	*/
 	Animatable3DObjClass::Update_Sub_Object_Transforms();
 
+	// Validate HTree exists before accessing it
+	if (HTree == NULL) {
+		Set_Sub_Object_Transforms_Dirty(false);
+		return;
+	}
+
 	/*
 	** Put the computed transforms into our sub objects.
 	*/
 	int lod,model;
 
 	for (lod = 0; lod < LodCount; lod++) {
+		// Validate LOD array exists
+		if (Lod == NULL) {
+			break;
+		}
+
 		for (model = 0; model < Lod[lod].Count(); model++) {
 
 			RenderObjClass * robj = Lod[lod][model].Model;
+			// Validate render object pointer before using it
+			if (robj == NULL) {
+				continue;
+			}
+
 			int bone = Lod[lod][model].BoneIndex;
 
 			robj->Set_Transform(HTree->Get_Transform(bone));
@@ -3367,6 +3383,11 @@ void HLodClass::Update_Sub_Object_Transforms(void)
 	for (model = 0; model < AdditionalModels.Count(); model++) {
 
 		RenderObjClass * robj = AdditionalModels[model].Model;
+		// Validate render object pointer before using it
+		if (robj == NULL) {
+			continue;
+		}
+
 		int bone = AdditionalModels[model].BoneIndex;
 
 		robj->Set_Transform(HTree->Get_Transform(bone));

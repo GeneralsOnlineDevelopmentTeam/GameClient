@@ -528,6 +528,11 @@ bool HTreeClass::Simple_Evaluate_Pivot
  *=============================================================================================*/
 void HTreeClass::Base_Update(const Matrix3D & root)
 {
+	// Validate Pivot array exists and has at least one element
+	if (Pivot == NULL || NumPivots <= 0) {
+		return;
+	}
+
 	PivotClass *pivot;
 
 	Pivot[0].Transform = root;
@@ -536,6 +541,11 @@ void HTreeClass::Base_Update(const Matrix3D & root)
 	for (int piv_idx=1; piv_idx < NumPivots; piv_idx++) {
 
 		pivot = &Pivot[piv_idx];
+
+		// Validate parent pointer before accessing it
+		if (pivot->Parent == NULL) {
+			continue;
+		}
 
 		assert(pivot->Parent != NULL);
 		Matrix3D::Multiply(pivot->Parent->Transform, pivot->BaseTransform, &(pivot->Transform));

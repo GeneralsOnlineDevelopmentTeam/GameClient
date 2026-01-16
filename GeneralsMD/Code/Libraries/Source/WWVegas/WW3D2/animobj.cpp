@@ -779,6 +779,12 @@ void Animatable3DObjClass::Update_Sub_Object_Transforms(void)
 	*/
 	CompositeRenderObjClass::Update_Sub_Object_Transforms();
 
+	// Validate HTree exists before accessing it
+	if (HTree == NULL) {
+		Set_Hierarchy_Valid(true);
+		return;
+	}
+
 	/*
 	** Update the transforms
 	*/
