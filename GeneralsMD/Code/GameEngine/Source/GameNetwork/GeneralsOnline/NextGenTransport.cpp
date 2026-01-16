@@ -7,6 +7,19 @@
 #include "GameNetwork/GeneralsOnline/ngmp_include.h"
 #include "GameNetwork/GeneralsOnline/ngmp_interfaces.h"
 
+// Library linking directives moved here from NextGenTransport.h to prevent early DLL loading
+// during static initialization. This ensures libraries are only loaded when NextGenTransport
+// is actually instantiated (after the Windows application window has been created).
+#pragma comment(lib, "ValveNetworkingSockets/GameNetworkingSockets.lib")
+#pragma comment(lib, "ValveNetworkingSockets/abseil_dll.lib")
+#pragma comment(lib, "ValveNetworkingSockets/libcrypto.lib")
+#pragma comment(lib, "ValveNetworkingSockets/libprotobuf.lib")
+#pragma comment(lib, "ValveNetworkingSockets/libssl.lib")
+#pragma comment(lib, "ValveNetworkingSockets/steamwebrtc.lib")
+#pragma comment(lib, "ValveNetworkingSockets/webrtc-lite.lib")
+#pragma comment(lib, "Secur32.lib")
+
+
 #ifdef _INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -264,4 +277,4 @@ Bool NextGenTransport::queueSend(UnsignedInt addr, UnsignedShort port, const Uns
 		}
 	}
 	return false;
-}
+}

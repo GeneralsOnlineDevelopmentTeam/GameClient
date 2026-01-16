@@ -9,14 +9,14 @@
 
 #include "GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingmessages.h"
 
-#pragma comment(lib, "ValveNetworkingSockets/GameNetworkingSockets.lib")
-#pragma comment(lib, "ValveNetworkingSockets/abseil_dll.lib")
-#pragma comment(lib, "ValveNetworkingSockets/libcrypto.lib")
-#pragma comment(lib, "ValveNetworkingSockets/libprotobuf.lib")
-#pragma comment(lib, "ValveNetworkingSockets/libssl.lib")
-#pragma comment(lib, "ValveNetworkingSockets/steamwebrtc.lib")
-#pragma comment(lib, "ValveNetworkingSockets/webrtc-lite.lib")
-#pragma comment(lib, "Secur32.lib")
+// Library linking moved to NextGenTransport.cpp to prevent early DLL loading during static initialization
+/* Removed - moved to .cpp */
+/* Removed - moved to .cpp */
+/* Removed - moved to .cpp */
+/* Removed - moved to .cpp */
+/* Removed - moved to .cpp */
+/* Removed - moved to .cpp */
+/* Removed - moved to .cpp */
 
 // it to be a MemoryPoolObject (srj)
 class NextGenTransport : public Transport //: public MemoryPoolObject
@@ -42,4 +42,4 @@ public:
 
 private:
 	
-};
+};
