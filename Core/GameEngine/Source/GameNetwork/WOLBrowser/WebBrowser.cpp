@@ -47,24 +47,6 @@
 #include "GameClient/Display.h"
 
 
-/**
-	* OLEInitializer class - Init and shutdown OLE & COM as a global
-	* object.  Scary, nasty stuff, COM.  /me shivers.
-	*/
-class OLEInitializer
-{
-public:
-	OLEInitializer()
-	{
-		// Initialize this instance
-		OleInitialize(NULL);
-	 }
-	~OLEInitializer()
-	{
-		OleUninitialize();
-	}
-};
-OLEInitializer g_OLEInitializer;
 CComModule _Module;
 
 CComObject<WebBrowser> * TheWebBrowser = NULL;
