@@ -1171,8 +1171,16 @@ Debug::FrameHashEntry* Debug::AddFrameEntry(unsigned addr, unsigned type,
   else
   {
     // no, just add file name (without path though)
-    e->fileOrGroup=fileOrGroup?strrchr(fileOrGroup,'\\'):NULL;
-    e->fileOrGroup=e->fileOrGroup?e->fileOrGroup+1:fileOrGroup;
+    if (fileOrGroup)
+    {
+      const char *lastBackslash=strrchr(fileOrGroup,'\\');
+      e->fileOrGroup=lastBackslash?lastBackslash+1:fileOrGroup;
+    }
+    else
+    {
+      // provide safe default if fileOrGroup is NULL
+      e->fileOrGroup="<unknown>";
+    }
   }
 
   // add to hash
@@ -1186,9 +1194,16 @@ void Debug::UpdateFrameStatus(FrameHashEntry &entry)
   char help[512];
   if (entry.frameType==FrameTypeAssert||
       entry.frameType==FrameTypeCheck)
-    wsprintf(help,"%s(%i)",entry.fileOrGroup,entry.line);
+  {
+    // ensure fileOrGroup is valid before using with wsprintf
+    const char *safeFileOrGroup=entry.fileOrGroup?entry.fileOrGroup:"<unknown>";
+    wsprintf(help,"%s(%i)",safeFileOrGroup,entry.line);
+  }
   else
-    strlcpy(help, entry.fileOrGroup, ARRAY_SIZE(help));
+  {
+    const char *safeFileOrGroup=entry.fileOrGroup?entry.fileOrGroup:"<unknown>";
+    strlcpy(help, safeFileOrGroup, ARRAY_SIZE(help));
+  }
 
   // update frame status
   bool active=entry.frameType!=FrameTypeLog;
