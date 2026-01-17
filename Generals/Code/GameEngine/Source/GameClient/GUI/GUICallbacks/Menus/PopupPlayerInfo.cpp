@@ -749,7 +749,11 @@ static GameWindow* findWindow(GameWindow *parent, AsciiString baseWindow, AsciiS
 	AsciiString fullPath;
 	fullPath.format("%s:%s", baseWindow.str(), gadgetName.str());
 	GameWindow *res = TheWindowManager->winGetWindowFromId(parent, NAMEKEY(fullPath));
-	DEBUG_ASSERTLOG(res, ("Cannot find window %s", fullPath.str()));
+	// Log if window not found but don't assert - windows may not be initialized yet
+	if (!res)
+	{
+		DEBUG_LOG(("findWindow: Cannot find window %s (may not be initialized yet)", fullPath.str()));
+	}
 	return res;
 }
 
