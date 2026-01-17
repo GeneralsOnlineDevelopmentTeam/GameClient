@@ -408,6 +408,8 @@ void GameClient::init( void )
 		TheMouse->setPosition( 0, 0 );
 		TheMouse->setMouseLimits();
  		TheMouse->setName("TheMouse");
+		// Signal that mouse initialization is complete and the update thread can safely begin drawing
+		((W3DMouse*)TheMouse)->m_initialized = TRUE;
 	}
 
 	// create the video player

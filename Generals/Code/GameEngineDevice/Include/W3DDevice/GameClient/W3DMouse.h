@@ -84,6 +84,7 @@ private:
 	Int m_lastAnimTime;		///< ms at last animation update.
 	Real m_currentFMS;		///< frames per ms.
 	Bool m_drawing;			///< flag to indicate mouse cursor is currently in the act of drawing.
+	Bool m_initialized;		///< flag to indicate initialization is complete and thread can safely draw.
 ///@todo: remove the textures if we only need surfaces
 	void initD3DAssets(void);		///< load textures for mouse cursors, etc.
 	void freeD3DAssets(void);		///< unload textures used by mouse cursors.

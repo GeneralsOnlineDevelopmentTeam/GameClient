@@ -75,7 +75,7 @@ void MouseThreadClass::Thread_Function()
 	while (running)
 	{
 		isThread=TRUE;
-		if (TheMouse)
+		if (TheMouse && ((W3DMouse*)TheMouse)->m_initialized)
 			TheMouse->draw();
 		isThread=FALSE;
 		Switch_Thread();
@@ -103,6 +103,7 @@ W3DMouse::W3DMouse( void )
 
 	m_camera = NULL;
 	m_drawing = FALSE;
+	m_initialized = FALSE;
 
 }
 
