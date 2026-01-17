@@ -1676,8 +1676,18 @@ PrototypeClass * WW3DAssetManager::Find_Prototype(const char * name)
 	PrototypeClass * test = PrototypeHashTable[hash];
 
 	while (test != NULL) {
-		if (stricmp(test->Get_Name(),name) == 0) {
-			return test;
+		// Defensive check: protect against accessing freed/invalid prototype pointers
+		// Use SEH to catch access violations from dangling pointers in the hash chain
+		__try {
+			const char* test_name = test->Get_Name();
+			if (test_name != NULL && stricmp(test_name, name) == 0) {
+				return test;
+			}
+		}
+		__except(EXCEPTION_EXECUTE_HANDLER) {
+			// Invalid pointer detected (use-after-free), stop traversing the chain
+			// This can happen if a prototype was deleted without being properly removed from the hash table
+			break;
 		}
 		test = test->friend_getNextHash();
 	}
