@@ -214,6 +214,12 @@ Bool Win32LocalFileSystem::createDirectory(AsciiString directory)
 
 AsciiString Win32LocalFileSystem::normalizePath(const AsciiString& filePath) const
 {
+	// Check if the input path is empty to avoid passing invalid parameters to GetFullPathNameA
+	if (filePath.isEmpty())
+	{
+		return AsciiString::TheEmptyString;
+	}
+
 	DWORD retval = GetFullPathNameA(filePath.str(), 0, NULL, NULL);
 	if (retval == 0)
 	{
