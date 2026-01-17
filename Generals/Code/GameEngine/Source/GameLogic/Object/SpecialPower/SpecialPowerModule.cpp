@@ -110,7 +110,7 @@ SpecialPowerModule::SpecialPowerModule( Thing *thing, const ModuleData *moduleDa
 	{
 		//A sharedNSync special only startPowerRecharges when first scienced or when executed,
 		//Since a new modue with same SPTemplates may construct at any time.
-		if ( getSpecialPowerTemplate()->isSharedNSync() == FALSE )
+		if ( getSpecialPowerTemplate() && getSpecialPowerTemplate()->isSharedNSync() == FALSE )
 			startPowerRecharge();
 	}
 	// WE USED TO DO THE POLL-EVERYBODY-AND-VOTE-ON-WHO-TO-SYNC-TO THING HERE,
@@ -127,7 +127,8 @@ SpecialPowerModule::SpecialPowerModule( Thing *thing, const ModuleData *moduleDa
 	// but there is already a science granted for our shared superweapon,
 	// lets make sure TheIngameUI knows about our public timer
 	// add this weapon to the UI if it has a public timer for all to see
-	if( m_pausedCount == 0 &&
+	if( getSpecialPowerTemplate() &&
+			m_pausedCount == 0 &&
 			getSpecialPowerTemplate()->isSharedNSync() == TRUE &&
 			getSpecialPowerTemplate()->hasPublicTimer() == TRUE &&
 			getObject()->getControllingPlayer() &&
@@ -153,7 +154,8 @@ const AudioEventRTS& SpecialPowerModule::getInitiateSound() const
 SpecialPowerModule::~SpecialPowerModule()
 {
 
- 	if( getSpecialPowerModuleData()->m_specialPowerTemplate->hasPublicTimer() == TRUE &&
+ 	if( getSpecialPowerModuleData()->m_specialPowerTemplate &&
+			getSpecialPowerModuleData()->m_specialPowerTemplate->hasPublicTimer() == TRUE &&
 			getObject()->getControllingPlayer() )
  		TheInGameUI->removeSuperweapon( getObject()->getControllingPlayer()->getPlayerIndex(),
 																		getPowerName(),
@@ -727,7 +729,8 @@ void SpecialPowerModule::loadPostProcess( void )
 	// but there is already a science granted for our shared superweapon,
 	// lets make sure TheIngameUI knows about our public timer
 	// add this weapon to the UI if it has a public timer for all to see
-	if( m_pausedCount == 0 &&
+	if( getSpecialPowerTemplate() &&
+			m_pausedCount == 0 &&
 			getSpecialPowerTemplate()->isSharedNSync() == TRUE &&
 			getSpecialPowerTemplate()->hasPublicTimer() == TRUE &&
 			getObject()->getControllingPlayer() &&
