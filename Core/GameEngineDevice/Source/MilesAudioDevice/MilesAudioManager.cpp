@@ -1672,44 +1672,56 @@ void MilesAudioManager::selectProvider( UnsignedInt providerNdx )
 		unselectProvider();
 	}
 
-	LPDIRECTSOUND lpDirectSoundInfo;
-	AIL_get_DirectSound_info( NULL, (void**)&lpDirectSoundInfo, NULL );
+	LPDIRECTSOUND lpDirectSoundInfo = NULL;
 	Bool useDolby = FALSE;
+	
+	// Use m_digitalHandle instead of NULL to get valid DirectSound info
+	if (m_digitalHandle)
+	{
+		AIL_get_DirectSound_info( m_digitalHandle, (void**)&lpDirectSoundInfo, NULL );
+	}
+	
+	// Validate pointer before attempting to use it
 	if( lpDirectSoundInfo )
 	{
-		DWORD speakerConfig;
-		lpDirectSoundInfo->GetSpeakerConfig( &speakerConfig );
-		switch( DSSPEAKER_CONFIG( speakerConfig ) )
+		DWORD speakerConfig = 0;
+		HRESULT hr = lpDirectSoundInfo->GetSpeakerConfig( &speakerConfig );
+		
+		// Only process speaker config if the call succeeded
+		if( SUCCEEDED(hr) )
 		{
-			case DSSPEAKER_DIRECTOUT:
-				m_selectedSpeakerType = AIL_3D_2_SPEAKER;
-				break;
-			case DSSPEAKER_MONO:
-				m_selectedSpeakerType = AIL_3D_2_SPEAKER;
-				break;
-			case DSSPEAKER_STEREO:
-				m_selectedSpeakerType = AIL_3D_2_SPEAKER;
-				break;
-			case DSSPEAKER_HEADPHONE:
-				m_selectedSpeakerType = AIL_3D_HEADPHONE;
-				useDolby = TRUE;
-				break;
-			case DSSPEAKER_QUAD:
-				m_selectedSpeakerType = AIL_3D_4_SPEAKER;
-				useDolby = TRUE;
-				break;
-			case DSSPEAKER_SURROUND:
-				m_selectedSpeakerType = AIL_3D_SURROUND;
-				useDolby = TRUE;
-				break;
-			case DSSPEAKER_5POINT1:
-				m_selectedSpeakerType = AIL_3D_51_SPEAKER;
-				useDolby = TRUE;
-				break;
-			case DSSPEAKER_7POINT1:
-				m_selectedSpeakerType = AIL_3D_71_SPEAKER;
-				useDolby = TRUE;
-				break;
+			switch( DSSPEAKER_CONFIG( speakerConfig ) )
+			{
+				case DSSPEAKER_DIRECTOUT:
+					m_selectedSpeakerType = AIL_3D_2_SPEAKER;
+					break;
+				case DSSPEAKER_MONO:
+					m_selectedSpeakerType = AIL_3D_2_SPEAKER;
+					break;
+				case DSSPEAKER_STEREO:
+					m_selectedSpeakerType = AIL_3D_2_SPEAKER;
+					break;
+				case DSSPEAKER_HEADPHONE:
+					m_selectedSpeakerType = AIL_3D_HEADPHONE;
+					useDolby = TRUE;
+					break;
+				case DSSPEAKER_QUAD:
+					m_selectedSpeakerType = AIL_3D_4_SPEAKER;
+					useDolby = TRUE;
+					break;
+				case DSSPEAKER_SURROUND:
+					m_selectedSpeakerType = AIL_3D_SURROUND;
+					useDolby = TRUE;
+					break;
+				case DSSPEAKER_5POINT1:
+					m_selectedSpeakerType = AIL_3D_51_SPEAKER;
+					useDolby = TRUE;
+					break;
+				case DSSPEAKER_7POINT1:
+					m_selectedSpeakerType = AIL_3D_71_SPEAKER;
+					useDolby = TRUE;
+					break;
+			}
 		}
 	}
 
