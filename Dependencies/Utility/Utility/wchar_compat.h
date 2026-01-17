@@ -29,6 +29,10 @@ typedef WCHAR* LPWSTR;
 
 // MultiByteToWideChar
 #define CP_ACP 0
+#define CP_UTF8 65001
 #define MultiByteToWideChar(cp, flags, mbstr, cb, wcstr, cch) mbstowcs(wcstr, mbstr, cch)
-#define WideCharToMultiByte(cp, flags, wcstr, cch, mbstr, cb, defchar, used) wcstombs(mbstr, wcstr, cb)
+// WideCharToMultiByte: if mbstr is NULL, return required buffer size; otherwise perform conversion
+// Note: cb parameter is the buffer size in bytes, wcstombs expects size in characters
+#define WideCharToMultiByte(cp, flags, wcstr, cch, mbstr, cb, defchar, used) \
+    ((mbstr) == NULL ? wcslen(wcstr) : wcstombs(mbstr, wcstr, cb))
 
