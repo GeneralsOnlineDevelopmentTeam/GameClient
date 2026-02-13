@@ -819,10 +819,17 @@ void PopulateLobbyPlayerListbox(void)
                     for (auto& [id, member] : membersMAp)
                         sorted.emplace_back(member);
 
+                    NGMP_OnlineServices_SocialInterface* pSocialInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_SocialInterface>();
+
                     std::sort(sorted.begin(), sorted.end(),
                         [](const auto& a, const auto& b) {
                             return a.display_name < b.display_name;
                         });
+
+                    std::stable_partition(sorted.begin(), sorted.end(),
+						[pSocialInterface](const auto& x) {
+							return x.m_bIsAdmin || (pSocialInterface && pSocialInterface->IsUserFriend(x.user_id));
+						});
 
                     std::stable_partition(sorted.begin(), sorted.end(),
                         [](const auto& x) {
