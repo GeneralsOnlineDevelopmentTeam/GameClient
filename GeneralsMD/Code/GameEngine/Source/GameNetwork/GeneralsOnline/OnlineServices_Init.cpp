@@ -56,20 +56,27 @@ void NGMP_OnlineServicesManager::GetAndParseServiceConfig(std::function<void(voi
 {
 	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ServiceConfig");
 	std::map<std::string, std::string> mapHeaders;
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [cbOnDone](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
+			// Get the manager instance safely
+			NGMP_OnlineServicesManager* pMgr = NGMP_OnlineServicesManager::GetInstance();
+			if (pMgr == nullptr)
+			{
+				return;
+			}
+
 			try
 			{
 				if (bSuccess && statusCode == 200)
 				{
 					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-					m_ServiceConfig = jsonObject.get<ServiceConfig>();
+					pMgr->m_ServiceConfig = jsonObject.get<ServiceConfig>();
 				}
 				else
 				{
 					// It's OK to fail, we'll just use the sensible defaults
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to get service config, using defaults. Status code: %d", statusCode);
-					m_ServiceConfig = ServiceConfig();
+					pMgr->m_ServiceConfig = ServiceConfig();
 				}
 				
 			}
@@ -77,7 +84,7 @@ void NGMP_OnlineServicesManager::GetAndParseServiceConfig(std::function<void(voi
 			{
 				// It's OK to fail, we'll just use the sensible defaults
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to get service config, using defaults. Exception.");
-				m_ServiceConfig = ServiceConfig();
+				pMgr->m_ServiceConfig = ServiceConfig();
 			}
 
 			if (cbOnDone != nullptr)
@@ -294,6 +301,12 @@ void NGMP_OnlineServicesManager::WaitForScreenshotThreads()
 
 void NGMP_OnlineServicesManager::Shutdown()
 {
+	// Signal that we're shutting down
+	m_bShuttingDown = true;
+
+	// Wait for all screenshot threads to complete before shutting down other components
+	WaitForScreenshotThreads();
+
 	if (m_pWebSocket)
 	{
 		m_pWebSocket->Shutdown();
@@ -334,9 +347,21 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 	std::string strPostData = j.dump();
 
 	std::map<std::string, std::string> mapHeaders;
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [fnCallback](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "Version Check: Response code was %d and body was %s", statusCode, strBody.c_str());
+			
+			// Get the manager instance safely
+			NGMP_OnlineServicesManager* pMgr = NGMP_OnlineServicesManager::GetInstance();
+			if (pMgr == nullptr)
+			{
+				if (fnCallback != nullptr)
+				{
+					fnCallback(false, false);
+				}
+				return;
+			}
+
 			try
 			{
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Up To Date");
@@ -346,29 +371,41 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 				if (authResp.result == EVersionCheckResponseResult::OK)
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Up To Date");
-					fnCallback(true, false);
+					if (fnCallback != nullptr)
+					{
+						fnCallback(true, false);
+					}
 				}
 				else if (authResp.result == EVersionCheckResponseResult::NEEDS_UPDATE)
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Needs Update");
 
 					// cache the data
-					m_patcher_name = authResp.patcher_name;
-					m_patcher_path = authResp.patcher_path;
-					m_patcher_size = authResp.patcher_size;
+					pMgr->m_patcher_name = authResp.patcher_name;
+					pMgr->m_patcher_path = authResp.patcher_path;
+					pMgr->m_patcher_size = authResp.patcher_size;
 
-					fnCallback(true, true);
+					if (fnCallback != nullptr)
+					{
+						fnCallback(true, true);
+					}
 				}
 				else
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Failed");
-					fnCallback(false, false);
+					if (fnCallback != nullptr)
+					{
+						fnCallback(false, false);
+					}
 				}
 			}
 			catch (...)
 			{
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Failed to parse response");
-				fnCallback(false, false);
+				if (fnCallback != nullptr)
+				{
+					fnCallback(false, false);
+				}
 			}
 		}, nullptr, -1);
 }
@@ -391,7 +428,7 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 
 		// this isnt a super nice way of doing this, lets make a download manager
 		std::map<std::string, std::string> mapHeaders;
-		m_pHTTPManager->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		m_pHTTPManager->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [strDownloadPath, downloadSize](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
 				if (statusCode != 200)
 				{
@@ -405,15 +442,22 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 				}
 				else
 				{
+					// Get the manager instance safely
+					NGMP_OnlineServicesManager* pMgr = NGMP_OnlineServicesManager::GetInstance();
+					if (pMgr == nullptr)
+					{
+						return;
+					}
+
 					// set done
 					if (TheDownloadManager != nullptr)
 					{
 						TheDownloadManager->OnProgressUpdate(downloadSize, downloadSize, 0, 0);
 					}
 
-					m_vecFilesDownloaded.push_back(strDownloadPath);
+					pMgr->m_vecFilesDownloaded.push_back(strDownloadPath);
 
-					std::string strPatchDir = GetPatcherDirectoryPath();
+					std::string strPatchDir = pMgr->GetPatcherDirectoryPath();
 
 					// Extract the filename with extension from strDownloadPath  
 					std::string strFileName = strDownloadPath.substr(strDownloadPath.find_last_of('/') + 1);
@@ -434,12 +478,12 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 					}
 
 					// call continue update again, thisll check if we're done or have more work to do
-					ContinueUpdate();
+					pMgr->ContinueUpdate();
 
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "GOT FILE: %s", strDownloadPath.c_str());
 				}
 			},
-			[=](size_t bytesReceived)
+			[downloadSize](size_t bytesReceived)
 			{
 				//m_bytesReceivedSoFar += bytesReceived;
 
@@ -513,92 +557,102 @@ void NGMP_OnlineServicesManager::CaptureScreenshot(bool bResizeForTransmit, std:
 
 							if (pBits != nullptr)
 							{
-								int width = surfaceDesc.Width;
-								int height = surfaceDesc.Height;
+								// Check if we're shutting down before creating a new thread
+								if (m_pOnlineServicesManager != nullptr && m_pOnlineServicesManager->m_bShuttingDown)
+								{
+									// Don't create new threads during shutdown
+									NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Screenshot capture skipped - manager is shutting down");
+									bSucceeded = false;
+								}
+								else
+								{
+									int width = surfaceDesc.Width;
+									int height = surfaceDesc.Height;
 
-								// process on thread - track the thread so we can join it during shutdown
-								std::thread* pNewThread = new std::thread([cbOnDataAvailable, width, height, pBits, pDXsurf, pitch, bResizeForTransmit]()
-									{
-										CHECK_WORKER_THREAD;
+									// process on thread - track the thread so we can join it during shutdown
+									std::thread* pNewThread = new std::thread([cbOnDataAvailable, width, height, pBits, pDXsurf, pitch, bResizeForTransmit]()
+										{
+											CHECK_WORKER_THREAD;
 
-										unsigned char* rgbData = new unsigned char[width * height * 3];
+											unsigned char* rgbData = new unsigned char[width * height * 3];
 
-										std::vector<unsigned char> vecData;
+											std::vector<unsigned char> vecData;
 
-										int finalWidth = width;
-										int finalHeight = height;
+											int finalWidth = width;
+											int finalHeight = height;
 
-										for (int y = 0; y < height; ++y) {
-											uint8_t* row = static_cast<uint8_t*>(pBits) + y * pitch;
-											int rowOffset = y * width * 3;
-											int srcOffset = 0;
-											for (int x = 0; x < width; ++x, srcOffset += 4)
+											for (int y = 0; y < height; ++y) {
+												uint8_t* row = static_cast<uint8_t*>(pBits) + y * pitch;
+												int rowOffset = y * width * 3;
+												int srcOffset = 0;
+												for (int x = 0; x < width; ++x, srcOffset += 4)
+												{
+													int dstIndex = rowOffset + x * 3;
+													rgbData[dstIndex + 0] = row[srcOffset + 2]; // R
+													rgbData[dstIndex + 1] = row[srcOffset + 1]; // G
+													rgbData[dstIndex + 2] = row[srcOffset + 0]; // B
+												}
+											}
+
+											// resize
+											unsigned char* pBufferToWrite = rgbData;
+											if (bResizeForTransmit)
 											{
-												int dstIndex = rowOffset + x * 3;
-												rgbData[dstIndex + 0] = row[srcOffset + 2]; // R
-												rgbData[dstIndex + 1] = row[srcOffset + 1]; // G
-												rgbData[dstIndex + 2] = row[srcOffset + 0]; // B
+												int new_width = 557;
+												int new_height = 333;
+												int channels = 3;
+												unsigned char* resized = new unsigned char[new_width * new_height * channels];
+
+												stbir_resize_uint8(rgbData, width, height, 0,
+													resized, new_width, new_height, 0,
+													channels
+												);
+
+												// update data
+												finalWidth = new_width;
+												finalHeight = new_height;
+												pBufferToWrite = resized;
+											}
+											// end resize
+
+											stbi_write_jpg_to_func([](void* context, void* data, int size)
+												{
+													std::vector<unsigned char>* buffer = static_cast<std::vector<unsigned char>*>(context);
+													buffer->insert(buffer->end(), (unsigned char*)data, (unsigned char*)data + size);
+												}, &vecData, finalWidth, finalHeight, 3, pBufferToWrite, bResizeForTransmit ? 0 : 90);
+
+											// cleanup
+											if (bResizeForTransmit)
+											{
+												delete[] pBufferToWrite; // This is 'resized'
+												pBufferToWrite = nullptr;
+											}
+
+											delete[] rgbData;
+											rgbData = nullptr;
+
+											if (pDXsurf != nullptr)
+											{
+												pDXsurf->Release();
+											}
+
+											// invoke cb
+											if (cbOnDataAvailable != nullptr)
+											{
+												cbOnDataAvailable(vecData);
 											}
 										}
+									);
 
-										// resize
-										unsigned char* pBufferToWrite = rgbData;
-										if (bResizeForTransmit)
-										{
-											int new_width = 557;
-											int new_height = 333;
-											int channels = 3;
-											unsigned char* resized = new unsigned char[new_width * new_height * channels];
-
-											stbir_resize_uint8(rgbData, width, height, 0,
-												resized, new_width, new_height, 0,
-												channels
-											);
-
-											// update data
-											finalWidth = new_width;
-											finalHeight = new_height;
-											pBufferToWrite = resized;
-										}
-										// end resize
-
-										stbi_write_jpg_to_func([](void* context, void* data, int size)
-											{
-												std::vector<unsigned char>* buffer = static_cast<std::vector<unsigned char>*>(context);
-												buffer->insert(buffer->end(), (unsigned char*)data, (unsigned char*)data + size);
-											}, &vecData, finalWidth, finalHeight, 3, pBufferToWrite, bResizeForTransmit ? 0 : 90);
-
-										// cleanup
-										if (bResizeForTransmit)
-										{
-											delete[] pBufferToWrite; // This is 'resized'
-											pBufferToWrite = nullptr;
-										}
-
-										delete[] rgbData;
-										rgbData = nullptr;
-
-										if (pDXsurf != nullptr)
-										{
-											pDXsurf->Release();
-										}
-
-										// invoke cb
-										if (cbOnDataAvailable != nullptr)
-										{
-											cbOnDataAvailable(vecData);
-										}
+									// Store the thread so we can join it during shutdown
+									if (m_pOnlineServicesManager != nullptr)
+									{
+										std::scoped_lock<std::mutex> lock(m_pOnlineServicesManager->m_mutexScreenshotThreads);
+										m_pOnlineServicesManager->m_vecScreenshotThreads.push_back(pNewThread);
 									}
-								);
 
-								// Store the thread so we can join it during shutdown
-								if (m_pOnlineServicesManager != nullptr)
-								{
-									std::scoped_lock<std::mutex> lock(m_pOnlineServicesManager->m_mutexScreenshotThreads);
-									m_pOnlineServicesManager->m_vecScreenshotThreads.push_back(pNewThread);
+									bSucceeded = true;
 								}
-
-								bSucceeded = true;
 							}
 						}
 					}
