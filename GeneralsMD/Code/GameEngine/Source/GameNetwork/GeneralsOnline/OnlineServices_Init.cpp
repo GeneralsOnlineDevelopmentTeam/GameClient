@@ -294,6 +294,16 @@ void NGMP_OnlineServicesManager::WaitForScreenshotThreads()
 
 void NGMP_OnlineServicesManager::Shutdown()
 {
+	// First, disconnect the NetworkMesh to ensure GameNetworkingSockets_Kill() is called
+	// during controlled shutdown, before global destructors run. This prevents a division
+	// by zero crash in libprotobuf.dll during program termination.
+	NetworkMesh* pMesh = GetNetworkMesh();
+	if (pMesh != nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Disconnecting NetworkMesh to clean up GameNetworkingSockets");
+		pMesh->Disconnect();
+	}
+
 	if (m_pWebSocket)
 	{
 		m_pWebSocket->Shutdown();
