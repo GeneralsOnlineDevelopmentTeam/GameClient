@@ -621,7 +621,6 @@ public:
   void triggerDoubleClickAttackMoveGuardHint( void );
 
   void drawObserverNotifications(Int& x, Int& y);
-  void updateObserverNotifications(UnsignedInt currentFrame);
   void checkObserverMilestones(UnsignedInt currentFrame);
   void addObserverNotification(const UnicodeString& playerName, const wchar_t* message, Color playerColor);
   void addObserverNotificationRaw(const UnicodeString& message, Color color);
@@ -684,10 +683,8 @@ protected:
 		Bool reachedLevel3;
 		Bool reachedLevel5;
 		Bool reached10kCPM;
-		Bool reached20kCPM;
-		Bool reached50kCPM;
-		Bool reached100kCPM;
-		Bool warnedFloating100k;
+		Bool stolenPower;
+		Bool gotHunted;
 	};
 
 	struct PlayerData {
@@ -997,7 +994,7 @@ protected:
 	// Obs overlay
     static const Int numCols = 8;
     const wchar_t* headers[numCols] = {
-        L"(T) Name", L"Army", L"Cash", L"Cash/m", L"(R) XP", L"SP", L"K/D", L"Power"
+        L"(T) Player", L"Army", L"Cash", L"Cash/m", L"(R) XP", L"SP", L"K/D", L"Power"
     };
 
 	struct ObsOverlayPlayerData

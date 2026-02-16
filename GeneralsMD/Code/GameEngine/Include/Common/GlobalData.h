@@ -424,6 +424,9 @@ public:
 
 	// Generals Online @feature 16/1/2025 allow the observer notification font size to be set, a size of zero disables it
 	Int m_observerNotificationFontSize;
+	Bool m_observerNotificationSpecialPowerUsage;
+	Bool m_observerNotificationSpecialPowerPurchase;
+	Bool m_observerNotificationMilestone;
 
 	Real m_shakeSubtleIntensity;			///< Intensity for shaking a camera with SHAKE_SUBTLE
 	Real m_shakeNormalIntensity;			///< Intensity for shaking a camera with SHAKE_NORMAL

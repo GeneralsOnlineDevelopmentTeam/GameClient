@@ -1123,7 +1123,7 @@ InGameUI::InGameUI()
 	m_gameTimeDropColor = GameMakeColor(0, 0, 0, 255);
 
 	// Observer Stats Overlay
-	m_observerStatsString = NULL;
+	m_observerStatsString = nullptr;
 	m_observerStatsFont = "Tahoma";
 	m_observerStatsPointSize = 10;
 	m_observerStatsBold = TRUE;
@@ -1131,8 +1131,9 @@ InGameUI::InGameUI()
 	m_observerStatsPosition.y = kHudAnchorY;
 
 	// Observer notification overlay
-	m_observerNotificationString = NULL;
+	m_observerNotificationString = nullptr;
 	m_observerNotificationPointSize = TheGlobalData->m_observerNotificationFontSize;
+	m_observerNotificationsHidden = false;
 
 #if defined(GENERALS_ONLINE)
 	m_colorGood = GameMakeColor(0, 255, 0, 150);
@@ -6093,21 +6094,19 @@ void InGameUI::recreateControlBar(void)
 // ======================================================================================
 // Observer Notification
 // ======================================================================================
-namespace {
-	const Int MAX_NOTIFICATIONS = 8;
-	const UnsignedInt SLIDE_IN_MS = 300;
-	const UnsignedInt VISIBLE_MS = 3000;
-	const UnsignedInt SLIDE_OUT_MS = 300;
-	const UnsignedInt TOTAL_LIFETIME_MS = SLIDE_IN_MS + VISIBLE_MS + SLIDE_OUT_MS;
-	const Real BRIGHTNESS_BOOST = 0.3f;   // Apply a slight brightness to make darker colors more visible
+const Int MAX_NOTIFICATIONS = 8;		// Maximum number of notifs to show at once on screen
+const UnsignedInt SLIDE_IN_MS = 300;
+const UnsignedInt VISIBLE_MS = 3000;
+const UnsignedInt SLIDE_OUT_MS = 300;
+const UnsignedInt TOTAL_LIFETIME_MS = SLIDE_IN_MS + VISIBLE_MS + SLIDE_OUT_MS;
+const Real BRIGHTNESS_BOOST = 0.4f;		// Apply a slight brightness to make darker colors more visible
 
-	// Layout for notifications
-	const Int NOTIF_LEFT_MARGIN = 20;
-	const Int NOTIF_VERTICAL_OFFSET = 300;  // Offset from center of screen
-	const Int NOTIF_PADDING_X = 12;
-	const Int NOTIF_PADDING_Y = 10;
-	const Int NOTIF_BOX_SPACING = 8;
-}
+// Layout for notifications
+const Int NOTIF_LEFT_MARGIN = 7;
+const Int NOTIF_VERTICAL_OFFSET = 300;  // Offset from center of screen
+const Int NOTIF_PADDING_X = 15;
+const Int NOTIF_PADDING_Y = 10;
+const Int NOTIF_BOX_SPACING = 5;		// Vertical spacing between notification boxes
 
 // Compute animation progress from elapsed render time (0 = sliding in, 1 = visible, 2 = expired)
 static Real computeSlideProgress(UnsignedInt ageMs)
@@ -6134,70 +6133,56 @@ static UnicodeString formatPowerAction(const AsciiString& powerNameAscii)
 	};
 
 	static const Entry table[] = {
-		{"SuperweaponScudStorm",						L"LAUNCHED A SCUD STORM!!!"},
-		{"SuperweaponNeutronMissile",					L"LAUNCHED A NUKE MISSILE!!!"},
-		{"SuperweaponParticleUplinkCannon",				L"FIRED A PARTICLE CANNON!!!"},
-		{"SuperweaponAnthraxBomb",						L"DROPPED AN ANTHRAX BOMB!!!"},
-		{"SuperweaponRebelAmbush",						L"CALLED IN THE REBEL AMBUSH!!"},
-		{"SuperweaponArtilleryBarrage",					L"CALLED IN THE ARTILLERY BARRAGE!!"},
-		{"SuperweaponEMPPulse",							L"CALLED IN AN EMP PULSE!!!"},
-		{"SuperweaponCIAIntelligence",					L"JUST ACTIVATED THE CIA INTELLIGENCE!"},
-		{"SuperweaponSneakAttack",						L"OPENED A SNEAK ATTACK!!!"},
+		{"SuperweaponScudStorm",						L"launched a Scud Storm"},
+		{"SuperweaponNeutronMissile",					L"launched a Nuke Missile"},
+		{"SuperweaponParticleUplinkCannon",				L"fired a Particle Cannon"},
+		{"SuperweaponAnthraxBomb",						L"dropped an Anthrax Bomb"},
+		{"SuperweaponRebelAmbush",						L"called in a Rebel Ambush"},
+		{"SuperweaponArtilleryBarrage",					L"called in an Artillery Barrage"},
+		{"SuperweaponEMPPulse",							L"called in an EMP Bomb"},
+		{"SuperweaponCIAIntelligence",					L"activated the CIA Intelligence"},
+		{"SuperweaponSneakAttack",						L"opened a Sneak Attack"},
 
-		{"SuperweaponDaisyCutter",						L"CALLED IN THE MOAB!!!"},
-		{"AirF_SuperweaponDaisyCutter",					L"CALLED IN THE MOAB!!!"},
+		{"SuperweaponDaisyCutter",						L"called in a MOAB"},
+		{"AirF_SuperweaponDaisyCutter",					L"called in a MOAB"},
 
-		{"SuperweaponClusterMines",						L"CALLED IN A MINE DROP!!"},
-		{"Nuke_SuperweaponClusterMines",				L"CALLED IN A MINE DROP!!"},
+		{"SuperweaponClusterMines",						L"called in a Mine Drop"},
+		{"Nuke_SuperweaponClusterMines",				L"called in a Mine Drop"},
 
-		{"AirF_SuperweaponA10ThunderboltMissileStrike", L"CALLED IN AN A10 STRIKE!!"},
-		{"SuperweaponA10ThunderboltMissileStrike",		L"CALLED IN AN A10 STRIKE!!"},
+		{"AirF_SuperweaponA10ThunderboltMissileStrike", L"called in an A10 Strike"},
+		{"SuperweaponA10ThunderboltMissileStrike",		L"called in an A10 Strike"},
 
-		{"AirF_SuperweaponSpectreGunship",				L"CALLED IN A SPECTRE GUNSHIP!!"},
-		{"SuperweaponSpectreGunship",					L"CALLED IN A SPECTRE GUNSHIP!!"},
+		{"AirF_SuperweaponSpectreGunship",				L"called in a Spectre Gunship"},
+		{"SuperweaponSpectreGunship",					L"called in a Spectre Gunship"},
 
-		{"AirF_SuperweaponCarpetBomb",					L"CALLED IN A CARPET BOMB!!"},
-		{"Nuke_SuperweaponChinaCarpetBomb",				L"CALLED IN A CARPET BOMB!!"},
-		{"Early_SuperweaponChinaCarpetBomb",			L"CALLED IN A CARPET BOMB!!"},
-		{"SuperweaponChinaCarpetBomb",					L"CALLED IN A CARPET BOMB!!"},
+		{"AirF_SuperweaponCarpetBomb",					L"called in a Carpet Bomb"},
+		{"Nuke_SuperweaponChinaCarpetBomb",				L"called in a Carpet Bomb"},
+		{"Early_SuperweaponChinaCarpetBomb",			L"called in a Carpet Bomb"},
+		{"SuperweaponChinaCarpetBomb",					L"called in a Carpet Bomb"},
 
-		{"SuperweaponFrenzy",							L"ACTIVATED THE FRENZY!"},
-		{"Early_SuperweaponFrenzy",						L"ACTIVATED THE FRENZY!"},
-
-		{"Slth_SuperweaponGPSScrambler",				L"ACTIVATED A GPS SCRAMBLER!"},
-		{"SuperweaponGPSScrambler",						L"ACTIVATED A GPS SCRAMBLER!"},
-
-		{"Infa_SuperweaponInfantryParadrop",			L"DEPLOYED A CHINA INFANTRY PARADROP!"},
-		{"Tank_SuperweaponTankParadrop",				L"DEPLOYED A TANK PARADROP!"},
-		{"SuperweaponParadropAmerica",					L"DEPLOYED A USA INFANTRY PARADROP!"},
-
-		{"SuperweaponLeafletDrop",						L"CALLED IN A LEAFLET DROP!!"},
-		{"Early_SuperweaponLeafletDrop",				L"CALLED IN A LEAFLET DROP!!"},
+		{"SuperweaponLeafletDrop",						L"called in a Leaflet Drop"},
+		{"Early_SuperweaponLeafletDrop",				L"called in a Leaflet Drop"},
 	};
 
 	for (const Entry& entry : table)
 		if (powerNameAscii == entry.key)
-			return entry.value;
-
-	UnicodeString result = L"USED ";  // Fallback for unmapped support powers
-	UnicodeString temp;
-	temp.translate(powerNameAscii);
-	result.concat(temp);
-	return result;
+			return UnicodeString(entry.value);
+	return UnicodeString(); // not in table, suppress notification
 }
 
 void InGameUI::drawObserverNotifications(Int& x, Int& y)
 {
-	if (!TheInGameUI->getInputEnabled() || TheGameLogic->isIntroMoviePlaying() ||
+	if (!TheGameLogic || !TheInGameUI->getInputEnabled() || TheGameLogic->isIntroMoviePlaying() ||
 		TheGameLogic->isLoadingMap() || TheInGameUI->isQuitMenuVisible() ||
-		!TheGameLogic || TheGameLogic->getFrame() <= 1 || m_observerNotificationsHidden)
+		TheGameLogic->getFrame() <= 1 || m_observerNotificationsHidden)
 		return;
 
 	Player* localPlayer = ThePlayerList->getLocalPlayer();
 	if (!localPlayer || !localPlayer->isPlayerObserver())
 		return;
 
-	updateObserverNotifications(TheGameLogic->getFrame());
+	if ((TheGameLogic->getFrame() % LOGICFRAMES_PER_SECOND) == 0)
+		checkObserverMilestones(TheGameLogic->getFrame());
 
 	if (m_observerNotifications.empty())
 		return;
@@ -6224,8 +6209,8 @@ void InGameUI::drawObserverNotifications(Int& x, Int& y)
 	Int padY = Int(NOTIF_PADDING_Y * scale);
 	Int boxSpacing = Int(NOTIF_BOX_SPACING * scale);
 
-	Color bgColor = TheWindowManager->winMakeColor(0, 0, 0, 180);
-	Color borderColor = TheWindowManager->winMakeColor(255, 255, 255, 255);
+	Color bgColor = TheWindowManager->winMakeColor(0, 0, 0, 90);
+	Color borderColor = TheWindowManager->winMakeColor(255, 255, 255, 90);
 
 	UnsignedInt nowMs = timeGetTime();
 
@@ -6274,22 +6259,17 @@ void InGameUI::drawObserverNotifications(Int& x, Int& y)
 	}
 }
 
-// Handle milestone initialization and triggers milestone checks once per second.
-void InGameUI::updateObserverNotifications(UnsignedInt currentFrame)
-{
-	if (m_observerMilestones.empty()) {
-		m_observerMilestones.resize(MAX_SLOTS);
-	}
-
-	static UnsignedInt lastCheckFrame = 0;
-	if (currentFrame - lastCheckFrame >= LOGICFRAMES_PER_SECOND) {
-		lastCheckFrame = currentFrame;
-		checkObserverMilestones(currentFrame);
-	}
-}
-
 void InGameUI::checkObserverMilestones(UnsignedInt currentFrame)
 {
+	if (!TheGlobalData->m_observerNotificationMilestone)
+		return;
+
+	if (m_observerMilestones.size() < (size_t)MAX_SLOTS)
+		m_observerMilestones.resize(MAX_SLOTS);
+
+	if (!ThePlayerList || !TheNameKeyGenerator)
+		return;
+
 	for (Int slotIndex = 0; slotIndex < MAX_SLOTS; ++slotIndex) {
 		const GameSlot* slot = TheGameInfo ? TheGameInfo->getConstSlot(slotIndex) : nullptr;
 		if (!slot || !slot->isOccupied())
@@ -6297,10 +6277,6 @@ void InGameUI::checkObserverMilestones(UnsignedInt currentFrame)
 
 		AsciiString nameKeyStr;
 		nameKeyStr.format("player%d", slotIndex);
-
-		if (!ThePlayerList || !TheNameKeyGenerator)
-			continue;
-
 		Player* p = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nameKeyStr));
 
 		if (!p || !p->isPlayerActive() || p->isPlayerObserver())
@@ -6314,43 +6290,51 @@ void InGameUI::checkObserverMilestones(UnsignedInt currentFrame)
 		Color playerColor = p->getPlayerColor();
 
 		// Check rank milestones
+		Bool earlyGame = currentFrame < LOGICFRAMES_PER_SECOND * 10; // skip milestone notifications early game for modded maps that start with high rank or income
 		Int rank = p->getRankLevel();
 		if (rank >= 3 && !milestone.reachedLevel3) {
 			milestone.reachedLevel3 = true;
-			addObserverNotification(name, L" reached Rank 3!", playerColor);
+			if (!earlyGame) addObserverNotification(name, L" reached Rank 3", playerColor);
 		}
 		if (rank >= 5 && !milestone.reachedLevel5) {
 			milestone.reachedLevel5 = true;
-			addObserverNotification(name, L" reached Rank 5!", playerColor);
+			if (!earlyGame) addObserverNotification(name, L" reached Rank 5", playerColor);
 		}
 
-		// Check economy milestones
 		Money* money = p->getMoney();
 		if (!money)
 			continue;
 
-		UnsignedInt cash = money->countMoney();
 		UnsignedInt cpm = money->getCashPerMinute();
-
-		if (cash >= 100000 && !milestone.warnedFloating100k) {
-			milestone.warnedFloating100k = true;
-			addObserverNotification(name, L" is floating $100k!", playerColor);
+		if (cpm >= 10000 && !milestone.reached10kCPM) {
+			milestone.reached10kCPM = true;
+			if (!earlyGame) addObserverNotification(name, L" reached 10k/min income", playerColor);
 		}
 
-		// Check income milestones in ascending order
-		struct IncomeThreshold { UnsignedInt amount; Bool& reached; const wchar_t* msg; };
-		IncomeThreshold thresholds[] = {
-			{ 10000, milestone.reached10kCPM, L" reached 10k/min income!" },
-			{ 20000, milestone.reached20kCPM, L" reached 20k/min income!!" },
-			{ 50000, milestone.reached50kCPM, L" reached 50k/min income!!!" },
-			{ 100000, milestone.reached100kCPM, L" reached 100k/min income!!!!" }
-		};
+		const Energy* energy = p->getEnergy();
+		AsciiString side = p->getSide();
+		Bool isGLA = side == "GLA" || side == "GLAStealthGeneral" || side == "GLAToxinGeneral" || side == "GLADemolitionGeneral";
+		Bool hasPower = energy && energy->getProduction() > 0;
+		if (isGLA && hasPower && !milestone.stolenPower) {
+			milestone.stolenPower = true;
+			if (!earlyGame) addObserverNotification(name, L" is now on power", playerColor);
+		}
 
-		for (auto& threshold : thresholds) {
-			if (cpm >= threshold.amount && !threshold.reached) {
-				threshold.reached = true;
-				addObserverNotification(name, threshold.msg, playerColor);
-				break;  // Only trigger one income milestone per check
+		if (!milestone.gotHunted) {
+			Bool hasBuilder = false;
+			Bool hasBuilderSource = false;
+			for (Object* obj = TheGameLogic->getFirstObject(); obj && !(hasBuilder && hasBuilderSource);
+				obj = obj->getNextObject()) {
+				if (obj->getControllingPlayer() != p || obj->isEffectivelyDead())
+					continue;
+				if (obj->isKindOf(KINDOF_DOZER))
+					hasBuilder = true;
+				if (isGLA ? obj->isKindOf(KINDOF_FS_SUPPLY_CENTER) || obj->isKindOf(KINDOF_COMMANDCENTER) : obj->isKindOf(KINDOF_COMMANDCENTER))
+					hasBuilderSource = true;
+			}
+			if (!hasBuilder && !hasBuilderSource) {
+				milestone.gotHunted = true;
+				if (!earlyGame) addObserverNotification(name, isGLA ? L" got worker hunted" : L" got dozer hunted", playerColor);
 			}
 		}
 	}
@@ -6368,31 +6352,24 @@ void InGameUI::addObserverNotificationRaw(const UnicodeString& message, Color co
 	UnsignedInt nowMs = timeGetTime();
 
 	// Reuse first inactive slot
-	for (auto& n : m_observerNotifications)
-		if (!n.active)
-			return n = { message, color, nowMs, true }, void();
+	for (ObserverNotification& notif : m_observerNotifications)
+		if (!notif.active) {
+			notif = { message, color, nowMs, true };
+			return;
+		}
 
-	// Expand if under limit
 	if (m_observerNotifications.size() < MAX_NOTIFICATIONS) {
 		m_observerNotifications.push_back({ message, color, nowMs, true });
 		return;
 	}
-
-	// Replace oldest active notification
-	auto* oldest = &m_observerNotifications[0];
-	for (auto& n : m_observerNotifications)
-		if (n.active && n.createdRenderMs < oldest->createdRenderMs)
-			oldest = &n;
-
-	oldest->message = message;
-	oldest->color = color;
-	oldest->createdRenderMs = nowMs;
-	oldest->active = true;
 }
 
 void InGameUI::notifyGeneralPromotion(Player* player, ScienceType science)
 {
 	if (!player || !player->isPlayerActive() || player->isPlayerObserver())
+		return;
+
+	if (!TheGlobalData->m_observerNotificationSpecialPowerPurchase)
 		return;
 
 	UnicodeString scienceName, description;
@@ -6409,25 +6386,15 @@ void InGameUI::notifySpecialPowerUsed(Player* player, const SpecialPowerTemplate
 	if (!player || !player->isPlayerActive() || !powerTemplate || player->isPlayerObserver())
 		return;
 
-	// Only notify for these support powers
-	switch (powerTemplate->getSpecialPowerType()) {
-	case SPECIAL_DAISY_CUTTER: case SPECIAL_CARPET_BOMB: case AIRF_SPECIAL_DAISY_CUTTER:
-	case SPECIAL_PARTICLE_UPLINK_CANNON: case SPECIAL_SCUD_STORM: case SPECIAL_NEUTRON_MISSILE:
-	case SPECIAL_AMBUSH: case EARLY_SPECIAL_LEAFLET_DROP: case EARLY_SPECIAL_FRENZY:
-	case SPECIAL_CLUSTER_MINES: case SPECIAL_EMP_PULSE: case SPECIAL_ANTHRAX_BOMB:
-	case SPECIAL_A10_THUNDERBOLT_STRIKE: case SPECIAL_ARTILLERY_BARRAGE: case SPECIAL_SPECTRE_GUNSHIP:
-	case SPECIAL_FRENZY: case SPECIAL_SNEAK_ATTACK: case SPECIAL_CHINA_CARPET_BOMB: case SPECIAL_CIA_INTELLIGENCE:
-	case SPECIAL_LEAFLET_DROP: case SPECIAL_TANK_PARADROP: case SPECIAL_PARADROP_AMERICA:
-	case NUKE_SPECIAL_CLUSTER_MINES: case AIRF_SPECIAL_A10_THUNDERBOLT_STRIKE: case AIRF_SPECIAL_SPECTRE_GUNSHIP:
-	case INFA_SPECIAL_PARADROP_AMERICA: case SLTH_SPECIAL_GPS_SCRAMBLER: case AIRF_SPECIAL_CARPET_BOMB:
-	case SPECIAL_GPS_SCRAMBLER: case EARLY_SPECIAL_CHINA_CARPET_BOMB:
-		break;
-	default:
+	if (!TheGlobalData->m_observerNotificationSpecialPowerUsage)
 		return;
-	}
+
+	UnicodeString action = formatPowerAction(powerTemplate->getName());
+	if (action.isEmpty())
+		return;
 
 	UnicodeString msg;
-	msg.format(L"%ls %ls", player->getPlayerDisplayName().str(), formatPowerAction(powerTemplate->getName()).str());
+	msg.format(L"%ls %ls", player->getPlayerDisplayName().str(), action.str());
 	addObserverNotificationRaw(msg, player->getPlayerColor());
 }
 
@@ -6711,10 +6678,10 @@ void InGameUI::drawObserverStats(Int & x, Int & y)
 	Int contentY = baseY + padY;
 
 	// Draw background
-	TheWindowManager->winFillRect(TheWindowManager->winMakeColor(0, 0, 0, 180), 1, baseX, baseY, baseX + bgW, baseY + bgH);
+	TheWindowManager->winFillRect(TheWindowManager->winMakeColor(0, 0, 0, 150), 1, baseX, baseY, baseX + bgW, baseY + bgH);
 
 	// Draw border
-	Color border = TheWindowManager->winMakeColor(255, 255, 255, 225);
+	Color border = TheWindowManager->winMakeColor(255, 255, 255, 110);
 	TheWindowManager->winFillRect(border, 1, baseX, baseY, baseX + bgW, baseY + 1);
 	TheWindowManager->winFillRect(border, 1, baseX, baseY + bgH - 1, baseX + bgW, baseY + bgH);
 	TheWindowManager->winFillRect(border, 1, baseX, baseY, baseX + 1, baseY + bgH);
@@ -6745,14 +6712,22 @@ void InGameUI::drawObserverStats(Int & x, Int & y)
 	drawY += totalRowHeight;
 	//for (size_t row = 0; row < actualNumPlayers; ++row)
 
+	Real brightnessBoost = 0.3f;
 	for (int i = 0; i < MAX_SLOTS; ++i)
 	{
 		if (m_mapOverlayPlayerData[i].isPresent)
 		{
+			Color raw = m_mapOverlayPlayerData[i].playerData.color;
+			UnsignedInt r = (raw >> 16) & 0xFF;
+			UnsignedInt g = (raw >> 8) & 0xFF;
+			UnsignedInt b = raw & 0xFF;
+			UnsignedInt lr = r + UnsignedInt((255 - r) * brightnessBoost);
+			UnsignedInt lg = g + UnsignedInt((255 - g) * brightnessBoost);
+			UnsignedInt lb = b + UnsignedInt((255 - b) * brightnessBoost);
+			Color boostedColor = TheWindowManager->winMakeColor(lr, lg, lb, 255);
 			drawX = contentX;
-			for (Int col = 0; col < numCols; ++col)
-			{
-				m_mapOverlayPlayerData[i].playerCellStrings[col]->draw(drawX, drawY, m_mapOverlayPlayerData[i].playerData.color, dropShadow);
+			for (Int col = 0; col < numCols; ++col) {
+				m_mapOverlayPlayerData[i].playerCellStrings[col]->draw(drawX, drawY, boostedColor, dropShadow);
 				drawX += colWidths[col];
 			}
 			drawY += totalRowHeight;
@@ -7160,7 +7135,3 @@ void InGameUI::drawGameTime()
 	m_gameTimeString->draw(horizontalTimerOffset, m_gameTimePosition.y, m_gameTimeColor, m_gameTimeDropColor);
 	m_gameTimeFrameString->draw(horizontalFrameOffset, m_gameTimePosition.y, GameMakeColor(180, 180, 180, 255), m_gameTimeDropColor);
 }
-
-
-
-
