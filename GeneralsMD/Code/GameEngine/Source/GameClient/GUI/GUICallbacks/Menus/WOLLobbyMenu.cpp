@@ -130,10 +130,19 @@ static Int	initialGadgetDelay = 2;
 static Bool justEntered = FALSE;
 
 static int64_t s_lobbyLastChatTimeMs = 0;
-static const int64_t S_LOBBY_CHAT_INTERVAL_MS = 8000; // how long to wait before we allow sending the next message
+static const int64_t S_LOBBY_CHAT_INTERVAL_MS = 5000; // how long to wait before we allow sending the next message
 
 static bool LobbyChatSlowmodeAllowsSend()
 {
+    auto* auth = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	auto* rooms = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+	if (auth && rooms)
+	{
+		auto* me = rooms->GetRoomMemberFromID(auth->GetUserID());
+		if (me && me->m_bIsAdmin)
+			return true;
+	}
+    
 	using namespace std::chrono;
 
 	int64_t nowMs =
