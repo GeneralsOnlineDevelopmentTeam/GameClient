@@ -6290,6 +6290,9 @@ void InGameUI::updateObserverNotifications(UnsignedInt currentFrame)
 
 void InGameUI::checkObserverMilestones(UnsignedInt currentFrame)
 {
+	if (!TheGlobalData->m_observerNotificationMilestone)
+		return;
+
 	for (Int slotIndex = 0; slotIndex < MAX_SLOTS; ++slotIndex) {
 		const GameSlot* slot = TheGameInfo ? TheGameInfo->getConstSlot(slotIndex) : nullptr;
 		if (!slot || !slot->isOccupied())
@@ -6394,7 +6397,8 @@ void InGameUI::notifyGeneralPromotion(Player* player, ScienceType science)
 {
 	if (!player || !player->isPlayerActive() || player->isPlayerObserver())
 		return;
-
+	if (!TheGlobalData->m_observerNotificationSpecialPowerPurchase)
+		return;
 	UnicodeString scienceName, description;
 	if (!TheScienceStore->getNameAndDescription(science, scienceName, description))
 		return;
@@ -6407,6 +6411,8 @@ void InGameUI::notifyGeneralPromotion(Player* player, ScienceType science)
 void InGameUI::notifySpecialPowerUsed(Player* player, const SpecialPowerTemplate* powerTemplate)
 {
 	if (!player || !player->isPlayerActive() || !powerTemplate || player->isPlayerObserver())
+		return;
+	if (!TheGlobalData->m_observerNotificationSpecialPowerUsage)
 		return;
 
 	// Only notify for these support powers

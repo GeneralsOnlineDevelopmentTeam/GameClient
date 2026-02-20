@@ -940,6 +940,24 @@ Int OptionPreferences::getRenderFpsFontSize(void)
 	return fontSize;
 }
 
+Bool OptionPreferences::getObserverNotificationSpecialPowerUsage(void) {
+	OptionPreferences::const_iterator it = find("ObserverNotificationSpecialPowerUsage");
+	if (it == end()) return true;
+	return AsciiString(it->second.str()) != "no";
+}
+
+Bool OptionPreferences::getObserverNotificationSpecialPowerPurchase(void) {
+	OptionPreferences::const_iterator it = find("ObserverNotificationSpecialPowerPurchase");
+	if (it == end()) return true;
+	return AsciiString(it->second.str()) != "no";
+}
+
+Bool OptionPreferences::getObserverNotificationMilestone(void) {
+	OptionPreferences::const_iterator it = find("ObserverNotificationMilestone");
+	if (it == end()) return true;
+	return AsciiString(it->second.str()) != "no";
+}
+
 Int OptionPreferences::getObserverNotificationFontSize(void) {
 	OptionPreferences::const_iterator it = find("ObserverNotificationFontSize");
 	if (it == end())
