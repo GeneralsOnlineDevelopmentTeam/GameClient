@@ -144,7 +144,10 @@ void Keyboard::updateKeys( void )
 		// Update key down time for new key presses
 		if( BitIsSet( m_keys[ index ].state, KEY_STATE_DOWN ) )
 		{
-			m_keyStatus[ m_keys[ index ].key ].keyDownTimeMsec = m_keys[ index ].keyDownTimeMsec;
+			const UnsignedInt downTime = m_keys[index].keyDownTimeMsec;
+			m_keyStatus[m_keys[index].key].keyDownTimeMsec = downTime;
+			m_keyStatus[m_keys[index].key].nextRepeatTimeMsec = downTime + Keyboard::KEY_REPEAT_DELAY_MSEC;
+
 		}
 
 		// prevent ALT-TAB from causing a TAB event
@@ -225,26 +228,27 @@ Bool Keyboard::checkKeyRepeat( void )
 		if( BitIsSet( m_keyStatus[ key ].state, KEY_STATE_DOWN ) )
 		{
 
-			const UnsignedInt now = timeGetTime();
-			const UnsignedInt keyDownTime = m_keyStatus[ key ].keyDownTimeMsec;
-			const UnsignedInt elapsedMsec = now - keyDownTime;
+			UnsignedInt now = timeGetTime();
+			UnsignedInt &nextRepeatTime = m_keyStatus[ key ].nextRepeatTimeMsec;
 
-			if( elapsedMsec > Keyboard::KEY_REPEAT_DELAY_MSEC )
+			if(now >= nextRepeatTime)
 			{
 				// Add key to this frame
 				m_keys[ index ].key = (UnsignedByte)key;
-				m_keys[ index ].state = KEY_STATE_DOWN | KEY_STATE_AUTOREPEAT;  // note: not a bitset; this is an assignment
+				m_keys[ index ].state = KEY_STATE_DOWN;
 				m_keys[ index ].status = KeyboardIO::STATUS_UNUSED;
 
-				// Set End Flag
-				m_keys[ ++index ].key = KEY_NONE;
-
 				// Set all keys as new to prevent multiple keys repeating
-				for( index = 0; index< NUM_KEYS; index++ )
-					m_keyStatus[ index ].keyDownTimeMsec = now;
+				for( index = 0; index < NUM_KEYS; ++index )
+				{
+					if (index != key)
+					{
+						m_keyStatus[index].nextRepeatTimeMsec = now + Keyboard::KEY_REPEAT_DELAY_MSEC;
+					}
+				}
 
 				// Set repeated key so it will repeat again after the interval
-				m_keyStatus[ key ].keyDownTimeMsec = now - (Keyboard::KEY_REPEAT_DELAY_MSEC + Keyboard::KEY_REPEAT_INTERVAL_MSEC);
+				nextRepeatTime = now + Keyboard::KEY_REPEAT_INTERVAL_MSEC;
 
 				retVal = TRUE;
 				break;  // exit for key

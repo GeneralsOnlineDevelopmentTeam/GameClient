@@ -77,6 +77,7 @@ struct KeyboardIO
 	UnsignedByte	status;									// StatusType, above
 	UnsignedShort	state;									// KEY_STATE_* in KeyDefs.h
 	UnsignedInt		keyDownTimeMsec;				// real-time in milliseconds when key went down
+	UnsignedInt		nextRepeatTimeMsec;     // real-time in milliseconds when key should next repeat
 
 };
 
@@ -88,8 +89,8 @@ class Keyboard : public SubsystemInterface
 
 	enum
 	{
-		KEY_REPEAT_DELAY_MSEC = 333,	// 10 frames at 30 FPS
-		KEY_REPEAT_INTERVAL_MSEC = 67	// ~2 frames at 30 FPS
+		KEY_REPEAT_DELAY_MSEC = 333,
+		KEY_REPEAT_INTERVAL_MSEC = 33
 	};
 
 public:
