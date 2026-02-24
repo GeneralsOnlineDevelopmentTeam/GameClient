@@ -7099,14 +7099,19 @@ void InGameUI::drawGameTime()
 					}
 
 					int avgFPS = TheNetwork->getSlotAverageFPS(lobbyMember.m_SlotIndex);
+					wchar_t fps[32];
+					if (pLobbyInterface->IsHost())
+						swprintf(fps, sizeof(fps) / sizeof(fps[0]), L"[FPS: %d] ", avgFPS - 30);
+					else
+						fps[0] = L'\0';
 
 					UnicodeString netString;
-					netString.format(L"\n[usr %s|%d][%hs %hs][AVGFPS: %d] Lat: %i, QL: %.2f, QR: %.2f OutP/s: %.2f, OutB/s: %.2f, InP/s: %.2f, InB/s: %.2f, SR %i PU: %d, PR: %d, NACK: %d, QT: %I64d",
+					netString.format(L"\n[%s|%d][%hs %hs] %s[Ping: %i] [QL: %.2f, QR: %.2f] [OutP/s: %.2f, OutB/s: %.2f] [InP/s: %.2f, InB/s: %.2f] [SR %i] [PU: %d, PR: %d] NACK: %d, QT: %I64d",
 						from_utf8(lobbyMember.display_name).c_str(),
 						(int)res,
 						connection.second.IsIPV4() ? "IPv4" : "IPv6",
 						connection.second.IsDirect() ? "Direct" : "Relay",
-						avgFPS,
+						fps,
 						status.m_nPing,
 						status.m_flConnectionQualityLocal,
 						status.m_flConnectionQualityRemote,
