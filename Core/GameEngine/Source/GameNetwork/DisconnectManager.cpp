@@ -309,6 +309,14 @@ void DisconnectManager::processDisconnectKeepAlive(NetCommandMsg *msg, Connectio
 	}
 }
 
+#if defined(GENERALS_ONLINE)
+void DisconnectManager::dropDesyncedPlayer(Int slot, ConnectionManager* conMgr) {
+	sendDisconnectCommand(slot, conMgr);
+	disconnectPlayer(slot, conMgr);
+	sendPlayerDestruct(slot, conMgr);
+}
+#endif
+
 void DisconnectManager::processDisconnectPlayer(NetCommandMsg *msg, ConnectionManager *conMgr) {
 	NetDisconnectPlayerCommandMsg *cmdMsg = (NetDisconnectPlayerCommandMsg *)msg;
 	DEBUG_LOG(("DisconnectManager::processDisconnectPlayer - Got disconnect player command from player %d.  Disconnecting player %d on frame %d", msg->getPlayerID(), cmdMsg->getDisconnectSlot(), cmdMsg->getDisconnectFrame()));

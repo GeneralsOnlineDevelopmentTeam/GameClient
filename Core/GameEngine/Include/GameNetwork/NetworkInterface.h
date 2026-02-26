@@ -71,7 +71,9 @@ public:
 	virtual UnsignedInt getRunAhead(void) = 0;												///< Get the current RunAhead value
 	virtual UnsignedInt getFrameRate(void) = 0;												///< Get the current allowed frame rate.
 	virtual UnsignedInt getPacketArrivalCushion(void) = 0;						///< Get the smallest packet arrival cushion since this was last called.
-
+#if defined(GENERALS_ONLINE)
+	virtual void dropDesyncedPlayer(Int slot) = 0;
+#endif
 	// Chat functions
 	virtual void sendChat(UnicodeString text, Int playerMask) = 0;		///< Send a chat line using the normal system.
 	virtual void sendDisconnectChat(UnicodeString text) = 0;					///< Send a chat line using the disconnect manager.

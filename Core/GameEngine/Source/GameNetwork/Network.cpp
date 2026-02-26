@@ -135,6 +135,9 @@ public:
 
 	void quitGame();
 	virtual void selfDestructPlayer(Int index);
+#if defined(GENERALS_ONLINE)
+	virtual void dropDesyncedPlayer(Int slot);
+#endif
 
 
 	void voteForPlayerDisconnect(Int slot);
@@ -404,9 +407,7 @@ void Network::setSawCRCMismatch( void )
 	m_messageWindow = TheWindowManager->winCreateFromScript("Menus/CRCMismatch.wnd");
 #endif
 
-#if defined(GENERALS_ONLINE)
-	TheScriptEngine->startEndGameTimer(true);
-#else
+#if !defined(GENERALS_ONLINE)
 	TheScriptEngine->startEndGameTimer();
 #endif
 	
@@ -1015,6 +1016,14 @@ void Network::quitGame() {
 	m_localStatus = NETLOCALSTATUS_POSTGAME;
 	DEBUG_LOG(("Network::quitGame - quitting game..."));
 }
+
+#if defined(GENERALS_ONLINE)
+void Network::dropDesyncedPlayer(Int slot)
+{
+	if (m_conMgr)
+		m_conMgr->dropDesyncedPlayer(slot);
+}
+#endif
 
 void Network::selfDestructPlayer(Int index)
 {

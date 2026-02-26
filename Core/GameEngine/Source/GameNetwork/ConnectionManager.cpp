@@ -2061,6 +2061,12 @@ void ConnectionManager::quitGame() {
 	disconnectLocalPlayer();
 }
 
+#if defined(GENERALS_ONLINE)
+void ConnectionManager::dropDesyncedPlayer(Int slot) {
+	m_disconnectManager->dropDesyncedPlayer(slot, this);
+}
+#endif
+
 void ConnectionManager::disconnectLocalPlayer() {
 	// kill the frame data and the connections for all the other players.
 	DEBUG_LOG(("ConnectionManager::disconnectLocalPlayer()"));
