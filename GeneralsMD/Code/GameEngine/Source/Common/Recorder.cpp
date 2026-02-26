@@ -1071,7 +1071,7 @@ protected:
 CRCInfo::CRCInfo(UnsignedInt localPlayer, Bool isMultiplayer)
 {
 	m_localPlayer = localPlayer;
-	m_skippedOne = !isMultiplayer;
+	m_skippedOne = TRUE;
 	m_sawCRCMismatch = FALSE;
 }
 
