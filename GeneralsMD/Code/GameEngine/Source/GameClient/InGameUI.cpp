@@ -7143,7 +7143,7 @@ void InGameUI::drawGameTime()
 	Int hours = gameSeconds / 60 / 60;
 	Int minutes = (gameSeconds / 60) % 60;
 	Int seconds = gameSeconds % 60;
-	Int frame = currentFrame % 30;
+	Int frame = currentFrame % LOGICFRAMES_PER_SECOND;
 
 	UnicodeString gameTimeString;
 	gameTimeString.format(L"%2.2d:%2.2d:%2.2d", hours, minutes, seconds);
