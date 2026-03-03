@@ -64,7 +64,8 @@ void FramePacer::setFramesPerSecondLimit( Int fps )
 
 	// clamp FPS to at least render at same as logic
 #if defined(GENERALS_ONLINE)
-	fps = std::max<int>(fps, GENERALS_ONLINE_HIGH_FPS_LIMIT);
+	bool bIsInGame = (TheGameLogic != nullptr && TheGameLogic->isInGame() && !TheGameLogic->isInShellGame() && !TheGameLogic->isInReplayGame());
+	fps = std::max<int>(fps, bIsInGame ? 70 : GENERALS_ONLINE_HIGH_FPS_LIMIT);
 #endif
 
 	m_maxFPS = fps;
