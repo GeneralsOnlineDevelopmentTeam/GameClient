@@ -168,6 +168,10 @@ protected:
 	Bool m_isClippedEnabled;	///<used by 2D drawing operations to define clip re
 	Real m_averageFPS;		///<average fps over the last 30 frames.
 	Real m_currentFPS;		///<current fps value.
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	float m_frameSkipAccumulator = 0.0f;
+#endif
+
 #if defined(RTS_DEBUG)
 	Int64 m_timerAtCumuFPSStart;
 #endif

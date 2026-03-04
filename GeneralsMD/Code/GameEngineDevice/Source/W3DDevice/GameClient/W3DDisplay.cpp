@@ -1687,8 +1687,17 @@ void W3DDisplay::draw( void )
 
 	updateAverageFPS();
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	if (TheGameLogic && (TheGameLogic->getFrame() % LOGICFRAMES_PER_SECOND) == 0)
-		TheGameLODManager->updateGraphicsQualityState(m_averageFPS);
+	TheGameLODManager->updateGraphicsQualityState(m_averageFPS);
+	if (TheGameLODManager->getFrameSkipEnabled()) {
+		float skipRatio = min(0.5f, max(0.0f, ((float)LOGICFRAMES_PER_SECOND - m_averageFPS) / (float)LOGICFRAMES_PER_SECOND * 2.0f));
+		m_frameSkipAccumulator += skipRatio;
+		if (m_frameSkipAccumulator >= 1.0f) {
+			m_frameSkipAccumulator -= 1.0f;
+			WW3D::SkipNextRenderFrame = true;
+		}
+	}
+	else
+		m_frameSkipAccumulator = 0.0f;
 #else
 	if (TheGlobalData->m_enableDynamicLOD && TheGameLogic->getShowDynamicLOD())
 	{
@@ -2073,6 +2082,10 @@ void W3DDisplay::createLightPulse( const Coord3D *pos, const RGBColor *color,
 	if (innerRadius+attenuationWidth<2.0*PATHFIND_CELL_SIZE_F + 1.0f) {
 		return; // it basically won't make any visual difference.  jba.
 	}
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (TheGameLODManager && TheGameLODManager->isQualityReduced())
+		return;
+#endif
 	W3DDynamicLight * theDynamicLight = m_3DScene->getADynamicLight();
 	// turn it on.
 	theDynamicLight->setEnabled(true);

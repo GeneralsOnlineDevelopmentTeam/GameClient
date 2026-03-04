@@ -175,6 +175,9 @@ float														WW3D::PixelCenterY = 0.0f;
 
 bool														WW3D::IsInitted = false;
 bool														WW3D::IsRendering = false;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+bool														WW3D::SkipNextRenderFrame = false;
+#endif
 bool														WW3D::IsCapturing = false;
 bool														WW3D::IsScreenUVBiased = false;
 
@@ -851,6 +854,14 @@ WW3DErrorType WW3D::Begin_Render(bool clear,bool clearz,const Vector3 & color, f
 		DX8Wrapper::Set_Viewport(&vp);
 		DX8Wrapper::Clear(clear, clearz, color, dest_alpha);
 	}
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (WW3D::SkipNextRenderFrame) {
+		WW3D::SkipNextRenderFrame = false;
+		IsRendering = false;
+		return WW3D_ERROR_GENERIC;
+	}
+#endif
 
 	// Notify D3D that we are beginning to render the frame
 	DX8Wrapper::Begin_Scene();

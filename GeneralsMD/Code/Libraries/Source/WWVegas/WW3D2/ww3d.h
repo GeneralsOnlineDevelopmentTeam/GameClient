@@ -322,6 +322,9 @@ public:
 
 	// Gamma control
 	static void					Set_Gamma(float gamma,float bright,float contrast,bool calibrate=true);
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	static bool							SkipNextRenderFrame;
+#endif
 
 private:
 

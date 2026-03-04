@@ -190,6 +190,9 @@ public:
 	Bool isReallyLowMHz() const { return m_cpuFreq < m_reallyLowMHz; }
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	void updateGraphicsQualityState(float averageFPS);
+	void restoreQualitySettings();
+	bool getFrameSkipEnabled() const { return m_frameSkipEnabled; }
+	bool isQualityReduced() const { return m_isQualityReduced; }
 #endif
 
 	StaticGameLODInfo m_staticGameLODInfo[STATIC_GAME_LOD_COUNT];
@@ -230,14 +233,14 @@ protected:
 	Real m_compositeBenchIndex;
 	Int m_reallyLowMHz;
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-	bool m_userGraphSnapshotTaken;
 	bool m_userShadowVolumesEnabled;
 	bool m_userShadowDecalsEnabled;
 	bool m_userHeatEffectsEnabled;
 	bool m_isQualityReduced;
-	int  m_stableFPSDuration;
-	int m_lowFPSSecondsCount;
-	DynamicGameLODLevel m_userDynamicLOD;
+	bool m_frameSkipEnabled;
+	int  m_stableFPSSecondsCount;
+	int  m_lowFPSSecondsCount;
+	int  m_userMaxParticleCount;
 #endif
 };
 
