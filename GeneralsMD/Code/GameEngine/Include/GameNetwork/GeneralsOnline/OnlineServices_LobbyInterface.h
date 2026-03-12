@@ -183,6 +183,8 @@ public:
 	void UpdateCurrentLobby_AITeam(int slot, int team);
 	void UpdateCurrentLobby_AIStartPos(int slot, int startpos);
 
+	void UpdateCurrentLobby_BulkSlotUpdate(NGMPGame* game);
+
 	void UpdateCurrentLobbyMaxCameraHeight(uint16_t maxCameraHeight);
 
 	void SetJoinability(ELobbyJoinability joinabilityFlag);

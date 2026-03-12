@@ -74,7 +74,8 @@ enum class ELobbyUpdateField
 	AI_TEAM = 15,
 	AI_START_POS = 16,
 	MAX_CAMERA_HEIGHT = 17,
-	JOINABILITY = 18
+	JOINABILITY = 18,
+	HOST_ACTION_BULK_SLOT_UPDATE = 19
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -465,6 +466,45 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 		{
 			UnicodeString msg = UnicodeString(L"All players have been forced to ready up.");
 			SendAnnouncementMessageToCurrentLobby(msg, true);
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_BulkSlotUpdate(NGMPGame* game)
+{
+	ClearAutoReadyCountdown();
+	if (TheNGMPGame && TheNGMPGame->IsCountdownStarted())
+		TheNGMPGame->StopCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::HOST_ACTION_BULK_SLOT_UPDATE;
+
+	nlohmann::json slotsArray = nlohmann::json::array();
+	for (int i = 0; i < MAX_SLOTS; ++i)
+	{
+		const GameSlot *slot = game->getConstSlot(i);
+		if (slot && slot->isOccupied())
+		{
+			nlohmann::json slotEntry;
+			slotEntry["slot_index"] = i;
+			slotEntry["side"] = slot->getPlayerTemplate();
+			slotEntry["color"] = slot->getColor();
+			slotEntry["start_pos"] = slot->getStartPos();
+			slotEntry["team"] = slot->getTeamNumber();
+			slotsArray.push_back(slotEntry);
+		}
+	}
+	j["slots"] = slotsArray;
+	std::string strPostData = j.dump();
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			if (!bSuccess || statusCode < 200 || statusCode >= 300)
+			{
+				DEBUG_LOG(("UpdateCurrentLobby_BulkSlotUpdate failed: success=%d, status=%d", bSuccess, statusCode));
+			}
 		});
 }
 
