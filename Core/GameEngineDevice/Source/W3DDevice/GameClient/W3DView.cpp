@@ -199,6 +199,12 @@ void W3DView::setHeight(Int height)
 	// extend View functionality
 	View::setHeight(height);
 
+	// Protect against division by zero during initialization
+	if (height <= 0 || getWidth() <= 0 || TheDisplay->getHeight() <= 0)
+	{
+		return;
+	}
+
 	Vector2 vMin,vMax;
 	m_3DCamera->Set_Aspect_Ratio((Real)getWidth()/(Real)height);
  	m_3DCamera->Get_Viewport(vMin,vMax);
@@ -213,6 +219,12 @@ void W3DView::setWidth(Int width)
 {
 	// extend View functionality
 	View::setWidth(width);
+
+	// Protect against division by zero during initialization
+	if (getHeight() <= 0 || TheDisplay->getWidth() <= 0)
+	{
+		return;
+	}
 
 	Vector2 vMin,vMax;
 	m_3DCamera->Set_Aspect_Ratio((Real)width/(Real)getHeight());
@@ -232,6 +244,12 @@ void W3DView::setOrigin( Int x, Int y)
 {
 	// extend View functionality
 	View::setOrigin(x,y);
+
+	// Protect against division by zero during initialization
+	if (TheDisplay->getWidth() <= 0 || TheDisplay->getHeight() <= 0)
+	{
+		return;
+	}
 
 	Vector2 vMin,vMax;
 
@@ -1939,7 +1957,12 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 {
 	// TheSuperHackers @fix Mauller adjust the max camera height to compensate for the aspect ratio
 	Real baseAspectRatio = 800.0f / 600.0f;
-	Real currentAspectRatio = (float)TheDisplay->getWidth() / (float)TheDisplay->getHeight();
+	Real currentAspectRatio = baseAspectRatio; // default to base aspect ratio
+	// Protect against division by zero during initialization
+	if (TheDisplay->getHeight() > 0)
+	{
+		currentAspectRatio = (float)TheDisplay->getWidth() / (float)TheDisplay->getHeight();
+	}
 	Real aspectWidthScale = fabs((1 + (currentAspectRatio - baseAspectRatio)));
 
 	// MDC - we no longer want to rotate maps (design made all of them right to begin with)
@@ -2150,6 +2173,12 @@ Int W3DView::iterateDrawablesInRegion( IRegion2D *screenRegion,
 		if (screenRegion->height() == 0 && screenRegion->width() == 0)
 		{
 			regionIsPoint = TRUE;
+		}
+
+		// Protect against division by zero during initialization
+		if (getWidth() <= 0 || getHeight() <= 0)
+		{
+			return 0;
 		}
 
 		normalizedRegion.lo.x = ((Real)(screenRegion->lo.x - m_originX) / (Real)getWidth()) * 2.0f - 1.0f;
