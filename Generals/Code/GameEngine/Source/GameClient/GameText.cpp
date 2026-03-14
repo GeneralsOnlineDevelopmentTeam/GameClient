@@ -1370,7 +1370,7 @@ UnicodeString GameTextManager::fetchOrSubstituteFormatVA( const Char *label, con
 	if (exists)
 	{
 		UnicodeString strFormat;
-		strFormat.format_va(strFormat.str(), args);
+		strFormat.format_va(str.str(), args);
 		str = strFormat;
 	}
 	else
