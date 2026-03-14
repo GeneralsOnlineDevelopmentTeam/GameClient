@@ -621,10 +621,13 @@ void W3DView::setCameraTransform( void )
 	buildCameraTransform( &cameraTransform );
 	m_3DCamera->Set_Transform( cameraTransform );
 
-	if (TheTerrainRenderObject)
+	if (TheTerrainRenderObject && W3DDisplay::m_3DScene)
 	{
 		RefRenderObjListIterator *it = W3DDisplay::m_3DScene->createLightsIterator();
-		TheTerrainRenderObject->updateCenter(m_3DCamera, it);
+		if (it && m_3DCamera)
+		{
+			TheTerrainRenderObject->updateCenter(m_3DCamera, it);
+		}
 		if (it)
 		{
 		 W3DDisplay::m_3DScene->destroyLightsIterator(it);
@@ -1107,9 +1110,12 @@ void W3DView::update(void)
 
 //	Int elapsedTimeMs = TheW3DFrameLengthInMsec; // Assume a constant time flow.  It just works out better.  jba.
 
-	if (TheTerrainRenderObject->doesNeedFullUpdate()) {
+	if (TheTerrainRenderObject->doesNeedFullUpdate() && W3DDisplay::m_3DScene) {
 		RefRenderObjListIterator *it = W3DDisplay::m_3DScene->createLightsIterator();
-		TheTerrainRenderObject->updateCenter(m_3DCamera, it);
+		if (it && m_3DCamera)
+		{
+			TheTerrainRenderObject->updateCenter(m_3DCamera, it);
+		}
 		if (it)
 		{
 		 W3DDisplay::m_3DScene->destroyLightsIterator(it);

@@ -2420,12 +2420,16 @@ void BaseHeightMapRenderObjClass::updateCenter(CameraClass *camera , RefRenderOb
 	}
 #endif
 	if (m_needFullUpdate) {
-		m_bridgeBuffer->doFullUpdate();
-		m_bridgeBuffer->updateCenter(camera, pLightsIterator);
+		if (m_bridgeBuffer) {
+			m_bridgeBuffer->doFullUpdate();
+			m_bridgeBuffer->updateCenter(camera, pLightsIterator);
+		}
 		m_updating = false;
 		return;
 	}
-	m_bridgeBuffer->updateCenter(camera, pLightsIterator);
+	if (m_bridgeBuffer) {
+		m_bridgeBuffer->updateCenter(camera, pLightsIterator);
+	}
 	m_updating = false;
 }
 
