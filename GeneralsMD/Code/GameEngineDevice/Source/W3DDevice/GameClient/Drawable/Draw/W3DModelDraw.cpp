@@ -1117,6 +1117,11 @@ void W3DModelDrawModuleData::validateStuffForTimeAndWeather(const Drawable* draw
 //-------------------------------------------------------------------------------------------------
 W3DModelDrawModuleData::~W3DModelDrawModuleData()
 {
+	// Explicitly clear containers to ensure proper destruction order and prevent
+	// memory corruption during shutdown. Each ModelConditionInfo contains a
+	// PristineBoneInfoMap that must be destroyed properly before implicit cleanup.
+	m_conditionStates.clear();
+	m_transitionMap.clear();
 	m_conditionStateMap.clear();
 }
 
