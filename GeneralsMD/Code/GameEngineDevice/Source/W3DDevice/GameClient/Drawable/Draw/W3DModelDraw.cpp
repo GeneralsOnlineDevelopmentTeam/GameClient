@@ -2024,7 +2024,7 @@ void W3DModelDraw::adjustTransformMtx(Matrix3D& mtx) const
 	}
 #endif
 
-	if (m_curState->m_flags & (1<<ADJUST_HEIGHT_BY_CONSTRUCTION_PERCENT))
+	if (m_curState && m_curState->m_flags & (1<<ADJUST_HEIGHT_BY_CONSTRUCTION_PERCENT))
 	{
 		const Object *obj = getDrawable()->getObject();
 		if (obj)
