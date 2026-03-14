@@ -762,6 +762,10 @@ Int updateTeletypeText( Int num_chars, GameWindow* window, UnicodeString full_te
 
 void ChallengeLoadScreen::activatePieces( Int frame, const GeneralPersona *generalPlayer, const GeneralPersona *generalOpponent )
 {
+	// Safety check - if generalOpponent is NULL, we can't proceed with opponent-related operations
+	if (!generalOpponent)
+		return;
+
 	static Int textPosBigNameRight = 0;
 	static Int textPosNameRight = 0;
 	static Int textPosAgeRight = 0;
@@ -892,6 +896,10 @@ void ChallengeLoadScreen::activatePieces( Int frame, const GeneralPersona *gener
 
 void ChallengeLoadScreen::activatePiecesMinSpec(const GeneralPersona *generalPlayer, const GeneralPersona *generalOpponent)
 {
+	// Safety check - if generalOpponent is NULL, we can't proceed with opponent-related operations
+	if (!generalOpponent)
+		return;
+
 	m_bioNameLeft->winHide(FALSE);
 //	m_bioAgeLeft->winHide(FALSE);
 	m_bioBirthplaceLeft->winHide(FALSE);
@@ -944,6 +952,13 @@ void ChallengeLoadScreen::init( GameInfo *game )
 	// the opponent general is tied to the mission
 	DEBUG_ASSERTCRASH(mission->m_generalName.isNotEmpty(), ("No GeneralName associated with this mission, check Campaign.ini"));
 	const GeneralPersona* generalOpponent = TheChallengeGenerals->getGeneralByGeneralName( mission->m_generalName );
+	
+	// Check if we found a valid opponent general - if not, log error and return to avoid crash
+	if (!generalOpponent)
+	{
+		DEBUG_LOG(("ERROR: Could not find GeneralPersona for general name '%s' in mission. Check ChallengeMode INI files.", mission->m_generalName.str()));
+		return;
+	}
 
 	// create the layout of the load screen
 	m_loadScreen = TheWindowManager->winCreateFromScript( "Menus/ChallengeLoadScreen.wnd" );
@@ -1147,9 +1162,12 @@ void ChallengeLoadScreen::init( GameInfo *game )
 	}
 	setFPMode();
 
-
-	AudioEventRTS event( generalOpponent->getRandomTauntSound() );
-	TheAudio->addAudioEvent( &event );
+	// Play opponent taunt sound if generalOpponent is valid
+	if (generalOpponent)
+	{
+		AudioEventRTS event( generalOpponent->getRandomTauntSound() );
+		TheAudio->addAudioEvent( &event );
+	}
 
 	m_ambientLoopHandle = TheAudio->addAudioEvent(&m_ambientLoop);
 	TheAudio->update();
