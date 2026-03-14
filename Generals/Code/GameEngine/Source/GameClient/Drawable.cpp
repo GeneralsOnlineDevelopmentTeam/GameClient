@@ -333,10 +333,14 @@ Drawable::Drawable( const ThingTemplate *thingTemplate, DrawableStatusBits statu
 
 	m_lastConstructDisplayed = -1.0f;
 	//Fix for the building percent
-	m_constructDisplayString = TheDisplayStringManager->newDisplayString();
-	m_constructDisplayString->setFont(TheFontLibrary->getFont(TheInGameUI->getDrawableCaptionFontName(),
-																TheGlobalLanguageData->adjustFontSize(TheInGameUI->getDrawableCaptionPointSize()),
-																TheInGameUI->isDrawableCaptionBold() ));
+	m_constructDisplayString = nullptr;
+	if (TheDisplayStringManager != nullptr)
+	{
+		m_constructDisplayString = TheDisplayStringManager->newDisplayString();
+		m_constructDisplayString->setFont(TheFontLibrary->getFont(TheInGameUI->getDrawableCaptionFontName(),
+																	TheGlobalLanguageData->adjustFontSize(TheInGameUI->getDrawableCaptionPointSize()),
+																	TheInGameUI->isDrawableCaptionBold() ));
+	}
 
 	m_ambientSound = nullptr;
 
@@ -479,11 +483,11 @@ Drawable::~Drawable()
 {
 	Int i;
 
-	if( m_constructDisplayString )
+	if( m_constructDisplayString && TheDisplayStringManager != nullptr )
 		TheDisplayStringManager->freeDisplayString( m_constructDisplayString );
 	m_constructDisplayString = nullptr;
 
-	if ( m_captionDisplayString )
+	if ( m_captionDisplayString && TheDisplayStringManager != nullptr )
 		TheDisplayStringManager->freeDisplayString( m_captionDisplayString );
 	m_captionDisplayString = nullptr;
 

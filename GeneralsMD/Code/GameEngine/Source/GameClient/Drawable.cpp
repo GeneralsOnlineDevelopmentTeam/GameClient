@@ -369,10 +369,14 @@ Drawable::Drawable(const ThingTemplate* thingTemplate, DrawableStatusBits status
 
 	m_lastConstructDisplayed = -1.0f;
 	//Fix for the building percent
-	m_constructDisplayString = TheDisplayStringManager->newDisplayString();
-	m_constructDisplayString->setFont(TheFontLibrary->getFont(TheInGameUI->getDrawableCaptionFontName(),
-		TheGlobalLanguageData->adjustFontSize(TheInGameUI->getDrawableCaptionPointSize()),
-		TheInGameUI->isDrawableCaptionBold()));
+	m_constructDisplayString = NULL;
+	if (TheDisplayStringManager != NULL)
+	{
+		m_constructDisplayString = TheDisplayStringManager->newDisplayString();
+		m_constructDisplayString->setFont(TheFontLibrary->getFont(TheInGameUI->getDrawableCaptionFontName(),
+			TheGlobalLanguageData->adjustFontSize(TheInGameUI->getDrawableCaptionPointSize()),
+			TheInGameUI->isDrawableCaptionBold()));
+	}
 
 	m_ambientSound = NULL;
 	m_ambientSoundEnabled = true;
@@ -531,11 +535,11 @@ Drawable::~Drawable()
 {
 	Int i;
 
-	if (m_constructDisplayString)
+	if (m_constructDisplayString && TheDisplayStringManager != NULL)
 		TheDisplayStringManager->freeDisplayString(m_constructDisplayString);
 	m_constructDisplayString = NULL;
 
-	if (m_captionDisplayString)
+	if (m_captionDisplayString && TheDisplayStringManager != NULL)
 		TheDisplayStringManager->freeDisplayString(m_captionDisplayString);
 	m_captionDisplayString = NULL;
 
@@ -3691,7 +3695,7 @@ void Drawable::drawConstructPercent(const IRegion2D* healthBarRegion)
 		obj->getStatusBits().test(OBJECT_STATUS_SOLD))
 	{
 		// no object, or we are now complete get rid of the string if we have one
-		if (m_constructDisplayString)
+		if (m_constructDisplayString && TheDisplayStringManager != NULL)
 		{
 
 			TheDisplayStringManager->freeDisplayString(m_constructDisplayString);
@@ -3707,7 +3711,7 @@ void Drawable::drawConstructPercent(const IRegion2D* healthBarRegion)
 	//}
 
 	// construction is partially complete, allocate a display string if we need one
-	if (m_constructDisplayString == NULL)
+	if (m_constructDisplayString == NULL && TheDisplayStringManager != NULL)
 		m_constructDisplayString = TheDisplayStringManager->newDisplayString();
 
 	// set the string if the value has changed
@@ -4326,7 +4330,7 @@ void Drawable::setCaptionText(const UnicodeString& captionText)
 	UnicodeString sanitizedString = captionText;
 	TheLanguageFilter->filterLine(sanitizedString);
 
-	if (m_captionDisplayString == NULL)
+	if (m_captionDisplayString == NULL && TheDisplayStringManager != NULL)
 	{
 		m_captionDisplayString = TheDisplayStringManager->newDisplayString();
 		GameFont* font = TheFontLibrary->getFont(
@@ -4349,7 +4353,7 @@ void Drawable::setCaptionText(const UnicodeString& captionText)
 //-------------------------------------------------------------------------------------------------
 void Drawable::clearCaptionText(void)
 {
-	if (m_captionDisplayString)
+	if (m_captionDisplayString && TheDisplayStringManager != NULL)
 		TheDisplayStringManager->freeDisplayString(m_captionDisplayString);
 	m_captionDisplayString = NULL;
 }
