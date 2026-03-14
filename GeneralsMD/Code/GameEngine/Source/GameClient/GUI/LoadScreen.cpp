@@ -1660,12 +1660,12 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		// Load the Player's m_playerWinLosses
 		winName.format( "GameSpyLoadScreen.wnd:WinRank%d",i);
 		m_playerRank[i] = TheWindowManager->winGetWindowFromId( m_loadScreen,TheNameKeyGenerator->nameToKey( winName ));
-		DEBUG_ASSERTCRASH(m_playerRank[i], ("Can't initialize the m_playerRank for the GameSpyLoadScreen loadscreen"));
+		// NOTE: m_playerRank[i] can be NULL if the GUI element is missing - we'll check before using it
 
 		// Load the Player's m_playerOfficerMedal
 		winName.format( "GameSpyLoadScreen.wnd:WinOfficer%d",i);
 		m_playerOfficerMedal[i] = TheWindowManager->winGetWindowFromId( m_loadScreen,TheNameKeyGenerator->nameToKey( winName ));
-		DEBUG_ASSERTCRASH(m_playerOfficerMedal[i], ("Can't initialize the m_playerOfficerMedal for the GameSpyLoadScreen loadscreen"));
+		// NOTE: m_playerOfficerMedal[i] can be NULL if the GUI element is missing - we'll check before using it
 
 		winName.format( "MultiplayerLoadScreen.wnd:StaticTextTeam%d",i);
 		teamWin[i] = TheWindowManager->winGetWindowFromId( m_loadScreen,TheNameKeyGenerator->nameToKey( winName ));
@@ -1727,8 +1727,10 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		if (!isPreorder)
 			preorderImg = nullptr;
 		const Image *rankImg = LookupSmallRankImage(favSide, rankPoints);
-		m_playerOfficerMedal[i]->winSetEnabledImage(0, preorderImg);
-		m_playerRank[i]->winSetEnabledImage(0, rankImg);
+		if (m_playerOfficerMedal[i])
+			m_playerOfficerMedal[i]->winSetEnabledImage(0, preorderImg);
+		if (m_playerRank[i])
+			m_playerRank[i]->winSetEnabledImage(0, rankImg);
 
 		UnicodeString formatString;
 
