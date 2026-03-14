@@ -214,7 +214,7 @@ public:
 	virtual void closeOpenSlots(void);						///< close all slots that are currently unoccupied.
 
 	// CRC checking hack
-	void setCRCInterval( Int val ) { m_crcInterval = (val<100)?val:100; }
+	void setCRCInterval( Int val ) { m_crcInterval = (val<1)?1:((val>100)?100:val); }
 	Int getCRCInterval( void ) const { return m_crcInterval; }
 
 	Bool haveWeSurrendered(void) { return m_surrendered; }

@@ -3868,12 +3868,13 @@ void GameLogic::update(void)
 	// would be getting the CRC anyway, so replays can get the CRCs from the exact instant in time as the original.
 	Bool isMPGameOrReplay = (TheRecorder && TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
 	Bool isSoloGameOrReplay = (TheRecorder && !TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
-	Bool generateForMP = (isMPGameOrReplay && (m_frame % TheGameInfo->getCRCInterval()) == 0);
+	Int crcInterval = TheGameInfo->getCRCInterval();
+	Bool generateForMP = (isMPGameOrReplay && crcInterval > 0 && (m_frame % crcInterval) == 0);
 #ifdef DEBUG_CRC
 	Bool generateForSolo = isSoloGameOrReplay && ((m_frame && (m_frame % 100 == 0)) ||
-		(getFrame() >= TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && ((m_frame % REPLAY_CRC_INTERVAL) == 0)));
+		(getFrame() >= TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && REPLAY_CRC_INTERVAL > 0 && ((m_frame % REPLAY_CRC_INTERVAL) == 0)));
 #else
-	Bool generateForSolo = isSoloGameOrReplay && ((m_frame % REPLAY_CRC_INTERVAL) == 0);
+	Bool generateForSolo = isSoloGameOrReplay && REPLAY_CRC_INTERVAL > 0 && ((m_frame % REPLAY_CRC_INTERVAL) == 0);
 #endif // DEBUG_CRC
 
 	if (generateForSolo || generateForMP)
