@@ -2857,7 +2857,8 @@ void W3DModelDraw::hideAllHeadlights(Bool hide)
 		for (Int subObj = 0; subObj < m_renderObject->Get_Num_Sub_Objects(); subObj++)
 		{
 			RenderObjClass* test = m_renderObject->Get_Sub_Object(subObj);
-			if (strstr(test->Get_Name(),"HEADLIGHT"))
+			const char* name = test->Get_Name();
+			if (name != NULL && strstr(name, "HEADLIGHT"))
 			{
 				test->Set_Hidden(hide);
 			}
