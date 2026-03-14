@@ -106,6 +106,10 @@ extern Bool contextCommandForNewSelection(const DrawableList *currentlySelectedD
 			continue;
 		}
 
+		if (obj->isDestroyed()) {
+			continue;
+		}
+
 		if (obj->isLocallyControlled()) {
 			++outSelectionInfo->currentCountMine;
 			if (obj->isKindOf(KINDOF_INFANTRY)) {
@@ -137,6 +141,10 @@ extern Bool contextCommandForNewSelection(const DrawableList *currentlySelectedD
 
 		Object *obj = (*it)->getObject();
 		if (!obj) {
+			continue;
+		}
+
+		if (obj->isDestroyed()) {
 			continue;
 		}
 
@@ -286,6 +294,10 @@ UnsignedInt getPickTypesForCurrentSelection( Bool forceAttackMode )
 
 		Object *obj = draw->getObject();
 		if (!obj) {
+			continue;
+		}
+
+		if (obj->isDestroyed()) {
 			continue;
 		}
 
