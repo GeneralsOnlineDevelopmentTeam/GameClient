@@ -141,11 +141,16 @@ LoadScreen::~LoadScreen( void )
 
 void LoadScreen::update( Int percent )
 {
-	TheGameEngine->serviceWindowsOS();
-	TheWindowManager->update();
-	TheDisplay->update();
-	// redraw all views, update the GUI
-	TheDisplay->draw();
+	if(TheGameEngine)
+		TheGameEngine->serviceWindowsOS();
+	if(TheWindowManager)
+		TheWindowManager->update();
+	if(TheDisplay)
+	{
+		TheDisplay->update();
+		// redraw all views, update the GUI
+		TheDisplay->draw();
+	}
 
 	setFPMode();
 }
@@ -1184,13 +1189,17 @@ void GameSpyLoadScreen::reset( void )
 
 void GameSpyLoadScreen::update( Int percent )
 {
-	if(percent <= 100)
-		TheNetwork->updateLoadProgress( percent );
-	TheNetwork->liteupdate();
+	if(TheNetwork)
+	{
+		if(percent <= 100)
+			TheNetwork->updateLoadProgress( percent );
+		TheNetwork->liteupdate();
+	}
 
 	//GadgetProgressBarSetProgress(m_progressBars[TheNetwork->getLocalPlayerID()], percent );
 
-	TheMouse->setCursorTooltip(UnicodeString::TheEmptyString);
+	if(TheMouse)
+		TheMouse->setCursorTooltip(UnicodeString::TheEmptyString);
 
 	// Do this last!
 	LoadScreen::update( percent );

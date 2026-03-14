@@ -162,14 +162,21 @@ LoadScreen::~LoadScreen( void )
 
 void LoadScreen::update( Int percent )
 {
-	TheGameEngine->serviceWindowsOS();
-	if (TheGameEngine->getQuitting())
-		return;	//don't bother with any of this if the player is exiting game.
+	if(TheGameEngine)
+	{
+		TheGameEngine->serviceWindowsOS();
+		if (TheGameEngine->getQuitting())
+			return;	//don't bother with any of this if the player is exiting game.
+	}
 
-	TheWindowManager->update();
-	TheDisplay->update();
-	// redraw all views, update the GUI
-	TheDisplay->draw();
+	if(TheWindowManager)
+		TheWindowManager->update();
+	if(TheDisplay)
+	{
+		TheDisplay->update();
+		// redraw all views, update the GUI
+		TheDisplay->draw();
+	}
 
 	setFPMode();
 }
@@ -1877,12 +1884,12 @@ void GameSpyLoadScreen::reset( void )
 
 void GameSpyLoadScreen::update( Int percent )
 {
-	if(percent <= 100)
-		TheNetwork->updateLoadProgress( percent );
-	TheNetwork->liteupdate();
-
-	if (TheNetwork != nullptr)
+	if(TheNetwork)
 	{
+		if(percent <= 100)
+			TheNetwork->updateLoadProgress( percent );
+		TheNetwork->liteupdate();
+
 		if (percent >= 50)
 		{
 			if (!g_bHasDoneSOGScreenshot)
@@ -1900,7 +1907,9 @@ void GameSpyLoadScreen::update( Int percent )
 	{
 		NGMP_OnlineServicesManager::GetInstance()->Tick();
 	}
-	TheMouse->setCursorTooltip(UnicodeString::TheEmptyString);
+	
+	if(TheMouse)
+		TheMouse->setCursorTooltip(UnicodeString::TheEmptyString);
 
 	// Do this last!
 	LoadScreen::update( percent );
