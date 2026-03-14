@@ -1205,6 +1205,13 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	TheWritableGlobalData->m_showMoneyPerMinute = optionPref.getShowMoneyPerMinute();
 
 	Int val=optionPref.getGammaValue();
+	
+	// Clamp val to valid range to prevent division by zero or invalid calculations
+	if (val < 0)
+		val = 0;
+	if (val > 100)
+		val = 100;
+	
 	//generate a value between 0.6 and 2.0.
 	if (val < 50)
 	{	//darker gamma

@@ -865,6 +865,13 @@ Real OptionPreferences::getGammaValue(void)
  		return 50.0f;
 
  	Real gamma = (Real) atoi(it->second.str());
+ 	
+ 	// Clamp gamma value to valid range to prevent crashes from corrupted Options.ini
+ 	if (gamma < 0.0f)
+ 		gamma = 0.0f;
+ 	if (gamma > 100.0f)
+ 		gamma = 100.0f;
+ 	
  	return gamma;
 }
 
