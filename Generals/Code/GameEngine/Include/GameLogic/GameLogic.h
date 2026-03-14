@@ -380,9 +380,9 @@ private:
 };
 
 // INLINE /////////////////////////////////////////////////////////////////////////////////////////
-inline void GameLogic::setWidth( Real width ) { m_width = width; }
+inline void GameLogic::setWidth( Real width ) { m_width = (width > 0.0f) ? width : DEFAULT_WORLD_WIDTH; }
 inline Real GameLogic::getWidth( void ) { return m_width; }
-inline void GameLogic::setHeight( Real height ) { m_height = height; }
+inline void GameLogic::setHeight( Real height ) { m_height = (height > 0.0f) ? height : DEFAULT_WORLD_HEIGHT; }
 inline Real GameLogic::getHeight( void ) { return m_height; }
 inline UnsignedInt GameLogic::getFrame( void ) { return m_frame; }
 
