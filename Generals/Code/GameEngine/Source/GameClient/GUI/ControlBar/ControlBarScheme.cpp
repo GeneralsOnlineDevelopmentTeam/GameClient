@@ -212,7 +212,10 @@ void ControlBarScheme::reset(void)
 		while (it != m_layer[i].end())
 		{
 			ControlBarSchemeImage *im = *it;
-			delete im;
+			if(im)
+			{
+				delete im;
+			}
 			it ++;
 		}
 		m_layer[i].clear();
@@ -225,7 +228,10 @@ void ControlBarScheme::reset(void)
 	while (it != m_animations.end())
 	{
 		ControlBarSchemeAnimation *anim = *it;
-		delete anim;
+		if(anim)
+		{
+			delete anim;
+		}
 		it ++;
 	}
 	m_animations.clear();

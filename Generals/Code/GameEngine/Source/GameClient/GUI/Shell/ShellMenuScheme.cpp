@@ -136,7 +136,10 @@ ShellMenuScheme::~ShellMenuScheme( void )
 	{
 		ShellMenuSchemeImage *image = *it;
 		it = m_imageList.erase( it );
-		delete image;
+		if(image)
+		{
+			delete image;
+		}
 	}
 
 	ShellMenuSchemeLineListIt lineIt = m_lineList.begin();
@@ -144,7 +147,10 @@ ShellMenuScheme::~ShellMenuScheme( void )
 	{
 		ShellMenuSchemeLine *line = *lineIt;
 		lineIt = m_lineList.erase( lineIt );
-		delete line;
+		if(line)
+		{
+			delete line;
+		}
 	}
 
 
