@@ -108,22 +108,25 @@ void W3DDependencyModelDraw::adjustTransformMtx(Matrix3D& mtx) const
 	if( md->m_attachToDrawableBoneInContainer.isNotEmpty()
 		&& me
 		&& me->getContainedBy()
-		&& !me->getContainedBy()->getContain()->isEnclosingContainerFor(me)
 		)
 	{
-		// If we are currently "riding on", then our client position is determined by the client position of
-		// a particular bone in our container object.  Our logic position is updated by OpenContain.
-		const Drawable *theirDrawable = me->getContainedBy()->getDrawable();
-		if( theirDrawable )
+		const ContainModuleInterface* containerModule = me->getContainedBy()->getContain();
+		if( containerModule && !containerModule->isEnclosingContainerFor(me) )
 		{
-			Matrix3D theirBoneMtx;
-			if( theirDrawable->getCurrentWorldspaceClientBonePositions( md->m_attachToDrawableBoneInContainer.str(), theirBoneMtx ) )
+			// If we are currently "riding on", then our client position is determined by the client position of
+			// a particular bone in our container object.  Our logic position is updated by OpenContain.
+			const Drawable *theirDrawable = me->getContainedBy()->getDrawable();
+			if( theirDrawable )
 			{
-				mtx = theirBoneMtx;
-			}
-			else
-			{
-				DEBUG_LOG(("m_attachToDrawableBoneInContainer %s not found",getW3DDependencyModelDrawModuleData()->m_attachToDrawableBoneInContainer.str()));
+				Matrix3D theirBoneMtx;
+				if( theirDrawable->getCurrentWorldspaceClientBonePositions( md->m_attachToDrawableBoneInContainer.str(), theirBoneMtx ) )
+				{
+					mtx = theirBoneMtx;
+				}
+				else
+				{
+					DEBUG_LOG(("m_attachToDrawableBoneInContainer %s not found",getW3DDependencyModelDrawModuleData()->m_attachToDrawableBoneInContainer.str()));
+				}
 			}
 		}
 	}
