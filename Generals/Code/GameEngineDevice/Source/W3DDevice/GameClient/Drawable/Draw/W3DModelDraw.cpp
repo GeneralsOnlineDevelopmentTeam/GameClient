@@ -3896,6 +3896,7 @@ void W3DModelDraw::doHideShowProjectileObjects( UnsignedInt showCount, UnsignedI
 	ModelConditionInfo::HideShowSubObjInfo oneEntry;
 	if (m_curState->m_weaponProjectileHideShowName[slot].isEmpty())
 	{
+		showHideVector.reserve(maxCount);
 		for( UnsignedInt projectileIndex = 0; projectileIndex < maxCount; projectileIndex++ )
 		{
 			oneEntry.subObjName.format("%s%02d", m_curState->m_weaponProjectileLaunchBoneName[slot].str(), (projectileIndex + 1));
