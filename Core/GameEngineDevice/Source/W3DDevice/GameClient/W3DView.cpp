@@ -379,8 +379,11 @@ void W3DView::buildCameraTransform( Matrix3D *transform )
 	// do fxPitch adjustment
 	if (m_useRealZoomCam)
 	{
-		sourcePos.X = targetPos.X + ((sourcePos.X - targetPos.X) / m_FXPitch);
-		sourcePos.Y = targetPos.Y + ((sourcePos.Y - targetPos.Y) / m_FXPitch);
+		if (m_FXPitch != 0.0f)
+		{
+			sourcePos.X = targetPos.X + ((sourcePos.X - targetPos.X) / m_FXPitch);
+			sourcePos.Y = targetPos.Y + ((sourcePos.Y - targetPos.Y) / m_FXPitch);
+		}
 	}
 	else
 	{
@@ -400,8 +403,11 @@ void W3DView::buildCameraTransform( Matrix3D *transform )
 		}
 		else
 		{
-			sourcePos.X = targetPos.X + ((sourcePos.X - targetPos.X) / m_FXPitch);
-			sourcePos.Y = targetPos.Y + ((sourcePos.Y - targetPos.Y) / m_FXPitch);
+			if (m_FXPitch != 0.0f)
+			{
+				sourcePos.X = targetPos.X + ((sourcePos.X - targetPos.X) / m_FXPitch);
+				sourcePos.Y = targetPos.Y + ((sourcePos.Y - targetPos.Y) / m_FXPitch);
+			}
 		}
 #endif
 	}
@@ -576,7 +582,7 @@ void W3DView::setCameraTransform( void )
 
 	if (m_useRealZoomCam)	//WST 10.19.2002
 	{
-		if (m_FXPitch<0.95f)
+		if (m_FXPitch<0.95f && m_FXPitch != 0.0f)
 		{
 			farZ = farZ / m_FXPitch; //Extend far Z when we pitch up for RealZoomCam
 		}
