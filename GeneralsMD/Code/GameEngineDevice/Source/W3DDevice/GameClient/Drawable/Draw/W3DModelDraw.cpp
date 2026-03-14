@@ -353,7 +353,16 @@ HAnimClass* W3DAnimationInfo::getAnimHandle() const
 		DEBUG_ASSERTCRASH(m_handle, ("*** ASSET ERROR: animation %s not found",m_name.str()));
 		if (m_handle)
 		{
-			m_naturalDurationInMsec = m_handle->Get_Num_Frames() * 1000.0f / m_handle->Get_Frame_Rate();
+			const Real frameRate = m_handle->Get_Frame_Rate();
+			if (frameRate > 0.0f)
+			{
+				m_naturalDurationInMsec = m_handle->Get_Num_Frames() * 1000.0f / frameRate;
+			}
+			else
+			{
+				// prevent divide by zeros
+				m_naturalDurationInMsec = 0.0f;
+			}
 		}
 	}
 	// since we have it locally, must addref.
@@ -365,7 +374,16 @@ HAnimClass* W3DAnimationInfo::getAnimHandle() const
 	DEBUG_ASSERTCRASH(handle, ("*** ASSET ERROR: animation %s not found",m_name.str()));
 	if (handle != nullptr && m_naturalDurationInMsec < 0)
 	{
-		m_naturalDurationInMsec = handle->Get_Num_Frames() * 1000.0f / handle->Get_Frame_Rate();
+		const Real frameRate = handle->Get_Frame_Rate();
+		if (frameRate > 0.0f)
+		{
+			m_naturalDurationInMsec = handle->Get_Num_Frames() * 1000.0f / frameRate;
+		}
+		else
+		{
+			// prevent divide by zeros
+			m_naturalDurationInMsec = 0.0f;
+		}
 	}
 	// since Get_HAnim() returns an addrefed handle, we must NOT addref here.
 	//if (handle)
@@ -2242,12 +2260,16 @@ Bool W3DModelDraw::setCurAnimDurationInMsec(Real desiredDurationInMsec)
 		HAnimClass* anim = hlod->Peek_Animation();
 		if (anim)
 		{
-			Real naturalDurationInMsec = anim->Get_Num_Frames() * 1000.0f / anim->Get_Frame_Rate();
-			if (naturalDurationInMsec > 0.0f && desiredDurationInMsec > 0.0f)
+			const Real frameRate = anim->Get_Frame_Rate();
+			if (frameRate > 0.0f)
 			{
-				Real multiplier = naturalDurationInMsec / desiredDurationInMsec;
-				hlod->Set_Animation_Frame_Rate_Multiplier(multiplier);
-				return true;
+				Real naturalDurationInMsec = anim->Get_Num_Frames() * 1000.0f / frameRate;
+				if (naturalDurationInMsec > 0.0f && desiredDurationInMsec > 0.0f)
+				{
+					Real multiplier = naturalDurationInMsec / desiredDurationInMsec;
+					hlod->Set_Animation_Frame_Rate_Multiplier(multiplier);
+					return true;
+				}
 			}
 		}
 	}
