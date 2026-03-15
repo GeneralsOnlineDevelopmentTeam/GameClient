@@ -51,6 +51,7 @@
 #include "Common/StatsCollector.h"
 #include "Common/ThingTemplate.h"
 #include "Common/GameLOD.h"
+#include "Common/UserPreferences.h"
 
 #include "GameClient/InGameUI.h"
 #include "GameClient/CommandXlat.h"
@@ -195,12 +196,52 @@ enum ObserverStatsFontChange
 	ObserverStatsFontChange_Decrease,
 };
 
+enum ObserverNotificationFontChange
+{
+	ObserverNotificationFontChange_Increase,
+	ObserverNotificationFontChange_Decrease,
+};
+
+static bool changeObserverNotificationFontSize(ObserverNotificationFontChange change)
+{
+	Int fontSize = TheWritableGlobalData->m_observerNotificationFontSize;
+
+	const Int minSize = 0;
+	const Int maxSize = 15;
+
+	switch (change)
+	{
+	case ObserverNotificationFontChange_Increase:
+		if (fontSize < maxSize) ++fontSize;
+		break;
+	case ObserverNotificationFontChange_Decrease:
+		if (fontSize > minSize) --fontSize;
+		break;
+	}
+
+	if (fontSize == TheWritableGlobalData->m_observerNotificationFontSize)
+		return false;
+
+	TheWritableGlobalData->m_observerNotificationFontSize = fontSize;
+
+	if (TheInGameUI)
+		TheInGameUI->refreshObserverNotificationResources();
+
+	OptionPreferences optPref;
+	AsciiString prefString;
+	prefString.format("%d", fontSize);
+	optPref["ObserverNotificationFontSize"] = prefString;
+	optPref.write();
+
+	return true;
+}
+
 static bool changeObserverStatsFontSize(ObserverStatsFontChange change)
 {
 	Int fontSize = TheWritableGlobalData->m_observerStatsFontSize;
 
 	const Int minSize = 0;
-	const Int maxSize = 30;
+	const Int maxSize = 15;
 
 	switch (change)
 	{
@@ -224,6 +265,12 @@ static bool changeObserverStatsFontSize(ObserverStatsFontChange change)
 	{
 		TheInGameUI->initObserverOverlay();
 	}
+
+	OptionPreferences optPref;
+	AsciiString prefString;
+	prefString.format("%d", fontSize);
+	optPref["ObserverStatsFontSize"] = prefString;
+	optPref.write();
 
 	return true;
 }
@@ -3342,6 +3389,24 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		{
 			disp = DESTROY_MESSAGE;
 		}
+		break;
+	}
+
+	//-----------------------------------------------------------------------------------------
+
+	case GameMessage::MSG_META_INCREASE_OBSERVER_NOTIFICATION_FONT:
+	{
+		if (changeObserverNotificationFontSize(ObserverNotificationFontChange_Increase))
+			disp = DESTROY_MESSAGE;
+		break;
+	}
+
+	//-----------------------------------------------------------------------------------------
+
+	case GameMessage::MSG_META_DECREASE_OBSERVER_NOTIFICATION_FONT:
+	{
+		if (changeObserverNotificationFontSize(ObserverNotificationFontChange_Decrease))
+			disp = DESTROY_MESSAGE;
 		break;
 	}
 

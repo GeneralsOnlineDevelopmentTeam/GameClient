@@ -161,6 +161,8 @@ static const LookupListRec GameMessageMetaTypeNames[] =
 	{ "TOGGLE_PLAYER_OBSERVER",										GameMessage::MSG_META_TOGGLE_PLAYER_OBSERVER },
 	{ "INCREASE_OBSERVER_STATS_FONT",                           GameMessage::MSG_META_INCREASE_OBSERVER_STATS_FONT },
 	{ "DECREASE_OBSERVER_STATS_FONT",                           GameMessage::MSG_META_DECREASE_OBSERVER_STATS_FONT },
+	{ "INCREASE_OBSERVER_NOTIFICATION_FONT",                    GameMessage::MSG_META_INCREASE_OBSERVER_NOTIFICATION_FONT },
+	{ "DECREASE_OBSERVER_NOTIFICATION_FONT",                    GameMessage::MSG_META_DECREASE_OBSERVER_NOTIFICATION_FONT },
 	{ "BEGIN_PATH_BUILD",													GameMessage::MSG_META_BEGIN_PATH_BUILD },
 	{ "END_PATH_BUILD",														GameMessage::MSG_META_END_PATH_BUILD },
 	{ "BEGIN_FORCEATTACK",												GameMessage::MSG_META_BEGIN_FORCEATTACK },
@@ -732,6 +734,26 @@ MetaMapRec* MetaMap::getMetaMapRec(GameMessage::Type t)
 	// TheSuperHackers @info A default mapping for MSG_META_SELECT_ALL_AIRCRAFT would be useful for Generals
 	// but is not recommended, because it will cause key mapping conflicts with original game languages.
 
+	{
+		MetaMapRec* map = TheMetaMap->getMetaMapRec(GameMessage::MSG_META_INCREASE_OBSERVER_NOTIFICATION_FONT);
+		if (map->m_key == MK_NONE)
+		{
+			map->m_key = MK_RIGHT;
+			map->m_transition = DOWN;
+			map->m_modState = SHIFT;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec* map = TheMetaMap->getMetaMapRec(GameMessage::MSG_META_DECREASE_OBSERVER_NOTIFICATION_FONT);
+		if (map->m_key == MK_NONE)
+		{
+			map->m_key = MK_LEFT;
+			map->m_transition = DOWN;
+			map->m_modState = SHIFT;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
 	{
 		MetaMapRec* map = TheMetaMap->getMetaMapRec(GameMessage::MSG_META_INCREASE_OBSERVER_STATS_FONT);
 		if (map->m_key == MK_NONE)
