@@ -3340,6 +3340,9 @@ void InGameUI::selectDrawable( Drawable *draw )
 void InGameUI::deselectDrawable( Drawable *draw )
 {
 
+	if( draw == nullptr )
+		return;
+
 	if( draw->isSelected() )
 	{
 
