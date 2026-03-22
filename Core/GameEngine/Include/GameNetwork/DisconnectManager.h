@@ -51,6 +51,9 @@ public:
 	void update(ConnectionManager *conMgr);
 
 	void processDisconnectCommand(NetCommandRef *ref, ConnectionManager *conMgr);
+#if defined(GENERALS_ONLINE)
+	void dropDesyncedPlayer(Int slot, ConnectionManager* conMgr);
+#endif
 	void allCommandsReady(UnsignedInt frame, ConnectionManager *conMgr, Bool waitForPacketRouter = TRUE);
 	void nextFrame(UnsignedInt frame, ConnectionManager *conMgr);
 	Bool allowedToContinue();			///< Allow the next frame to go through?

@@ -77,6 +77,7 @@
 #include "GameClient/View.h"
 #include "GameClient/CampaignManager.h"
 #include "GameClient/GameWindowTransitions.h"
+#include "GameClient/MessageBox.h"
 
 #include "GameLogic/AI.h"
 #include "GameLogic/AIPathfind.h"
@@ -2724,7 +2725,7 @@ void GameLogic::processCommandList(CommandList* list)
 #if defined(GENERALS_ONLINE)
 			// provide more details
 			UnicodeString strMismatchDetails;
-			strMismatchDetails.format(L"GameLogic frame %d, latest frame %d, GetGameLogicRandomSeedCRC was %d\nHad %d CRCs from %d players\nMismatched Players:\n",
+			strMismatchDetails.format(L"GameLogic frame %d, latest frame %d, GGLRS CRC was %d, Had %d CRCs from %d players\nMismatched Players (Restart your game):\n",
 				TheGameLogic->getFrame(),
 				TheGameLogic->getFrame() - TheNetwork->getRunAhead() - 1,
 				GetGameLogicRandomSeedCRC(),
@@ -2759,23 +2760,33 @@ void GameLogic::processCommandList(CommandList* list)
 				}
 			}
 
-			// show all players
-			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+			if (numPlayers <= 2)
 			{
-				// only show users who arent OK, UI isn't huge
-				if (crcIt->second != biggestCRC)
-				{
-					Player* player = ThePlayerList->getNthPlayer(crcIt->first);
-					UnicodeString strPlayerInfo;
-					strPlayerInfo.format(L"player %d (%s) = %X [MISMATCH]\n", crcIt->first, player ? player->getPlayerDisplayName().str() : L"<NONE>", crcIt->second);
-
-					strMismatchDetails.concat(strPlayerInfo);
-				}
+				// Can't tell for sure who's at fault, end the game and dont show inaccurate details.
+				TheNetwork->setSawCRCMismatch(strMismatchDetails);
+				TheScriptEngine->startEndGameTimer(true);
 			}
+			else
+			{
+				// show all players, drop the desynced player and let the game continue
+				for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+				{
+					// only show users who arent OK, UI isn't huge
+					if (crcIt->second != biggestCRC)
+					{
+						UnicodeString playerName = TheNetwork->getPlayerName(crcIt->first);
+						UnicodeString strPlayerInfo;
+						strPlayerInfo.format(L"player %d (%s) = %X [MISMATCH]\n", crcIt->first, playerName.getLength() > 0 ? playerName.str() : L"<NONE>", crcIt->second);
+
+						strMismatchDetails.concat(strPlayerInfo);
+						TheNetwork->dropDesyncedPlayer(crcIt->first);
+					}
+				}
 
 			// TODO_NGMP: Handle missing CRCs, although that doesnt seem common
 
-			TheNetwork->setSawCRCMismatch(strMismatchDetails);
+				MessageBoxOk(UnicodeString(L"Mismatch Occurred"), strMismatchDetails, nullptr);
+			}
 
 #if defined(GENERALS_ONLINE_USE_SENTRY)
 			if (TheNGMPGame != nullptr)
