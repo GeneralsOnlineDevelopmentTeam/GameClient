@@ -149,7 +149,7 @@ static void doSetRallyPoint( Object *obj, const Coord3D& pos )
 	NameKeyType key = NAMEKEY( "BasicHumanLocomotor" );
 	LocomotorSet locomotorSet;
 	locomotorSet.addLocomotor( TheLocomotorStore->findLocomotorTemplate( key ) );
-	if( TheAI->pathfinder()->quickDoesPathExist( locomotorSet, obj->getPosition(), &pos ) == FALSE )
+	if( TheAI->pathfinder()->clientSafeQuickDoesPathExist( locomotorSet, obj->getPosition(), &pos ) == FALSE )
 	{
 
 		// user feedback
@@ -207,7 +207,7 @@ static void doSetRallyPoint( Object *obj, const Coord3D& pos )
 
 static Object * getSingleObjectFromSelection(const AIGroup *currentlySelectedGroup)
 {
-	if( currentlySelectedGroup )
+	if( currentlySelectedGroup && !currentlySelectedGroup->isEmpty() )
 	{
 		const VecObjectID& selectedObjects = currentlySelectedGroup->getAllIDs();
 		DEBUG_ASSERTCRASH(selectedObjects.size() == 1, ("Trying to get single object from multiple selection!"));
@@ -219,7 +219,7 @@ static Object * getSingleObjectFromSelection(const AIGroup *currentlySelectedGro
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-void GameLogic::closeWindows( void )
+void GameLogic::closeWindows()
 {
 	HideDiplomacy();
 	ResetDiplomacy();
@@ -248,6 +248,8 @@ void GameLogic::clearGameData( Bool showScoreScreen )
 		return;
 	}
 
+	setClearingGameData( TRUE );
+
 //	m_background = TheWindowManager->winCreateLayout("Menus/BlankWindow.wnd");
 //	DEBUG_ASSERTCRASH(m_background,("We Couldn't Load Menus/BlankWindow.wnd"));
 //	m_background->hide(FALSE);
@@ -265,7 +267,7 @@ void GameLogic::clearGameData( Bool showScoreScreen )
 		TheShell->push("Menus/ScoreScreen.wnd");
 		TheShell->showShell(FALSE); // by passing in false, we don't want to run the Init on the shell screen we just pushed on
 
-		void FixupScoreScreenMovieWindow( void );
+		void FixupScoreScreenMovieWindow();
 		FixupScoreScreenMovieWindow();
 	}
 
@@ -292,6 +294,8 @@ void GameLogic::clearGameData( Bool showScoreScreen )
 		m_background = nullptr;
 	}
 
+	setClearingGameData( FALSE );
+
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -299,7 +303,9 @@ void GameLogic::clearGameData( Bool showScoreScreen )
 // ------------------------------------------------------------------------------------------------
 void GameLogic::prepareNewGame( Int gameMode, GameDifficulty diff, Int rankPoints )
 {
-	setGameLoading(TRUE);
+	//Kris: Commented this out, but leaving it around incase it bites us later. I cleaned up the
+	//      nomenclature. Look for setLoadingMap() and setLoadingSave()
+	//setGameLoading(TRUE);
 
 	TheScriptEngine->setGlobalDifficulty(diff);
 
@@ -410,6 +416,18 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 		//---------------------------------------------------------------------------------------------
 		case GameMessage::MSG_NEW_GAME:
 		{
+#if !RETAIL_COMPATIBLE_CRC
+			// TheSuperHackers @fix stephanmeesters 11/03/2026
+			// Make sure we're ready to start a new game. This prevents an issue where an infinite disconnect screen
+			// can be force-triggered in an online match by using cheats.
+			if ( isInGame() || isClearingGameData() || isLoadingMap() )
+			{
+				DEBUG_CRASH( ("Called MSG_NEW_GAME while game is not ready (inGame=%d, clearingData=%d, loadingMap=%d)",
+					isInGame(), isClearingGameData(), isLoadingMap()) );
+				break;
+			}
+#endif
+
 			//DEBUG_ASSERTCRASH(msg->getArgumentCount() == 1 || msg->getArgumentCount() == 2, ("%d arguments to MSG_NEW_GAME", msg->getArgumentCount()));
 			Int gameMode = msg->getArgument( 0 )->integer;
 			Int rankPoints = 0;
@@ -502,8 +520,21 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 		{
 			Object *obj = findObjectByID( msg->getArgument( 0 )->objectID );
 			Coord3D dest = msg->getArgument( 1 )->location;
+
 			if (obj)
 			{
+#if !RETAIL_COMPATIBLE_CRC
+				// TheSuperHackers @fix stephanmeesters 11/03/2026 Validate the owner of the source object
+				if ( obj->getControllingPlayer() != thisPlayer )
+				{
+					DEBUG_CRASH( ("MSG_SET_RALLY_POINT: Player '%ls' attempted to set the rally point of object '%s' owned by player '%ls'.",
+						 thisPlayer->getPlayerDisplayName().str(),
+						 obj->getTemplate()->getName().str(),
+						 obj->getControllingPlayer()->getPlayerDisplayName().str()) );
+					break;
+				}
+#endif
+
 				doSetRallyPoint( obj, dest );
 			}
 
@@ -532,7 +563,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			Object *targetObject = findObjectByID( msg->getArgument( 0 )->objectID );
 
 			// issue command for either single object or for selected group
-			if( currentlySelectedGroup )
+			if( currentlySelectedGroup && targetObject )
 				currentlySelectedGroup->groupCombatDrop( targetObject,
 																								 *targetObject->getPosition(),
 																								 CMD_FROM_PLAYER );
@@ -657,6 +688,18 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			Object* source = findObjectByID(sourceID);
 			if (source != nullptr)
 			{
+#if !RETAIL_COMPATIBLE_CRC
+				// TheSuperHackers @fix stephanmeesters 01/03/2026 Validate the origin of the source object
+				if ( source->getControllingPlayer() != thisPlayer )
+				{
+					DEBUG_CRASH( ("MSG_DO_SPECIAL_POWER: Player '%ls' attempted to control the object '%s' owned by player '%ls'.",
+						 thisPlayer->getPlayerDisplayName().str(),
+						 source->getTemplate()->getName().str(),
+						 source->getControllingPlayer()->getPlayerDisplayName().str()) );
+					break;
+				}
+#endif
+
 				AIGroupPtr theGroup = TheAI->createGroup();
 				theGroup->add(source);
 				theGroup->groupDoSpecialPower( specialPowerID, options );
@@ -699,6 +742,18 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			Object* source = findObjectByID(sourceID);
 			if (source != nullptr)
 			{
+#if !RETAIL_COMPATIBLE_CRC
+				// TheSuperHackers @fix stephanmeesters 01/03/2026 Validate the origin of the source object
+				if ( source->getControllingPlayer() != thisPlayer )
+				{
+					DEBUG_CRASH( ("MSG_DO_SPECIAL_POWER_AT_LOCATION: Player '%ls' attempted to control the object '%s' owned by player '%ls'.",
+						 thisPlayer->getPlayerDisplayName().str(),
+						 source->getTemplate()->getName().str(),
+						 source->getControllingPlayer()->getPlayerDisplayName().str()) );
+					break;
+				}
+#endif
+
 				AIGroupPtr theGroup = TheAI->createGroup();
 				theGroup->add(source);
 				theGroup->groupDoSpecialPowerAtLocation( specialPowerID, &targetCoord, INVALID_ANGLE, objectInWay, options );
@@ -742,6 +797,18 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			Object* source = findObjectByID(sourceID);
 			if (source != nullptr)
 			{
+#if !RETAIL_COMPATIBLE_CRC
+				// TheSuperHackers @fix stephanmeesters 01/03/2026 Validate the origin of the source object
+				if ( source->getControllingPlayer() != thisPlayer )
+				{
+					DEBUG_CRASH( ("MSG_DO_SPECIAL_POWER_AT_OBJECT: Player '%ls' attempted to control the object '%s' owned by player '%ls'.",
+						 thisPlayer->getPlayerDisplayName().str(),
+						 source->getTemplate()->getName().str(),
+						 source->getControllingPlayer()->getPlayerDisplayName().str()) );
+					break;
+				}
+#endif
+
 				AIGroupPtr theGroup = TheAI->createGroup();
 				theGroup->add(source);
 				theGroup->groupDoSpecialPowerAtObject( specialPowerID, target, options );
@@ -1183,6 +1250,18 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			Object* source = findObjectByID(sourceID);
 			if (source != nullptr)
 			{
+#if !RETAIL_COMPATIBLE_CRC
+				// TheSuperHackers @fix stephanmeesters 01/03/2026 Validate the origin of the source object
+				if ( source->getControllingPlayer() != thisPlayer )
+				{
+					DEBUG_CRASH( ("MSG_DO_SPECIAL_POWER_OVERRIDE_DESTINATION: Player '%ls' attempted to control the object '%s' owned by player '%ls'.",
+						 thisPlayer->getPlayerDisplayName().str(),
+						 source->getTemplate()->getName().str(),
+						 source->getControllingPlayer()->getPlayerDisplayName().str()) );
+					break;
+				}
+#endif
+
 				AIGroupPtr theGroup = TheAI->createGroup();
 				theGroup->add(source);
 				theGroup->groupOverrideSpecialPowerDestination( spType, loc, CMD_FROM_PLAYER );
@@ -1353,7 +1432,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			if( pu == nullptr )
 			{
 
-				DEBUG_ASSERTCRASH( 0, ("MSG_QUEUE_UNIT_CREATE: Producer '%s' doesn't have a unit production interface",
+				DEBUG_CRASH( ("MSG_QUEUE_UNIT_CREATE: Producer '%s' doesn't have a unit production interface",
 															producer->getTemplate()->getName().str()) );
 				break;
 
@@ -1673,7 +1752,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 					aSound.setPosition(&pos);
 					TheAudio->addAudioEvent(&aSound);
 
-					// beacons are a rare event; play a nifty radar event thingie
+					// beacons are a rare event; play a nifty radar event thingy
 					TheRadar->createEvent( object->getPosition(), RADAR_EVENT_INFORMATION );
 
 					if (ThePlayerList->getLocalPlayer()->getRelationship(thisPlayer->getDefaultTeam()) == ALLIES)
@@ -1861,18 +1940,25 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 			{
 				if (TheTacticalView->isCameraMovementFinished())
 				{
-					ViewLocation loc;
-					Coord3D pos;
-					Real pitch, angle, zoom;
-					pos = msg->getArgument( 0 )->location;
-					angle = msg->getArgument( 1 )->real;
-					pitch = msg->getArgument( 2 )->real;
-					zoom = msg->getArgument( 3 )->real;
-					loc.init(pos.x, pos.y, pos.z, angle, pitch, zoom);
-					TheTacticalView->setLocation( &loc );
+					const Coord3D pos = msg->getArgument( 0 )->location;
+					const Real angle = msg->getArgument( 1 )->real;
+					const Real pitch = msg->getArgument( 2 )->real;
+					const Real zoom = msg->getArgument( 3 )->real;
+
+					// TheSuperHackers @info Definitely call in user mode to ensure the camera operates with auto-zoom
+					// over terrain elevations, because the Replay Camera does not store the absolute camera location,
+					// but key parameters relative to the terrain height at the camera pivot.
+					TheTacticalView->userSetPosition(&pos);
+					TheTacticalView->userSetAngle(angle);
+					TheTacticalView->userSetPitch(pitch);
+					TheTacticalView->userSetZoom(zoom);
+
+					// TheSuperHackers @fix Make sure there is no scrolling ever.
+					const Coord2D scroll = {0, 0};
+					TheTacticalView->userScrollBy(&scroll);
 
 					// TheSuperHackers @fix xezon 18/09/2025 Lock the new location to avoid user input from changing the camera in this frame.
-					TheTacticalView->lockViewUntilFrame( getFrame() + 1 );
+					TheTacticalView->lockUserControlUntilFrame( getFrame() + 1 );
 
 					if (!TheLookAtTranslator->hasMouseMovedRecently())
 					{

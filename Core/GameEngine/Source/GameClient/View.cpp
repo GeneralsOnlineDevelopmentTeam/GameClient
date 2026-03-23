@@ -30,8 +30,9 @@
 
 #include "Common/GameEngine.h"
 #include "Common/Xfer.h"
-#include "GameClient/View.h"
 #include "GameClient/Drawable.h"
+#include "GameClient/GameClient.h"
+#include "GameClient/View.h"
 
 UnsignedInt View::m_idNext = 1;
 
@@ -39,12 +40,13 @@ UnsignedInt View::m_idNext = 1;
 View *TheTacticalView = nullptr;
 
 
-View::View( void )
+View::View()
 {
-	m_viewLockedUntilFrame = 0u;
+	m_userControlLockedUntilFrame = 0u;
+	m_isUserControlled = true;
 	m_currentHeightAboveGround = 0.0f;
 	m_defaultAngle = 0.0f;
-	m_defaultPitchAngle = 0.0f;
+	m_defaultPitch = 0.0f;
 	m_heightAboveGround = 0.0f;
 	m_lockDist = 0.0f;
 	m_maxHeightAboveGround = 0.0f;
@@ -54,14 +56,14 @@ View::View( void )
 	m_originX = 0;
 	m_originY = 0;
 	m_snapImmediate = FALSE;
-	m_terrainHeightUnderCamera = 0.0f;
+	m_terrainHeightAtPivot = 0.0f;
 	m_zoom = 0.0f;
 	m_pos.x = 0;
 	m_pos.y = 0;
 	m_width = 0;
 	m_height = 0;
 	m_angle = 0.0f;
-	m_pitchAngle = 0.0f;
+	m_pitch = 0.0f;
 	m_cameraLock = INVALID_ID;
 	m_cameraLockDrawable = nullptr;
 	m_zoomLimited = TRUE;
@@ -70,7 +72,7 @@ View::View( void )
 	m_id = m_idNext++;
 
 	// default field of view
-	m_FOV = 50.0f * PI/180.0f;
+	m_FOV = DEG_TO_RADF(50.0f);
 
 	m_mouseLocked = FALSE;
 
@@ -82,7 +84,7 @@ View::~View()
 {
 }
 
-void View::init( void )
+void View::init()
 {
 	m_width = DEFAULT_VIEW_WIDTH;
 	m_height = DEFAULT_VIEW_HEIGHT;
@@ -101,15 +103,16 @@ void View::init( void )
 	m_okToAdjustHeight = FALSE;
 
 	m_defaultAngle = 0.0f;
-	m_defaultPitchAngle = 0.0f;
+	m_defaultPitch = 0.0f;
 }
 
-void View::reset( void )
+void View::reset()
 {
 	// Only fixing the reported bug.  Who knows what side effects resetting the rest could have.
 	m_zoomLimited = TRUE;
 
-	m_viewLockedUntilFrame = 0u;
+	m_userControlLockedUntilFrame = 0u;
+	m_isUserControlled = true;
 }
 
 /**
@@ -124,11 +127,6 @@ View *View::prependViewToList( View *list )
 void View::zoom(Real height)
 {
 	setHeightAboveGround(getHeightAboveGround() + height);
-}
-
-void View::lockViewUntilFrame(UnsignedInt frame)
-{
-	m_viewLockedUntilFrame = frame;
 }
 
 /**
@@ -147,7 +145,7 @@ void View::lookAt( const Coord3D *o )
 /**
  * Shift the view by the given delta.
  */
-void View::scrollBy( Coord2D *delta )
+void View::scrollBy( const Coord2D *delta )
 {
 	// update view's world position
 	m_pos.x += delta->x;
@@ -155,29 +153,36 @@ void View::scrollBy( Coord2D *delta )
 }
 
 /**
- * Rotate the view around the up axis by the given angle.
+ * Rotate the view around the vertical axis to the given angle.
  */
-void View::setAngle( Real angle )
+void View::setAngle( Real radians )
 {
-	m_angle = angle;
+	m_angle = WWMath::Normalize_Angle(radians);
 }
 
 /**
  * Rotate the view around the horizontal (X) axis to the given angle.
  */
-void View::setPitch( Real angle )
+void View::setPitch( Real radians )
 {
 	constexpr Real limit = PI/5.0f;
-	m_pitchAngle = clamp(-limit, angle, limit);
+	m_pitch = clamp(-limit, radians, limit);
 }
 
 /**
  * Set the view angle back to default
  */
-void View::setAngleAndPitchToDefault( void )
+void View::setAngleToDefault()
 {
 	m_angle = m_defaultAngle;
-	m_pitchAngle = m_defaultPitchAngle;
+}
+
+/**
+ * Set the view pitch back to default
+ */
+void View::setPitchToDefault()
+{
+	m_pitch = m_defaultPitch;
 }
 
 void View::setHeightAboveGround(Real z)
@@ -219,6 +224,11 @@ void View::setLocation( const ViewLocation *location )
 		forceRedraw();
 	}
 
+}
+
+Bool View::isUserControlLocked() const
+{
+	return m_userControlLockedUntilFrame > TheGameClient->getFrame();
 }
 
 //-------------------------------------------------------------------------------------------------

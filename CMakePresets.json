@@ -7,6 +7,22 @@
     },
     "configurePresets": [
         {
+            "name": "msvc-wine",
+            "displayName": "Windows 32bit MSVC 2022 via Wine",
+            "generator": "Ninja",
+            "hidden": false,
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL",
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_C_FLAGS": "/std:c17",
+                "CMAKE_CXX_FLAGS": "/std:c++20 /EHsc /Zc:__cplusplus",
+                "CMAKE_C_STANDARD": "17",
+                "RTS_FLAGS": "/W3"
+            }
+        },
+        {
             "name": "vc6",
             "displayName": "Windows 32bit VC6 Release",
             "generator": "Ninja",
@@ -83,7 +99,8 @@
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "$<$<CONFIG:Release,Debug,RelWithDebInfo>:Embedded>",
                 "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL",
-                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+                "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/triplets"
             }
         },
         {

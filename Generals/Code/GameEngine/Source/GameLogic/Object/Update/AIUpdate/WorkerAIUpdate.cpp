@@ -118,7 +118,7 @@ WorkerAIUpdate::WorkerAIUpdate( Thing *thing, const ModuleData* moduleData ) :
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-WorkerAIUpdate::~WorkerAIUpdate( void )
+WorkerAIUpdate::~WorkerAIUpdate()
 {
 
 	// delete our behavior state machine
@@ -159,23 +159,23 @@ Bool WorkerAIUpdate::isAvailableForSupplying() const
 }
 
 // ------------------------------------------------------------------------------------------------
-Real WorkerAIUpdate::getRepairHealthPerSecond( void ) const
+Real WorkerAIUpdate::getRepairHealthPerSecond() const
 {
 	return getWorkerAIUpdateModuleData()->m_repairHealthPercentPerSecond;
 }
 // ------------------------------------------------------------------------------------------------
-Real WorkerAIUpdate::getBoredTime( void ) const
+Real WorkerAIUpdate::getBoredTime() const
 {
 	return getWorkerAIUpdateModuleData()->m_boredTime;
 }
 // ------------------------------------------------------------------------------------------------
-Real WorkerAIUpdate::getBoredRange( void ) const
+Real WorkerAIUpdate::getBoredRange() const
 {
 	return getWorkerAIUpdateModuleData()->m_boredRange;
 }
 
 // ------------------------------------------------------------------------------------------------
-void WorkerAIUpdate::createMachines( void )
+void WorkerAIUpdate::createMachines()
 {
 
 	if( m_workerMachine == nullptr )
@@ -238,7 +238,7 @@ Real WorkerAIUpdate::getWarehouseScanDistance() const
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime WorkerAIUpdate::update( void )
+UpdateSleepTime WorkerAIUpdate::update()
 {
 
 	//
@@ -664,7 +664,7 @@ void WorkerAIUpdate::newTask( DozerTask task, Object* target )
 	m_task[ task ].m_targetObjectID = target->getID();
 	m_task[ task ].m_taskOrderFrame = TheGameLogic->getFrame();
 
-	// reset the dozer behavior so that it can re-evluate which task to continue working on
+	// reset the dozer behavior so that it can re-evaluate which task to continue working on
 	m_dozerMachine->resetToDefaultState();
 
 	// reset the workermachine, if we've been acting like a supply truck
@@ -701,10 +701,18 @@ void WorkerAIUpdate::cancelTask( DozerTask task )
 
 }
 
+void WorkerAIUpdate::cancelAllTasks()
+{
+	for (UnsignedInt task = DOZER_TASK_FIRST; task < DOZER_NUM_TASKS; ++task)
+		internalCancelTask((DozerTask)task);
+
+	m_dozerMachine->resetToDefaultState();
+}
+
 //-------------------------------------------------------------------------------------------------
 /** Attempt to resume the previous task */
 //-------------------------------------------------------------------------------------------------
-void WorkerAIUpdate::resumePreviousTask(void)
+void WorkerAIUpdate::resumePreviousTask()
 {
 	if (m_previousTask != DOZER_TASK_INVALID)
 	{
@@ -730,7 +738,7 @@ Bool WorkerAIUpdate::isTaskPending( DozerTask task )
 //-------------------------------------------------------------------------------------------------
 /** Is there any task pending */
 //-------------------------------------------------------------------------------------------------
-Bool WorkerAIUpdate::isAnyTaskPending( void )
+Bool WorkerAIUpdate::isAnyTaskPending()
 {
 
 	for( Int i = 0; i < DOZER_NUM_TASKS; i++ )
@@ -899,7 +907,7 @@ void WorkerAIUpdate::internalTaskCompleteOrCancelled( DozerTask task )
 //-------------------------------------------------------------------------------------------------
 /** If we were building something, kill the active-construction flag on it */
 //-------------------------------------------------------------------------------------------------
-void WorkerAIUpdate::onDelete( void )
+void WorkerAIUpdate::onDelete()
 {
 	Int i;
 
@@ -925,7 +933,7 @@ void WorkerAIUpdate::onDelete( void )
 //-------------------------------------------------------------------------------------------------
 /** Get the most recently issued task */
 //-------------------------------------------------------------------------------------------------
-DozerTask WorkerAIUpdate::getMostRecentCommand( void )
+DozerTask WorkerAIUpdate::getMostRecentCommand()
 {
 	Int i;
 	DozerTask mostRecentTask = DOZER_TASK_INVALID;
@@ -1159,14 +1167,14 @@ class ActAsDozerState :  public State
 	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(ActAsDozerState, "ActAsDozerState")
 protected:
 	// snapshot interface STUBBED.
-	virtual void crc( Xfer *xfer ){};
-	virtual void xfer( Xfer *xfer ){};
-	virtual void loadPostProcess(){};
+	virtual void crc( Xfer *xfer ) override {};
+	virtual void xfer( Xfer *xfer ) override {};
+	virtual void loadPostProcess() override {};
 
 public:
 	ActAsDozerState( StateMachine *machine ) :State( machine, "ActAsDozerState" ){}
-	virtual StateReturnType onEnter();
-	virtual StateReturnType update();
+	virtual StateReturnType onEnter() override;
+	virtual StateReturnType update() override;
 	virtual StateReturnType onExit();
 };
 EMPTY_DTOR(ActAsDozerState)
@@ -1178,14 +1186,14 @@ class ActAsSupplyTruckState :  public State
 	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(ActAsSupplyTruckState, "ActAsSupplyTruckState")
 protected:
 	// snapshot interface STUBBED.
-	virtual void crc( Xfer *xfer ){};
-	virtual void xfer( Xfer *xfer ){};
-	virtual void loadPostProcess(){};
+	virtual void crc( Xfer *xfer ) override {};
+	virtual void xfer( Xfer *xfer ) override {};
+	virtual void loadPostProcess() override {};
 
 public:
 	ActAsSupplyTruckState( StateMachine *machine ) :State( machine, "ActAsSupplyTruckState" ){}
-	virtual StateReturnType onEnter();
-	virtual StateReturnType update();
+	virtual StateReturnType onEnter() override;
+	virtual StateReturnType update() override;
 	virtual StateReturnType onExit();
 };
 EMPTY_DTOR(ActAsSupplyTruckState)
@@ -1240,7 +1248,7 @@ void WorkerStateMachine::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void WorkerStateMachine::loadPostProcess( void )
+void WorkerStateMachine::loadPostProcess()
 {
 	StateMachine::loadPostProcess();
 }
@@ -1495,7 +1503,7 @@ void WorkerAIUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void WorkerAIUpdate::loadPostProcess( void )
+void WorkerAIUpdate::loadPostProcess()
 {
  // extend base class
 	AIUpdateInterface::loadPostProcess();

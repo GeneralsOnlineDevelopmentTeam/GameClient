@@ -63,9 +63,9 @@ UnsignedInt WindowLayoutCurrentVersion = 2;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //
-// with this statis set to true, the window system will propogate mouse position
+// with this status set to true, the window system will propagate mouse position
 // messages to windows.  You may want to disable this if you feel the mouse position
-// messages are "spamming" your window and making a particular debuggin situation
+// messages are "spamming" your window and making a particular debugging situation
 // difficult.  Make sure you do enable this before you check in again tho because
 // it is necessary for any code that needs to look at objects or anything under
 // the radar cursor
@@ -75,7 +75,7 @@ static Bool sendMousePosMessages = TRUE;
 //-------------------------------------------------------------------------------------------------
 /** Process windows waiting to be destroyed */
 //-------------------------------------------------------------------------------------------------
-void GameWindowManager::processDestroyList( void )
+void GameWindowManager::processDestroyList()
 {
 	GameWindow *next;
 	GameWindow *doDestroy;
@@ -177,7 +177,7 @@ WindowMsgHandledType PassMessagesToParentSystem( GameWindow *window, UnsignedInt
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-GameWindowManager::GameWindowManager( void )
+GameWindowManager::GameWindowManager()
 {
 
 	m_windowList = nullptr;			// list of all top level windows
@@ -199,7 +199,7 @@ GameWindowManager::GameWindowManager( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-GameWindowManager::~GameWindowManager( void )
+GameWindowManager::~GameWindowManager()
 {
 
 	// destroy all windows
@@ -213,7 +213,7 @@ GameWindowManager::~GameWindowManager( void )
 //-------------------------------------------------------------------------------------------------
 /** Initialize the game window manager system */
 //-------------------------------------------------------------------------------------------------
-void GameWindowManager::init( void )
+void GameWindowManager::init()
 {
 	if(!TheTransitionHandler)
 		TheTransitionHandler = NEW GameWindowTransitionsHandler;
@@ -224,7 +224,7 @@ void GameWindowManager::init( void )
 //-------------------------------------------------------------------------------------------------
 /** Reset window system */
 //-------------------------------------------------------------------------------------------------
-void GameWindowManager::reset( void )
+void GameWindowManager::reset()
 {
 
 	// destroy all windows left
@@ -235,9 +235,9 @@ void GameWindowManager::reset( void )
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Update cycle for game widnow manager */
+/** Update cycle for game window manager */
 //-------------------------------------------------------------------------------------------------
-void GameWindowManager::update( void )
+void GameWindowManager::update()
 {
 
 	// Process windows waiting to be destroyed
@@ -642,7 +642,7 @@ Int GameWindowManager::winRelease( GameWindow *window )
 //-------------------------------------------------------------------------------------------------
 /** Returns the current mouse captor. */
 //-------------------------------------------------------------------------------------------------
-GameWindow *GameWindowManager::winGetCapture( void )
+GameWindow *GameWindowManager::winGetCapture()
 {
 
 	return m_mouseCaptor;
@@ -681,7 +681,7 @@ GameWindow *GameWindowManager::winGetWindowFromId( GameWindow *window, Int id )
 //-------------------------------------------------------------------------------------------------
 /** Gets the Window List Pointer */
 //-------------------------------------------------------------------------------------------------
-GameWindow *GameWindowManager::winGetWindowList( void )
+GameWindow *GameWindowManager::winGetWindowList()
 {
 
 	return m_windowList;
@@ -729,7 +729,7 @@ WindowMsgHandledType GameWindowManager::winSendInputMsg( GameWindow *window,
 //-------------------------------------------------------------------------------------------------
 /** Get the current input focus */
 //-------------------------------------------------------------------------------------------------
-GameWindow *GameWindowManager::winGetFocus( void )
+GameWindow *GameWindowManager::winGetFocus()
 {
 
 	return m_keyboardFocus;
@@ -1362,7 +1362,7 @@ Int GameWindowManager::drawWindow( GameWindow *window )
 //-------------------------------------------------------------------------------------------------
 /** Draw the GUI in reverse order to correlate with clicking priority */
 //-------------------------------------------------------------------------------------------------
-void GameWindowManager::winRepaint( void )
+void GameWindowManager::winRepaint()
 {
 	GameWindow *window, *next;
 
@@ -1560,7 +1560,7 @@ Int GameWindowManager::winDestroy( GameWindow *window )
 //-------------------------------------------------------------------------------------------------
 /** Destroy all windows on the window list IMMEDIATELY */
 //-------------------------------------------------------------------------------------------------
-Int GameWindowManager::winDestroyAll( void )
+Int GameWindowManager::winDestroyAll()
 {
 	GameWindow *win, *next;
 
@@ -1655,7 +1655,7 @@ Int GameWindowManager::winUnsetModal( GameWindow *window )
 //-------------------------------------------------------------------------------------------------
 /** Get the grabbed window */
 //-------------------------------------------------------------------------------------------------
-GameWindow *GameWindowManager::winGetGrabWindow( void )
+GameWindow *GameWindowManager::winGetGrabWindow()
 {
 
 	return m_grabWindow;
@@ -1741,7 +1741,7 @@ GameWindow *GameWindowManager::gogoMessageBox(Int x, Int y, Int width, Int heigh
 	if( width > 0 && height > 0 )
 	{
 		ICoord2D temp;
-		//First grab the percent increase/decrease compaired to the default size
+		//First grab the percent increase/decrease compared to the default size
 		parent->winGetSize( &temp.x, &temp.y);
 		ratioX = (float)width / (float)temp.x;
 		ratioY = (float)height / (float)temp.y;
@@ -1801,7 +1801,7 @@ GameWindow *GameWindowManager::gogoMessageBox(Int x, Int y, Int width, Int heigh
 	//we shouldn't have button OK and Yes on the same dialog
 	if((buttonFlags & (MSG_BOX_OK | MSG_BOX_YES)) == (MSG_BOX_OK | MSG_BOX_YES) )
 	{
-		DEBUG_ASSERTCRASH(false, ("Passed in MSG_BOX_OK and MSG_BOX_YES.  Big No No."));
+		DEBUG_CRASH(("Passed in MSG_BOX_OK and MSG_BOX_YES.  Big No No."));
 	}
 
 	//Position the OK button if we have one
@@ -2505,7 +2505,7 @@ GameWindow *GameWindowManager::gogoGadgetComboBox( GameWindow *parent,
 	top = title ? (fontHeight + 1):0;
 	bottom = title ? (height - (fontHeight + 1)):height;
 
-	// intialize instData
+	// initialize instData
 	winInstData.init();
 
 	// size of button
@@ -2804,14 +2804,14 @@ GameWindow *GameWindowManager::gogoGadgetTextEntry( GameWindow *parent,
 //	memset( entryData->text, 0, ENTRY_TEXT_LEN );
 //	memset( entryData->constructText, 0, ENTRY_TEXT_LEN );
 
-	// initialize character positions, legths etc
+	// initialize character positions, lengths etc
 	if( entryData->text )
 		entryData->charPos = entryData->text->getTextLength();
 	else
 		entryData->charPos = 0;
 	entryData->conCharPos = 0;
 	entryData->receivedUnichar = FALSE;
-	if( entryData->maxTextLen >= ENTRY_TEXT_LEN )
+	if( entryData->maxTextLen > ENTRY_TEXT_LEN )
 		entryData->maxTextLen = ENTRY_TEXT_LEN;
 
 	// allocate entry data
@@ -2847,7 +2847,7 @@ GameWindow *GameWindowManager::gogoGadgetTextEntry( GameWindow *parent,
 		WinInstanceData boxInstData;
 		ListboxData lData;
 
-			// intialize instData
+			// initialize instData
 		boxInstData.init();
 
 		// define display region
@@ -3770,7 +3770,7 @@ static WindowMsgHandledType testGrab( GameWindow *window, UnsignedInt msg,
 //-------------------------------------------------------------------------------------------------
 /** Just for testing */
 //-------------------------------------------------------------------------------------------------
-Bool GameWindowManager::initTestGUI( void )
+Bool GameWindowManager::initTestGUI()
 {
 
 //	winCreateFromScript( "_ATest.wnd" );
@@ -4134,7 +4134,7 @@ void GameWindowManager::registerTabList( GameWindowList tabList )
 	m_tabList = tabList;
 }
 
-void GameWindowManager::clearTabList( void )
+void GameWindowManager::clearTabList()
 {
 	m_tabList.clear();
 }

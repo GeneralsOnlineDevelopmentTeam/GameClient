@@ -39,7 +39,7 @@
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-RadarUpdateModuleData::RadarUpdateModuleData( void )
+RadarUpdateModuleData::RadarUpdateModuleData()
 {
 
 	m_radarExtendTime = 0.0f;
@@ -64,14 +64,14 @@ RadarUpdate::RadarUpdate( Thing *thing, const ModuleData *moduleData )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-RadarUpdate::~RadarUpdate( void )
+RadarUpdate::~RadarUpdate()
 {
 
 }
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-void RadarUpdate::extendRadar( void )
+void RadarUpdate::extendRadar()
 {
 	const RadarUpdateModuleData *modData = getRadarUpdateModuleData();
 
@@ -90,7 +90,7 @@ void RadarUpdate::extendRadar( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime RadarUpdate::update( void )
+UpdateSleepTime RadarUpdate::update()
 {
 /// @todo srj use SLEEPY_UPDATE here
 
@@ -110,7 +110,7 @@ UpdateSleepTime RadarUpdate::update( void )
 		m_extendComplete = TRUE;
 		m_extendDoneFrame = 0;  // just to be clean
 
-		// remove the extending condition and set the extened condition
+		// remove the extending condition and set the extended condition
 		Drawable *draw = getObject()->getDrawable();
 		if( draw )
 			draw->clearAndSetModelConditionState( MODELCONDITION_RADAR_EXTENDING,
@@ -163,7 +163,7 @@ void RadarUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void RadarUpdate::loadPostProcess( void )
+void RadarUpdate::loadPostProcess()
 {
 
 	// extend base class

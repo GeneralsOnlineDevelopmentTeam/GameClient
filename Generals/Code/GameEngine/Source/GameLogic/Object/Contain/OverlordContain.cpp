@@ -28,7 +28,7 @@
 // All of this redirection stuff makes it so that while I am normally a transport
 // for Overlord subObjects, once I have a passenger, _I_ become a transport of their type.
 // So, the answer to this question depends on if it is my passenger asking, or theirs.
-// As always, I can't use convience functions that get redirected on a ? like this.
+// As always, I can't use convenience functions that get redirected on a ? like this.
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -75,7 +75,7 @@ OverlordContain::OverlordContain( Thing *thing, const ModuleData *moduleData ) :
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-OverlordContain::~OverlordContain( void )
+OverlordContain::~OverlordContain()
 {
 
 }
@@ -86,7 +86,7 @@ void OverlordContain::onBodyDamageStateChange( const DamageInfo* damageInfo,
 																				BodyDamageType oldState,
 																				BodyDamageType newState)  ///< state change callback
 {
-	// I can't use any convienience functions, as they will all get routed to the bunker I may carry.
+	// I can't use any convenience functions, as they will all get routed to the bunker I may carry.
 	// I want just me.
 	// Oh, and I don't want this function trying to do death.  That is more complicated and will be handled
 	// on my death.
@@ -101,7 +101,7 @@ void OverlordContain::onBodyDamageStateChange( const DamageInfo* damageInfo,
 //-------------------------------------------------------------------------------------------------
 ContainModuleInterface *OverlordContain::getRedirectedContain() const
 {
-	// Naturally, I can not use a redirectible convienience function
+	// Naturally, I can not use a redirectible convenience function
 	// to answer if I am redirecting yet.
 
 	// If I am empty, say no.
@@ -150,12 +150,12 @@ void OverlordContain::onDie( const DamageInfo *damageInfo )
 }
 
 //-------------------------------------------------------------------------------------------------
-void OverlordContain::onDelete( void )
+void OverlordContain::onDelete()
 {
 	// Do you mean me the Overlord, or my behavior of passing stuff on to my passengers?
 	if( getRedirectedContain() == nullptr )
 	{
-		TransportContain::onDelete( );
+		TransportContain::onDelete();
 		return;
 	}
 
@@ -165,7 +165,7 @@ void OverlordContain::onDelete( void )
 	deactivateRedirectedContain();
 	removeAllContained();
 
-	TransportContain::onDelete( );
+	TransportContain::onDelete();
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -332,7 +332,7 @@ UnsignedInt OverlordContain::getContainCount() const
 
 	// Do you mean me the Overlord, or my behavior of passing stuff on to my passengers?
 	if( redir == nullptr )
-		return TransportContain::getContainCount( );
+		return TransportContain::getContainCount();
 
 	return redir->getContainCount();
 }
@@ -354,11 +354,11 @@ Bool OverlordContain::getContainerPipsToShow(Int& numTotal, Int& numFull)
 }
 
 //-------------------------------------------------------------------------------------------------
-Int OverlordContain::getContainMax( ) const
+Int OverlordContain::getContainMax() const
 {
 	// Do you mean me the Overlord, or my behavior of passing stuff on to my passengers?
 	if( getRedirectedContain() == nullptr )
-		return TransportContain::getContainMax( );
+		return TransportContain::getContainMax();
 
 	return getRedirectedContain()->getContainMax();
 }
@@ -368,7 +368,7 @@ const ContainedItemsList* OverlordContain::getContainedItemsList() const
 {
 	// Do you mean me the Overlord, or my behavior of passing stuff on to my passengers?
 	if( getRedirectedContain() == nullptr )
-		return TransportContain::getContainedItemsList( );
+		return TransportContain::getContainedItemsList();
 
 	return getRedirectedContain()->getContainedItemsList();
 }
@@ -379,7 +379,7 @@ Bool OverlordContain::isEnclosingContainerFor( const Object *obj ) const
 	// All of this redirection stuff makes it so that while I am normally a transport
 	// for Overlord subObjects, once I have a passenger, _I_ become a transport of their type.
 	// So, the answer to this question depends on if it is my passenger asking, or theirs.
-	// As always, I can't use convience functions that get redirected on a ? like this.
+	// As always, I can't use convenience functions that get redirected on a ? like this.
 	if( m_containListSize > 0  &&  obj ==  m_containList.front() )
 		return FALSE;
 
@@ -492,7 +492,7 @@ void OverlordContain::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void OverlordContain::loadPostProcess( void )
+void OverlordContain::loadPostProcess()
 {
 
 	// extend base class

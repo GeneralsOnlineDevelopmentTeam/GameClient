@@ -38,7 +38,7 @@
 //
 // Created:    Colin Day, June 2001
 //
-// Desc:       W3D implemenations for the game windowing system
+// Desc:       W3D implementations for the game windowing system
 //
 //-----------------------------------------------------------------------------
 ///////////////////////////////////////////////////////////////////////////////
@@ -56,7 +56,7 @@
 // TYPE DEFINES ///////////////////////////////////////////////////////////////
 
 // W3DGameWindow --------------------------------------------------------------
-/** W3D implemenation for a game window */
+/** W3D implementation for a game window */
 // ----------------------------------------------------------------------------
 class W3DGameWindow : public GameWindow
 {
@@ -64,12 +64,12 @@ class W3DGameWindow : public GameWindow
 
 public:
 
-	W3DGameWindow( void );
+	W3DGameWindow();
 	// already defined by MPO.
-	//~W3DGameWindow( void );
+	//~W3DGameWindow();
 
 	/// draw borders for this window only, NO child windows or anything else
-	void winDrawBorder( void );
+	void winDrawBorder();
 
 	Int winSetPosition( Int x, Int y );  ///< set window position
 	Int winSetText( UnicodeString newText );  ///< set text string

@@ -245,7 +245,7 @@ void GetAdditionalDisconnectsFromUserFile(PSPlayerStats *stats)
 }
 
 // default values
-RankPoints::RankPoints(void)
+RankPoints::RankPoints()
 {
 	// In GeneralsMD, rank values are set in NGMP_OnlineServices_StatsInterface constructor
 	// Initialize with default values (these will be overwritten if properly initialized)
@@ -482,7 +482,7 @@ void BattleHonorTooltip(GameWindow *window,
 }
 
 static Int rowsToSkip = 0;
-void ResetBattleHonorInsertion(void)
+void ResetBattleHonorInsertion()
 {
 	rowsToSkip = 0;
 }
@@ -1168,7 +1168,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 
 
 
-void HandlePersistentStorageResponses( void )
+void HandlePersistentStorageResponses()
 {
 	if (TheGameSpyPSMessageQueue)
 	{
@@ -1486,7 +1486,7 @@ WindowMsgHandledType GameSpyPlayerInfoOverlayInput( GameWindow *window, Unsigned
 
 	return MSG_IGNORED;
 }
-void messageBoxYes( void );
+static void messageBoxYes();
 //-------------------------------------------------------------------------------------------------
 /** Overlay window system callback */
 //-------------------------------------------------------------------------------------------------
@@ -1604,7 +1604,7 @@ WindowMsgHandledType GameSpyPlayerInfoOverlaySystem( GameWindow *window, Unsigne
 	return MSG_HANDLED;
 }
 
-static void messageBoxYes( void )
+static void messageBoxYes()
 {
 	// log out of account
 	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();

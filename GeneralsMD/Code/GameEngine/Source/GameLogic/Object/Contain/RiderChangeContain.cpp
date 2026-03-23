@@ -120,7 +120,7 @@ void RiderChangeContainModuleData::buildFieldParse(MultiIniFieldParse& p)
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-Int RiderChangeContain::getContainMax( void ) const
+Int RiderChangeContain::getContainMax() const
 {
 	if (getRiderChangeContainModuleData())
 		return getRiderChangeContainModuleData()->m_slotCapacity;
@@ -142,7 +142,7 @@ RiderChangeContain::RiderChangeContain( Thing *thing, const ModuleData *moduleDa
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-RiderChangeContain::~RiderChangeContain( void )
+RiderChangeContain::~RiderChangeContain()
 {
 
 }
@@ -301,7 +301,7 @@ void RiderChangeContain::onRemoving( Object *rider )
 			if( rider->getControllingPlayer() != nullptr )
 			{
 				//Wow, completely unforseeable game teardown order crash.  SetVeterancyLevel results in a call to player
-				//about upgrade masks.  So if we have a null player, it is game teardown, so don't worry about transfering exp.
+				//about upgrade masks.  So if we have a null player, it is game teardown, so don't worry about transferring exp.
 
 				//Transfer experience from the bike to the rider.
 				ExperienceTracker *riderTracker = rider->getExperienceTracker();
@@ -487,7 +487,7 @@ void RiderChangeContain::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void RiderChangeContain::loadPostProcess( void )
+void RiderChangeContain::loadPostProcess()
 {
 
 	// extend base class

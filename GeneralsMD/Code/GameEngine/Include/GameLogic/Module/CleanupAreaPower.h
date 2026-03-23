@@ -54,7 +54,7 @@ public:
 
 	Real m_cleanupMoveRange;
 
-	CleanupAreaPowerModuleData( void );
+	CleanupAreaPowerModuleData();
 	static void buildFieldParse(MultiIniFieldParse& p);
 };
 
@@ -70,5 +70,5 @@ public:
 	CleanupAreaPower( Thing *thing, const ModuleData* moduleData );
 	// virtual destructor prototype defined by MemoryPoolObject
 
-	virtual void doSpecialPowerAtLocation( const Coord3D *loc, Real angle, UnsignedInt commandOptions );
+	virtual void doSpecialPowerAtLocation( const Coord3D *loc, Real angle, UnsignedInt commandOptions ) override;
 };

@@ -76,7 +76,7 @@ static GameWindow * progressBarMunkee = nullptr;
 
 static GameWindow *parent = nullptr;
 
-static void closeDownloadWindow( void )
+static void closeDownloadWindow()
 {
 	DEBUG_ASSERTCRASH(parent, ("No Parent"));
 	if (!parent)
@@ -96,13 +96,13 @@ static void closeDownloadWindow( void )
 		TheWindowManager->winSetFocus( mainWin );
 }
 
-static void errorCallback( void )
+static void errorCallback()
 {
 	HandleCanceledDownload();
 	closeDownloadWindow();
 }
 
-static void successQuitCallback( void )
+static void successQuitCallback()
 {
 	TheGameEngine->setQuitting( TRUE );
 	closeDownloadWindow();
@@ -112,7 +112,7 @@ static void successQuitCallback( void )
 		TheMessageStream->appendMessage( GameMessage::MSG_CLEAR_GAME_DATA );
 }
 
-static void successNoQuitCallback( void )
+static void successNoQuitCallback()
 {
 	HandleCanceledDownload();
 	closeDownloadWindow();
@@ -122,11 +122,11 @@ class DownloadManagerMunkee : public DownloadManager
 {
 public:
 	DownloadManagerMunkee() {m_shouldQuitOnSuccess = true; m_shouldQuitOnSuccess = false;}
-	virtual HRESULT OnError( Int error );
-	virtual HRESULT OnEnd();
-	virtual HRESULT OnProgressUpdate( Int bytesread, Int totalsize, Int timetaken, Int timeleft );
-	virtual HRESULT OnStatusUpdate( Int status );
-	virtual HRESULT downloadFile( AsciiString server, AsciiString username, AsciiString password, AsciiString file, AsciiString localfile, AsciiString regkey, Bool tryResume );
+	virtual HRESULT OnError( Int error ) override;
+	virtual HRESULT OnEnd() override;
+	virtual HRESULT OnProgressUpdate( Int bytesread, Int totalsize, Int timetaken, Int timeleft ) override;
+	virtual HRESULT OnStatusUpdate( Int status ) override;
+	virtual HRESULT downloadFile( AsciiString server, AsciiString username, AsciiString password, AsciiString file, AsciiString localfile, AsciiString regkey, Bool tryResume ) override;
 
 private:
 	Bool m_shouldQuitOnSuccess;

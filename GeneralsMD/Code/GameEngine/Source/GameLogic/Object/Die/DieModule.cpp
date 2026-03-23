@@ -74,12 +74,11 @@ Bool DieMuxData::isDieApplicable(const Object* obj, const DamageInfo *damageInfo
 		return false;
 
 	// all 'exempt' bits must be clear for us to run.
-	if( m_exemptStatus.any() && obj->getStatusBits().testForAny( m_exemptStatus ) )
+	if( !obj->getStatusBits().testForNone( m_exemptStatus ) )
 		return false;
 
 	// all 'required' bits must be set for us to run.
-	// But only if we have a required status to check
-	if( m_requiredStatus.any()  &&  !obj->getStatusBits().testForAll( m_requiredStatus ) )
+	if( !obj->getStatusBits().testForAll( m_requiredStatus ) )
 		return false;
 
 	return true;
@@ -115,7 +114,7 @@ void DieModule::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void DieModule::loadPostProcess( void )
+void DieModule::loadPostProcess()
 {
 
 	// call base class

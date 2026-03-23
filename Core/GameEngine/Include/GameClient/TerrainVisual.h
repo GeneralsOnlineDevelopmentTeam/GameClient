@@ -148,8 +148,8 @@ typedef SeismicSimulationList::iterator SeismicSimulationListIt;
 
 class DomeStyleSeismicFilter : public SeismicSimulationFilterBase
 {
-  virtual SeismicSimStatusCode filterCallback( WorldHeightMapInterfaceClass *heightMap, const SeismicSimulationNode *node );
-  virtual Real applyGravityCallback( Real velocityIn );
+  virtual SeismicSimStatusCode filterCallback( WorldHeightMapInterfaceClass *heightMap, const SeismicSimulationNode *node ) override;
+  virtual Real applyGravityCallback( Real velocityIn ) override;
 };
 
 
@@ -203,11 +203,11 @@ public:
 	enum {NumSkyboxTextures = 5};
 
 	TerrainVisual();
-	virtual ~TerrainVisual();
+	virtual ~TerrainVisual() override;
 
-	virtual void init( void );
-	virtual void reset( void );
-	virtual void update( void );
+	virtual void init() override;
+	virtual void reset() override;
+	virtual void update() override;
 
 	virtual Bool load( AsciiString filename );
 
@@ -229,7 +229,7 @@ public:
 	virtual void enableWaterGrid( Bool enable ) = 0;
 	/// set min/max height values allowed in water grid pointed to by waterTable
 	virtual void setWaterGridHeightClamps( const WaterHandle *waterTable, Real minZ, Real maxZ ) = 0;
-	/// adjust fallof parameters for grid change method
+	/// adjust falloff parameters for grid change method
 	virtual void setWaterAttenuationFactors( const WaterHandle *waterTable, Real a, Real b, Real c, Real range ) = 0;
 	/// set the water table position and orientation in world space
 	virtual void setWaterTransform( const WaterHandle *waterTable, Real angle, Real x, Real y, Real z ) = 0;
@@ -247,8 +247,8 @@ public:
 	virtual Bool getWaterGridHeight( Real worldX, Real worldY, Real *height) = 0;
 
 	/// set detail of terrain tracks.
-	virtual void setTerrainTracksDetail(void)=0;
-	virtual void setShoreLineDetail(void)=0;
+	virtual void setTerrainTracksDetail()=0;
+	virtual void setShoreLineDetail()=0;
 
 	/// Add a bib for an object at location.
 	virtual void addFactionBib(Object *factionBuilding, Bool highlight, Real extra = 0)=0;
@@ -260,8 +260,8 @@ public:
 	/// Remove a bib.
 	virtual void removeFactionBibDrawable(Drawable *factionBuilding)=0;
 
-	virtual void removeAllBibs(void)=0;
-	virtual void removeBibHighlighting(void)=0;
+	virtual void removeAllBibs()=0;
+	virtual void removeBibHighlighting()=0;
 
 	virtual void removeTreesAndPropsForConstruction(
 		const Coord3D* pos,
@@ -282,11 +282,11 @@ public:
   ////////////////////////////////////////////////////
   ////////////////////////////////////////////////////
 #ifdef DO_SEISMIC_SIMULATIONS
-  virtual void updateSeismicSimulations( void ) = 0; /// walk the SeismicSimulationList and, well, do it.
+  virtual void updateSeismicSimulations() = 0; /// walk the SeismicSimulationList and, well, do it.
   virtual void addSeismicSimulation( const SeismicSimulationNode& sim ) = 0;
 #endif
-  virtual WorldHeightMap* getLogicHeightMap( void ) {return nullptr;};
-  virtual WorldHeightMap* getClientHeightMap( void ) {return nullptr;};
+  virtual WorldHeightMap* getLogicHeightMap() {return nullptr;};
+  virtual WorldHeightMap* getClientHeightMap() {return nullptr;};
   ////////////////////////////////////////////////////
   ////////////////////////////////////////////////////
   ////////////////////////////////////////////////////
@@ -298,9 +298,9 @@ public:
 protected:
 
 	// snapshot methods
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void );
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 	AsciiString m_filenameString;							///< file with terrain data
 

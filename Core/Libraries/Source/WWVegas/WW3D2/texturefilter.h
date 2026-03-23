@@ -84,9 +84,19 @@ public:
 
 	enum TextureFilterMode
 	{
+		TEXTURE_FILTER_NONE,
+		TEXTURE_FILTER_POINT,
 		TEXTURE_FILTER_BILINEAR,
 		TEXTURE_FILTER_TRILINEAR,
 		TEXTURE_FILTER_ANISOTROPIC
+	};
+
+	enum AnisotropicFilterMode
+	{
+		TEXTURE_FILTER_ANISOTROPIC_2X = 2,
+		TEXTURE_FILTER_ANISOTROPIC_4X = 4,
+		TEXTURE_FILTER_ANISOTROPIC_8X = 8,
+		TEXTURE_FILTER_ANISOTROPIC_16X = 16
 	};
 
 	enum TxtAddrMode
@@ -100,21 +110,22 @@ public:
 	void Apply(unsigned int stage);
 
 	// Filter and MIPmap settings:
-	FilterType Get_Min_Filter(void) const { return TextureMinFilter; }
-	FilterType Get_Mag_Filter(void) const { return TextureMagFilter; }
-	FilterType Get_Mip_Mapping(void) const { return MipMapFilter; }
+	FilterType Get_Min_Filter() const { return TextureMinFilter; }
+	FilterType Get_Mag_Filter() const { return TextureMagFilter; }
+	FilterType Get_Mip_Mapping() const { return MipMapFilter; }
 	void Set_Min_Filter(FilterType filter) { TextureMinFilter=filter; }
 	void Set_Mag_Filter(FilterType filter) { TextureMagFilter=filter; }
 	void Set_Mip_Mapping(FilterType mipmap);
 
 	// Texture address mode
-	TxtAddrMode Get_U_Addr_Mode(void) const { return UAddressMode; }
-	TxtAddrMode Get_V_Addr_Mode(void) const { return VAddressMode; }
+	TxtAddrMode Get_U_Addr_Mode() const { return UAddressMode; }
+	TxtAddrMode Get_V_Addr_Mode() const { return VAddressMode; }
 	void Set_U_Addr_Mode(TxtAddrMode mode) { UAddressMode=mode; }
 	void Set_V_Addr_Mode(TxtAddrMode mode) { VAddressMode=mode; }
 
-	// This needs to be called after device has been created
+	// These need to be called after device has been created
 	static void _Init_Filters(TextureFilterMode texture_filter);
+	static void _Set_Max_Anisotropy(AnisotropicFilterMode mode);
 
 	static void _Set_Default_Min_Filter(FilterType filter);
 	static void _Set_Default_Mag_Filter(FilterType filter);

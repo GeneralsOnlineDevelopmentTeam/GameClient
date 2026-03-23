@@ -75,9 +75,9 @@ public:
 	// virtual destructor prototype defined by MemoryPoolObject
 
 	void setCreator( ObjectID creatorID );
-	void notifyScriptEngine( void );
+	void notifyScriptEngine();
 
-	virtual void onDie( const DamageInfo *damageInfo );
+	virtual void onDie( const DamageInfo *damageInfo ) override;
 
 protected:
 

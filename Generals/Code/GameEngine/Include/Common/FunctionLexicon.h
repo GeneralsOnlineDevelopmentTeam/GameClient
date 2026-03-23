@@ -70,15 +70,15 @@ public:
 
 public:
 
-	FunctionLexicon( void );
-	virtual ~FunctionLexicon( void );
+	FunctionLexicon();
+	virtual ~FunctionLexicon() override;
 
-	virtual void init( void );
-	virtual void reset( void );
-	virtual void update( void );
+	virtual void init() override;
+	virtual void reset() override;
+	virtual void update() override;
 
 	/// validate the tables and make sure all entries are unique
-	Bool validate( void );
+	Bool validate();
 
 	/// get internal function table
 	TableEntry *getTable( TableIndex index );
@@ -89,7 +89,7 @@ public:
 	// mapping of a symbol to a function address.  However, when compiling
 	// in release, functions that have the same arguments and the same
 	// body (mainly empty stub functions) get optimized to the
-	// SAME ADDRESS.  That destroyes our 1 to 1 mapping so it is something
+	// SAME ADDRESS.  That destroys our 1 to 1 mapping so it is something
 	// that we must avoid
 	//
 	// translate a function pointer to its symbolic name

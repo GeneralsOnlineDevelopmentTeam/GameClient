@@ -41,20 +41,15 @@
 //-------------------------------------------------------------------------------------------------
 ProjectileStreamUpdate::ProjectileStreamUpdate( Thing *thing, const ModuleData* moduleData ) : UpdateModule( thing, moduleData )
 {
-	ObjectID m_projectileIDs[MAX_PROJECTILE_STREAM];
-	for( Int index = 0; index < MAX_PROJECTILE_STREAM; index++ )
-	{
-		m_projectileIDs[index] = INVALID_ID;
-	}
-
-	m_owningObject = INVALID_ID;
+	std::fill(m_projectileIDs, m_projectileIDs + ARRAY_SIZE(m_projectileIDs), INVALID_ID);
 	m_nextFreeIndex = 0;
 	m_firstValidIndex = 0;
+	m_owningObject = INVALID_ID;
 }
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-ProjectileStreamUpdate::~ProjectileStreamUpdate( void )
+ProjectileStreamUpdate::~ProjectileStreamUpdate()
 {
 
 }
@@ -62,7 +57,7 @@ ProjectileStreamUpdate::~ProjectileStreamUpdate( void )
 //-------------------------------------------------------------------------------------------------
 /** The update callback. */
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime ProjectileStreamUpdate::update( void )
+UpdateSleepTime ProjectileStreamUpdate::update()
 {
 	cullFrontOfList();
 
@@ -211,7 +206,7 @@ void ProjectileStreamUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void ProjectileStreamUpdate::loadPostProcess( void )
+void ProjectileStreamUpdate::loadPostProcess()
 {
 
 	// extend base class

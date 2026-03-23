@@ -88,24 +88,24 @@ public:
 
 	static Int getInterfaceMask() { return UpdateModule::getInterfaceMask() | (MODULEINTERFACE_COLLIDE); }
 
-	virtual void onObjectCreated();
+	virtual void onObjectCreated() override;
 
 	// BehaviorModule
-	virtual CollideModuleInterface* getCollide() { return this; }
+	virtual CollideModuleInterface* getCollide() override { return this; }
 
 	// CollideModuleInterface
-	virtual void onCollide( Object *other, const Coord3D *loc, const Coord3D *normal );
-	virtual Bool wouldLikeToCollideWith(const Object* other) const { return false; }
-	virtual Bool isCarBombCrateCollide() const { return false; }
-	virtual Bool isHijackedVehicleCrateCollide() const { return false; }
-	virtual Bool isRailroad() const { return false;}
-	virtual Bool isSalvageCrateCollide() const { return false; }
-	virtual Bool isSabotageBuildingCrateCollide() const { return FALSE; }
+	virtual void onCollide( Object *other, const Coord3D *loc, const Coord3D *normal ) override;
+	virtual Bool wouldLikeToCollideWith(const Object* other) const override { return false; }
+	virtual Bool isCarBombCrateCollide() const override { return false; }
+	virtual Bool isHijackedVehicleCrateCollide() const override { return false; }
+	virtual Bool isRailroad() const override { return false;}
+	virtual Bool isSalvageCrateCollide() const override { return false; }
+	virtual Bool isSabotageBuildingCrateCollide() const override { return FALSE; }
 
 	// UpdateModuleInterface
-	virtual UpdateSleepTime update();
+	virtual UpdateSleepTime update() override;
 	// Disabled conditions to process -- all
-	virtual DisabledMaskType getDisabledTypesToProcess() const { return DISABLEDMASK_ALL; }
+	virtual DisabledMaskType getDisabledTypesToProcess() const override { return DISABLEDMASK_ALL; }
 
 	void applyForce( const Coord3D *force );		///< apply a force at the object's CG
 	void applyShock( const Coord3D *force );					///< apply a shockwave force against the object's CG
@@ -150,7 +150,7 @@ public:
 
 	Bool isMotive() const;
 
-	PhysicsTurningType getTurning(void) const { return m_turning; }		///< 0 = not turning, -1 = turn negative, 1 = turn positive.
+	PhysicsTurningType getTurning() const { return m_turning; }		///< 0 = not turning, -1 = turn negative, 1 = turn positive.
 	void setTurning(PhysicsTurningType turning) { m_turning = turning; }
 
 	/** This is a force scrub for velocity when ai objects are colliding. */
@@ -217,7 +217,7 @@ protected:
 		interesting oscillations can occur in some situations, with friction being applied
 		either before or after the locomotive force, making for huge stuttery messes. (srj)
 	*/
-	virtual SleepyUpdatePhase getUpdatePhase() const { return PHASE_PHYSICS; }
+	virtual SleepyUpdatePhase getUpdatePhase() const override { return PHASE_PHYSICS; }
 
 	Real getAerodynamicFriction() const;
 	Real getForwardFriction() const;
@@ -234,7 +234,7 @@ protected:
 
 	Bool checkForOverlapCollision(Object *other);
 
-	void testStunnedUnitForDestruction(void);
+	void testStunnedUnitForDestruction();
 
 private:
 

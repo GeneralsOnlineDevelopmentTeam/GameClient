@@ -76,7 +76,7 @@ Bool TrainTrack::releaseReference()
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-RailroadBehaviorModuleData::RailroadBehaviorModuleData( void )
+RailroadBehaviorModuleData::RailroadBehaviorModuleData()
 {
 	m_carriageTemplateNameData.clear();
 	m_pathPrefixName.clear();
@@ -163,7 +163,7 @@ RailroadBehavior::RailroadBehavior( Thing *thing, const ModuleData *moduleData )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-RailroadBehavior::~RailroadBehavior( void )
+RailroadBehavior::~RailroadBehavior()
 {
 
 	TheAudio->removeAudioEvent( m_runningSound.getPlayingHandle() );// no more chugchug when I'm dead
@@ -397,7 +397,7 @@ void RailroadBehavior::onCollide( Object *other, const Coord3D *loc, const Coord
 	delta.scale(dot);
 
 
-	// This is a special check so that it wont hurl infantry clear across the map!
+	// This is a special check so that it won't hurl infantry clear across the map!
 	if( ! ( victimIsInfantry && theirPhys->getVelocityMagnitude() > 5.0f ) )
 		theirPhys->addVelocityTo( &delta );
 
@@ -499,7 +499,7 @@ void RailroadBehavior::playImpactSound(Object *victim, const Coord3D *impactPosi
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-void RailroadBehavior::loadTrackData( void )
+void RailroadBehavior::loadTrackData()
 {
 
 	if ( m_track != nullptr )
@@ -567,7 +567,7 @@ void RailroadBehavior::loadTrackData( void )
 	Real distFromTo = 0.0f;
 
 
-	//Let's start buliding our own track data from the waypoint data we find
+	//Let's start building our own track data from the waypoint data we find
 	TrackPointList* track = m_track->getWritablePointList();
 	TrackPoint trackPoint; // local workspace
 
@@ -641,7 +641,7 @@ void RailroadBehavior::loadTrackData( void )
 
 
 // %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-UpdateSleepTime RailroadBehavior::update( void )
+UpdateSleepTime RailroadBehavior::update()
 {
 
 
@@ -754,7 +754,7 @@ UpdateSleepTime RailroadBehavior::update( void )
 														conductorPullInfo.trackDistance,
 														m_track->m_length);
 
-		//let the conductor pull "me" while reseting my info, then...
+		//let the conductor pull "me" while resetting my info, then...
 		updatePositionTrackDistance( &conductorPullInfo, &m_pullInfo);
 
 
@@ -814,7 +814,7 @@ UpdateSleepTime RailroadBehavior::update( void )
 
 
 
-void RailroadBehavior::disembark(void)
+void RailroadBehavior::disembark()
 {
 	ContainModuleInterface *contain = getObject()->getContain();
 	if (contain)
@@ -866,7 +866,7 @@ public:
 	virtual const char* debugGetName() { return "PartitionFilterIsValidCarriage"; }
 #endif
 
-	virtual Bool allow(Object *objOther)
+	virtual Bool allow(Object *objOther) override
 	{
 
 		// must exist!
@@ -895,7 +895,7 @@ public:
 };
 
 
-void RailroadBehavior::createCarriages( void )
+void RailroadBehavior::createCarriages()
 {
 
 
@@ -1293,7 +1293,7 @@ void RailroadBehavior::updatePositionTrackDistance( PullInfo *pullerInfo, PullIn
 
 //---------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------
-void RailroadBehavior::destroyTheWholeTrainNow( void )
+void RailroadBehavior::destroyTheWholeTrainNow()
 {
 	TheGameLogic->destroyObject( getObject());
 
@@ -1454,7 +1454,7 @@ void RailroadBehavior::FindPosByPathDistance( Coord3D *pos, const Real dist, con
 
 	}
 
-	//DEBUG_ASSERTCRASH(FALSE,("Railroad could not find a position on the path!"));
+	//DEBUG_CRASH(("Railroad could not find a position on the path!"));
 
 }
 
@@ -1521,13 +1521,13 @@ void RailroadBehavior::xfer( Xfer *xfer )
 		//Bool m_isLocomotive; ///< Am I a locomotive,
 		xfer->xferBool( &m_isLocomotive );
 
-		//Bool m_isLeadCarriage; ///< Am the carraige in front,
+		//Bool m_isLeadCarriage; ///< Am the carriage in front,
 		xfer->xferBool( &m_isLeadCarriage );
 
-		//Int m_wantsToBeLeadCarriage; ///< Am the carraige in front,
+		//Int m_wantsToBeLeadCarriage; ///< Am the carriage in front,
 		xfer->xferInt( &m_wantsToBeLeadCarriage );
 
-		//Bool m_disembark; ///< If I wait at a station, I should also evacuate everybody when I get theres
+		//Bool m_disembark; ///< If I wait at a station, I should also evacuate everybody when I get there
 		xfer->xferBool( &m_disembark );
 
 		//Bool m_inTunnel; ///< Am I in a tunnel, so I wil not snap to ground height, until the next waypoint,
@@ -1569,7 +1569,7 @@ void RailroadBehavior::PullInfo::xferPullInfo( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void RailroadBehavior::loadPostProcess( void )
+void RailroadBehavior::loadPostProcess()
 {
 	// extend base class
 	PhysicsBehavior::loadPostProcess();

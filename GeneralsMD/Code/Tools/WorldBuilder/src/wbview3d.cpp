@@ -29,6 +29,7 @@
 #include "intersec.h"
 #include "W3DDevice/GameClient/W3DAssetManager.h"
 #include "W3DDevice/GameClient/Module/W3DModelDraw.h"
+#include "W3DDevice/GameClient/Module/W3DTreeDraw.h"
 #include "agg_def.h"
 #include "part_ldr.h"
 #include "hanim.h"
@@ -174,7 +175,6 @@ public:
 																				Bool (*callback)( Drawable *draw, void *userData ),
 																				void *userData ) {return 0;};
   virtual WorldToScreenReturn worldToScreenTriReturn( const Coord3D *w, ICoord2D *s ) { return WTS_INVALID; };	///< Transform world coordinate "w" into screen coordinate "s"
-	virtual void screenToWorld( const ICoord2D *s, Coord3D *w ) {};	///< Transform screen coordinate "s" into world coordinate "w"
 	virtual void screenToTerrain( const ICoord2D *screen, Coord3D *world ) {};  ///< transform screen coord to a point on the 3D terrain
 	virtual void screenToWorldAtZ( const ICoord2D *s, Coord3D *w, Real z ) {};  ///< transform screen point to world point at the specified world Z value
 	virtual void getScreenCornerWorldPointsAtZ( Coord3D *topLeft, Coord3D *topRight,
@@ -195,6 +195,9 @@ public:
 	virtual void getOrigin( Int *x, Int *y) { *x=m_originX; *y=m_originY;}			///< Return location of top-left view corner on display
 
 	virtual void forceRedraw() { }
+
+	virtual Bool isDoingScriptedCamera() { return false; }
+	virtual void stopDoingScriptedCamera() {}
 
 	virtual void lookAt( const Coord3D *o ){};														///< Center the view on the given coordinate
 	virtual void initHeightForMap( void ) {};														///<  Init the camera height for the map at the current position.
@@ -227,8 +230,9 @@ public:
 	virtual Real getAngle( void ) { return 0; }
 	virtual void setPitch( Real angle ){};																	///< Rotate the view around the horizontal axis to the given angle
 	virtual Real getPitch( void ) { return 0; }							///< Return current camera pitch
-	virtual void setAngleAndPitchToDefault( void ){};													///< Set the view angle back to default
-	virtual void getPosition(Coord3D *pos)	{ ;}											///< Return camera position
+	virtual void setAngleToDefault( void ) {}											///< Set the view angle back to default
+	virtual void setPitchToDefault( void ) {}											///< Set the view pitch back to default
+	virtual void getPosition(Coord3D *pos) {}											///< Return camera position
 
 	virtual Real getHeightAboveGround() { return 1; }
 	virtual void setHeightAboveGround(Real z) { }
@@ -240,10 +244,8 @@ public:
 	virtual Real getMaxZoom( void ) { return 0.0f; }
 	virtual void setOkToAdjustHeight( Bool val ) { }						///< Set this to adjust camera height
 
-	virtual Real getTerrainHeightUnderCamera() { return 0.0f; }
-	virtual void setTerrainHeightUnderCamera(Real z) { }
+	virtual Real getTerrainHeightAtPivot() { return 0.0f; }
 	virtual Real getCurrentHeightAboveGround() { return 0.0f; }
-	virtual void setCurrentHeightAboveGround(Real z) { }
 
 	virtual void getLocation ( ViewLocation *location ) {};								///< write the view's current location in to the view location object
 	virtual void setLocation ( const ViewLocation *location ){};								///< set the view's current location from to the view location object
@@ -273,7 +275,7 @@ public:
 	virtual void shake( const Coord3D *epicenter, CameraShakeType shakeType ) {};
 
 	virtual Real getFXPitch( void ) const { return 1.0f; }
-	virtual void forceCameraConstraintRecalc(void) { }
+	virtual void forceCameraAreaConstraintRecalc(void) { }
 	virtual void rotateCameraTowardPosition(const Coord3D *pLoc, Int milliseconds, Real easeIn, Real easeOut, Bool reverseRotation) {};	///< Rotate camera to face an object, and hold on it
 
 	virtual const Coord3D& get3DCameraPosition() const { static Coord3D dummy; return dummy; }							///< Returns the actual camera position
@@ -1118,6 +1120,14 @@ AsciiString WbView3d::getBestModelName(const ThingTemplate* tt, const ModelCondi
 			if (md)
 			{
 				return md->getBestModelNameForWB(c);
+			}
+
+			// TheSuperHackers @bugfix ViTeXFTW 15/02/2026 Fix tree objects not showing a preview in
+			// WB object placer. The W3DTreeDraw module stores its model name differently from W3DModelDraw.
+			const W3DTreeDrawModuleData* treeData = mdd ? mdd->getAsW3DTreeDrawModuleData() : nullptr;
+			if (treeData)
+			{
+				return treeData->m_modelName;
 			}
 		}
 	}

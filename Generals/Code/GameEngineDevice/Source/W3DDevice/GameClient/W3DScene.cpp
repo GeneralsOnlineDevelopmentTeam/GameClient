@@ -894,7 +894,7 @@ void RTS3DScene::updateFixedLightEnvironments(RenderInfoClass & rinfo)
 
 /**Generate custom rendering passes for each potential player color.  This is currently only used
 to render occluded objects using the color of the player*/
-void RTS3DScene::updatePlayerColorPasses(void)
+void RTS3DScene::updatePlayerColorPasses()
 {
 #ifdef USE_NON_STENCIL_OCCLUSION
 	Vector3 hsv,rgb;
@@ -1236,7 +1236,7 @@ void renderStenciledPlayerColor( UnsignedInt color, UnsignedInt stencilRef, Bool
 	DWORD	oldColorWriteEnable=0x12345678;
 	if (clear)
 	{
-		//we want to clear the stencil buffer to some known value whereever a player index is stored
+		//we want to clear the stencil buffer to some known value wherever a player index is stored
 		Int occludedMask=TheW3DShadowManager->getStencilShadowMask();
 		DX8Wrapper::Set_DX8_Render_State(D3DRS_STENCILREF,      0x80808080 );
 		DX8Wrapper::Set_DX8_Render_State(D3DRS_STENCILMASK,     occludedMask );	//isolate bits containing occluder|playerIndex
@@ -1337,7 +1337,7 @@ void RTS3DScene::flushOccludedObjectsIntoStencil(RenderInfoClass & rinfo)
 
 			if ((lastPlayerObject[index]-&playerObjects[index][0]) >= MAX_VISIBLE_OCCLUDED_PLAYER_OBJECTS)
 			{
-				DEBUG_ASSERTCRASH(FALSE,("Exceeded Maximum Number of potentially occluded models"));
+				DEBUG_CRASH(("Exceeded Maximum Number of potentially occluded models"));
 				continue;
 			}
 
@@ -1601,7 +1601,7 @@ void RTS3DScene::flushTranslucentObjects(RenderInfoClass & rinfo)
 //=============================================================================
 /** Returns an iterator of the lights in the scene. */
 //=============================================================================
-RefRenderObjListIterator * RTS3DScene::createLightsIterator(void)
+RefRenderObjListIterator * RTS3DScene::createLightsIterator()
 {
 	RefRenderObjListIterator * it = NEW RefRenderObjListIterator(&LightList);	// poolify
 	return it;
@@ -1635,7 +1635,7 @@ void RTS3DScene::addDynamicLight(W3DDynamicLight * obj)
 //=============================================================================
 /** Adds a dynamic light. */
 //=============================================================================
-W3DDynamicLight * RTS3DScene::getADynamicLight(void)
+W3DDynamicLight * RTS3DScene::getADynamicLight()
 {
 	RefRenderObjListIterator dynaLightIt(&m_dynamicLightList);
 	W3DDynamicLight *pLight;
@@ -1682,7 +1682,7 @@ void RTS3DScene::doRender( CameraClass * cam )
 //=============================================================================
 /** Customized render for the 2d scene management */
 //=============================================================================
-void RTS3DScene::draw( )
+void RTS3DScene::draw()
 {
 	if (m_camera == nullptr) {
 		DEBUG_CRASH(("Null m_camera in RTS3DScene::draw"));
@@ -1747,7 +1747,7 @@ void RTS2DScene::doRender( CameraClass * cam )
 //=============================================================================
 /** Customized render for the 2d scene management */
 //=============================================================================
-void RTS2DScene::draw( )
+void RTS2DScene::draw()
 {
 	if (m_camera == nullptr) {
 		DEBUG_CRASH(("Null m_camera in RTS2DScene::draw"));

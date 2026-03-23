@@ -46,20 +46,20 @@
 class Drawable;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-enum {MAX_WAYPOINTS=25};
+enum { MAX_WAYPOINTS = 25 };
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
 typedef struct
 {
 	Int			numWaypoints;
-	Coord3D	waypoints[MAX_WAYPOINTS+2];		// We pad first & last for interpolation.
-	Real		waySegLength[MAX_WAYPOINTS+2];	// Length of each segment;
-	Real		cameraAngle[MAX_WAYPOINTS+2];	// Camera Angle;
-	Int			timeMultiplier[MAX_WAYPOINTS+2];	// Time speedup factor.
-	Real		groundHeight[MAX_WAYPOINTS+1];	// Ground height.
-	Int			totalTimeMilliseconds;					// Num of ms to do this movement.
-	Int			elapsedTimeMilliseconds;				// Time since start.
+	Coord3D	waypoints[MAX_WAYPOINTS + 2];		// We pad first & last for interpolation.
+	Real		waySegLength[MAX_WAYPOINTS + 2];	// Length of each segment;
+	Real		cameraAngle[MAX_WAYPOINTS + 2];	// Camera Angle;
+	Int			timeMultiplier[MAX_WAYPOINTS + 2];	// Time speedup factor.
+	Real		groundHeight[MAX_WAYPOINTS + 1];	// Ground height.
+	Real		totalTimeMilliseconds;					// Num of ms to do this movement.
+	Real		elapsedTimeMilliseconds;				// Time since start.
 	Real		totalDistance;								// Total length of paths.
 	Real		curSegDistance;								// How far we are along the current seg.
 	Int			shutter;
@@ -125,119 +125,131 @@ typedef struct
 /** W3DView implementation of the game view class.  This allows us to create
   * a "window" into the game world that can be sized and contains controls
 	* for manipulating the camera */
-// ------------------------------------------------------------------------------------------------
+	// ------------------------------------------------------------------------------------------------
 class W3DView : public View, public SubsystemInterface
 {
+	enum Scripted
+	{
+		Scripted_Rotate = 1 << 0, // Set when rotating the camera
+		Scripted_Pitch = 1 << 1, // Set when pitching the camera
+		Scripted_Zoom = 1 << 2, // Set when zooming the camera
+		Scripted_CameraLock = 1 << 3, // Set when following a unit via script
+		Scripted_MoveOnWaypointPath = 1 << 4, // Set when moving camera along waypoint path
+	};
+	typedef UnsignedInt ScriptedState;
 
 public:
 	W3DView();
 	~W3DView();
 
-	virtual void init( void );  ///< init/re-init the W3DView
-	virtual void reset( void );
-	virtual void drawView( void );  ///< draw this view
-	virtual void updateView(void);	///<called once per frame to determine the final camera and object transforms
+	virtual void init();  ///< init/re-init the W3DView
+	virtual void reset();
+	virtual void drawView();  ///< draw this view
+	virtual void updateView();	///<called once per frame to determine the final camera and object transforms
+	virtual void stepView(); ///< Update view for every fixed time step
 
-	virtual void draw( );  ///< draw this view
-	virtual void update( );	///<called once per frame to determine the final camera and object transforms
+	virtual void draw();  ///< draw this view
+	virtual void update();	///<called once per frame to determine the final camera and object transforms
 
-	virtual Drawable *pickDrawable( const ICoord2D *screen, Bool forceAttack, PickType pickType );  ///< pick drawable given the screen pixel coords.  If force attack, picks bridges.
+	virtual Drawable* pickDrawable(const ICoord2D* screen, Bool forceAttack, PickType pickType);  ///< pick drawable given the screen pixel coords.  If force attack, picks bridges.
 
 	/// all drawables in the 2D screen region will call the 'callback'
-	virtual Int iterateDrawablesInRegion( IRegion2D *screenRegion,
-																Bool (*callback)( Drawable *draw, void *userData ),
-																void *userData );
+	virtual Int iterateDrawablesInRegion(IRegion2D* screenRegion,
+		Bool(*callback)(Drawable* draw, void* userData),
+		void* userData);
 
-	virtual void setWidth( Int width );
-	virtual void setHeight( Int height );
-	virtual void setOrigin( Int x, Int y);			///< Sets location of top-left view corner on display
+	virtual void setWidth(Int width);
+	virtual void setHeight(Int height);
+	virtual void setOrigin(Int x, Int y);			///< Sets location of top-left view corner on display
 
-	virtual void scrollBy( Coord2D *delta );  ///< Shift the view by the given delta
+	virtual void scrollBy(const Coord2D* delta);  ///< Shift the view by the given delta
 
 	virtual void forceRedraw();
 
-	virtual void setAngle( Real angle );										///< Rotate the view around the up axis by the given angle
-	virtual void setPitch( Real angle );											///< Rotate the view around the horizontal axis to the given angle
-	virtual void setAngleAndPitchToDefault( void );							///< Set the view angle back to default
+	virtual Bool isDoingScriptedCamera();
+	virtual void stopDoingScriptedCamera();
 
-	virtual void lookAt( const Coord3D *o );											///< Center the view on the given coordinate
-	virtual void initHeightForMap( void );												///<  Init the camera height for the map at the current position.
-	virtual void moveCameraTo(const Coord3D *o, Int milliseconds,  Int shutter, Bool orient, Real easeIn, Real easeOut);
-	virtual void moveCameraAlongWaypointPath(Waypoint *pWay, Int frames, Int shutter, Bool orient, Real easeIn, Real easeOut);
-	virtual Bool isCameraMovementFinished(void);
-	virtual Bool isCameraMovementAtWaypointAlongPath(void);
- 	virtual void resetCamera(const Coord3D *location, Int frames, Real easeIn, Real easeOut);	///< Move camera to location, and reset to default angle & zoom.
- 	virtual void rotateCamera(Real rotations, Int frames, Real easeIn, Real easeOut);					///< Rotate camera about current viewpoint.
+	virtual void setAngle(Real radians);									///< Rotate the view around the vertical axis to the given angle (yaw)
+	virtual void setPitch(Real radians);									///< Rotate the view around the horizontal axis to the given angle (pitch)
+	virtual void setAngleToDefault();									///< Set the view angle back to default
+	virtual void setPitchToDefault();									///< Set the view pitch back to default
+
+	virtual void lookAt(const Coord3D* o);											///< Center the view on the given coordinate
+	virtual void initHeightForMap();												///<  Init the camera height for the map at the current position.
+	virtual void moveCameraTo(const Coord3D* o, Int milliseconds, Int shutter, Bool orient, Real easeIn, Real easeOut);
+	virtual void moveCameraAlongWaypointPath(Waypoint* pWay, Int frames, Int shutter, Bool orient, Real easeIn, Real easeOut);
+	virtual Bool isCameraMovementFinished();
+	virtual Bool isCameraMovementAtWaypointAlongPath();
+	virtual void resetCamera(const Coord3D* location, Int frames, Real easeIn, Real easeOut);	///< Move camera to location, and reset to default angle & zoom.
+	virtual void rotateCamera(Real rotations, Int frames, Real easeIn, Real easeOut);					///< Rotate camera about current viewpoint.
 	virtual void rotateCameraTowardObject(ObjectID id, Int milliseconds, Int holdMilliseconds, Real easeIn, Real easeOut);	///< Rotate camera to face an object, and hold on it
-	virtual void rotateCameraTowardPosition(const Coord3D *pLoc, Int milliseconds, Real easeIn, Real easeOut, Bool reverseRotation);	///< Rotate camera to face a location.
-	virtual void cameraModFreezeTime(void){ m_freezeTimeForCameraMovement = true;}					///< Freezes time during the next camera movement.
-	virtual void cameraModFreezeAngle(void);												///< Freezes time during the next camera movement.
-	virtual Bool isTimeFrozen(void){ return m_freezeTimeForCameraMovement;}					///< Freezes time during the next camera movement.
+	virtual void rotateCameraTowardPosition(const Coord3D* pLoc, Int milliseconds, Real easeIn, Real easeOut, Bool reverseRotation);	///< Rotate camera to face a location.
+	virtual void cameraModFreezeTime() { m_freezeTimeForCameraMovement = true; }					///< Freezes time during the next camera movement.
+	virtual void cameraModFreezeAngle();												///< Freezes time during the next camera movement.
+	virtual Bool isTimeFrozen() { return m_freezeTimeForCameraMovement; }					///< Freezes time during the next camera movement.
 	virtual void cameraModFinalZoom(Real finalZoom, Real easeIn, Real easeOut);	///< Final zoom for current camera movement.
 	virtual void cameraModRollingAverage(Int framesToAverage);			///< Number of frames to average movement for current camera movement.
 	virtual void cameraModFinalTimeMultiplier(Int finalMultiplier); ///< Final time multiplier for current camera movement.
 	virtual void cameraModFinalPitch(Real finalPitch, Real easeIn, Real easeOut);	///< Final pitch for current camera movement.
-	virtual void cameraModLookToward(Coord3D *pLoc);								///< Sets a look at point during camera movement.
-	virtual void cameraModFinalLookToward(Coord3D *pLoc);						///< Sets a look at point during camera movement.
-	virtual void cameraModFinalMoveTo(Coord3D *pLoc);			///< Sets a final move to.
+	virtual void cameraModLookToward(Coord3D* pLoc);								///< Sets a look at point during camera movement.
+	virtual void cameraModFinalLookToward(Coord3D* pLoc);						///< Sets a look at point during camera movement.
+	virtual void cameraModFinalMoveTo(Coord3D* pLoc);			///< Sets a final move to.
 	// (gth) C&C3 animation controlled camera feature
-	virtual void cameraEnableSlaveMode(const AsciiString & thingtemplateName, const AsciiString & boneName);
-	virtual void cameraDisableSlaveMode(void);
-	virtual void cameraEnableRealZoomMode(void); //WST 10.18.2002
-	virtual void cameraDisableRealZoomMode(void);
+	virtual void cameraEnableSlaveMode(const AsciiString& thingtemplateName, const AsciiString& boneName);
+	virtual void cameraDisableSlaveMode();
+	virtual void cameraEnableRealZoomMode(); //WST 10.18.2002
+	virtual void cameraDisableRealZoomMode();
 
-	virtual	void Add_Camera_Shake(const Coord3D & position,float radius, float duration, float power); //WST 10.18.2002
-	virtual Int	 getTimeMultiplier(void) {return m_timeMultiplier;};///< Get the time multiplier.
-	virtual void setTimeMultiplier(Int multiple) {m_timeMultiplier = multiple;}; ///< Set the time multiplier.
+	virtual	void Add_Camera_Shake(const Coord3D& position, float radius, float duration, float power); //WST 10.18.2002
+	virtual Int	 getTimeMultiplier() { return m_timeMultiplier; };///< Get the time multiplier.
+	virtual void setTimeMultiplier(Int multiple) { m_timeMultiplier = multiple; }; ///< Set the time multiplier.
 #if defined(GENERALS_ONLINE)
 	virtual void setDefaultView(Real pitch, Real angle, Real maxHeight, bool bForceDefaultCam = true);
 #else
 	virtual void setDefaultView(Real pitch, Real angle, Real maxHeight);
 #endif
-	virtual void zoomCamera( Real finalZoom, Int milliseconds, Real easeIn, Real easeOut );
-	virtual void pitchCamera( Real finalPitch, Int milliseconds, Real easeIn, Real easeOut );
+	virtual void zoomCamera(Real finalZoom, Int milliseconds, Real easeIn, Real easeOut);
+	virtual void pitchCamera(Real finalPitch, Int milliseconds, Real easeIn, Real easeOut);
 
 	virtual void setHeightAboveGround(Real z);
 	virtual void setZoom(Real z);
-	virtual void setZoomToDefault( void );									///< Set zoom to default value
+	virtual void setZoomToDefault();									///< Set zoom to default value
 
-	virtual void setFieldOfView( Real angle );							///< Set the horizontal field of view angle
+	virtual void setFieldOfView(Real angle);							///< Set the horizontal field of view angle
 
-  virtual WorldToScreenReturn worldToScreenTriReturn( const Coord3D *w, ICoord2D *s );	///< Transform world coordinate "w" into screen coordinate "s"
-	virtual void screenToWorld( const ICoord2D *s, Coord3D *w );	///< Transform screen coordinate "s" into world coordinate "w"
-	virtual void screenToTerrain( const ICoord2D *screen, Coord3D *world );  ///< transform screen coord to a point on the 3D terrain
-	virtual void screenToWorldAtZ( const ICoord2D *s, Coord3D *w, Real z );  ///< transform screen point to world point at the specified world Z value
+	virtual WorldToScreenReturn worldToScreenTriReturn(const Coord3D* w, ICoord2D* s);	///< Transform world coordinate "w" into screen coordinate "s"
+	virtual void screenToTerrain(const ICoord2D* screen, Coord3D* world);  ///< transform screen coord to a point on the 3D terrain
+	virtual void screenToWorldAtZ(const ICoord2D* s, Coord3D* w, Real z);  ///< transform screen point to world point at the specified world Z value
 
-	CameraClass *get3DCamera() const { return m_3DCamera; }
+	CameraClass* get3DCamera() const { return m_3DCamera; }
 
 	virtual const Coord3D& get3DCameraPosition() const;
 
 	virtual void setCameraLock(ObjectID id);
-	virtual void setSnapMode( CameraLockType lockType, Real lockDist );
+	virtual void setSnapMode(CameraLockType lockType, Real lockDist);
 
 	/// Add an impulse force to shake the camera
-	virtual void shake( const Coord3D *epicenter, CameraShakeType shakeType );
+	virtual void shake(const Coord3D* epicenter, CameraShakeType shakeType);
 
-	virtual Real getFXPitch( void ) const { return m_FXPitch; }					///< returns the FX pitch angle
+	virtual Real getFXPitch() const { return m_FXPitch; }					///< returns the FX pitch angle
 
 	virtual Bool setViewFilterMode(FilterModes filterMode);			///< Turns on viewport special effect (black & white mode)
 	virtual Bool setViewFilter(FilterTypes filter);			///< Turns on viewport special effect (black & white mode)
-	virtual void setViewFilterPos(const Coord3D *pos);			///<  Passes a position to the special effect filter.
-	virtual FilterModes getViewFilterMode(void) {return m_viewFilterMode;}			///< Turns on viewport special effect (black & white mode)
-	virtual FilterTypes getViewFilterType(void) {return m_viewFilter;}			///< Turns on viewport special effect (black & white mode)
+	virtual void setViewFilterPos(const Coord3D* pos);			///<  Passes a position to the special effect filter.
+	virtual FilterModes getViewFilterMode() { return m_viewFilterMode; }			///< Turns on viewport special effect (black & white mode)
+	virtual FilterTypes getViewFilterType() { return m_viewFilter; }			///< Turns on viewport special effect (black & white mode)
 	virtual void setFadeParameters(Int fadeFrames, Int direction);
 	virtual void set3DWireFrameMode(Bool enable);	///<enables custom wireframe rendering of 3D viewport
 
-	Bool updateCameraMovements(void);
-	virtual void forceCameraConstraintRecalc(void) { calcCameraConstraints(); }
+	Bool updateCameraMovements();
+	virtual void forceCameraAreaConstraintRecalc() { calcCameraAreaConstraints(); }
 
-	virtual void setGuardBandBias( const Coord2D *gb ) { m_guardBandBias.x = gb->x; m_guardBandBias.y = gb->y; }
-
+	virtual void setGuardBandBias(const Coord2D* gb) { m_guardBandBias.x = gb->x; m_guardBandBias.y = gb->y; }
 
 private:
 
-	CameraClass *m_3DCamera;												///< camera representation for 3D scene
-	CameraClass *m_2DCamera;												///< camera for UI overlayed on top of 3D scene
+	CameraClass* m_3DCamera;												///< camera representation for 3D scene
+	CameraClass* m_2DCamera;												///< camera for UI overlayed on top of 3D scene
 	FilterModes m_viewFilterMode;
 	FilterTypes m_viewFilter;
 	Bool m_isWireFrameEnabled;
@@ -250,21 +262,15 @@ private:
 	Real m_shakeIntensity;													///< the intensity of the oscillation
 	Vector3 m_shakerAngles;													//WST 11/12/2002 new multiple instance camera shaker system
 
-	TRotateCameraInfo	m_rcInfo;
-	Bool		m_doingRotateCamera;										///< True if we are doing a camera rotate.
+	ScriptedState m_scriptedState; ///< Flags for scripted camera movements. Use functions addScriptedState, removeScriptedState for write.
 
+	TRotateCameraInfo m_rcInfo;
 	TPitchCameraInfo m_pcInfo;
-	Bool m_doingPitchCamera;
 	TZoomCameraInfo m_zcInfo;
-	Bool m_doingZoomCamera;
-
-	Bool m_doingScriptedCameraLock;									///< True if we are following a unit via script
+	TMoveAlongWaypointPathInfo m_mcwpInfo;					///< Move camera along waypoint path info.
+	Bool m_CameraArrivedAtWaypointOnPathFlag;
 
 	Real		m_FXPitch;															///< Camera effects pitch.  0 = flat, infinite = look down, 1 = normal.
-
-	TMoveAlongWaypointPathInfo m_mcwpInfo;					///< Move camera along waypoint path info.
-	Bool	m_doingMoveCameraOnWaypointPath;				///< If true, moving camera along waypoint path.
-	Bool	m_CameraArrivedAtWaypointOnPathFlag;
 
 	Bool		m_freezeTimeForCameraMovement;
 	Int			m_timeMultiplier;												///< Time speedup multiplier.
@@ -275,24 +281,33 @@ private:
 	Coord3D m_cameraOffset;													///< offset for camera from view center
 	Coord3D m_previousLookAtPosition;													///< offset for camera from view center
 	Coord2D m_scrollAmount;													///< scroll speed
-	Real m_scrollAmountCutoff;											///< scroll speed at which we do not adjust height
+	Real m_scrollAmountCutoffSqr;										///< scroll speed at which we do not adjust height
 
 	Real m_groundLevel;															///< height of ground.
 
-	Region2D m_cameraConstraint;										///< m_pos should be constrained to be within this area
-	Bool m_cameraConstraintValid;										///< if f, recalc cam constraints
+	Region2D m_cameraAreaConstraints; ///< Camera should be constrained to be within this area
+	Bool m_cameraAreaConstraintsValid; ///< If false, recalculates the camera area constraints in the next render update
+	Bool m_recalcCamera; ///< Recalculates the camera transform in the next render update
 
-	void setCameraTransform( void );								///< set the transform matrix of m_3DCamera, based on m_pos & m_angle
-	void buildCameraTransform( Matrix3D *transform ) ;			///< calculate (but do not set) the transform matrix of m_3DCamera, based on m_pos & m_angle
-	void calcCameraConstraints() ;			///< recalc m_cameraConstraint
-	void moveAlongWaypointPath(Int milliseconds); ///< Move camera along path.
-	void getPickRay(const ICoord2D *screen, Vector3 *rayStart, Vector3 *rayEnd);	///<returns a line segment (ray) originating at the given screen position
+	void setCameraTransform(); ///< set the transform matrix of m_3DCamera, based on m_pos & m_angle
+	void buildCameraPosition(Vector3& sourcePos, Vector3& targetPos);
+	void buildCameraTransform(Matrix3D* transform, const Vector3& sourcePos, const Vector3& targetPos); ///< calculate (but do not set) the transform matrix of m_3DCamera, based on m_pos & m_angle
+	void calcCameraAreaConstraints(); ///< Recalculates the camera area constraints
+	Real calcCameraAreaOffset(Real maxEdgeZ);
+	Bool isWithinCameraHeightConstraints() const;
+	virtual void setUserControlled(Bool value);
+	Bool hasScriptedState(ScriptedState state) const;
+	void addScriptedState(ScriptedState state);
+	void removeScriptedState(ScriptedState state);
+	void moveAlongWaypointPath(Real milliseconds); ///< Move camera along path.
+	void getPickRay(const ICoord2D* screen, Vector3* rayStart, Vector3* rayEnd);	///<returns a line segment (ray) originating at the given screen position
 	void setupWaypointPath(Bool orient);					///< Calculates distances & angles for moving along a waypoint path.
-	void rotateCameraOneFrame(void);							///< Do one frame of a rotate camera movement.
-	void zoomCameraOneFrame(void);							///< Do one frame of a zoom camera movement.
-	void pitchCameraOneFrame(void);							///< Do one frame of a pitch camera movement.
-	void getAxisAlignedViewRegion(Region3D &axisAlignedRegion);	///< Find 3D Region enclosing all possible drawables.
-	void calcDeltaScroll(Coord2D &screenDelta);
+	void rotateCameraOneFrame();							///< Do one frame of a rotate camera movement.
+	void zoomCameraOneFrame();							///< Do one frame of a zoom camera movement.
+	void pitchCameraOneFrame();							///< Do one frame of a pitch camera movement.
+	void getAxisAlignedViewRegion(Region3D& axisAlignedRegion);	///< Find 3D Region enclosing all possible drawables.
+	void calcDeltaScroll(Coord2D& screenDelta);
+	void updateTerrain();
 
 	// (gth) C&C3 animation controlled camera feature
 	Bool				m_isCameraSlaved;
@@ -302,4 +317,4 @@ private:
 };
 
 // EXTERNALS //////////////////////////////////////////////////////////////////////////////////////
-extern Int TheW3DFrameLengthInMsec;	// default is 33msec/frame == 30fps. but we may change it depending on sys config.
+extern Real TheW3DFrameLengthInMsec;

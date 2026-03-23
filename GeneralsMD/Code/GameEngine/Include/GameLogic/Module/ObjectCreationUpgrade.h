@@ -44,7 +44,7 @@ class ObjectCreationUpgradeModuleData : public UpgradeModuleData
 
 public:
 
-	ObjectCreationUpgradeModuleData( void );
+	ObjectCreationUpgradeModuleData();
 
 	static void buildFieldParse(MultiIniFieldParse& p);
 
@@ -66,11 +66,11 @@ public:
 	ObjectCreationUpgrade( Thing *thing, const ModuleData* moduleData );
 	// virtual destructor prototype defined by MemoryPoolObject
 
-	void onDelete( void );																///< we have some work to do when this module goes away
+	virtual void onDelete() override;																///< we have some work to do when this module goes away
 
 protected:
 
-	virtual void upgradeImplementation( void ); ///< Here's the actual work of Upgrading
-	virtual Bool isSubObjectsUpgrade() { return false; }
+	virtual void upgradeImplementation() override; ///< Here's the actual work of Upgrading
+	virtual Bool isSubObjectsUpgrade() override { return false; }
 
 };

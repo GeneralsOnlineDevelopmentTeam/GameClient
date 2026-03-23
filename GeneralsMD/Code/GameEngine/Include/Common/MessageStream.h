@@ -603,7 +603,7 @@ public:
 		MSG_CREATE_FORMATION,												///< Creates a formation.
 		MSG_LOGIC_CRC,															///< CRC from the logic passed around in a network game :)
 		MSG_SET_MINE_CLEARING_DETAIL,								///< CRC from the logic passed around in a network game :)
-		MSG_ENABLE_RETALIATION_MODE,								///< Turn retaliation mode on or off for the specified player.
+		MSG_ENABLE_RETALIATION_MODE,								///< Turn retaliation mode on or off.
 
 		MSG_BEGIN_DEBUG_NETWORK_MESSAGES = 1900,		///< network messages that exist only in debug/internal builds. all grouped separately.
 
@@ -635,16 +635,16 @@ public:
 
 	GameMessage( Type type );
 
-	GameMessage *next( void ) { return m_next; }		///< Return next message in the stream
-	GameMessage *prev( void ) { return m_prev; }		///< Return prev message in the stream
+	GameMessage *next() { return m_next; }		///< Return next message in the stream
+	GameMessage *prev() { return m_prev; }		///< Return prev message in the stream
 
-	Type getType( void ) const { return m_type; }					///< Return the message type
-	UnsignedByte getArgumentCount( void ) const { return m_argCount; }	///< Return the number of arguments for this msg
+	Type getType() const { return m_type; }					///< Return the message type
+	UnsignedByte getArgumentCount() const { return m_argCount; }	///< Return the number of arguments for this msg
 
-	const char *getCommandAsString( void ) const; ///< returns a string representation of the command type.
+	const char *getCommandAsString() const; ///< returns a string representation of the command type.
 	static const char *getCommandTypeAsString(GameMessage::Type t);
 
-	Int getPlayerIndex( void ) const { return m_playerIndex; }		///< Return the originating player
+	Int getPlayerIndex() const { return m_playerIndex; }		///< Return the originating player
 
 	// access methods for GameMessageArgumentType enum
 	void appendIntegerArgument( Int arg );
@@ -665,7 +665,7 @@ public:
 	 * @todo This should be a more list-like interface.  Very inefficient.
 	 */
 	const GameMessageArgumentType *getArgument( Int argIndex ) const;
-	GameMessageArgumentDataType getArgumentDataType( Int argIndex );
+	GameMessageArgumentDataType getArgumentDataType( Int argIndex ) const;
 
 	void friend_setNext(GameMessage* m) { m_next = m; }
 	void friend_setPrev(GameMessage* m) { m_prev = m; }
@@ -689,7 +689,7 @@ private:
 	GameMessageArgument *m_argList, *m_argTail;						///< This message's arguments
 
 	/// allocate a new argument, add it to list, return pointer to its data
-	GameMessageArgument *allocArg( void );
+	GameMessageArgument *allocArg();
 
 };
 
@@ -703,14 +703,14 @@ class GameMessageList : public SubsystemInterface
 
 public:
 
-	GameMessageList( void );
-	virtual ~GameMessageList();
+	GameMessageList();
+	virtual ~GameMessageList() override;
 
-	virtual void init( void ) { };			///< Initialize system
-	virtual void reset( void ) { };			///< Reset system
-	virtual void update( void ) { };		///< Update system
+	virtual void init() override { };			///< Initialize system
+	virtual void reset() override { };			///< Reset system
+	virtual void update() override { };		///< Update system
 
-	GameMessage *getFirstMessage( void ) { return m_firstMessage; }	///< Return the first message
+	GameMessage *getFirstMessage() { return m_firstMessage; }	///< Return the first message
 
 	virtual void appendMessage( GameMessage *msg );			///< Add message to end of the list
 	virtual void insertMessage( GameMessage *msg, GameMessage *messageToInsertAfter );	// Insert message after messageToInsertAfter.
@@ -750,19 +750,19 @@ class MessageStream : public GameMessageList
 
 public:
 
-	MessageStream( void );
-	virtual ~MessageStream();
+	MessageStream();
+	virtual ~MessageStream() override;
 
 	// Inherited Methods ----------------------------------------------------------------------------
-	virtual void init( void );
-	virtual void reset( void );
-	virtual void update( void );
+	virtual void init() override;
+	virtual void reset() override;
+	virtual void update() override;
 
 	virtual GameMessage *appendMessage( GameMessage::Type type );		///< Append a message to the end of the stream
 	virtual GameMessage *insertMessage( GameMessage::Type type, GameMessage *messageToInsertAfter );	// Insert message after messageToInsertAfter.
 
 	// Methods NOT Inherited ------------------------------------------------------------------------
-	void propagateMessages( void );													///< Propagate messages through attached translators
+	void propagateMessages();													///< Propagate messages through attached translators
 
 	/**
 		Attach a translator function to the stream at a priority value. Lower priorities are executed first.
@@ -806,18 +806,18 @@ protected:
 class CommandList : public GameMessageList
 {
 public:
-	CommandList( void );
-	virtual ~CommandList();
+	CommandList();
+	virtual ~CommandList() override;
 
-	virtual void init( void );			///< Init command list
-	virtual void reset( void );			///< Destroy all messages and reset list to empty
-	virtual void update( void );		///< Update hook
+	virtual void init() override;			///< Init command list
+	virtual void reset() override;			///< Destroy all messages and reset list to empty
+	virtual void update() override;		///< Update hook
 
 	void appendMessageList( GameMessage *list );			///< Adds messages to the end of the command list
 
 protected:
 
-	void destroyAllMessages( void );		///< The meat of a reset and a shutdown
+	void destroyAllMessages();		///< The meat of a reset and a shutdown
 
 };
 

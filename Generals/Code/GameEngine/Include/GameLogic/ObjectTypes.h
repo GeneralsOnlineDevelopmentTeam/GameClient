@@ -50,9 +50,9 @@ private:
 
 protected:
 	// snapshot methods
-	virtual void crc(Xfer *xfer);
-	virtual void xfer(Xfer *xfer);
-	virtual void loadPostProcess();
+	virtual void crc(Xfer *xfer) override;
+	virtual void xfer(Xfer *xfer) override;
+	virtual void loadPostProcess() override;
 
 public:
 	ObjectTypes();
@@ -72,7 +72,7 @@ public:
 	Bool isInSet(const ThingTemplate* objectType) const;
 
 	// Is the set empty?
-	size_t getListSize(void) const { return m_objectTypes.size(); }
+	size_t getListSize() const { return m_objectTypes.size(); }
 
 	// I'd like to loop through, please.
 	AsciiString getNthInList( size_t index ) const { return (index < getListSize()) ? m_objectTypes[index] : AsciiString::TheEmptyString; }

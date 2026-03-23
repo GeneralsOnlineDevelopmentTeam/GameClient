@@ -66,15 +66,15 @@ class GameWindow;
 class HotKeyTranslator : public GameMessageTranslator
 {
 public:
-	virtual GameMessageDisposition translateGameMessage(const GameMessage *msg);
-	virtual ~HotKeyTranslator() { }
+	virtual GameMessageDisposition translateGameMessage(const GameMessage *msg) override;
+	virtual ~HotKeyTranslator() override { }
 };
 
 //-----------------------------------------------------------------------------
 class HotKey
 {
 public:
-	HotKey( void );
+	HotKey();
 	GameWindow *m_win;
 	AsciiString m_key;
 	// we may need a checkmark system.
@@ -84,12 +84,12 @@ public:
 class HotKeyManager : public SubsystemInterface
 {
 public:
-	HotKeyManager( void );
-	~HotKeyManager( void );
+	HotKeyManager();
+	virtual ~HotKeyManager() override;
 	// Inherited from subsystem interface -----------------------------------------------------------
-	virtual	void init( void );															///< Initialize the Hotkey system
-	virtual void update( void ) {}														///< A No-op for us
-	virtual void reset( void );															///< Reset
+	virtual	void init() override;															///< Initialize the Hotkey system
+	virtual void update() override {}														///< A No-op for us
+	virtual void reset() override;															///< Reset
 	//-----------------------------------------------------------------------------------------------
 
 	void addHotKey( GameWindow *win, const AsciiString& key);

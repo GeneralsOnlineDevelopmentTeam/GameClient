@@ -62,8 +62,8 @@ private:
 
 public:
 	SelectionTranslator();
-	~SelectionTranslator();
-	virtual GameMessageDisposition translateGameMessage(const GameMessage *msg);
+	virtual ~SelectionTranslator() override;
+	virtual GameMessageDisposition translateGameMessage(const GameMessage *msg) override;
 	//added for fix to the drag selection when entering control bar
 	//changes the mode of drag selecting to it's opposite
 	void setDragSelecting(Bool dragSelect);
@@ -71,7 +71,7 @@ public:
 
 #if defined(RTS_DEBUG) || defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)
   Bool m_HandOfGodSelectionMode;
-  Bool isHandOfGodSelectionMode( void) { return m_HandOfGodSelectionMode; };
+  Bool isHandOfGodSelectionMode() { return m_HandOfGodSelectionMode; };
 #endif
 
 };

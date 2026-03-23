@@ -26,7 +26,7 @@
 //
 // FILE: HijackerUpdate.cpp
 // Author: Mark Lorenzen, July 2002
-// Desc:   Allows hijacker to kepp with his hijacked vehicle (though hidden) until it dies, then
+// Desc:   Allows hijacker to keep with his hijacked vehicle (though hidden) until it dies, then
 // to become a hijacker once more
 //
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,13 +62,13 @@ HijackerUpdate::HijackerUpdate( Thing *thing, const ModuleData *moduleData ) : U
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-HijackerUpdate::~HijackerUpdate( void )
+HijackerUpdate::~HijackerUpdate()
 {
 }
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime HijackerUpdate::update( void )
+UpdateSleepTime HijackerUpdate::update()
 {
 /// @todo srj use SLEEPY_UPDATE here
 
@@ -234,7 +234,7 @@ void HijackerUpdate::xfer( Xfer *xfer )
 	// eject pos
 	xfer->xferCoord3D( &m_ejectPos );
 
-	// udpate
+	// update
 	xfer->xferBool( &m_update );
 
 	// is in vehicle
@@ -248,7 +248,7 @@ void HijackerUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void HijackerUpdate::loadPostProcess( void )
+void HijackerUpdate::loadPostProcess()
 {
 
 	// extend base class

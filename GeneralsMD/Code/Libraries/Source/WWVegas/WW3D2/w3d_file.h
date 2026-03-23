@@ -719,7 +719,7 @@ struct W3dMaterialInfoStruct
 
 struct W3dVertexMaterialStruct
 {
-	W3dVertexMaterialStruct(void) {}
+	W3dVertexMaterialStruct() {}
 
 	bool operator == (W3dVertexMaterialStruct vm)
 	{
@@ -877,7 +877,7 @@ enum PS2_SHADER_SETTINGS {
 
 struct W3dShaderStruct
 {
-	W3dShaderStruct(void) {}
+	W3dShaderStruct() {}
 
 	uint8						DepthCompare;
 	uint8						DepthMask;
@@ -1065,7 +1065,7 @@ inline int W3d_Shader_Get_Post_Detail_Alpha_Func(const W3dShaderStruct * s)	 { r
 
 struct W3dTextureInfoStruct
 {
-	W3dTextureInfoStruct(void)	{}
+	W3dTextureInfoStruct()	{}
 	uint16					Attributes;					// flags for this texture
 	uint16					AnimType;					// animation logic
 	uint32					FrameCount;					// Number of frames (1 if not animated)
@@ -1686,7 +1686,7 @@ struct W3dCollectionHeaderStruct
 #define W3D_CURRENT_PLACEHOLDER_VERSION	W3D_MAKE_VERSION(1,0)
 
 //
-//	Note:  This structure is follwed directly by an array of char's 'name_len' in length
+//	Note:  This structure is followed directly by an array of char's 'name_len' in length
 // which specify the name of the placeholder object in our Commando-level editor.
 //
 struct W3dPlaceholderStruct
@@ -2187,7 +2187,7 @@ struct W3dNullObjectStruct
 #define W3D_CURRENT_SOUNDROBJ_VERSION			0x00010000
 
 //
-//	Note:  This structure is follwed directly by a chunk (W3D_CHUNK_SOUNDROBJ_DEFINITION)
+//	Note:  This structure is followed directly by a chunk (W3D_CHUNK_SOUNDROBJ_DEFINITION)
 // that contains an embedded AudibleSoundDefinitionClass's storage.  See audibledound.h
 // for details.
 //

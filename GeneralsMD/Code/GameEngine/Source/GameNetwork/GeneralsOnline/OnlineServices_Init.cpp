@@ -753,28 +753,25 @@ void NGMP_OnlineServicesManager::OnLogin(ELoginResult loginResult, const char* s
 		// connect to WS
 		m_pWebSocket = std::make_shared<WebSocket>();
 
-		if (NGMP_OnlineServicesManager::Settings.Network_UseAlternativeEndpoint())
-		{
-			// TODO_NGMP: This should come from the service, if the service was russia-aware
-			m_pWebSocket->Connect("wss://api-ru.playgenerals.online/ws", false, fnWebsocketConnectedCallback);
-		}
-		else
-		{
-			m_pWebSocket->Connect(szWSAddr, false, fnWebsocketConnectedCallback);
-		}
+		// TODO_NGMP: This should come from the service, if the service was russia-aware
+		std::string strWebsocketAddr = NGMP_OnlineServicesManager::Settings.Network_UseAlternativeEndpoint() ? "wss://api-ru.playgenerals.online/ws" : std::string(szWSAddr);
 
-		// TODO_NGMP: This hangs forever if it fails to connect
+        m_pWebSocket->Connect(strWebsocketAddr.c_str(), false, [=]()
+            {
+                // Get friends list and blocked list
+                // we need to wait until the websocket is connected so we have a session
+                NGMP_OnlineServices_SocialInterface* pSocialInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_SocialInterface>();
+                if (pSocialInterface == nullptr)
+                {
+                    return;
+                }
 
-		// Get friends list and blocked list
-        // get our friends list once
-        NGMP_OnlineServices_SocialInterface* pSocialInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_SocialInterface>();
-        if (pSocialInterface == nullptr)
-        {
-            return;
-        }
+                pSocialInterface->GetFriendsList(false, nullptr);
+                pSocialInterface->GetBlockList(nullptr);
 
-		pSocialInterface->GetFriendsList(false, nullptr);
-		pSocialInterface->GetBlockList(nullptr);
+                // and invoke callback
+                fnWebsocketConnectedCallback();
+            });
 	}
 }
 

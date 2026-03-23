@@ -65,7 +65,7 @@ BuildAssistant *TheBuildAssistant = nullptr;
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-ObjectSellInfo::ObjectSellInfo( void )
+ObjectSellInfo::ObjectSellInfo()
 {
 
 	m_id = INVALID_ID;
@@ -75,7 +75,7 @@ ObjectSellInfo::ObjectSellInfo( void )
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-ObjectSellInfo::~ObjectSellInfo( void )
+ObjectSellInfo::~ObjectSellInfo()
 {
 
 }
@@ -104,7 +104,7 @@ static Bool isDozer( Object *obj )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-BuildAssistant::BuildAssistant( void )
+BuildAssistant::BuildAssistant()
 {
 
 	m_buildPositions = nullptr;
@@ -114,7 +114,7 @@ BuildAssistant::BuildAssistant( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-BuildAssistant::~BuildAssistant( void )
+BuildAssistant::~BuildAssistant()
 {
 
 	delete [] m_buildPositions;
@@ -125,7 +125,7 @@ BuildAssistant::~BuildAssistant( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-void BuildAssistant::init( void )
+void BuildAssistant::init()
 {
 
 	//
@@ -139,7 +139,7 @@ void BuildAssistant::init( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-void BuildAssistant::reset( void )
+void BuildAssistant::reset()
 {
 
 	// clear all our data from the sell list
@@ -166,7 +166,7 @@ static const Real TOTAL_FRAMES_TO_SELL_OBJECT = LOGICFRAMES_PER_SECOND * 3.0f;
 //-------------------------------------------------------------------------------------------------
 /** Update phase for the build assistant */
 //-------------------------------------------------------------------------------------------------
-void BuildAssistant::update( void )
+void BuildAssistant::update()
 {
 	ObjectSellInfo *sellInfo;
 	Object *obj;
@@ -204,7 +204,7 @@ void BuildAssistant::update( void )
 		{
 			Real previousConstructionPercent = obj->getConstructionPercent();
 
-			// do the constructoin
+			// do the construction
 			obj->setConstructionPercent( previousConstructionPercent - (100.0f / TOTAL_FRAMES_TO_SELL_OBJECT) );
 
 			//
@@ -583,7 +583,7 @@ void BuildAssistant::iterateFootprint( const ThingTemplate *build,
 	else
 	{
 
-		DEBUG_ASSERTCRASH( 0, ("iterateFootprint: Undefined geometry '%d' for '%s'",
+		DEBUG_CRASH( ("iterateFootprint: Undefined geometry '%d' for '%s'",
 											     build->getTemplateGeometryInfo().getGeomType(), build->getName().str()) );
 		return;
 
@@ -925,7 +925,7 @@ LegalBuildCode BuildAssistant::isLocationLegalToBuild( const Coord3D *worldPos,
 		}
 	}
 
-	// if clear path is requestsed check to see if the builder object can get there
+	// if clear path is requested check to see if the builder object can get there
 	if( BitIsSet( options, CLEAR_PATH ) && builderObject )
 	{
 		AIUpdateInterface *ai = builderObject->getAIUpdateInterface();
@@ -1055,7 +1055,7 @@ void BuildAssistant::addBibs(const Coord3D *worldPos,
 	* actually used for the tiling is returned along with a pointer to the array
 	* of positions in the tile build info.
 	*
-	* REQUIRES: Note that the array at 'postions' must be large enough to hold 'maxTiles'
+	* REQUIRES: Note that the array at 'positions' must be large enough to hold 'maxTiles'
 	* entries of positions
 	*/
 //-------------------------------------------------------------------------------------------------
@@ -1350,7 +1350,7 @@ Bool BuildAssistant::isRemovableForConstruction( Object *obj )
 		return TRUE;
 
 	// Rubble, scrap & dead units can be cleared.
-	if( obj->isEffectivelyDead( ) )
+	if( obj->isEffectivelyDead() )
 		return TRUE;
 
 	// not removable
@@ -1573,8 +1573,8 @@ void BuildAssistant::sellObject( Object *obj )
 	}
 
 	// destroy any mines that are owned by this structure, right now.
-	// unfortunately, structures don't keep list of mines they own, so we must do
-	// this the hard way :-( [fortunately, this doens't happen very often, so this
+	// unfortunately, structures don't keep a list of mines they own, so we must do
+	// this the hard way :-( [fortunately, this doesn't happen very often, so this
 	// is probably an acceptable, if icky, solution.] (srj)
 	for (Object* mine = TheGameLogic->getFirstObject(); mine; mine = mine->getNextObject())
 	{

@@ -92,7 +92,7 @@ static const ModelConditionFlagType theWaitingToCloseFlags[DOOR_COUNT_MAX] =
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-ProductionUpdateModuleData::ProductionUpdateModuleData( void )
+ProductionUpdateModuleData::ProductionUpdateModuleData()
 {
 	// someday, might need separate times for each door. but not yet.
 	m_numDoorAnimations = 0;
@@ -147,7 +147,7 @@ ProductionUpdateModuleData::ProductionUpdateModuleData( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-ProductionEntry::ProductionEntry( void )
+ProductionEntry::ProductionEntry()
 {
 
 	m_type = PRODUCTION_INVALID;
@@ -164,7 +164,7 @@ ProductionEntry::ProductionEntry( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-ProductionEntry::~ProductionEntry( void )
+ProductionEntry::~ProductionEntry()
 {
 
 }
@@ -199,7 +199,7 @@ ProductionUpdate::ProductionUpdate( Thing *thing, const ModuleData* moduleData )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-ProductionUpdate::~ProductionUpdate( void )
+ProductionUpdate::~ProductionUpdate()
 {
 
 	// destroy any queued productions
@@ -374,7 +374,7 @@ void ProductionUpdate::cancelUpgrade( const UpgradeTemplate *upgrade )
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Queue the prodcution of a unit.  Returns TRUE if unit was added to queue, FALSE if it
+/** Queue the production of a unit.  Returns TRUE if unit was added to queue, FALSE if it
 	* was not */
 //-------------------------------------------------------------------------------------------------
 Bool ProductionUpdate::queueCreateUnit( const ThingTemplate *unitType, ProductionID productionID )
@@ -601,7 +601,7 @@ void ProductionUpdate::updateDoors()
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime ProductionUpdate::update( void )
+UpdateSleepTime ProductionUpdate::update()
 {
 /// @todo srj use SLEEPY_UPDATE here
 	ProductionEntry *production = m_productionQueue;
@@ -873,7 +873,7 @@ UpdateSleepTime ProductionUpdate::update( void )
 			{
 
 				// there is no exit interface, this is an error
-				DEBUG_ASSERTCRASH( 0, ("Cannot create '%s', there is no ExitUpdate interface defined for producer object '%s'",
+				DEBUG_CRASH( ("Cannot create '%s', there is no ExitUpdate interface defined for producer object '%s'",
 															production->m_objectToProduce->getName().str(),
 															creationBuilding->getTemplate()->getName().str()) );
 
@@ -909,7 +909,7 @@ UpdateSleepTime ProductionUpdate::update( void )
 				msg.format( format.str(), upgradeName.str() );
 				TheInGameUI->message( msg );
 
-				// upgrades are a more rare event, play a nifty radar event thingie
+				// upgrades are a more rare event, play a nifty radar event thingy
 				TheRadar->createEvent( us->getPosition(), RADAR_EVENT_UPGRADE );
 
 				//Play the sound for the upgrade, because we just built it!
@@ -1039,7 +1039,7 @@ void ProductionUpdate::removeFromProductionQueue( ProductionEntry *production )
 	else
 		m_productionQueue = production->m_next;
 
-	// detach next pointer, keep tail poitner to the whole queue in tact
+	// detach next pointer, keep tail pointer to the whole queue in tact
 	if( production->m_next )
 		production->m_next->m_prev = production->m_prev;
 	else
@@ -1129,7 +1129,7 @@ void ProductionUpdate::onDie( const DamageInfo *damageInfo )
 /** Cancel each of the production items in the queue.  By going through the actual cancel
 	* methods, the cost of each of those items will be refunded to the player */
 // ------------------------------------------------------------------------------------------------
-void ProductionUpdate::cancelAndRefundAllProduction( void )
+void ProductionUpdate::cancelAndRefundAllProduction()
 {
   // Empirically, in release the code can loop forever.  So we limit to 100 passes. jba. [8/31/2003]
   const Int productionLimit = 100;// With luck, we never queue up 100 units. [8/31/2003]
@@ -1276,7 +1276,7 @@ void ProductionUpdate::xfer( Xfer *xfer )
 	{
 		AsciiString name;
 
-		// the queue should be emtpy now
+		// the queue should be empty now
 		if( m_productionQueue != nullptr )
 		{
 
@@ -1388,7 +1388,7 @@ void ProductionUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void ProductionUpdate::loadPostProcess( void )
+void ProductionUpdate::loadPostProcess()
 {
 
 	// extend base class

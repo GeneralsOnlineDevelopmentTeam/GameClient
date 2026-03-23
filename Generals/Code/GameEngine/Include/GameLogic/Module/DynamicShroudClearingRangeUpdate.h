@@ -73,11 +73,11 @@ public:
 	DynamicShroudClearingRangeUpdate( Thing *thing, const ModuleData* moduleData );
 	// virtual destructor prototype provided by memory pool declaration
 
-	virtual UpdateSleepTime update();
+	virtual UpdateSleepTime update() override;
 
 	void createGridDecals( const RadiusDecalTemplate& tmpl, Real radius, const Coord3D& pos );
-	void killGridDecals( void );
-	void animateGridDecals( void );
+	void killGridDecals();
+	void animateGridDecals();
 
 
 protected:
@@ -111,7 +111,7 @@ protected:
 	UnsignedInt m_sustainDeadline;
 	UnsignedInt m_shrinkStartDeadline;
 	UnsignedInt m_doneForeverFrame; ///< Just in case interval and state timing goes awry
-																	///< This supercedes and makes us quit
+																	///< This supersedes and makes us quit
 
 
 	UnsignedInt m_changeIntervalCountdown;///< How long till I change my vision range again

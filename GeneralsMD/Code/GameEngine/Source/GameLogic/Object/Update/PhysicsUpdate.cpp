@@ -1408,7 +1408,7 @@ void PhysicsBehavior::onCollide( Object *other, const Coord3D *loc, const Coord3
 
 			// nuke the velocity. why? very simple: we want to ignore the previous vel in favor of
 			// this. in theory, we could be clever and calculate the right force to apply to achieve this,
-			// but then if we were still colliding next frame, we'd get a sudden 'aceleration' of bounce
+			// but then if we were still colliding next frame, we'd get a sudden 'acceleration' of bounce
 			// that would look freakish. so cheat.
 			m_vel.x = 0;
 			m_vel.y = 0;
@@ -1782,7 +1782,7 @@ Bool PhysicsBehavior::checkForOverlapCollision(Object *other)
 // ------------------------------------------------------------------------------------------------
 /** Test whether unit needs to die because of being on illegal cell, upside down, outside legal bounds **/
 // ------------------------------------------------------------------------------------------------
-void PhysicsBehavior::testStunnedUnitForDestruction(void)
+void PhysicsBehavior::testStunnedUnitForDestruction()
 {
 	// Only do test if unit is stunned
 	if (!getFlag(IS_STUNNED))
@@ -1919,7 +1919,7 @@ void PhysicsBehavior::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void PhysicsBehavior::loadPostProcess( void )
+void PhysicsBehavior::loadPostProcess()
 {
 
 	// extend base class

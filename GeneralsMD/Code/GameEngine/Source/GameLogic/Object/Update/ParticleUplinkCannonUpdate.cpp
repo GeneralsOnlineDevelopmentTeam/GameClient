@@ -58,7 +58,12 @@
 #include "GameLogic/Module/PhysicsUpdate.h"
 #include "GameLogic/Module/ActiveBody.h"
 
-
+// TheSuperHackers @fix Mirelle 04/02/2026: Raised from 500.0f so that
+// enormous camera heights cannot see above the laser origin.
+constexpr const Real ORBITAL_BEAM_Z_OFFSET = 3500.0f;
+// TheSuperHackers @fix The positional audio is now decoupled from the beam origin.
+// 500 units represent the height of the original audio emitter.
+constexpr const Real ORBITAL_BEAM_AUDIO_Z_OFFSET = 500.0f;
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
@@ -226,7 +231,7 @@ void ParticleUplinkCannonUpdate::killEverything()
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-ParticleUplinkCannonUpdate::~ParticleUplinkCannonUpdate( void )
+ParticleUplinkCannonUpdate::~ParticleUplinkCannonUpdate()
 {
 	killEverything();
 }
@@ -625,7 +630,7 @@ UpdateSleepTime ParticleUplinkCannonUpdate::update()
 
 			Coord3D orbitPosition;
 			orbitPosition.set( &m_currentTargetPosition );
-			orbitPosition.z += 500.0f;
+			orbitPosition.z += ORBITAL_BEAM_Z_OFFSET;
 
 			Real scorchRadius = 0.0f;
 			Real damageRadius = 0.0f;
@@ -646,6 +651,9 @@ UpdateSleepTime ParticleUplinkCannonUpdate::update()
 					templateLaserRadius = update->getTemplateLaserRadius();
 					visualLaserRadius = update->getCurrentLaserRadius();
 				}
+				Coord3D audioPos = m_currentTargetPosition;
+				audioPos.z += ORBITAL_BEAM_AUDIO_Z_OFFSET;
+				beam->setPosition( &audioPos );
 			}
 			// TheSuperHackers @refactor helmutbuhler/xezon 17/05/2025
 			// Originally the damageRadius was calculated with a value updated by LaserUpdate::clientUpdate.
@@ -1003,7 +1011,7 @@ void ParticleUplinkCannonUpdate::createGroundToOrbitLaser( UnsignedInt growthFra
 				{
 					Coord3D orbitPosition;
 					orbitPosition.set( &m_laserOriginPosition );
-					orbitPosition.z += 500.0f;
+					orbitPosition.z += ORBITAL_BEAM_Z_OFFSET;
 					update->initLaser( nullptr, nullptr, &m_laserOriginPosition, &orbitPosition, "", growthFrames );
 				}
 			}
@@ -1042,9 +1050,12 @@ void ParticleUplinkCannonUpdate::createOrbitToTargetLaser( UnsignedInt growthFra
 				{
 					Coord3D orbitPosition;
 					orbitPosition.set( &m_initialTargetPosition );
-					orbitPosition.z += 500.0f;
+					orbitPosition.z += ORBITAL_BEAM_Z_OFFSET;
 					update->initLaser( nullptr, nullptr, &orbitPosition, &m_initialTargetPosition, "", growthFrames );
 				}
+				Coord3D audioPos = m_initialTargetPosition;
+				audioPos.z += ORBITAL_BEAM_AUDIO_Z_OFFSET;
+				beam->setPosition( &audioPos );
 			}
 		}
 		if( m_annihilationSound.getEventName().isNotEmpty() )
@@ -1527,7 +1538,7 @@ void ParticleUplinkCannonUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void ParticleUplinkCannonUpdate::loadPostProcess( void )
+void ParticleUplinkCannonUpdate::loadPostProcess()
 {
 
 	// extend base class
@@ -1555,6 +1566,37 @@ void ParticleUplinkCannonUpdate::loadPostProcess( void )
 				DEBUG_CRASH(( "ParticleUplinkCannonUpdate::loadPostProcess - Unable to find drawable for m_orbitToTargetBeamID" ));
 			}
 		}
-	}
 
+		// TheSuperHackers @bugfix stephanmeesters 13/02/2026
+		// For retail game compatibility, this fixes an issue where particle cannon sounds are not audible after saveload.
+		if( (m_status == STATUS_CHARGING || m_status == STATUS_PREPARING || m_status == STATUS_ALMOST_READY) &&
+			m_powerupSound.getEventName().isNotEmpty() )
+		{
+			m_powerupSound.setObjectID( getObject()->getID() );
+			m_powerupSound.setPlayingHandle( TheAudio->addAudioEvent( &m_powerupSound ) );
+		}
+
+		if( (m_status == STATUS_PREPARING || m_status == STATUS_ALMOST_READY || m_status == STATUS_READY_TO_FIRE || m_status == STATUS_PREFIRE) &&
+			m_unpackToReadySound.getEventName().isNotEmpty() )
+		{
+			m_unpackToReadySound.setObjectID( getObject()->getID() );
+			m_unpackToReadySound.setPlayingHandle( TheAudio->addAudioEvent( &m_unpackToReadySound ) );
+		}
+
+		if( m_status == STATUS_FIRING || m_status == STATUS_POSTFIRE ||
+			(m_status == STATUS_PACKING && (m_laserStatus == LASERSTATUS_DECAYING || m_laserStatus == LASERSTATUS_DEAD)) )
+		{
+			if( m_firingToIdleSound.getEventName().isNotEmpty() )
+			{
+				m_firingToIdleSound.setObjectID( getObject()->getID() );
+				m_firingToIdleSound.setPlayingHandle( TheAudio->addAudioEvent( &m_firingToIdleSound ) );
+			}
+
+			if( m_orbitToTargetBeamID != INVALID_DRAWABLE_ID && m_annihilationSound.getEventName().isNotEmpty() )
+			{
+				m_annihilationSound.setDrawableID( m_orbitToTargetBeamID );
+				m_annihilationSound.setPlayingHandle( TheAudio->addAudioEvent( &m_annihilationSound ) );
+			}
+		}
+	}
 }

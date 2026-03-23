@@ -86,9 +86,9 @@ private:
 
 protected:
 	// snapshot methods
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void );
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 public:
 
@@ -104,6 +104,6 @@ public:
 	void xferSelfAndCurLocoPtr(Xfer *xfer, Locomotor** loco);
 
 	LocomotorSurfaceTypeMask getValidSurfaces() const { return m_validLocomotorSurfaces; }
-	Bool isDownhillOnly( void ) const { return m_downhillOnly; };
+	Bool isDownhillOnly() const { return m_downhillOnly; };
 
 };

@@ -37,9 +37,9 @@ typedef std::map<Int, UnsignedInt> PerGeneralMap;
 class PSPlayerStats
 {
 public:
-	PSPlayerStats( void );
+	PSPlayerStats();
 	PSPlayerStats( const PSPlayerStats& other );
-	void reset(void);
+	void reset();
 
 	Int id;
 
@@ -164,9 +164,9 @@ class GameSpyPSMessageQueueInterface
 {
 public:
 	virtual ~GameSpyPSMessageQueueInterface() {}
-	virtual void startThread( void ) = 0;
-	virtual void endThread( void ) = 0;
-	virtual Bool isThreadRunning( void ) = 0;
+	virtual void startThread() = 0;
+	virtual void endThread() = 0;
+	virtual Bool isThreadRunning() = 0;
 
 	virtual void addRequest( const PSRequest& req ) = 0;
 	virtual Bool getRequest( PSRequest& req ) = 0;
@@ -178,7 +178,7 @@ public:
 	virtual void trackPlayerStats( PSPlayerStats stats ) = 0;
 	virtual PSPlayerStats findPlayerStatsByID( Int id ) = 0;
 
-	static GameSpyPSMessageQueueInterface* createNewMessageQueue( void );
+	static GameSpyPSMessageQueueInterface* createNewMessageQueue();
 
 	static std::string formatPlayerKVPairs( PSPlayerStats stats );
 	static PSPlayerStats parsePlayerKVPairs( std::string kvPairs );

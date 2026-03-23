@@ -47,6 +47,7 @@ public:
 	Bool m_isForbidOwnerPlayer;			///< This crate cannot be picked up by the player of the dead thing that made it.
 	Bool m_isBuildingPickup;			///< This crate can be picked up by a Building (bypassing AI requirement)
 	Bool m_isHumanOnlyPickup;				///< Can this crate only be picked up by a human player?  (Mission thing)
+	Bool m_allowMultiPickup;				///< Can this crate be picked up by multiple objects on the same frame?
 	ScienceType m_pickupScience;		///< Can only be picked up by a unit whose player has this science
 	FXList *m_executeFX;						///< FXList to play when activated
 
@@ -73,13 +74,13 @@ public:
 	// virtual destructor prototype provided by memory pool declaration
 
 	/// This collide method gets called when collision occur
-	virtual void onCollide( Object *other, const Coord3D *loc, const Coord3D *normal );
+	virtual void onCollide( Object *other, const Coord3D *loc, const Coord3D *normal ) override;
 
-	virtual Bool wouldLikeToCollideWith(const Object* other) const { return isValidToExecute(other); }
+	virtual Bool wouldLikeToCollideWith(const Object* other) const override { return isValidToExecute(other); }
 
-	virtual Bool isRailroad() const { return FALSE;};
- 	virtual Bool isCarBombCrateCollide() const { return FALSE; }
-	virtual Bool isHijackedVehicleCrateCollide() const { return FALSE; }
+	virtual Bool isRailroad() const override { return FALSE;};
+ 	virtual Bool isCarBombCrateCollide() const override { return FALSE; }
+	virtual Bool isHijackedVehicleCrateCollide() const override { return FALSE; }
 
 protected:
 

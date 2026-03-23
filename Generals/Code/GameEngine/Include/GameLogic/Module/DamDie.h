@@ -39,7 +39,7 @@ class DamDieModuleData : public DieModuleData
 
 public:
 
-	DamDieModuleData( void );
+	DamDieModuleData();
 
 	static void buildFieldParse(MultiIniFieldParse& p);
 
@@ -56,8 +56,8 @@ class DamDie : public DieModule
 public:
 
 	DamDie( Thing *thing, const ModuleData* moduleData );
-	// virtual destructor prorotype provided by MemoryPoolObject
+	// virtual destructor prototype provided by MemoryPoolObject
 
-	virtual void onDie( const DamageInfo *damageInfo );
+	virtual void onDie( const DamageInfo *damageInfo ) override;
 
 };

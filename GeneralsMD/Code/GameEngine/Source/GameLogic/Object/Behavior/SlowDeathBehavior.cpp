@@ -167,7 +167,7 @@ SlowDeathBehavior::SlowDeathBehavior( Thing *thing, const ModuleData* moduleData
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-SlowDeathBehavior::~SlowDeathBehavior( void )
+SlowDeathBehavior::~SlowDeathBehavior()
 {
 }
 
@@ -391,7 +391,7 @@ UpdateSleepTime SlowDeathBehavior::update()
 
 	Real timeScale = TheGameLODManager->getSlowDeathScale();
 
-	// Check if we have normal time scale but LODManager is requeseting acceleration
+	// Check if we have normal time scale but LODManager is requesting acceleration
 	if (timeScale != 1.0f && m_acceleratedTimeScale == 1.0f && !d->hasNonLodEffects())
 	{
 		// speed of deaths has been increased since beginning of death
@@ -577,7 +577,7 @@ void SlowDeathBehavior::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void SlowDeathBehavior::loadPostProcess( void )
+void SlowDeathBehavior::loadPostProcess()
 {
 
 	// extend base class

@@ -512,7 +512,7 @@ void NGMPGame::launchGame(void)
 	//TheWritableGlobalData->m_useFpsLimit = false;
 
 	// Set the random seed
-	InitGameLogicRandom(getSeed());
+	InitRandom(getSeed());
 	DEBUG_LOG(("InitGameLogicRandom( %d )\n", getSeed()));
 
 	// mark us as "Loading" in the buddy list

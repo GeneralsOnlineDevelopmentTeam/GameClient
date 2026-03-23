@@ -89,7 +89,7 @@
  * HISTORY:                                                                                    *
  *   3/21/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-CameraClass::CameraClass(void) :
+CameraClass::CameraClass() :
 	Projection(PERSPECTIVE),
 	Viewport(Vector2(0,0),Vector2(1,1)),		// pixel viewport to render into
 	AspectRatio(4.0f/3.0f),
@@ -99,7 +99,7 @@ CameraClass::CameraClass(void) :
 	ZBufferMax(1.0f),									// largest value we'll write into the z-buffer
 	FrustumValid(false)
 {
-	Set_Transform(Matrix3D(1));
+	Set_Transform(Matrix3D(true));
 	Set_View_Plane(DEG_TO_RADF(50.0f));
 }
 
@@ -186,7 +186,7 @@ CameraClass & CameraClass::operator = (const CameraClass & that)
  * HISTORY:                                                                                    *
  *   3/21/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-CameraClass::~CameraClass(void)
+CameraClass::~CameraClass()
 {
 }
 
@@ -203,7 +203,7 @@ CameraClass::~CameraClass(void)
  * HISTORY:                                                                                    *
  *   3/21/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-RenderObjClass * CameraClass::Clone(void) const
+RenderObjClass * CameraClass::Clone() const
 {
 	return NEW_REF( CameraClass, (*this) );
 }
@@ -326,14 +326,13 @@ void CameraClass::Set_View_Plane(const Vector2 & vmin,const Vector2 & vmax)
  *=============================================================================================*/
 void CameraClass::Set_View_Plane(float hfov,float vfov)
 {
-
-	float width_half = tan(hfov/2.0);
+	float width_half = tan(hfov/2.0f);
 	float height_half = 0.0f;
 
 	if (vfov == -1) {
 		height_half = (1.0f / AspectRatio) * width_half;		// use the aspect ratio
 	} else {
-		height_half = tan(vfov/2.0);
+		height_half = tan(vfov/2.0f);
 		AspectRatio = width_half / height_half;					// or, initialize the aspect ratio
 	}
 
@@ -493,7 +492,7 @@ void CameraClass::Un_Project(Vector3 & dest,const Vector2 & view_point) const
 {
 	/*
 	** map view_point.X from -1..1 to ViewPlaneMin.X..ViewPlaneMax.X
-	** map view_point.Y from -1..1 to ViewPlaneMin.X..ViewPlaneMax.X
+	** map view_point.Y from -1..1 to ViewPlaneMin.Y..ViewPlaneMax.Y
 	*/
 	float vpdx = ViewPlane.Max.X - ViewPlane.Min.X;
 	float vpdy = ViewPlane.Max.Y - ViewPlane.Min.Y;
@@ -558,7 +557,7 @@ void CameraClass::Rotate_To_View_Space(Vector3 & dest,const Vector3 & ws_vector)
  * HISTORY:                                                                                    *
  *   8/25/99    GTH : Created.                                                                 *
  *=============================================================================================*/
-const OBBoxClass & CameraClass::Get_Near_Clip_Bounding_Box(void) const
+const OBBoxClass & CameraClass::Get_Near_Clip_Bounding_Box() const
 {
 	Update_Frustum();
 	return NearClipBBox;
@@ -596,7 +595,7 @@ bool CameraClass::Cull_Box(const AABoxClass & box) const
  * HISTORY:                                                                                    *
  *   5/29/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Update_Frustum(void) const
+void CameraClass::Update_Frustum() const
 {
 	if (FrustumValid) return;
 
@@ -615,7 +614,7 @@ void CameraClass::Update_Frustum(void) const
 	// Update the frustum
 	FrustumValid = true;
 	Frustum.Init(cam_mat,vpmin,vpmax,znear,zfar);
-	ViewSpaceFrustum.Init(Matrix3D(1),vpmin,vpmax,znear,zfar);
+	ViewSpaceFrustum.Init(Matrix3D(true),vpmin,vpmax,znear,zfar);
 
 	// Update the OBB around the near clip rectangle
 #ifdef ALLOW_TEMPORARIES
@@ -716,7 +715,7 @@ void CameraClass::Device_To_World_Space(const Vector2 & device_coord,Vector3 * w
  * HISTORY:                                                                                    *
  *   1/29/2001  gth : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Apply(void)
+void CameraClass::Apply()
 {
 	Update_Frustum();
 
@@ -752,19 +751,19 @@ void CameraClass::Get_Clip_Planes(float & znear,float & zfar) const
 	zfar = ZFar;
 }
 
-float CameraClass::Get_Horizontal_FOV(void) const
+float CameraClass::Get_Horizontal_FOV() const
 {
 	float width = ViewPlane.Max.X - ViewPlane.Min.X;
 	return 2*WWMath::Atan2(width,2.0);
 }
 
-float CameraClass::Get_Vertical_FOV(void) const
+float CameraClass::Get_Vertical_FOV() const
 {
 	float height = ViewPlane.Max.Y - ViewPlane.Min.Y;
 	return 2*WWMath::Atan2(height,2.0);
 }
 
-float CameraClass::Get_Aspect_Ratio(void) const
+float CameraClass::Get_Aspect_Ratio() const
 {
 	return AspectRatio;
 }
@@ -805,13 +804,13 @@ void CameraClass::Get_View_Matrix(Matrix3D * set_tm)
 	*set_tm = CameraInvTransform;
 }
 
-const Matrix4x4 & CameraClass::Get_Projection_Matrix(void)
+const Matrix4x4 & CameraClass::Get_Projection_Matrix()
 {
 	Update_Frustum();
 	return ProjectionTransform;
 }
 
-const Matrix3D & CameraClass::Get_View_Matrix(void)
+const Matrix3D & CameraClass::Get_View_Matrix()
 {
 	Update_Frustum();
 	return CameraInvTransform;

@@ -759,7 +759,7 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 	}
 }
 
-void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(void)> fnCallback)
+void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(bool)> fnCallback)
 {
 	// refresh lobby
 	if (m_CurrentLobby.lobbyID != -1 && TheNGMPGame != nullptr)
@@ -783,7 +783,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							// TODO_NGMP: We still want to do this, but we need to send back that it failed and back out, proceeding to lobby crashes because mesh wasn't created
 							if (fnCallback != nullptr)
 							{
-								//fnCallback();
+								fnCallback(false);
 							}
 
 							LeaveCurrentLobby();
@@ -835,11 +835,20 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						}
 						else
 						{
-							// TODO_NGMP: This needs to match identically, but why did it change from the base game?
-							AsciiString strUserMapDIr = TheMapCache->getUserMapDir(true);
-							strUserMapDIr.toLower();
+							// Client sends the map filename sanitized, and the server reconstructs it as "mapname\mapname.map" assuming it sits directly under Maps\.
+							// However maps may be in a subdirectory locally, so search the local cache by filename to resolve the full path.
+							const char* mapFileName = strrchr(lobbyEntry.map_path.c_str(), '\\');
+							mapFileName = mapFileName != nullptr ? mapFileName + 1 : lobbyEntry.map_path.c_str();
 
-							lobbyEntry.map_path = std::format("{}\\{}", strUserMapDIr.str(), lobbyEntry.map_path.c_str());
+							for (std::map<AsciiString, MapMetaData>::iterator it = TheMapCache->begin(); it != TheMapCache->end(); ++it)
+							{
+								const char* cacheFileName = strrchr(it->first.str(), '\\');
+								if (cacheFileName && _stricmp(cacheFileName + 1, mapFileName) == 0)
+								{
+									lobbyEntry.map_path = it->first.str();
+									break;
+								}
+							}
 						}
 
 						// did the map change? cache that we need to reset and transmit our ready state
@@ -991,7 +1000,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 
 						if (fnCallback != nullptr)
 						{
-							fnCallback();
+							fnCallback(bSuccess);
 						}
 					}
 					catch (...)
@@ -1140,18 +1149,18 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 							*/
 						}
 
-						OnJoinedOrCreatedLobby(false, [=]()
+						OnJoinedOrCreatedLobby(false, [=](bool bSuccess)
 							{
 								m_bAttemptingToJoinLobby = false;
 								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 								if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackJoinedLobby != nullptr)
 								{
-									pLobbyInterface->m_callbackJoinedLobby(JoinResult);
+									pLobbyInterface->m_callbackJoinedLobby(bSuccess ? EJoinLobbyResult::JoinLobbyResult_Success : EJoinLobbyResult::JoinLobbyResult_JoinFailed);
 								}
 							});
 
 						// get latest lobby info immediately
-						UpdateRoomDataCache([=]()
+						UpdateRoomDataCache([=](bool bSuccess)
 							{
 
 							});
@@ -1367,7 +1376,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 							TheNGMPGame->UpdateSlotsFromCurrentLobby();
 
 							// we always need to get the enc key etc
-							pLobbyInterface->OnJoinedOrCreatedLobby(false, [=]()
+							pLobbyInterface->OnJoinedOrCreatedLobby(false, [=](bool bSuccess)
 								{
 									// TODO_NGMP: Impl
 									pLobbyInterface->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
@@ -1394,7 +1403,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 		});
 }
 
-void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(void)> fnCallback)
+void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(bool)> fnCallback)
 {
 	// join the network mesh too
 	if (m_pLobbyMesh == nullptr)
@@ -1411,9 +1420,9 @@ void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpd
 	// must be done in a callback, this is an async function
 	if (!bAlreadyUpdatedDetails)
 	{
-		UpdateRoomDataCache([=]()
+		UpdateRoomDataCache([=](bool bSuccess)
 			{
-				fnCallback();
+				fnCallback(bSuccess);
 			});
 	}
 

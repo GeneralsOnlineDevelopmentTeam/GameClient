@@ -35,18 +35,18 @@ class DX8IndexBufferClass;
 class W3DSmudgeManager : public SmudgeManager
 {
 public:
-	W3DSmudgeManager( void );
+	W3DSmudgeManager();
 	virtual ~W3DSmudgeManager();
 
-	virtual void init(void);
-	virtual void reset (void);
+	virtual void init();
+	virtual void reset ();
 
 	void render (RenderInfoClass &rinfo);
-	void ReleaseResources(void);
-	void ReAcquireResources(void);
+	void ReleaseResources();
+	void ReAcquireResources();
 
 private:
-	Bool testHardwareSupport(void);		///<test if video card supports the effect.
+	Bool testHardwareSupport();		///<test if video card supports the effect.
 
 	enum { MAX_POINTS_PER_GROUP = 512 };
 
@@ -55,9 +55,7 @@ private:
 	ShareBufferClass<unsigned int> *m_RGBABuffer;		///< array of particle color and alpha
 	ShareBufferClass<float> *m_sizeBuffer;			///< array of particle sizes
 
-#ifdef USE_COPY_RECTS
 	TextureClass *m_backgroundTexture;
-#endif
 	DX8IndexBufferClass	*m_indexBuffer;
 	Int m_backBufferWidth;
 	Int m_backBufferHeight;

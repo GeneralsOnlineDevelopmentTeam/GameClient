@@ -70,7 +70,7 @@ AssistedTargetingUpdate::AssistedTargetingUpdate( Thing *thing, const ModuleData
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-AssistedTargetingUpdate::~AssistedTargetingUpdate( void )
+AssistedTargetingUpdate::~AssistedTargetingUpdate()
 {
 }
 
@@ -78,7 +78,7 @@ AssistedTargetingUpdate::~AssistedTargetingUpdate( void )
 //-------------------------------------------------------------------------------------------------
 Bool AssistedTargetingUpdate::isFreeToAssist() const
 {
-	// The reload times of my two weapons are tied together, so Ready is indicitive of either.
+	// The reload times of my two weapons are tied together, so Ready is indicative of either.
 	const Object *me = getObject();
 	if( !me->isAbleToAttack() )
 		return FALSE;// This will cover under construction among other things
@@ -135,7 +135,7 @@ void AssistedTargetingUpdate::makeFeedbackLaser( const ThingTemplate *laserTempl
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime AssistedTargetingUpdate::update( void )
+UpdateSleepTime AssistedTargetingUpdate::update()
 {
 	return UPDATE_SLEEP_FOREVER;
 }
@@ -172,7 +172,7 @@ void AssistedTargetingUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void AssistedTargetingUpdate::loadPostProcess( void )
+void AssistedTargetingUpdate::loadPostProcess()
 {
 
 	// extend base class

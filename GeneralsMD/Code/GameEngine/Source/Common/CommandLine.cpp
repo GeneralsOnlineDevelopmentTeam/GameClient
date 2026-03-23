@@ -417,6 +417,22 @@ Int parseHeadless(char *args[], int num)
 	return 1;
 }
 
+Int parseExportStats(char *args[], int num)
+{
+	TheWritableGlobalData->m_exportStats = TRUE;
+	return 1;
+}
+
+Int parseStatsUrl(char *args[], int num)
+{
+	if (num > 1)
+	{
+		TheWritableGlobalData->m_statsUrl = args[1];
+		return 2;
+	}
+	return 1;
+}
+
 Int parseReplay(char *args[], int num)
 {
 	if (num > 1)
@@ -1175,12 +1191,22 @@ static CommandLineParam paramsForStartup[] =
 	// (If you have 4 cores, call it with -jobs 4)
 	// If you do not call this, all replays will be simulated in sequence in the same process.
 	{ "-jobs", parseJobs },
+
+	// Export game stats as JSON alongside replay file.
+	{ "-exportStats", parseExportStats },
+
+	// URL to POST compressed stats JSON after export.
+	{ "-statsUrl", parseStatsUrl },
 };
 
 // These Params are parsed during Engine Init before INI data is loaded
 static CommandLineParam paramsForEngineInit[] =
 {
+#if defined(RTS_DEBUG) || !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
+	{ "-nologo", parseNoLogo }, // TheSuperHackers @tweak Is now available in Release builds.
+#endif
 	{ "-noshellmap", parseNoShellMap },
+	{ "-noShellAnim", parseNoWindowAnimation }, // TheSuperHackers @tweak Is now available in Release builds.
 	{ "-xres", parseXRes },
 	{ "-yres", parseYRes },
 	{ "-fullVersion", parseFullVersion },
@@ -1306,9 +1332,7 @@ static CommandLineParam paramsForEngineInit[] =
 	{ "-noshadowvolumes", parseNoShadows },
 	{ "-nofx", parseNoFX },
 	{ "-ignoresync", parseSync },
-	{ "-nologo", parseNoLogo },
 	{ "-shellmap", parseShellMap },
-	{ "-noShellAnim", parseNoWindowAnimation },
 	{ "-winCursors", parseWinCursors },
 	{ "-constantDebug", parseConstantDebug },
 	{ "-seed", parseSeed },
@@ -1319,7 +1343,6 @@ static CommandLineParam paramsForEngineInit[] =
 	{ "-updateImages", parseUpdateImages },
 	{ "-showTeamDot", parseShowTeamDot },
 	{ "-extraLogging", parseExtraLogging },
-
 #endif
 
 #ifdef DEBUG_LOGGING

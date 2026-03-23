@@ -39,19 +39,19 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Cache VC6 Installation
         if: startsWith(inputs.preset, 'vc6')
         id: cache-vc6
-        uses: actions/cache@v4
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: C:\VC6
           key: vc6-permanent-cache-v1
 
       - name: Cache CMake Dependencies
         id: cache-cmake-deps
-        uses: actions/cache@v4
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: build\${{ inputs.preset }}\_deps
           key: cmake-deps-${{ inputs.preset }}-${{ hashFiles('CMakePresets.json','cmake/**/*.cmake','**/CMakeLists.txt') }}
@@ -102,7 +102,7 @@ jobs:
 
       - name: Set Up VC2022 Environment
         if: startsWith(inputs.preset, 'win32')
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         with:
           arch: x86
 
@@ -113,34 +113,27 @@ jobs:
         run: |
           $baseline = (Get-Content vcpkg.json | ConvertFrom-Json)."builtin-baseline"
 
-          $msvc = $env:VCToolsVersion
-          if (-not $msvc) { $msvc = "unknown" }
-
-          # Reduce churn: keep major.minor (e.g. 14.44)
-          $msvcMajorMinor = ($msvc -split '\.')[0..1] -join '.'
-
           $triplet = "x86-windows"
           if ("${{ inputs.preset }}" -like "x64*") { $triplet = "x64-windows" }
 
           "baseline=$baseline" >> $env:GITHUB_OUTPUT
-          "msvc=$msvcMajorMinor" >> $env:GITHUB_OUTPUT
           "triplet=$triplet" >> $env:GITHUB_OUTPUT
 
-          Write-Host "vcpkg cache key parts: baseline=$baseline, msvc=$msvcMajorMinor, triplet=$triplet"
+          Write-Host "vcpkg cache key parts: baseline=$baseline, triplet=$triplet"
 
       - name: Restore vcpkg binary cache
         if: startsWith(inputs.preset, 'win32')
         id: vcpkg_cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ${{ github.workspace }}\vcpkg-bincache
-          key: vcpkg-bincache-v2-${{ runner.os }}-msvc${{ steps.vcpkg_key.outputs.msvc }}-baseline${{ steps.vcpkg_key.outputs.baseline }}-${{ steps.vcpkg_key.outputs.triplet }}
+          key: vcpkg-bincache-v3-${{ runner.os }}-baseline${{ steps.vcpkg_key.outputs.baseline }}-${{ steps.vcpkg_key.outputs.triplet }}-${{ hashFiles('triplets/*.cmake') }}
           restore-keys: |
-            vcpkg-bincache-v2-${{ runner.os }}-msvc${{ steps.vcpkg_key.outputs.msvc }}-baseline${{ steps.vcpkg_key.outputs.baseline }}-
-            vcpkg-bincache-v2-${{ runner.os }}-
+            vcpkg-bincache-v3-${{ runner.os }}-baseline${{ steps.vcpkg_key.outputs.baseline }}-
+            vcpkg-bincache-v3-${{ runner.os }}-
 
       - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
+        uses: lukka/run-vcpkg@5e0cab206a5ea620130caf672fce3e4a6b5666a1 # v11.5
         with:
           runVcpkgInstall: false
           doNotCache: true
@@ -158,6 +151,8 @@ jobs:
 
           "VCPKG_DEFAULT_BINARY_CACHE=$cacheDir" >> $env:GITHUB_ENV
           "VCPKG_BINARY_SOURCES=$env:VCPKG_BINARY_SOURCES" >> $env:GITHUB_ENV
+          "VCPKG_OVERLAY_TRIPLETS=${{ github.workspace }}\triplets" >> $env:GITHUB_ENV
+          "VCPKG_INSTALL_OPTIONS=--x-abi-tools-use-exact-versions" >> $env:GITHUB_ENV
 
       - name: Configure ${{ inputs.game }} with CMake Using ${{ inputs.preset }}${{ inputs.tools && '+t' || '' }}${{ inputs.extras && '+e' || '' }} Preset
         shell: pwsh
@@ -184,10 +179,10 @@ jobs:
       - name: Save vcpkg binary cache
         # Only one job should save to avoid "Unable to reserve cache" conflicts.
         if: ${{ startsWith(inputs.preset, 'win32') && steps.vcpkg_cache.outputs.cache-hit != 'true' && inputs.game == 'Generals' && inputs.preset == 'win32-vcpkg-debug' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ${{ github.workspace }}\vcpkg-bincache
-          key: vcpkg-bincache-v2-${{ runner.os }}-msvc${{ steps.vcpkg_key.outputs.msvc }}-baseline${{ steps.vcpkg_key.outputs.baseline }}-${{ steps.vcpkg_key.outputs.triplet }}
+          key: vcpkg-bincache-v3-${{ runner.os }}-baseline${{ steps.vcpkg_key.outputs.baseline }}-${{ steps.vcpkg_key.outputs.triplet }}-${{ hashFiles('triplets/*.cmake') }}
 
       - name: Collect ${{ inputs.game }} ${{ inputs.preset }}${{ inputs.tools && '+t' || '' }}${{ inputs.extras && '+e' || '' }} Artifact
         shell: pwsh
@@ -207,7 +202,7 @@ jobs:
           $files | Move-Item -Destination $artifactsDir -Verbose -Force
 
       - name: Upload ${{ inputs.game }} ${{ inputs.preset }}${{ inputs.tools && '+t' || '' }}${{ inputs.extras && '+e' || '' }} Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: ${{ inputs.game }}-${{ inputs.preset }}${{ inputs.tools && '+t' || '' }}${{ inputs.extras && '+e' || '' }}
           path: build\${{ inputs.preset }}\${{ inputs.game }}\artifacts

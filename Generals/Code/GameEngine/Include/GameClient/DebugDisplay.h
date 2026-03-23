@@ -85,14 +85,14 @@ class DebugDisplayInterface
 
 		virtual void	printf( const Char *format, ...) = 0;			///< Print formatted text at current cursor position
 		virtual void	setCursorPos( Int x, Int y ) = 0;		///< Set new cursor position
-		virtual Int		getCursorXPos( void ) = 0;					///< Get current X position of cursor
-		virtual Int		getCursorYPos( void ) = 0;					///< Get current Y position of cursor
-		virtual Int		getWidth( void ) = 0;								///< Get character width of display
-		virtual Int		getHeight( void ) = 0;							///< Get character height of display
+		virtual Int		getCursorXPos() = 0;					///< Get current X position of cursor
+		virtual Int		getCursorYPos() = 0;					///< Get current Y position of cursor
+		virtual Int		getWidth() = 0;								///< Get character width of display
+		virtual Int		getHeight() = 0;							///< Get character height of display
 		virtual void	setTextColor( Color color ) = 0;		///< Set text color
 		virtual void	setRightMargin( Int rightPos ) = 0;	///< Set right margin position
 		virtual void	setLeftMargin( Int leftPos ) = 0;		///< Set left margin position
-		virtual void	reset( void ) = 0;									///< Reset back to default settings
+		virtual void	reset() = 0;									///< Reset back to default settings
 
 	protected:
 
@@ -110,18 +110,18 @@ class DebugDisplay : public DebugDisplayInterface
 	public:
 
 		DebugDisplay();
-		virtual ~DebugDisplay() {};
+		virtual ~DebugDisplay() override {};
 
-		virtual void	printf( const Char *format, ...);			///< Print formatted text at current cursor position
-		virtual void	setCursorPos( Int x, Int y );		///< Set new cursor position
-		virtual Int		getCursorXPos( void );					///< Get current X position of cursor
-		virtual Int		getCursorYPos( void );					///< Get current Y position of cursor
-		virtual Int		getWidth( void );								///< Get character width of display
-		virtual Int		getHeight( void );							///< Get character height of display
-		virtual void	setTextColor( Color color );		///< set text color
-		virtual void	setRightMargin( Int rightPos );	///< set right margin position
-		virtual void	setLeftMargin( Int leftPos );		///< set left margin position
-		virtual void	reset( void );									///< Reset back to default settings
+		virtual void	printf( const Char *format, ...) override;			///< Print formatted text at current cursor position
+		virtual void	setCursorPos( Int x, Int y ) override;		///< Set new cursor position
+		virtual Int		getCursorXPos() override;					///< Get current X position of cursor
+		virtual Int		getCursorYPos() override;					///< Get current Y position of cursor
+		virtual Int		getWidth() override;								///< Get character width of display
+		virtual Int		getHeight() override;							///< Get character height of display
+		virtual void	setTextColor( Color color ) override;		///< set text color
+		virtual void	setRightMargin( Int rightPos ) override;	///< set right margin position
+		virtual void	setLeftMargin( Int leftPos ) override;		///< set left margin position
+		virtual void	reset() override;									///< Reset back to default settings
 
 	protected:
 

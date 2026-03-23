@@ -91,7 +91,6 @@ static GameWindow *theWindow = nullptr;
 static AnimateWindowManager *theAnimateWindowManager = nullptr;
 WindowMsgHandledType BuddyControlSystem( GameWindow *window, UnsignedInt msg,
 														 WindowMsgData mData1, WindowMsgData mData2);
-void InitBuddyControls(Int type);
 
 #if defined(GENERALS_ONLINE)
 void updateBuddyInfo(bool bIsAutoRefresh = false, bool bUseCache = false);
@@ -99,7 +98,8 @@ void updateBuddyInfo(bool bIsAutoRefresh = false, bool bUseCache = false);
 void updateBuddyInfo( void );
 #endif
 
-static void grabWindowPointers( void )
+void InitBuddyControls(Int type);
+static void grabWindowPointers()
 {
 	for (Int i=0; i<MAX_SLOTS; ++i)
 	{
@@ -128,7 +128,7 @@ static void grabWindowPointers( void )
 	}
 }
 
-static void releaseWindowPointers( void )
+static void releaseWindowPointers()
 {
 	for (Int i=0; i<MAX_SLOTS; ++i)
 	{
@@ -162,7 +162,7 @@ static void updateFunc( WindowLayout *layout, void *param )
 static BriefingList theBriefingList;
 
 //-------------------------------------------------------------------------------------------------
-BriefingList* GetBriefingTextList(void)
+BriefingList* GetBriefingTextList()
 {
 	return &theBriefingList;
 }
@@ -285,7 +285,7 @@ void ShowDiplomacy( Bool immediate )
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-void ResetDiplomacy( void )
+void ResetDiplomacy()
 {
 	if(theLayout)
 	{
@@ -460,7 +460,7 @@ WindowMsgHandledType DiplomacySystem( GameWindow *window, UnsignedInt msg,
 
 }
 
-void PopulateInGameDiplomacyPopup( void )
+void PopulateInGameDiplomacyPopup()
 {
 	if (!TheGameInfo)
 		return;

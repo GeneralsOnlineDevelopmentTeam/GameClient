@@ -44,7 +44,7 @@ public:
 
 	VeterancyLevel getVeterancyLevel() const { return m_currentLevel; }			///< What level am I?
 	Int getExperienceValue( const Object* killer ) const;										///< How much do give for being killed
-	Int getCurrentExperience( void ) const { return m_currentExperience; };	///< How much experience do I have at the moment?
+	Int getCurrentExperience() const { return m_currentExperience; };	///< How much experience do I have at the moment?
 	Bool isTrainable() const;																						///< Can I gain experience?
 	void setTrainable(Bool trainable);																	///< Set whether I can gain experience
 	void resetTrainable();																							///< Set to default trainable state from template
@@ -63,9 +63,9 @@ public:
 	void setExperienceScalar( Real scalar ) { m_experienceScalar = scalar; }
 
 	// --------------- inherited from Snapshot interface --------------
-	void crc( Xfer *xfer );
-	void xfer( Xfer *xfer );
-	void loadPostProcess( void );
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 private:
 	Object*						m_parent;														///< Object I am owned by

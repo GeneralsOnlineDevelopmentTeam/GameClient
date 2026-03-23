@@ -105,18 +105,18 @@ public:
 
 	UpgradeMux();
 
-	virtual Bool isAlreadyUpgraded() const ;
+	virtual Bool isAlreadyUpgraded() const override ;
 	// ***DANGER! DANGER! Don't use this, unless you are forcing an already made upgrade to refresh!!
-	virtual void forceRefreshUpgrade();
-	virtual Bool attemptUpgrade( const UpgradeMaskType& keyMask );
-	virtual Bool wouldUpgrade( const UpgradeMaskType& keyMask ) const;
-	virtual Bool resetUpgrade( const UpgradeMaskType& keyMask );
-	virtual Bool testUpgradeConditions( const UpgradeMaskType& keyMask ) const;
+	virtual void forceRefreshUpgrade() override;
+	virtual Bool attemptUpgrade( const UpgradeMaskType& keyMask ) override;
+	virtual Bool wouldUpgrade( const UpgradeMaskType& keyMask ) const override;
+	virtual Bool resetUpgrade( const UpgradeMaskType& keyMask ) override;
+	virtual Bool testUpgradeConditions( const UpgradeMaskType& keyMask ) const override;
 
 protected:
 
 	void setUpgradeExecuted(Bool e) { m_upgradeExecuted = e; }
-	virtual void upgradeImplementation( ) = 0; ///< Here's the actual work of Upgrading
+	virtual void upgradeImplementation() = 0; ///< Here's the actual work of Upgrading
 	virtual void getUpgradeActivationMasks(UpgradeMaskType& activation, UpgradeMaskType& conflicting) const = 0; ///< Here's the actual work of Upgrading
 	virtual void performUpgradeFX() = 0;	///< perform the associated fx list
 	virtual Bool requiresAllActivationUpgrades() const = 0;
@@ -137,7 +137,7 @@ protected:
 	//
 	virtual void upgradeMuxCRC( Xfer *xfer );
 	virtual void upgradeMuxXfer( Xfer *xfer);
-	virtual void upgradeMuxLoadPostProcess( void );
+	virtual void upgradeMuxLoadPostProcess();
 
 private:
 	Bool m_upgradeExecuted;				///< Upgrade only executes once
@@ -174,21 +174,21 @@ public:
 	static Int getInterfaceMask() { return MODULEINTERFACE_UPGRADE; }
 
 	// BehaviorModule
-	virtual UpgradeModuleInterface* getUpgrade() { return this; }
+	virtual UpgradeModuleInterface* getUpgrade() override { return this; }
 
 protected:
 
-	virtual Bool requiresAllActivationUpgrades() const
+	virtual Bool requiresAllActivationUpgrades() const override
 	{
 		return getUpgradeModuleData()->m_upgradeMuxData.m_requiresAllTriggers;
 	}
 
-	virtual void getUpgradeActivationMasks(UpgradeMaskType& activation, UpgradeMaskType& conflicting) const
+	virtual void getUpgradeActivationMasks(UpgradeMaskType& activation, UpgradeMaskType& conflicting) const override
 	{
 		getUpgradeModuleData()->m_upgradeMuxData.getUpgradeActivationMasks(activation, conflicting);
 	}
 
-	virtual void performUpgradeFX()
+	virtual void performUpgradeFX() override
 	{
 		getUpgradeModuleData()->m_upgradeMuxData.performUpgradeFX(getObject());
 	}

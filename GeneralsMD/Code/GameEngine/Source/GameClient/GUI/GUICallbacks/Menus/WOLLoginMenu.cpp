@@ -42,7 +42,7 @@ void NGMP_WOLLoginMenu_LoginCallback(ELoginResult loginResult);
 #include "Common/GameSpyMiscPreferences.h"
 #include "Common/QuotedPrintable.h"
 #include "Common/Registry.h"
-#include "Common/UserPreferences.h"
+#include "Common/OptionPreferences.h"
 #include "GameClient/AnimateWindowManager.h"
 #include "GameClient/ClientInstance.h"
 #include "GameClient/WindowLayout.h"
@@ -92,19 +92,19 @@ class GameSpyLoginPreferences : public UserPreferences
 {
 public:
 	GameSpyLoginPreferences();
-	virtual ~GameSpyLoginPreferences();
+	virtual ~GameSpyLoginPreferences() override;
 
 	Bool loadFromIniFile();
 
-	virtual Bool load(AsciiString fname);
-	virtual Bool write(void);
+	virtual Bool load(AsciiString fname) override;
+	virtual Bool write() override;
 
 	AsciiString getPasswordForEmail( AsciiString email );
 	AsciiString getDateForEmail( AsciiString email, AsciiString &month, AsciiString &date, AsciiString &year  );
 	AsciiStringList getNicksForEmail( AsciiString email );
 	void addLogin( AsciiString email, AsciiString nick, AsciiString password, AsciiString date );
 	void forgetLogin( AsciiString email );
-	AsciiStringList getEmails( void );
+	AsciiStringList getEmails();
 
 private:
 	typedef std::map<AsciiString, AsciiString> PassMap;
@@ -204,7 +204,7 @@ Bool GameSpyLoginPreferences::load( AsciiString fname )
 	return true;
 }
 
-Bool GameSpyLoginPreferences::write( void )
+Bool GameSpyLoginPreferences::write()
 {
 	if (m_filename.isEmpty())
 		return false;
@@ -300,7 +300,7 @@ void GameSpyLoginPreferences::forgetLogin( AsciiString email )
 
 }
 
-AsciiStringList GameSpyLoginPreferences::getEmails( void )
+AsciiStringList GameSpyLoginPreferences::getEmails()
 {
 	AsciiStringList theList;
 	NickMap::iterator it = m_emailNickMap.begin();
@@ -314,7 +314,7 @@ AsciiStringList GameSpyLoginPreferences::getEmails( void )
 
 static GameSpyLoginPreferences *loginPref = NULL;
 
-static void startPings( void )
+static void startPings()
 {
 	std::list<AsciiString> pingServers = TheGameSpyConfig->getPingServers();
 	Int timeout = TheGameSpyConfig->getPingTimeoutInMs();
@@ -587,7 +587,7 @@ void WOLLoginMenuShutdown( WindowLayout *layout, void *userData )
 
 
 // this is used to check if we've got all the pings
-static void checkLogin( void )
+static void checkLogin()
 {
 	if (loggedInOK)
 	{

@@ -68,7 +68,7 @@
 /**
  * Constructor
  */
-AIGroup::AIGroup( void )
+AIGroup::AIGroup()
 {
 //	DEBUG_LOG(("***AIGROUP %x is being constructed.", this));
 	m_groundPath = nullptr;
@@ -120,7 +120,7 @@ AIGroup::~AIGroup()
 /**
  * Return this group's unique ID
  */
-UnsignedInt AIGroup::getID( void )
+UnsignedInt AIGroup::getID()
 {
 	return m_id;
 }
@@ -128,7 +128,7 @@ UnsignedInt AIGroup::getID( void )
 /**
  * Return the group IDs for every member in this group
  */
-const VecObjectID& AIGroup::getAllIDs( void ) const
+const VecObjectID& AIGroup::getAllIDs() const
 {
 	m_lastRequestedIDList.clear();
 	for (std::list<Object *>::const_iterator cit = m_memberList.begin(); cit != m_memberList.end(); ++cit)
@@ -146,7 +146,7 @@ const VecObjectID& AIGroup::getAllIDs( void ) const
 /**
  * Return the speed of the group's slowest member
  */
-Real AIGroup::getSpeed( void )
+Real AIGroup::getSpeed()
 {
 	if (m_dirty)
 		recompute();
@@ -246,7 +246,7 @@ Bool AIGroup::remove( Object *obj )
 /**
  * Remove all objects from group
  */
-void AIGroup::removeAll( void )
+void AIGroup::removeAll()
 {
 #if !RETAIL_COMPATIBLE_AIGROUP
 	// Defer deletion until the end of this function.
@@ -435,7 +435,7 @@ Bool AIGroup::getMinMaxAndCenter( Coord2D *min, Coord2D *max, Coord3D *center )
  * Compute the speed of the team (its slowest member's speed),
  * and find the leader (closest to center of group).
  */
-void AIGroup::recompute( void )
+void AIGroup::recompute()
 {
 	Real closeDist = 999999999.9f;
 	Real dx, dy, dist;
@@ -494,7 +494,7 @@ void AIGroup::recompute( void )
 /**
  * Return the number of objects in the group
  */
-Int AIGroup::getCount( void )
+Int AIGroup::getCount()
 {
 	return m_memberListSize;
 }
@@ -502,7 +502,7 @@ Int AIGroup::getCount( void )
 /**
  * Returns true if the group has no members
  */
-Bool AIGroup::isEmpty( void )
+Bool AIGroup::isEmpty() const
 {
 	return m_memberList.empty();
 }
@@ -2175,10 +2175,14 @@ void AIGroup::groupAttackObjectPrivate( Bool forced, Object *victim, Int maxShot
 	for( i = m_memberList.begin(); i != m_memberList.end(); ++i )	{
 		Real dx, dy;
 		Coord3D unitPos = *((*i)->getPosition());
+#if RETAIL_COMPATIBLE_CRC
+		// TheSuperHackers @bugfix Stubbjax 03/08/2025 This logic block erroneously prevents the
+		// occupants of DISABLED_HELD units (e.g. undead Battle Buses) from responding to attack commands.
 		if ((*i)->isDisabledByType( DISABLED_HELD ) )
 		{
 			continue; // don't bother telling the occupants to move.
 		}
+#endif
 		dx = unitPos.x - victimPos.x;
 		dy = unitPos.y - victimPos.y;
 		iter->insert((*i), dx*dx+dy*dy);
@@ -3047,7 +3051,7 @@ void AIGroup::setAttitude( AttitudeType tude )
 /**
  * Get the current behavior modifier state
  */
-AttitudeType AIGroup::getAttitude( void ) const
+AttitudeType AIGroup::getAttitude() const
 {
 	return ATTITUDE_PASSIVE;
 }
@@ -3149,7 +3153,7 @@ void AIGroup::queueUpgrade( const UpgradeTemplate *upgrade )
 }
 
 //------------------------------------------------------------------------------------------------------------
-Bool AIGroup::isIdle( void ) const
+Bool AIGroup::isIdle() const
 {
 	Bool isIdle = true;
 	std::list<Object *>::const_iterator i;
@@ -3180,7 +3184,7 @@ Bool AIGroup::isIdle( void ) const
 //------------------------------------------------------------------------------------------------------------
 //Definition of busy -- when explicitly in the busy state. Moving or attacking is not considered busy!
 //------------------------------------------------------------------------------------------------------------
-Bool AIGroup::isBusy( void ) const
+Bool AIGroup::isBusy() const
 {
 	Bool isBusy = true;
 	std::list<Object *>::const_iterator i;
@@ -3214,7 +3218,7 @@ Bool AIGroup::isBusy( void ) const
 //------------------------------------------------------------------------------------------------------------
 // return true iff all group members are dead
 //------------------------------------------------------------------------------------------------------------
-Bool AIGroup::isGroupAiDead( void ) const
+Bool AIGroup::isGroupAiDead() const
 {
 	Bool isDead = true;
 	std::list<Object *>::const_iterator i;
@@ -3354,7 +3358,7 @@ void AIGroup::xfer( Xfer *xfer )
 }
 
 //-----------------------------------------------------------------------------
-void AIGroup::loadPostProcess( void )
+void AIGroup::loadPostProcess()
 {
 
 }

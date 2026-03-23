@@ -38,7 +38,7 @@
 //
 //	author:		Chris Huybregts
 //
-//	purpose:	Convience function for degayifying the whole squished control bar
+//	purpose:	Convenience function for degayifying the whole squished control bar
 //						process
 //
 //-----------------------------------------------------------------------------
@@ -77,7 +77,7 @@ void PrintInfoRecursive( GameWindow *win, FILE *fp)
 
 }
 
-void PrintOffsetsFromControlBarParent( void )
+void PrintOffsetsFromControlBarParent()
 {
 	GameWindow *controlBarParent = TheWindowManager->winGetWindowFromId( nullptr,  TheNameKeyGenerator->nameToKey( "ControlBar.wnd:ControlBarParent" ));
 	if(!controlBarParent)

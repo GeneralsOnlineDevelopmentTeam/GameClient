@@ -96,7 +96,7 @@ void MissionStats::xfer( Xfer *xfer )
 	// units lost
 	xfer->xferInt( &m_unitsLost );
 
-	// buidings killed
+	// buildings killed
 	xfer->xferUser( m_buildingsKilled, sizeof( Int ) * MAX_PLAYER_COUNT );
 
 	// buildings lost
@@ -107,7 +107,7 @@ void MissionStats::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void MissionStats::loadPostProcess( void )
+void MissionStats::loadPostProcess()
 {
 
 }

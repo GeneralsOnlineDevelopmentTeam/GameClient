@@ -67,12 +67,12 @@ class ModuleFactory : public SubsystemInterface, public Snapshot
 
 public:
 
-	ModuleFactory( void );
-	virtual ~ModuleFactory( void );
+	ModuleFactory();
+	virtual ~ModuleFactory() override;
 
-	virtual void init( void );
-	virtual void reset( void ) { }					///< We don't reset during the lifetime of the app
-	virtual void update( void ) { }					///< As of now, we don't have a need for an update
+	virtual void init() override;
+	virtual void reset() override { }					///< We don't reset during the lifetime of the app
+	virtual void update() override { }					///< As of now, we don't have a need for an update
 
 	Module *newModule( Thing *thing, const AsciiString& name, const ModuleData* data, ModuleType type );  ///< allocate a new module
 
@@ -81,9 +81,9 @@ public:
 
 	Int findModuleInterfaceMask(const AsciiString& name, ModuleType type);
 
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void );
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 protected:
 

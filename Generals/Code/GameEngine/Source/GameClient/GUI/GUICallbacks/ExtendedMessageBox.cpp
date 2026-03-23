@@ -73,7 +73,7 @@ static GameWindow *gogoExMessageBox(Int x, Int y, Int width, Int height, Unsigne
 	if( width > 0 && height > 0 )
 	{
 		ICoord2D temp;
-		//First grab the percent increase/decrease compaired to the default size
+		//First grab the percent increase/decrease compared to the default size
 		parent->winGetSize( &temp.x, &temp.y);
 		ratioX = (float)width / (float)temp.x;
 		ratioY = (float)height / (float)temp.y;
@@ -123,7 +123,7 @@ static GameWindow *gogoExMessageBox(Int x, Int y, Int width, Int height, Unsigne
 	//we shouldn't have button OK and Yes on the same dialog
 	if((buttonFlags & (MSG_BOX_OK | MSG_BOX_YES)) == (MSG_BOX_OK | MSG_BOX_YES) )
 	{
-		DEBUG_ASSERTCRASH(false, ("Passed in MSG_BOX_OK and MSG_BOX_YES.  Big No No."));
+		DEBUG_CRASH(("Passed in MSG_BOX_OK and MSG_BOX_YES.  Big No No."));
 	}
 
 	//Position the OK button if we have one

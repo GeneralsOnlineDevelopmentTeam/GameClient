@@ -44,7 +44,7 @@ class JetSlowDeathBehaviorModuleData : public SlowDeathBehaviorModuleData
 
 public:
 
-	JetSlowDeathBehaviorModuleData( void );
+	JetSlowDeathBehaviorModuleData();
 
 	static void buildFieldParse( MultiIniFieldParse &p );
 
@@ -88,9 +88,9 @@ public:
 	// virtual destructor prototype provided by memory pool declaration
 
 	// slow death methods
-	virtual void onDie( const DamageInfo *damageInfo );
-	virtual void beginSlowDeath( const DamageInfo *damageInfo );
-	virtual UpdateSleepTime update( void );
+	virtual void onDie( const DamageInfo *damageInfo ) override;
+	virtual void beginSlowDeath( const DamageInfo *damageInfo ) override;
+	virtual UpdateSleepTime update() override;
 
 protected:
 

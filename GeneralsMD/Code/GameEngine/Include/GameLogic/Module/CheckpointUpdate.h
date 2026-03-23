@@ -74,7 +74,7 @@ public:
 	CheckpointUpdate( Thing *thing, const ModuleData* moduleData );
 	// virtual destructor prototype provided by memory pool declaration
 
-	virtual UpdateSleepTime update();
+	virtual UpdateSleepTime update() override;
 
 protected:
 	Bool m_enemyNear;
@@ -82,6 +82,6 @@ protected:
 	Real m_maxMinorRadius;
 
 	UnsignedInt m_enemyScanDelay;
-	void checkForAlliesAndEnemies( void );
+	void checkForAlliesAndEnemies();
 
 };

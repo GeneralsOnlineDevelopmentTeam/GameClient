@@ -259,7 +259,7 @@ class DamageInfoInput : public Snapshot
 
 public:
 
-	DamageInfoInput( void )
+	DamageInfoInput()
 	{
 		m_sourceID = INVALID_ID;
 		m_sourceTemplate = nullptr;
@@ -297,9 +297,9 @@ public:
 protected:
 
 	// snapshot methods
-	virtual void crc( Xfer *xfer ) { }
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void ) { }
+	virtual void crc( Xfer *xfer ) override { }
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override { }
 
 };
 
@@ -313,7 +313,7 @@ class DamageInfoOutput : public Snapshot
 
 public:
 
-	DamageInfoOutput( void )
+	DamageInfoOutput()
 	{
 		m_actualDamageDealt = 0;
 		m_actualDamageClipped = 0;
@@ -340,9 +340,9 @@ public:
 protected:
 
 	// snapshot methods
-	virtual void crc( Xfer *xfer ) { }
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void ) { }
+	virtual void crc( Xfer *xfer ) override { }
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override { }
 
 };
 
@@ -366,8 +366,8 @@ public:
 
 protected:
 
-	virtual void crc( Xfer *xfer ) { }
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void ){ }
+	virtual void crc( Xfer *xfer ) override { }
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override { }
 
 };

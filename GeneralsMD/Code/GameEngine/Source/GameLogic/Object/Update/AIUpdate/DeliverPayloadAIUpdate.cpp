@@ -122,7 +122,7 @@ DeliverPayloadAIUpdate::DeliverPayloadAIUpdate( Thing *thing, const ModuleData* 
 }
 
 //-------------------------------------------------------------------------------------------------
-DeliverPayloadAIUpdate::~DeliverPayloadAIUpdate( void )
+DeliverPayloadAIUpdate::~DeliverPayloadAIUpdate()
 {
 	m_deliveryDecal.clear();
 	if (m_deliverPayloadStateMachine)
@@ -156,7 +156,7 @@ Bool DeliverPayloadAIUpdate::isAllowedToRespondToAiCommands(const AICommandParms
 }
 
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime DeliverPayloadAIUpdate::update( void )
+UpdateSleepTime DeliverPayloadAIUpdate::update()
 {
 	m_deliveryDecal.update();
 
@@ -493,7 +493,7 @@ void DeliverPayloadAIUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void DeliverPayloadAIUpdate::loadPostProcess( void )
+void DeliverPayloadAIUpdate::loadPostProcess()
 {
  // extend base class
 	AIUpdateInterface::loadPostProcess();
@@ -551,7 +551,7 @@ void DeliverPayloadStateMachine::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void DeliverPayloadStateMachine::loadPostProcess( void )
+void DeliverPayloadStateMachine::loadPostProcess()
 {
 	StateMachine::loadPostProcess();
 }
@@ -652,7 +652,7 @@ void DeliveringState::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void DeliveringState::loadPostProcess( void )
+void DeliveringState::loadPostProcess()
 {
 }
 
@@ -853,7 +853,7 @@ StateReturnType DeliveringState::update() // Kick a dude out every so often
 								const WeaponTemplate *weaponTemplate = ai->getData()->m_visiblePayloadWeaponTemplate;
 								if( !weaponTemplate )
 								{
-									DEBUG_ASSERTCRASH( 0, ("%s tried to fire missile %s via DeliverPayload, and is missing required weapon template in ObjectCreationList.ini entry.",
+									DEBUG_CRASH( ("%s tried to fire missile %s via DeliverPayload, and is missing required weapon template in ObjectCreationList.ini entry.",
 																				owner->getTemplate()->getName().str(), payload->getTemplate()->getName().str() ) );
 									break;
 								}
@@ -941,7 +941,7 @@ void ConsiderNewApproachState::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void ConsiderNewApproachState::loadPostProcess( void )
+void ConsiderNewApproachState::loadPostProcess()
 {
 }
 
@@ -1053,7 +1053,7 @@ void RecoverFromOffMapState::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void RecoverFromOffMapState::loadPostProcess( void )
+void RecoverFromOffMapState::loadPostProcess()
 {
 }
 

@@ -27,7 +27,7 @@
 // Desc:   Collide module base class implementations
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// INLCUDES ///////////////////////////////////////////////////////////////////////////////////////
+// INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"
 #include "Common/Xfer.h"
 #include "GameLogic/Module/CollideModule.h"
@@ -62,7 +62,7 @@ void CollideModule::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void CollideModule::loadPostProcess( void )
+void CollideModule::loadPostProcess()
 {
 
 	// call base class

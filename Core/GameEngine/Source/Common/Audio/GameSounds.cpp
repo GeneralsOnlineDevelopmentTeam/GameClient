@@ -71,7 +71,7 @@ SoundManager::~SoundManager()
 }
 
 //-------------------------------------------------------------------------------------------------
-void SoundManager::init( void )
+void SoundManager::init()
 {
 
 }
@@ -84,26 +84,26 @@ void SoundManager::postProcessLoad()
 }
 
 //-------------------------------------------------------------------------------------------------
-void SoundManager::update( void )
+void SoundManager::update()
 {
 
 }
 
 //-------------------------------------------------------------------------------------------------
-void SoundManager::reset( void )
+void SoundManager::reset()
 {
 	m_numPlaying2DSamples = 0;
 	m_numPlaying3DSamples = 0;
 }
 
 //-------------------------------------------------------------------------------------------------
-void SoundManager::loseFocus( void )
+void SoundManager::loseFocus()
 {
 
 }
 
 //-------------------------------------------------------------------------------------------------
-void SoundManager::regainFocus( void )
+void SoundManager::regainFocus()
 {
 
 }
@@ -127,7 +127,7 @@ void SoundManager::setCameraAudibleDistance( Real audibleDistance )
 }
 
 //-------------------------------------------------------------------------------------------------
-Real SoundManager::getCameraAudibleDistance( void )
+Real SoundManager::getCameraAudibleDistance()
 {
 	return 1.0f;
 }
@@ -154,19 +154,19 @@ void SoundManager::addAudioEvent(AudioEventRTS *&eventToAdd)
 }
 
 //-------------------------------------------------------------------------------------------------
-void SoundManager::notifyOf2DSampleStart( void )
+void SoundManager::notifyOf2DSampleStart()
 {
 	++m_numPlaying2DSamples;
 }
 
 //-------------------------------------------------------------------------------------------------
-void SoundManager::notifyOf3DSampleStart( void )
+void SoundManager::notifyOf3DSampleStart()
 {
 	++m_numPlaying3DSamples;
 }
 
 //-------------------------------------------------------------------------------------------------
-void SoundManager::notifyOf2DSampleCompletion( void )
+void SoundManager::notifyOf2DSampleCompletion()
 {
 	if (m_numPlaying2DSamples > 0) {
 		--m_numPlaying2DSamples;
@@ -174,7 +174,7 @@ void SoundManager::notifyOf2DSampleCompletion( void )
 }
 
 //-------------------------------------------------------------------------------------------------
-void SoundManager::notifyOf3DSampleCompletion( void )
+void SoundManager::notifyOf3DSampleCompletion()
 {
 	if (m_numPlaying3DSamples > 0) {
 		--m_numPlaying3DSamples;
@@ -182,13 +182,13 @@ void SoundManager::notifyOf3DSampleCompletion( void )
 }
 
 //-------------------------------------------------------------------------------------------------
-Int SoundManager::getAvailableSamples( void )
+Int SoundManager::getAvailableSamples()
 {
 	return (m_num2DSamples - m_numPlaying2DSamples);
 }
 
 //-------------------------------------------------------------------------------------------------
-Int SoundManager::getAvailable3DSamples( void )
+Int SoundManager::getAvailable3DSamples()
 {
 	return (m_num3DSamples - m_numPlaying3DSamples);
 }
@@ -206,7 +206,7 @@ Bool SoundManager::canPlayNow( AudioEventRTS *event )
 	// 1) Are we muted because we're beyond our maximum distance?
 	// 2) Are we shrouded and this is a shroud sound?
 	// 3) Are we violating our voice count or are we playing above the limit? (If so, stop now)
-	// 4) is there an avaiable channel open?
+	// 4) is there an available channel open?
 	// 5) if not, then determine if there is anything of lower priority that we can kill
 	// 6) if not, are we an interrupt-sound type?
 	// if so, are there any sounds of our type playing right now that we can interrupt?

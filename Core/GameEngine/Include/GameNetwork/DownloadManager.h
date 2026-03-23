@@ -54,31 +54,31 @@ public:
 	virtual ~DownloadManager();
 
 public:
-	void init( void );
-	HRESULT update( void );
-	void reset( void );
+	void init();
+	HRESULT update();
+	void reset();
 
-	virtual HRESULT OnError( Int error );
-	virtual HRESULT OnEnd();
-	virtual HRESULT OnQueryResume();
-	virtual HRESULT OnProgressUpdate( Int bytesread, Int totalsize, Int timetaken, Int timeleft );
-	virtual HRESULT OnStatusUpdate( Int status );
+	virtual HRESULT OnError( Int error ) override;
+	virtual HRESULT OnEnd() override;
+	virtual HRESULT OnQueryResume() override;
+	virtual HRESULT OnProgressUpdate( Int bytesread, Int totalsize, Int timetaken, Int timeleft ) override;
+	virtual HRESULT OnStatusUpdate( Int status ) override;
 
 	virtual HRESULT SetFileName(AsciiString file) { return S_OK; };
 
 	virtual HRESULT downloadFile( AsciiString server, AsciiString username, AsciiString password, AsciiString file, AsciiString localfile, AsciiString regkey, Bool tryResume );
-	AsciiString getLastLocalFile( void );
+	AsciiString getLastLocalFile();
 
-	Bool isDone( void ) { return m_sawEnd || m_wasError; }
-	Bool isOk( void ) { return m_sawEnd; }
-	Bool wasError( void ) { return m_wasError; }
+	Bool isDone() { return m_sawEnd || m_wasError; }
+	Bool isOk() { return m_sawEnd; }
+	Bool wasError() { return m_wasError; }
 
-	UnicodeString getStatusString( void ) { return m_statusString; }
-	UnicodeString getErrorString( void ) { return m_errorString; }
+	UnicodeString getStatusString() { return m_statusString; }
+	UnicodeString getErrorString() { return m_errorString; }
 
 	void queueFileForDownload( AsciiString server, AsciiString username, AsciiString password, AsciiString file, AsciiString localfile, AsciiString regkey, Bool tryResume );
-	Bool isFileQueuedForDownload( void ) { return !m_queuedDownloads.empty(); }
-	HRESULT downloadNextQueuedFile( void );
+	Bool isFileQueuedForDownload() { return !m_queuedDownloads.empty(); }
+	HRESULT downloadNextQueuedFile();
 
 private:
 	Bool m_winsockInit;

@@ -290,7 +290,7 @@ WindowMsgHandledType WOLMapSelectMenuInput( GameWindow *window, UnsignedInt msg,
 	return MSG_IGNORED;
 
 }
-void WOLPositionStartSpots( void );
+void WOLPositionStartSpots();
 
 //-------------------------------------------------------------------------------------------------
 /** MapSelect menu window system callback */

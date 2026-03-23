@@ -24,7 +24,7 @@
 
 // FILE: FloatUpdate.h ////////////////////////////////////////////////////////////////////////////
 // Author: Colin Day, May 2002
-// Desc:   Floting on water update
+// Desc:   Floating on water update
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #pragma once
@@ -41,7 +41,7 @@ class FloatUpdateModuleData: public UpdateModuleData
 
 public:
 
-	FloatUpdateModuleData( void );
+	FloatUpdateModuleData();
 
 	static void buildFieldParse(MultiIniFieldParse& p);
 
@@ -63,7 +63,7 @@ public:
 
 	void setEnabled( Bool enabled ) { m_enabled = enabled; }  ///< enable/disable floating
 
-	virtual UpdateSleepTime update();	///< Deciding whether or not to make new guys
+	virtual UpdateSleepTime update() override;	///< Deciding whether or not to make new guys
 
 protected:
 

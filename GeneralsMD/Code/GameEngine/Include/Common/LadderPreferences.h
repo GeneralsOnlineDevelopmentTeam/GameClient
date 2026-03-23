@@ -62,12 +62,12 @@ class LadderPreferences : public UserPreferences
 {
 public:
 	LadderPreferences();
-	virtual ~LadderPreferences();
+	virtual ~LadderPreferences() override;
 
 	Bool loadProfile( Int profileID );
-	virtual bool write( void );
+	virtual bool write() override;
 
-	const LadderPrefMap& getRecentLadders( void );
+	const LadderPrefMap& getRecentLadders();
 	void addRecentLadder( LadderPref ladder );
 
 private:

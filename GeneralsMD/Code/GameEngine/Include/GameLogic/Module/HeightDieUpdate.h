@@ -39,7 +39,7 @@ class HeightDieUpdateModuleData: public UpdateModuleData
 
 public:
 
-	HeightDieUpdateModuleData( void );
+	HeightDieUpdateModuleData();
 
 	static void buildFieldParse(MultiIniFieldParse& p);
 
@@ -65,7 +65,7 @@ public:
 	HeightDieUpdate( Thing *thing, const ModuleData* moduleData );
 	// virtual destructor prototype provided by memory pool declaration
 
-	virtual UpdateSleepTime update();
+	virtual UpdateSleepTime update() override;
 
 protected:
 

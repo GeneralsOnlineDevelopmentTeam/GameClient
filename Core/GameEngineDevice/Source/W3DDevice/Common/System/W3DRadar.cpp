@@ -98,7 +98,7 @@ static WW3DFormat findFormat(const WW3DFormat formats[])
 	* be supported by the hardware.  The "more preferred" formats appear at the top of
 	* the format tables in order from most preferred to least preferred */
 //-------------------------------------------------------------------------------------------------
-void W3DRadar::initializeTextureFormats( void )
+void W3DRadar::initializeTextureFormats()
 {
 	const WW3DFormat terrainFormats[] =
 	{
@@ -135,7 +135,7 @@ void W3DRadar::initializeTextureFormats( void )
 //-------------------------------------------------------------------------------------------------
 /** Delete resources used specifically in this W3D radar implementation */
 //-------------------------------------------------------------------------------------------------
-void W3DRadar::deleteResources( void )
+void W3DRadar::deleteResources()
 {
 
 	//
@@ -176,7 +176,7 @@ void W3DRadar::deleteResources( void )
 //-------------------------------------------------------------------------------------------------
 /** Reconstruct the view box given the current camera settings */
 //-------------------------------------------------------------------------------------------------
-void W3DRadar::reconstructViewBox( void )
+void W3DRadar::reconstructViewBox()
 {
 	Coord3D world[ 4 ];
 	ICoord2D radar[ 4 ];
@@ -221,14 +221,6 @@ void W3DRadar::reconstructViewBox( void )
 
 	}
 
-	//
-	// save the camera settings for this view box, we will need to make it again only
-	// if some of these change
-	//
-	m_viewAngle = TheTacticalView->getAngle();
-	Coord3D pos;
-	TheTacticalView->getPosition( &pos );
-	m_viewZoom = TheTacticalView->getZoom();
 	m_reconstructViewBox = FALSE;
 
 }
@@ -610,12 +602,17 @@ void W3DRadar::drawEvents( Int pixelX, Int pixelY, Int width, Int height )
 void W3DRadar::drawIcons( Int pixelX, Int pixelY, Int width, Int height )
 {
 	Player *player = rts::getObservedOrLocalPlayer();
-	for (RadarObject *heroObj = m_localHeroObjectList; heroObj; heroObj = heroObj->friend_getNext())
+	for (RadarObject *heroObj = m_localObjectList; heroObj; heroObj = heroObj->friend_getNext())
 	{
-		if (canRenderObject(heroObj, player))
-		{
-			drawHeroIcon(pixelX, pixelY, width, height, heroObj->friend_getObject()->getPosition());
-		}
+		const Object *obj = heroObj->friend_getObject();
+
+		if (!obj->isHero())
+			continue;
+
+		if (!canRenderObject(heroObj, player))
+			continue;
+
+		drawHeroIcon(pixelX, pixelY, width, height, obj->getPosition());
 	}
 }
 
@@ -631,7 +628,6 @@ void W3DRadar::updateObjectTexture(TextureClass *texture)
 	// rebuild the object overlay
 	renderObjectList( m_objectList, texture );
 	renderObjectList( m_localObjectList, texture );
-	renderObjectList( m_localHeroObjectList, texture );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -847,7 +843,7 @@ void W3DRadar::interpolateColorForHeight( RGBColor *color,
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-W3DRadar::W3DRadar( void )
+W3DRadar::W3DRadar()
 {
 
 	m_terrainTextureFormat = WW3D_FORMAT_UNKNOWN;
@@ -871,8 +867,7 @@ W3DRadar::W3DRadar( void )
 	m_textureHeight = RADAR_CELL_HEIGHT;
 
 	m_reconstructViewBox = TRUE;
-	m_viewAngle = 0.0f;
-	m_viewZoom = 0.0f;
+
 	for( Int i = 0; i < 4; i++ )
 	{
 
@@ -885,7 +880,7 @@ W3DRadar::W3DRadar( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-W3DRadar::~W3DRadar( void )
+W3DRadar::~W3DRadar()
 {
 
 	// delete resources used for the W3D radar
@@ -903,7 +898,7 @@ void W3DRadar::xfer( Xfer *xfer )
 //-------------------------------------------------------------------------------------------------
 /** Radar initialization */
 //-------------------------------------------------------------------------------------------------
-void W3DRadar::init( void )
+void W3DRadar::init()
 {
 	ICoord2D size;
 	Region2D uv;
@@ -994,7 +989,7 @@ void W3DRadar::init( void )
 //-------------------------------------------------------------------------------------------------
 /** Reset the radar to the initial empty state ready for new data */
 //-------------------------------------------------------------------------------------------------
-void W3DRadar::reset( void )
+void W3DRadar::reset()
 {
 
 	// extending functionality, call base class
@@ -1026,7 +1021,7 @@ void W3DRadar::reset( void )
 //-------------------------------------------------------------------------------------------------
 /** Update */
 //-------------------------------------------------------------------------------------------------
-void W3DRadar::update( void )
+void W3DRadar::update()
 {
 
 	// extend base class
@@ -1516,14 +1511,10 @@ void W3DRadar::draw( Int pixelX, Int pixelY, Int width, Int height )
 	// draw any radar events
 	drawEvents( ul.x, ul.y, scaledWidth, scaledHeight );
 
-	// see if we need to reconstruct the view box
-	if( TheTacticalView->getZoom() != m_viewZoom )
-		m_reconstructViewBox = TRUE;
-	if( TheTacticalView->getAngle() != m_viewAngle )
-		m_reconstructViewBox = TRUE;
-
-	if( m_reconstructViewBox == TRUE )
+	if( m_reconstructViewBox )
+	{
 		reconstructViewBox();
+	}
 
 	// draw the view region on top of the radar reconstructing if necessary
 	drawViewBox( ul.x, ul.y, scaledWidth, scaledHeight );
@@ -1556,6 +1547,12 @@ void W3DRadar::refreshObjects()
 	}
 }
 
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+void W3DRadar::notifyViewChanged()
+{
+	m_reconstructViewBox = TRUE;
+}
 
 
 ///The following is an "archive" of an attempt to foil the mapshroud hack... saved for later, since it is too close to release to try it

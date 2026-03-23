@@ -51,7 +51,7 @@ class DefectorSpecialPowerModuleData : public SpecialPowerModuleData
 
 public:
 
-	DefectorSpecialPowerModuleData( void );
+	DefectorSpecialPowerModuleData();
 
 	static void buildFieldParse( MultiIniFieldParse& p );
 
@@ -72,8 +72,8 @@ public:
 	DefectorSpecialPower( Thing *thing, const ModuleData *moduleData );
 	// virtual destructor prototype provided by memory pool object
 
-	virtual void doSpecialPowerAtObject( Object *obj, UnsignedInt commandOptions );
-	virtual void doSpecialPowerAtLocation( const Coord3D *loc, Real angle, UnsignedInt commandOptions );
+	virtual void doSpecialPowerAtObject( Object *obj, UnsignedInt commandOptions ) override;
+	virtual void doSpecialPowerAtLocation( const Coord3D *loc, Real angle, UnsignedInt commandOptions ) override;
 
 protected:
 

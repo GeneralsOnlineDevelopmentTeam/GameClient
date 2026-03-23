@@ -94,7 +94,7 @@ class BoneFXUpdateModuleData : public UpdateModuleData
 
 public:
 
-	BoneFXUpdateModuleData( void );
+	BoneFXUpdateModuleData();
 
 	static void buildFieldParse(MultiIniFieldParse& p)
 	{
@@ -241,11 +241,11 @@ public:
 	void changeBodyDamageState( BodyDamageType oldState, BodyDamageType newState);
 	void stopAllBoneFX();
 
-	virtual UpdateSleepTime update();
+	virtual UpdateSleepTime update() override;
 
 protected:
 
-	virtual void onObjectCreated();
+	virtual void onObjectCreated() override;
 
 	virtual void resolveBoneLocations();
 

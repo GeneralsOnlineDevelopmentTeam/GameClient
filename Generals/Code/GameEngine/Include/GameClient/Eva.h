@@ -70,7 +70,7 @@ struct EvaSideSounds
 	std::vector<AsciiString> m_soundNames;
 
 	static const FieldParse s_evaSideSounds[];		///< the parse table for INI definition
-	const FieldParse *getFieldParse( void ) const { return s_evaSideSounds; }
+	const FieldParse *getFieldParse() const { return s_evaSideSounds; }
 };
 
 //------------------------------------------------------------------------------------ EvaCheckInfo
@@ -88,7 +88,7 @@ public:
 	EvaCheckInfo();
 
 	static const FieldParse s_evaEventInfo[];		///< the parse table for INI definition
-	const FieldParse *getFieldParse( void ) const { return s_evaEventInfo; }
+	const FieldParse *getFieldParse() const { return s_evaEventInfo; }
 };
 EMPTY_DTOR(EvaCheckInfo)
 
@@ -141,12 +141,12 @@ class Eva : public SubsystemInterface
 
 	public:
 		Eva();
-		virtual ~Eva();
+		virtual ~Eva() override;
 
 	public:		// From SubsystemInterface
-		virtual void init();
-		virtual void reset();
-		virtual void update();
+		virtual void init() override;
+		virtual void reset() override;
+		virtual void update() override;
 
 		static EvaMessage nameToMessage(const AsciiString& name);
 		static AsciiString messageToName(EvaMessage message);

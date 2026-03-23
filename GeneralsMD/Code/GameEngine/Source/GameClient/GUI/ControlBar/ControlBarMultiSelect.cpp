@@ -24,7 +24,7 @@
 
 // FILE: ControlBarMultiSelect.cpp ////////////////////////////////////////////////////////////////
 // Author: Colin Day, March 2002
-// Desc:   Context sensitive GUI for when you select mutiple objects.  What we do is show
+// Desc:   Context-sensitive GUI for when you select multiple objects.  What we do is show
 //				 the commands that you can use between them all
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -46,7 +46,7 @@
 //-------------------------------------------------------------------------------------------------
 /** Reset the common command data */
 //-------------------------------------------------------------------------------------------------
-void ControlBar::resetCommonCommandData( void )
+void ControlBar::resetCommonCommandData()
 {
 	Int i;
 
@@ -203,7 +203,7 @@ void ControlBar::addCommonCommands( Drawable *draw, Bool firstDrawable )
 /** Populate the visible command bar with commands that are common to all the objects
 	* that are selected in the UI */
 //-------------------------------------------------------------------------------------------------
-void ControlBar::populateMultiSelect( void )
+void ControlBar::populateMultiSelect()
 {
 	Drawable *draw;
 	Bool firstDrawable = TRUE;
@@ -262,7 +262,7 @@ void ControlBar::populateMultiSelect( void )
 			// add the common commands of this drawable to the common command set
 			addCommonCommands( draw, firstDrawable );
 
-			// not adding the first drawble anymore
+			// not adding the first drawable anymore
 			firstDrawable = FALSE;
 
 			//
@@ -292,7 +292,7 @@ void ControlBar::populateMultiSelect( void )
 //-------------------------------------------------------------------------------------------------
 /** Update logic for the multi select context sensitive GUI */
 //-------------------------------------------------------------------------------------------------
-void ControlBar::updateContextMultiSelect( void )
+void ControlBar::updateContextMultiSelect()
 {
 	Drawable *draw;
 	Object *obj;

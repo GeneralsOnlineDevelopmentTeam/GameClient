@@ -81,7 +81,7 @@ FireWeaponUpdate::FireWeaponUpdate( Thing *thing, const ModuleData* moduleData )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-FireWeaponUpdate::~FireWeaponUpdate( void )
+FireWeaponUpdate::~FireWeaponUpdate()
 {
 	if (m_weapon)
 		deleteInstance(m_weapon);
@@ -89,7 +89,7 @@ FireWeaponUpdate::~FireWeaponUpdate( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime FireWeaponUpdate::update( void )
+UpdateSleepTime FireWeaponUpdate::update()
 {
 
   if ( TheGameLogic->getFrame() < m_initialDelayFrame )
@@ -165,7 +165,7 @@ void FireWeaponUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void FireWeaponUpdate::loadPostProcess( void )
+void FireWeaponUpdate::loadPostProcess()
 {
 
 	// extend base class

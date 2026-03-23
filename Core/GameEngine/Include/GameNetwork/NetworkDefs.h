@@ -41,14 +41,23 @@ extern Int MIN_RUNAHEAD;
 extern Int FRAME_DATA_LENGTH;
 extern Int FRAMES_TO_KEEP;
 
-// This is the connection numbering: 1-8 are for players, 9 is a broadcast con.
+// This is the connection numbering: 1-8 are for players
 enum ConnectionNumbers CPP_11(: Int)
 {
 	MAX_PLAYER = 7,			// The index of the highest possible player number.  This is 0 based, so the most players allowed in a game is MAX_PLAYER+1.
-	NUM_CONNECTIONS
 };
 
-static constexpr const Int MAX_SLOTS = MAX_PLAYER+1;
+static constexpr const Int MAX_SLOTS = MAX_PLAYER + 1;
+
+#pragma pack(push, 1)
+struct TransportMessageHeader
+{
+	UnsignedInt crc;											///< packet-level CRC (must be first in packet)
+	UnsignedShort magic;									///< Magic number identifying Generals packets
+	//	Int id;
+	//	NetMessageFlags flags;
+};
+#pragma pack(pop)
 
 // TheSuperHackers @info As we are not detecting for network fragmentation and adjusting max payload, we set 1200 bytes UDP payload as a safe upper limit for various networks
 // We chose 1200 bytes as when taking mobile networks into account, maximum transmission unit sizes can vary from 1340 - 1500 bytes
@@ -95,16 +104,6 @@ struct CommandPacket
 
 #define MAX_TRANSPORT_STATISTICS_SECONDS 30
 
-#pragma pack(push, 1)
-struct TransportMessageHeader
-{
-	UnsignedInt crc;											///< packet-level CRC (must be first in packet)
-	UnsignedShort magic;									///< Magic number identifying Generals packets
-//	Int id;
-//	NetMessageFlags flags;
-};
-#pragma pack(pop)
-
 /**
  * Transport message - encapsulating info kept by the transport layer about each
  * packet.  These structs make up the in/out buffers at the transport layer.
@@ -113,7 +112,14 @@ struct TransportMessageHeader
 struct TransportMessage
 {
 	TransportMessageHeader header;
+#if RETAIL_COMPATIBLE_NETWORKING
+	// TheSuperHackers @info This value is not the correct one that should be used here, it should have been max packet size
+	// The non retail max network message len takes the extra bytes of the network message header into account when handling UDP payload data
+	// In retail this only works since no data larger than the retail game packet size is put into a network message
 	UnsignedByte data[MAX_MESSAGE_LEN];
+#else
+	UnsignedByte data[MAX_PACKET_SIZE];
+#endif
 	Int length;
 	UnsignedInt addr;
 	UnsignedShort port;

@@ -464,12 +464,12 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 				if( active == WA_INACTIVE )
 				{
 					if (TheAudio)
-						TheAudio->loseFocus();
+						TheAudio->muteAudio(AudioManager::MuteAudioReason_WindowFocus);
 				}
 				else
 				{
 					if (TheAudio)
-						TheAudio->regainFocus();
+						TheAudio->unmuteAudio(AudioManager::MuteAudioReason_WindowFocus);
 
 					// Cursor can only be captured after one of the activation events.
 					if (TheMouse)
@@ -628,9 +628,6 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 					// its done. I hate Windows. - jkmcd
 					DEV_BROADCAST_VOLUME *vol = (DEV_BROADCAST_VOLUME*) (hdr);
 
-					// @todo - Yikes. This could cause us all kinds of pain. I don't really want
-					// to even think about the stink this could cause us.
-					TheFileSystem->unloadMusicFilesFromCD(vol->dbcv_unitmask);
 					return TRUE;
 				}
 				break;
@@ -829,7 +826,9 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #endif
 		// register windows class and create application window
 		if(!TheGlobalData->m_headless && initializeAppWindows(hInstance, nCmdShow, TheGlobalData->m_windowed) == false)
+		{
 			return exitcode;
+		}
 
 		// save our application instance for future use
 		ApplicationHInstance = hInstance;
@@ -909,7 +908,7 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 // CreateGameEngine ===========================================================
 /** Create the Win32 game engine we're going to use */
 //=============================================================================
-GameEngine *CreateGameEngine( void )
+GameEngine *CreateGameEngine()
 {
 	Win32GameEngine *engine;
 

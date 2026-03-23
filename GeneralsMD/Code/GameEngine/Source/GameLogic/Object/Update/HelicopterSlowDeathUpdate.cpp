@@ -59,7 +59,7 @@
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-HelicopterSlowDeathBehaviorModuleData::HelicopterSlowDeathBehaviorModuleData( void )
+HelicopterSlowDeathBehaviorModuleData::HelicopterSlowDeathBehaviorModuleData()
 {
 	m_attachParticleBone.clear();
 	m_bladeBone.clear();
@@ -166,7 +166,7 @@ HelicopterSlowDeathBehavior::HelicopterSlowDeathBehavior( Thing *thing, const Mo
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-HelicopterSlowDeathBehavior::~HelicopterSlowDeathBehavior( void )
+HelicopterSlowDeathBehavior::~HelicopterSlowDeathBehavior()
 {
 
 }
@@ -278,7 +278,7 @@ void HelicopterSlowDeathBehavior::beginSlowDeath( const DamageInfo *damageInfo )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime HelicopterSlowDeathBehavior::update( void )
+UpdateSleepTime HelicopterSlowDeathBehavior::update()
 {
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	if (!TheGameLogic->HasLegacyFrameAdvanced())
@@ -583,7 +583,7 @@ void HelicopterSlowDeathBehavior::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void HelicopterSlowDeathBehavior::loadPostProcess( void )
+void HelicopterSlowDeathBehavior::loadPostProcess()
 {
 
 	// extend base class

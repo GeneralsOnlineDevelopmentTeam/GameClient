@@ -52,8 +52,10 @@ float GenOnlineSettings::DetermineCameraMaxHeight()
 		if (pLobbyInterface->IsInLobby())
 		{
 			LobbyEntry& theLobby = pLobbyInterface->GetCurrentLobby();
-
-			return (float)theLobby.max_cam_height;;
+			if (pLobbyInterface->IsHost())
+				return (float)theLobby.max_cam_height;
+			else
+				return (float)GENERALS_ONLINE_MAX_LOBBY_CAMERA_ZOOM;
 		}
 	}
 

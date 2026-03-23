@@ -62,7 +62,7 @@ static const Int K_SIDES_DATA_VERSION_3 = 3;	// includes Team list.
 /**
  SidesInfo - Constructor.
 */
-SidesInfo::SidesInfo(void) :
+SidesInfo::SidesInfo() :
 	m_pBuildList(nullptr),
 	m_scripts(nullptr)
 {
@@ -78,7 +78,7 @@ SidesInfo::SidesInfo(const SidesInfo& thatref) :
 /**
  SidesInfo - Destructor -
 */
-SidesInfo::~SidesInfo(void)
+SidesInfo::~SidesInfo()
 {
 	clear();
 }
@@ -203,21 +203,21 @@ Int SidesInfo::removeFromBuildList(BuildListInfo *pBuildList)
 /**
  SidesList - Constructor.
 */
-SidesList::SidesList(void) : m_numSides(0), m_numSkirmishSides(0)
+SidesList::SidesList() : m_numSides(0), m_numSkirmishSides(0)
 {
 }
 
 /**
  SidesList - Destructor -
 */
-SidesList::~SidesList(void)
+SidesList::~SidesList()
 {
 }
 
 /**
  SidesList - reset -
 */
-void SidesList::reset(void)
+void SidesList::reset()
 {
 	clear();
 }
@@ -225,7 +225,7 @@ void SidesList::reset(void)
 /**
  SidesList - clear -
 */
-void SidesList::clear(void)
+void SidesList::clear()
 {
 	emptySides();
 	emptyTeams();
@@ -475,7 +475,7 @@ static Bool ParseTeamsDataChunk(DataChunkInput &file, DataChunkInfo *info, void 
 	return true;
 }
 
-void SidesList::prepareForMP_or_Skirmish(void)
+void SidesList::prepareForMP_or_Skirmish()
 {
 	m_skirmishTeamrec.clear();
 	Int i;
@@ -898,7 +898,7 @@ void SidesList::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void SidesList::loadPostProcess( void )
+void SidesList::loadPostProcess()
 {
 
 }
@@ -907,7 +907,7 @@ void SidesList::loadPostProcess( void )
 /**
  BuildListInfo - Constructor.
 */
-BuildListInfo::BuildListInfo(void) :
+BuildListInfo::BuildListInfo() :
 m_nextBuildList(nullptr),
 m_renderObj(nullptr),
 m_shadowObj(nullptr),
@@ -945,7 +945,7 @@ m_buildingName(AsciiString::TheEmptyString)
 /**
  BuildListInfo - Destructor - note - if linked, deletes linked items.
 */
-BuildListInfo::~BuildListInfo(void)
+BuildListInfo::~BuildListInfo()
 {
 	if (m_nextBuildList) {
 		BuildListInfo *cur = m_nextBuildList;
@@ -986,7 +986,7 @@ void BuildListInfo::parseStructure(INI *ini, void *instance, void* /*store*/, co
 /**
  BuildListInfo - Duplicate - note - if linked, duplicates linked items.
 */
-BuildListInfo *BuildListInfo::duplicate(void)
+BuildListInfo *BuildListInfo::duplicate()
 {
 	BuildListInfo *first = newInstance( BuildListInfo );
 	*first = *this;
@@ -1057,7 +1057,7 @@ void BuildListInfo::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void BuildListInfo::loadPostProcess( void )
+void BuildListInfo::loadPostProcess()
 {
 
 }

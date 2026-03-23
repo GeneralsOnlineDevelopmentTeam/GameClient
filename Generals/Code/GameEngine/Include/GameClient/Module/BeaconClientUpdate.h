@@ -44,7 +44,7 @@ public:
 	UnsignedInt m_radarPulseDuration;
 
 	BeaconClientUpdateModuleData();
-	~BeaconClientUpdateModuleData();
+	virtual ~BeaconClientUpdateModuleData() override;
 	static void buildFieldParse(MultiIniFieldParse& p);
 };
 
@@ -63,8 +63,8 @@ public:
 	// virtual destructor prototype provided by memory pool declaration
 
 	/// the client update callback
-	virtual void clientUpdate( void );
-	void hideBeacon( void );
+	virtual void clientUpdate() override;
+	void hideBeacon();
 
 protected:
 

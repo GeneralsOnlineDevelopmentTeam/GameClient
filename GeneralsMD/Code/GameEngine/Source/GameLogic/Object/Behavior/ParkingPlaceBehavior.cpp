@@ -59,7 +59,7 @@ ParkingPlaceBehavior::ParkingPlaceBehavior( Thing *thing, const ModuleData* modu
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-ParkingPlaceBehavior::~ParkingPlaceBehavior( void )
+ParkingPlaceBehavior::~ParkingPlaceBehavior()
 {
 }
 
@@ -880,7 +880,7 @@ void ParkingPlaceBehavior::setRallyPoint( const Coord3D *pos )
 }
 
 //-------------------------------------------------------------------------------------------------
-const Coord3D* ParkingPlaceBehavior::getRallyPoint( void ) const
+const Coord3D* ParkingPlaceBehavior::getRallyPoint() const
 {
 	if( m_heliRallyPointExists )
 	{
@@ -1100,7 +1100,7 @@ void ParkingPlaceBehavior::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void ParkingPlaceBehavior::loadPostProcess( void )
+void ParkingPlaceBehavior::loadPostProcess()
 {
 
 	// extend base class

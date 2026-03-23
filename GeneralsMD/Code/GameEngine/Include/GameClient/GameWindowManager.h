@@ -76,50 +76,50 @@ class GameWindowManager : public SubsystemInterface
 
 public:
 
-	GameWindowManager(void);
-	virtual ~GameWindowManager(void);
+	GameWindowManager();
+	virtual ~GameWindowManager() override;
 
 	//-----------------------------------------------------------------------------------------------
-	virtual void init(void);		///< initialize function
-	virtual void reset(void);		///< reset the system
-	virtual void update(void);  ///< update method, called once per frame
+	virtual void init() override;		///< initialize function
+	virtual void reset() override;		///< reset the system
+	virtual void update() override;  ///< update method, called once per frame
 
-	virtual GameWindow* allocateNewWindow(void) = 0;  ///< new game window
+	virtual GameWindow *allocateNewWindow() = 0;  ///< new game window
 
 	void linkWindow(GameWindow* window);  ///< link into master list
 	void unlinkWindow(GameWindow* window);  ///< unlink from master list
 	void unlinkChildWindow(GameWindow* window);  ///< remove child from parent list
 	void insertWindowAheadOf(GameWindow* window, GameWindow* aheadOf);  ///< add window to list 'ahead of'
 
-	virtual GameWinDrawFunc getPushButtonImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getPushButtonDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getCheckBoxImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getCheckBoxDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getRadioButtonImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getRadioButtonDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getTabControlImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getTabControlDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getListBoxImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getListBoxDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getComboBoxImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getComboBoxDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getHorizontalSliderImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getHorizontalSliderDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getVerticalSliderImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getVerticalSliderDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getProgressBarImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getProgressBarDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getStaticTextImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getStaticTextDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getTextEntryImageDrawFunc(void) = 0;
-	virtual GameWinDrawFunc getTextEntryDrawFunc(void) = 0;
+	virtual GameWinDrawFunc getPushButtonImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getPushButtonDrawFunc() = 0;
+	virtual GameWinDrawFunc getCheckBoxImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getCheckBoxDrawFunc() = 0;
+	virtual GameWinDrawFunc getRadioButtonImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getRadioButtonDrawFunc() = 0;
+	virtual GameWinDrawFunc getTabControlImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getTabControlDrawFunc() = 0;
+	virtual GameWinDrawFunc getListBoxImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getListBoxDrawFunc() = 0;
+	virtual GameWinDrawFunc getComboBoxImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getComboBoxDrawFunc() = 0;
+	virtual GameWinDrawFunc getHorizontalSliderImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getHorizontalSliderDrawFunc() = 0;
+	virtual GameWinDrawFunc getVerticalSliderImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getVerticalSliderDrawFunc() = 0;
+	virtual GameWinDrawFunc getProgressBarImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getProgressBarDrawFunc() = 0;
+	virtual GameWinDrawFunc getStaticTextImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getStaticTextDrawFunc() = 0;
+	virtual GameWinDrawFunc getTextEntryImageDrawFunc() = 0;
+	virtual GameWinDrawFunc getTextEntryDrawFunc() = 0;
 
 	//---------------------------------------------------------------------------
 
-	virtual GameWinDrawFunc getDefaultDraw(void);  ///< return default draw func
-	virtual GameWinSystemFunc getDefaultSystem(void);  ///< return default system func
-	virtual GameWinInputFunc getDefaultInput(void);  ///< return default input func
-	virtual GameWinTooltipFunc getDefaultTooltip(void);  ///< return default tooltip func
+	virtual GameWinDrawFunc getDefaultDraw();  ///< return default draw func
+	virtual GameWinSystemFunc getDefaultSystem();  ///< return default system func
+	virtual GameWinInputFunc getDefaultInput();  ///< return default input func
+	virtual GameWinTooltipFunc getDefaultTooltip();  ///< return default tooltip func
 
 	//---------------------------------------------------------------------------
 	// MessageBox creation
@@ -203,7 +203,7 @@ public:
 	virtual WindowLayout* winCreateLayout(AsciiString filename);
 
 	/// free temporary strings to make the memory leak manager happy.
-	virtual void freeStaticStrings(void);
+	virtual void freeStaticStrings();
 
 	/// create a new window by setting up parameters and callbacks
 	virtual GameWindow* winCreate(GameWindow* parent, UnsignedInt status,
@@ -213,9 +213,9 @@ public:
 
 	//---------------------------------------------------------------------------
 	// Manipulating windows in the system
-	virtual Int winDestroy(GameWindow* window);  ///< destroy this window
-	virtual Int winDestroyAll(void);  ///< destroy all windows in the system
-	virtual GameWindow* winGetWindowList(void);  ///< get head of master list
+	virtual Int winDestroy( GameWindow *window );  ///< destroy this window
+	virtual Int winDestroyAll();  ///< destroy all windows in the system
+	virtual GameWindow *winGetWindowList();  ///< get head of master list
 
 	/// hide all windows in a certain range of id's (inclusinve );
 	virtual void hideWindowsInRange(GameWindow* baseWindow, Int first, Int last,
@@ -227,14 +227,14 @@ public:
 	/// this gets called from winHide() when a window hides itself
 	virtual void windowHiding(GameWindow* window);
 
-	virtual void winRepaint(void);  ///< draw GUI in reverse order
+	virtual void winRepaint();  ///< draw GUI in reverse order
 
 	virtual void winNextTab(GameWindow* window);	///< give keyboard focus to the next window in the tab list
 
 	virtual void winPrevTab(GameWindow* window);	///< give keyboard focus to the previous window in the tab list
 
-	virtual void registerTabList(GameWindowList tabList);	///< we have to register a Tab List
-	virtual void clearTabList(void);	///< we's gotz ta clear the tab list yo!
+	virtual void registerTabList( GameWindowList tabList );	///< we have to register a Tab List
+	virtual void clearTabList();	///< we's gotz ta clear the tab list yo!
 
 	// --------------------------------------------------------------------------
 	/// process a single mouse event
@@ -246,11 +246,11 @@ public:
 		UnsignedByte state);
 	// --------------------------------------------------------------------------
 
-	virtual GameWindow* winGetFocus(void);  ///< return window that has the focus
-	virtual Int winSetFocus(GameWindow* window);  ///< set this window as has focus
-	virtual void winSetGrabWindow(GameWindow* window);  ///< set the grab window
-	virtual GameWindow* winGetGrabWindow(void);  ///< who is currently 'held' by mouse
-	virtual void winSetLoneWindow(GameWindow* window);  ///< set the open window
+	virtual GameWindow *winGetFocus();  ///< return window that has the focus
+	virtual Int winSetFocus( GameWindow *window );  ///< set this window as has focus
+	virtual void winSetGrabWindow( GameWindow *window );  ///< set the grab window
+	virtual GameWindow *winGetGrabWindow();  ///< who is currently 'held' by mouse
+	virtual void winSetLoneWindow( GameWindow *window );  ///< set the open window
 
 	// Finds the top-level window at the mouse position that matches the required and forbidden status masks.
 	virtual GameWindow* findWindowUnderMouse(GameWindow*& toolTipWindow, const ICoord2D* mousePos, unsigned int requiredStatusMask, unsigned int forbiddenStatusMask);
@@ -272,10 +272,10 @@ public:
 	/** get the window pointer from id, starting at 'window' and searching
 	down the heirarchy.  If 'window' is NULL then all windows will
 	be searched */
-	virtual GameWindow* winGetWindowFromId(GameWindow* window, Int id);
-	virtual Int winCapture(GameWindow* window);  ///< captures the mouse
-	virtual Int winRelease(GameWindow* window);  ///< release mouse capture
-	virtual GameWindow* winGetCapture(void);  ///< current mouse capture settings
+	virtual GameWindow *winGetWindowFromId( GameWindow *window, Int id );
+	virtual Int winCapture( GameWindow *window );  ///< captures the mouse
+	virtual Int winRelease( GameWindow *window );  ///< release mouse capture
+	virtual GameWindow *winGetCapture();  ///< current mouse capture settings
 
 	virtual Int winSetModal(GameWindow* window);  ///< put at top of modal stack
 	virtual Int winUnsetModal(GameWindow* window);  /**< take window off modal stack, if window is
@@ -319,7 +319,7 @@ public:
 	virtual GameFont* winFindFont(AsciiString fontName, Int pointSize, Bool bold);  ///< get a font given a name
 
 	/// @todo just for testing, remov this
-	Bool initTestGUI(void);
+	Bool initTestGUI();
 
 	virtual GameWindow* getWindowUnderCursor(Int x, Int y, Bool ignoreEnabled = FALSE);	///< find the top window at the given coordinates
 
@@ -334,7 +334,7 @@ public:
 
 protected:
 
-	void processDestroyList(void);  ///< process windows waiting to be killed
+	void processDestroyList();  ///< process windows waiting to be killed
 
 	Int drawWindow(GameWindow* window);  ///< draw this window
 
@@ -358,10 +358,10 @@ protected:
 };
 
 // INLINE /////////////////////////////////////////////////////////////////////////////////////////
-inline GameWinDrawFunc GameWindowManager::getDefaultDraw(void) { return GameWinDefaultDraw; }
-inline GameWinSystemFunc GameWindowManager::getDefaultSystem(void) { return GameWinDefaultSystem; }
-inline GameWinInputFunc GameWindowManager::getDefaultInput(void) { return GameWinDefaultInput; }
-inline GameWinTooltipFunc GameWindowManager::getDefaultTooltip(void) { return GameWinDefaultTooltip; }
+inline GameWinDrawFunc GameWindowManager::getDefaultDraw() { return GameWinDefaultDraw; }
+inline GameWinSystemFunc GameWindowManager::getDefaultSystem() { return GameWinDefaultSystem; }
+inline GameWinInputFunc GameWindowManager::getDefaultInput()  { return GameWinDefaultInput; }
+inline GameWinTooltipFunc GameWindowManager::getDefaultTooltip() { return GameWinDefaultTooltip; }
 
 // EXTERN /////////////////////////////////////////////////////////////////////////////////////////
 extern GameWindowManager* TheWindowManager;			///< singleton extern definition
@@ -384,31 +384,31 @@ extern WindowMsgHandledType PassMessagesToParentSystem(GameWindow* window,
 class GameWindowManagerDummy : public GameWindowManager
 {
 public:
-	virtual GameWindow* winGetWindowFromId(GameWindow* window, Int id);
-	virtual GameWindow* winCreateFromScript(AsciiString filenameString, WindowLayoutInfo* info);
+	virtual GameWindow *winGetWindowFromId(GameWindow *window, Int id) override;
+	virtual GameWindow *winCreateFromScript(AsciiString filenameString, WindowLayoutInfo *info) override;
 
-	virtual GameWindow* allocateNewWindow() { return newInstance(GameWindowDummy); }
+	virtual GameWindow *allocateNewWindow() override { return newInstance(GameWindowDummy); }
 
-	virtual GameWinDrawFunc getPushButtonImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getPushButtonDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getCheckBoxImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getCheckBoxDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getRadioButtonImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getRadioButtonDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getTabControlImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getTabControlDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getListBoxImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getListBoxDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getComboBoxImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getComboBoxDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getHorizontalSliderImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getHorizontalSliderDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getVerticalSliderImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getVerticalSliderDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getProgressBarImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getProgressBarDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getStaticTextImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getStaticTextDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getTextEntryImageDrawFunc() { return NULL; }
-	virtual GameWinDrawFunc getTextEntryDrawFunc() { return NULL; }
+	virtual GameWinDrawFunc getPushButtonImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getPushButtonDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getCheckBoxImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getCheckBoxDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getRadioButtonImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getRadioButtonDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getTabControlImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getTabControlDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getListBoxImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getListBoxDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getComboBoxImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getComboBoxDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getHorizontalSliderImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getHorizontalSliderDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getVerticalSliderImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getVerticalSliderDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getProgressBarImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getProgressBarDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getStaticTextImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getStaticTextDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getTextEntryImageDrawFunc() override { return nullptr; }
+	virtual GameWinDrawFunc getTextEntryDrawFunc() override { return nullptr; }
 };

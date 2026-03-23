@@ -103,7 +103,7 @@ void SpawnPointProductionExitUpdate::exitObjectViaDoor( Object *newObj, ExitDoor
 		newObj->setOrientation( createAngle );
 		newObj->setLayer(creationObject->getLayer());
 
-		/** @todo This really should be automatically wrapped up in an actication sequence
+		/** @todo This really should be automatically wrapped up in an activation sequence
 		for objects in general */
 		// tell the AI about it
 		TheAI->pathfinder()->addObjectToPathfindMap( newObj );
@@ -232,7 +232,7 @@ void SpawnPointProductionExitUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void SpawnPointProductionExitUpdate::loadPostProcess( void )
+void SpawnPointProductionExitUpdate::loadPostProcess()
 {
 
 	// extend base class

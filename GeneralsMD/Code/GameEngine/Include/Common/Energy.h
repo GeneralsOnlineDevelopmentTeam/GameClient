@@ -80,7 +80,7 @@ public:
 	/// return current energy consumption in kilowatts
 	Int getConsumption() const { return m_energyConsumption; }
 
-	Bool hasSufficientPower(void) const;
+	Bool hasSufficientPower() const;
 
 	// If adding is false, we're supposed to be removing this.
 	void adjustPower(Int powerDelta, Bool adding);
@@ -106,9 +106,9 @@ public:
 protected:
 
 	// snapshot methods
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void );
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 	void addProduction(Int amt);
 	void addConsumption(Int amt);

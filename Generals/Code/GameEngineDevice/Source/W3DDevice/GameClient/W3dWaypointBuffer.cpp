@@ -94,7 +94,7 @@
 /** Constructor. Sets m_initialized to true if it finds the w3d models it needs
 for the bibs. */
 //=============================================================================
-W3DWaypointBuffer::W3DWaypointBuffer(void)
+W3DWaypointBuffer::W3DWaypointBuffer()
 {
 	m_waypointNodeRobj = WW3DAssetManager::Get_Instance()->Create_Render_Obj( "SCMNode" );
 	m_line = new SegmentedLineClass;
@@ -110,7 +110,7 @@ W3DWaypointBuffer::W3DWaypointBuffer(void)
 //=============================================================================
 /** Destructor. Releases w3d assets. */
 //=============================================================================
-W3DWaypointBuffer::~W3DWaypointBuffer(void)
+W3DWaypointBuffer::~W3DWaypointBuffer()
 {
 	REF_PTR_RELEASE( m_waypointNodeRobj );
 	REF_PTR_RELEASE( m_texture );
@@ -127,7 +127,7 @@ void W3DWaypointBuffer::freeWaypointBuffers()
 }
 
 
-void W3DWaypointBuffer::setDefaultLineStyle( void )
+void W3DWaypointBuffer::setDefaultLineStyle()
 {
 	if( m_texture )
 	{
@@ -153,7 +153,7 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
 	if( TheInGameUI && TheInGameUI->isInWaypointMode() )
 	{
 		//Create a default light environment with no lights and only full ambient.
-		//@todo: Fix later by copying default scene light environement from W3DScene.cpp.
+		//@todo: Fix later by copying default scene light environment from W3DScene.cpp.
 		LightEnvironmentClass lightEnv;
 		lightEnv.Reset(Vector3(0,0,0), Vector3(1.0f,1.0f,1.0f));
 		lightEnv.Pre_Render_Update(rinfo.Camera.Get_Transform());
@@ -206,7 +206,7 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
 	if (TheInGameUI)
 	{
 		//Create a default light environment with no lights and only full ambient.
-		//@todo: Fix later by copying default scene light environement from W3DScene.cpp.
+		//@todo: Fix later by copying default scene light environment from W3DScene.cpp.
 		LightEnvironmentClass lightEnv;
 		lightEnv.Reset(Vector3(0,0,0), Vector3(1.0f,1.0f,1.0f));
 		lightEnv.Pre_Render_Update(rinfo.Camera.Get_Transform());
@@ -373,7 +373,7 @@ void W3DWaypointBuffer::drawWaypoints(RenderInfoClass &rinfo)
 										numPoints++;
 
 
-										//and for that matter did we find a far side coner?
+										//and for that matter did we find a far side corner?
 										if (pFarElbow)//did we find a nearest corner?
 										{
 											// but let's test the dot of the first elbow against the rally point to find out

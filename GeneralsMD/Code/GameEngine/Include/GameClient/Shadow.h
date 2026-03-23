@@ -73,6 +73,18 @@ public:
 
 		struct	ShadowTypeInfo
 		{
+				ShadowTypeInfo()
+				{
+						m_ShadowName[0] = '\0';
+						m_type = SHADOW_NONE;
+						allowUpdates = false;
+						allowWorldAlign = false;
+						m_sizeX = 0.0f;
+						m_sizeY = 0.0f;
+						m_offsetX = 0.0f;
+						m_offsetY = 0.0f;
+				}
+
 				char	m_ShadowName[64];	//when set, overrides the default model shadow (used mostly for Decals).
 				ShadowType m_type;			//type of shadow
 				Bool	allowUpdates;			//whether to update the shadow image when object/light moves.
@@ -83,14 +95,14 @@ public:
 				Real	m_offsetY;			//world shift along y axis
 		};
 
-		Shadow(void) : m_diffuse(0xffffffff), m_color(0xffffffff), m_opacity (0x000000ff), m_localAngle(0.0f) {}
+		Shadow() : m_diffuse(0xffffffff), m_color(0xffffffff), m_opacity (0x000000ff), m_localAngle(0.0f) {}
 
 		///<if this is set, then no render will occur, even if enableShadowRender() is enabled. Used by Shroud.
 		void enableShadowInvisible(Bool isEnabled);
 		void enableShadowRender(Bool isEnabled);
-		Bool isRenderEnabled(void) {return m_isEnabled;}
-		Bool isInvisibleEnabled(void) {return m_isInvisibleEnabled;}
-		virtual void release(void)=0;	///<release this shadow from suitable manager.
+		Bool isRenderEnabled() {return m_isEnabled;}
+		Bool isInvisibleEnabled() {return m_isInvisibleEnabled;}
+		virtual void release()=0;	///<release this shadow from suitable manager.
 		void setOpacity(Int value); ///<adjust opacity of decal/shadow
 		void setColor(Color value);///<adjust ARGB color of decal/shadow
 		void setAngle(Real angle);		///<adjust orientation around z-axis

@@ -89,7 +89,7 @@ void SupplyCenterProductionExitUpdate::exitObjectViaDoor( Object *newObj, ExitDo
 		newObj->setPosition( &createPoint );
 		newObj->setOrientation( exitAngle );
 
-		/** @todo This really should be automatically wrapped up in an actication sequence
+		/** @todo This really should be automatically wrapped up in an activation sequence
 		for objects in general */
 		// tell the AI about it
 		TheAI->pathfinder()->addObjectToPathfindMap( newObj );
@@ -224,7 +224,7 @@ void SupplyCenterProductionExitUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void SupplyCenterProductionExitUpdate::loadPostProcess( void )
+void SupplyCenterProductionExitUpdate::loadPostProcess()
 {
 
 	// extend base class

@@ -90,7 +90,7 @@ void DefaultProductionExitUpdate::exitObjectViaDoor( Object *newObj, ExitDoorTyp
 		newObj->setOrientation( exitAngle );
 		newObj->setLayer( creationObject->getLayer() );
 
-		/** @todo This really should be automatically wrapped up in an actication sequence
+		/** @todo This really should be automatically wrapped up in an activation sequence
 		for objects in general */
 		// tell the AI about it
 		TheAI->pathfinder()->addObjectToPathfindMap( newObj );
@@ -209,7 +209,7 @@ void DefaultProductionExitUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void DefaultProductionExitUpdate::loadPostProcess( void )
+void DefaultProductionExitUpdate::loadPostProcess()
 {
 
 	// extend base class

@@ -49,7 +49,7 @@ const Int MAX_IDX = 32;
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-BoneFXUpdateModuleData::BoneFXUpdateModuleData(void)
+BoneFXUpdateModuleData::BoneFXUpdateModuleData()
 {
 	Int i, j;
 	for (i = 0; i < BODYDAMAGETYPE_COUNT; ++i) {
@@ -105,7 +105,7 @@ void BoneFXUpdate::onObjectCreated()
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-BoneFXUpdate::~BoneFXUpdate( void )
+BoneFXUpdate::~BoneFXUpdate()
 {
 	killRunningParticleSystems();
 }
@@ -135,7 +135,7 @@ static void parseFXLocInfo( INI *ini, void *instance, BoneLocInfo *locInfo )
 }
 
 //-------------------------------------------------------------------------------------------------
-/** Parse a random delay.  This is a number pair, where the numbers are a min and max time in miliseconds. */
+/** Parse a random delay.  This is a number pair, where the numbers are a min and max time in milliseconds. */
 //-------------------------------------------------------------------------------------------------
 static void parseGameClientRandomDelay( INI *ini, void *instance, GameClientRandomVariable *delay)
 {
@@ -283,7 +283,7 @@ void BoneFXUpdateModuleData::parseParticleSystem( INI *ini, void *instance,
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime BoneFXUpdate::update( void )
+UpdateSleepTime BoneFXUpdate::update()
 {
 /// @todo srj use SLEEPY_UPDATE here
 	const BoneFXUpdateModuleData *d = getBoneFXUpdateModuleData();
@@ -593,7 +593,7 @@ void BoneFXUpdate::xfer( Xfer *xfer )
 	else
 	{
 
-		// the list should be emtpy right now
+		// the list should be empty right now
 		if( m_particleSystemIDs.empty() == FALSE )
 		{
 
@@ -648,7 +648,7 @@ void BoneFXUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void BoneFXUpdate::loadPostProcess( void )
+void BoneFXUpdate::loadPostProcess()
 {
 
 	// extend base class

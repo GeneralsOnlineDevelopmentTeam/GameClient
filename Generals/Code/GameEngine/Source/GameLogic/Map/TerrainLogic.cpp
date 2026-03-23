@@ -868,7 +868,7 @@ Drawable *Bridge::pickBridge(const Vector3 &from, const Vector3 &to, Vector3 *po
 //-------------------------------------------------------------------------------------------------
 /** updateDamageState - Update the damage state. */
 //-------------------------------------------------------------------------------------------------
-void Bridge::updateDamageState( void )
+void Bridge::updateDamageState()
 {
 	m_bridgeInfo.damageStateChanged = false;
 	if (m_bridgeInfo.bridgeObjectID==0) return;
@@ -995,7 +995,7 @@ TerrainLogic::~TerrainLogic()
 //-------------------------------------------------------------------------------------------------
 /** Init */
 //-------------------------------------------------------------------------------------------------
-void TerrainLogic::init( void )
+void TerrainLogic::init()
 {
 
 }
@@ -1003,7 +1003,7 @@ void TerrainLogic::init( void )
 //-------------------------------------------------------------------------------------------------
 /** Reset */
 //-------------------------------------------------------------------------------------------------
-void TerrainLogic::reset( void )
+void TerrainLogic::reset()
 {
 
 	deleteWaypoints();
@@ -1016,7 +1016,7 @@ void TerrainLogic::reset( void )
 //-------------------------------------------------------------------------------------------------
 /** Update */
 //-------------------------------------------------------------------------------------------------
-void TerrainLogic::update( void )
+void TerrainLogic::update()
 {
 
 	// bridge damage states have not changed this frame now
@@ -1096,7 +1096,7 @@ void TerrainLogic::update( void )
 				//
 				// because some water implementation store the height as integers, some changes
 				// are too small to keep track of in the actual water data structures so we have to
-				// keep track of it outselves
+				// keep track of it ourselves
 				//
 				currentHeight += changePerFrame;
 				m_waterToUpdate[ i ].currentHeight = currentHeight;
@@ -1404,7 +1404,7 @@ void TerrainLogic::addWaypointLink(Int id1, Int id2)
 //-------------------------------------------------------------------------------------------------
 /** Deletes the waypoints list. */
 //-------------------------------------------------------------------------------------------------
-void TerrainLogic::deleteWaypoints(void)
+void TerrainLogic::deleteWaypoints()
 {
 	Waypoint *pNext = nullptr;
 	Waypoint *pWay;
@@ -1855,7 +1855,7 @@ Bool TerrainLogic::objectInteractsWithBridgeEnd(Object *obj, Int layer) const
 //-------------------------------------------------------------------------------------------------
 /** Updates the damage state of the bridge from the logic. */
 //-------------------------------------------------------------------------------------------------
-void TerrainLogic::updateBridgeDamageStates( void )
+void TerrainLogic::updateBridgeDamageStates()
 {
 	Bridge *pBridge = getFirstBridge();
 	while (pBridge) {
@@ -1978,7 +1978,7 @@ Drawable *TerrainLogic::pickBridge(const Vector3 &from, const Vector3 &to, Vecto
 //-------------------------------------------------------------------------------------------------
 /** Deletes the bridges list. */
 //-------------------------------------------------------------------------------------------------
-void TerrainLogic::deleteBridges(void)
+void TerrainLogic::deleteBridges()
 {
 	Bridge *pNext = nullptr;
 	Bridge *pBridge;
@@ -2629,11 +2629,11 @@ void TerrainLogic::setActiveBoundary(Int newActiveBoundary)
 	// Don't do a newMap on the pathfinder - It uses the largest active boundary to start.  jba.
 	//TheAI->pathfinder()->newMap();
 
-	TheTacticalView->forceCameraConstraintRecalc();
+	TheTacticalView->forceCameraAreaConstraintRecalc();
 }
 
 // ------------------------------------------------------------------------------------------------
-/** Flatten the terrain beneath a struture. */
+/** Flatten the terrain beneath a structure. */
 // ------------------------------------------------------------------------------------------------
 void TerrainLogic::flattenTerrain(Object *obj)
 {
@@ -2952,7 +2952,7 @@ void TerrainLogic::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void TerrainLogic::loadPostProcess( void )
+void TerrainLogic::loadPostProcess()
 {
 	Bridge* pBridge = getFirstBridge();
 	Bridge* pNext;

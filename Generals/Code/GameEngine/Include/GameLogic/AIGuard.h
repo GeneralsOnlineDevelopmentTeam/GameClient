@@ -81,7 +81,7 @@ public:
 		m_center.zero();
 	}
 
-	virtual Bool shouldExit(const StateMachine* machine) const;
+	virtual Bool shouldExit(const StateMachine* machine) const override;
 };
 
 
@@ -101,9 +101,9 @@ private:
 
 protected:
 	// snapshot interface
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess();
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 public:
 	/**
@@ -111,13 +111,13 @@ public:
 	 * used by this machine.
 	 */
 	AIGuardMachine( Object *owner );
-	Object* findTargetToGuardByID( void ) { return TheGameLogic->findObjectByID(m_targetToGuard); }
+	Object* findTargetToGuardByID() { return TheGameLogic->findObjectByID(m_targetToGuard); }
 	void setTargetToGuard( const Object *object ) { m_targetToGuard = object ? object->getID() : INVALID_ID; }
 
-	const Coord3D *getPositionToGuard( void ) const { return &m_positionToGuard; }
+	const Coord3D *getPositionToGuard() const { return &m_positionToGuard; }
 	void setTargetPositionToGuard( const Coord3D *pos) { m_positionToGuard = *pos; }
 
-	const PolygonTrigger *getAreaToGuard( void ) const { return m_areaToGuard; }
+	const PolygonTrigger *getAreaToGuard() const { return m_areaToGuard; }
 	void setAreaToGuard( const PolygonTrigger *area) { m_areaToGuard = area; }
 
 	void setNemesisID(ObjectID id) { m_nemesisToAttack = id; }
@@ -126,7 +126,7 @@ public:
 	GuardMode getGuardMode() const { return m_guardMode; }
 	void setGuardMode(GuardMode guardMode) { m_guardMode = guardMode; }
 
-	Bool lookForInnerTarget(void);
+	Bool lookForInnerTarget();
 
 	static Real getStdGuardRange(const Object* obj);
 };
@@ -140,14 +140,14 @@ public:
 	{
 		m_attackState = nullptr;
 	}
-	virtual StateReturnType onEnter( void );
-	virtual StateReturnType update( void );
-	virtual void onExit( StateExitType status );
+	virtual StateReturnType onEnter() override;
+	virtual StateReturnType update() override;
+	virtual void onExit( StateExitType status ) override;
 protected:
 	// snapshot interface
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess();
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 private:
 	AIGuardMachine* getGuardMachine() { return (AIGuardMachine*)getMachine(); }
 
@@ -161,14 +161,14 @@ class AIGuardIdleState : public State
 	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(AIGuardIdleState, "AIGuardIdleState")
 public:
 	AIGuardIdleState( StateMachine *machine ) : State( machine, "AIGuardIdleState" ) { }
-	virtual StateReturnType onEnter( void );
-	virtual StateReturnType update( void );
-	virtual void onExit( StateExitType status );
+	virtual StateReturnType onEnter() override;
+	virtual StateReturnType update() override;
+	virtual void onExit( StateExitType status ) override;
 protected:
 	// snapshot interface
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess();
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 private:
 	AIGuardMachine* getGuardMachine() { return (AIGuardMachine*)getMachine(); }
 
@@ -186,14 +186,14 @@ public:
 	{
 		m_attackState = nullptr;
 	}
-	virtual StateReturnType onEnter( void );
-	virtual StateReturnType update( void );
-	virtual void onExit( StateExitType status );
+	virtual StateReturnType onEnter() override;
+	virtual StateReturnType update() override;
+	virtual void onExit( StateExitType status ) override;
 protected:
 	// snapshot interface
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess();
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 private:
 	AIGuardMachine* getGuardMachine() { return (AIGuardMachine*)getMachine(); }
 
@@ -212,14 +212,14 @@ public:
 	{
 		m_nextReturnScanTime = 0;
 	}
-	virtual StateReturnType onEnter( void );
-	virtual StateReturnType update( void );
-	virtual void onExit( StateExitType status );
+	virtual StateReturnType onEnter() override;
+	virtual StateReturnType update() override;
+	virtual void onExit( StateExitType status ) override;
 protected:
 	// snapshot interface
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess();
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 private:
 	UnsignedInt m_nextReturnScanTime;
 };
@@ -232,9 +232,9 @@ class AIGuardPickUpCrateState : public AIPickUpCrateState
 	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(AIGuardPickUpCrateState, "AIGuardPickUpCrateState")
 public:
 	AIGuardPickUpCrateState( StateMachine *machine );
-	virtual StateReturnType onEnter( void );
-	virtual StateReturnType update( void );
-	virtual void onExit( StateExitType status );
+	virtual StateReturnType onEnter() override;
+	virtual StateReturnType update() override;
+	virtual void onExit( StateExitType status ) override;
 };
 EMPTY_DTOR(AIGuardPickUpCrateState)
 
@@ -244,14 +244,14 @@ class AIGuardAttackAggressorState : public State
 	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(AIGuardAttackAggressorState, "AIGuardAttackAggressorState")
 public:
 	AIGuardAttackAggressorState( StateMachine *machine );
-	virtual StateReturnType onEnter( void );
-	virtual StateReturnType update( void );
-	virtual void onExit( StateExitType status );
+	virtual StateReturnType onEnter() override;
+	virtual StateReturnType update() override;
+	virtual void onExit( StateExitType status ) override;
 protected:
 	// snapshot interface
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess();
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 private:
 	AIGuardMachine* getGuardMachine() { return (AIGuardMachine*)getMachine(); }
 	ExitConditions m_exitConditions;

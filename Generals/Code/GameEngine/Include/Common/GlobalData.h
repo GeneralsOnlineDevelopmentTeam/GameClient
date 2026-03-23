@@ -80,11 +80,11 @@ class GlobalData : public SubsystemInterface
 public:
 
 	GlobalData();
-	virtual ~GlobalData();
+	virtual ~GlobalData() override;
 
-	virtual void init();
-	virtual void reset();
-	virtual void update() { }
+	virtual void init() override;
+	virtual void reset() override;
+	virtual void update() override { }
 
 	Bool setTimeOfDay( TimeOfDay tod );		///< Use this function to set the Time of day;
 
@@ -283,7 +283,7 @@ public:
 
 #ifdef DUMP_PERF_STATS
 	Bool m_dumpPerformanceStatistics;
-  Bool  m_dumpStatsAtInterval;///< should I automatically dum stats every in N frames
+  Bool  m_dumpStatsAtInterval;///< should I automatically dump stats every N frames
   Int   m_statsInterval;       ///< if so, how many is N?
 #endif
 
@@ -411,6 +411,8 @@ public:
 	// TheSuperHackers @feature Mauller 21/06/2025 allow the system time and game time font size to be set, a size of zero disables them
 	Int m_systemTimeFontSize;
 	Int m_gameTimeFontSize;
+	// TheSuperHackers @feature L3-M 05/11/2025 allow the player info list font size to be set, a size of zero disables it
+	Int m_playerInfoListFontSize;
 
 	// TheSuperHackers @feature L3-M 21/08/2025 toggle the money per minute display, false shows only the original current money
 	Bool m_showMoneyPerMinute;
@@ -570,7 +572,7 @@ private:
 
 	static GlobalData *m_theOriginal;		///< the original global data instance (no overrides)
 	GlobalData *m_next;									///< next instance (for overrides)
-	GlobalData *newOverride( void );		/** create a new override, copy data from previous
+	virtual GlobalData *newOverride();		/** create a new override, copy data from previous
 																			override, and return it */
 
 #if defined(_MSC_VER) && _MSC_VER < 1300

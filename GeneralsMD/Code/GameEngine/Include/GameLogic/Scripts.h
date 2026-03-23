@@ -107,9 +107,9 @@ class ScriptGroup : public MemoryPoolObject, public Snapshot
 protected:
 
 	// snapshot methods
-	virtual void crc(Xfer* xfer);
-	virtual void xfer(Xfer* xfer);
-	virtual void loadPostProcess(void);
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 protected:
 	Script* m_firstScript;
@@ -125,9 +125,9 @@ public:
 
 public:
 
-	ScriptGroup* duplicate(void) const;		// note, duplicates just this node, not the full list.
-	ScriptGroup* duplicateAndQualify(const AsciiString& qualifier,
-		const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;		// note, duplicates just this node, not the full list.
+	ScriptGroup *duplicate() const;		// note, duplicates just this node, not the full list.
+	ScriptGroup *duplicateAndQualify(const AsciiString& qualifier,
+			const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;		// note, duplicates just this node, not the full list.
 
 	void setName(AsciiString name) { m_groupName = name; }
 	void setActive(Bool active) { m_isGroupActive = active; }
@@ -135,12 +135,12 @@ public:
 	void setWarnings(Bool warnings) { m_hasWarnings = warnings; }
 	void setNextGroup(ScriptGroup* pGr) { m_nextGroup = pGr; }
 
-	AsciiString getName(void) const { return m_groupName; }
-	Bool isActive(void) const { return m_isGroupActive; }
-	Bool isSubroutine(void) const { return m_isGroupSubroutine; }
-	Bool hasWarnings(void) const { return m_hasWarnings; }
-	ScriptGroup* getNext(void) const { return m_nextGroup; };
-	Script* getScript(void) { return m_firstScript; };
+	AsciiString getName() const { return m_groupName;}
+	Bool isActive() const { return m_isGroupActive;}
+	Bool isSubroutine() const { return m_isGroupSubroutine;}
+	Bool hasWarnings() const { return m_hasWarnings;}
+	ScriptGroup *getNext() const {return m_nextGroup;};
+	Script *getScript() {return m_firstScript;};
 
 	void addScript(Script* pScr, Int ndx);
 	void deleteScript(Script* pScr);
@@ -164,16 +164,16 @@ public:
 	OrCondition():m_nextOr(nullptr),m_firstAnd(nullptr){};
 	//~OrCondition();
 	/// Duplicate creates a "deep" copy.  If it is head of a linked list, duplicates the entire list.
-	OrCondition* duplicate(void) const;
-	OrCondition* duplicateAndQualify(const AsciiString& qualifier,
-		const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;
+	OrCondition *duplicate() const;
+	OrCondition *duplicateAndQualify(const AsciiString& qualifier,
+			const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;
 
 public:
 	void setNextOrCondition(OrCondition* pOr) { m_nextOr = pOr; }
 	void setFirstAndCondition(Condition* pAnd) { m_firstAnd = pAnd; }
 
-	OrCondition* getNextOrCondition(void) { return m_nextOr; }
-	Condition* getFirstAndCondition(void) { return m_firstAnd; }
+	OrCondition *getNextOrCondition() {return m_nextOr;}
+	Condition *getFirstAndCondition() {return m_firstAnd;}
 
 	Condition* removeCondition(Condition* pCond);
 	void deleteCondition(Condition* pCond);
@@ -549,9 +549,9 @@ public:
 	ScriptAction(ScriptActionType type);
 	//~ScriptAction();
 
-	ScriptAction* duplicate(void) const;
-	ScriptAction* duplicateAndQualify(const AsciiString& qualifier,
-		const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;
+	ScriptAction *duplicate() const;
+	ScriptAction *duplicateAndQualify(const AsciiString& qualifier,
+			const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;
 
 protected:
 	ScriptAction();  ///< Protected constructor for read.
@@ -567,11 +567,11 @@ public:
 	void setActionType(ScriptActionType type);
 
 public:
-	void setNextAction(ScriptAction* pAct) { m_nextAction = pAct; }
-	void setWarnings(Bool warnings) { m_hasWarnings = warnings; }
-	ScriptActionType getActionType(void) { return m_actionType; }
-	ScriptAction* getNext(void) { return m_nextAction; }
-	AsciiString getUiText(void);
+	void setNextAction(ScriptAction *pAct) {m_nextAction = pAct;}
+	void setWarnings(Bool warnings) { m_hasWarnings = warnings;}
+	ScriptActionType getActionType() {return m_actionType;}
+	ScriptAction * getNext() {return m_nextAction;}
+	AsciiString getUiText();
 	Parameter* getParameter(Int ndx)
 	{
 		if (ndx >= 0 && ndx < m_numParms)
@@ -579,8 +579,8 @@ public:
 
 		return nullptr;
 	}
-	Bool hasWarnings(void) const { return m_hasWarnings; }
-	Int getNumParameters(void) { return m_numParms; }
+	Bool hasWarnings() const { return m_hasWarnings;}
+	Int getNumParameters() {return m_numParms;}
 	Int getUiStrings(AsciiString strings[MAX_PARMS]);
 
 	static void WriteActionDataChunk(DataChunkOutput& chunkWriter, ScriptAction* pAct);
@@ -604,9 +604,9 @@ class Script : public MemoryPoolObject, public Snapshot
 protected:	// Note - If you add any member vars, you must take them into account in duplicate() and updateFrom(), as well as file read/write.
 
 	// snapshot methods
-	virtual void crc(Xfer* xfer);
-	virtual void xfer(Xfer* xfer);
-	virtual void loadPostProcess(void);
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 	AsciiString	m_scriptName;   ///<Short name.
 	AsciiString m_comment;			///< Long comment.
@@ -636,55 +636,55 @@ protected:	// Note - If you add any member vars, you must take them into account
 public:
 	Script();
 	//~Script();
-	Script* duplicate(void) const;	// note, duplicates just this node, not the full list.
-	Script* duplicateAndQualify(const AsciiString& qualifier,
-		const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;
+	Script *duplicate() const;	// note, duplicates just this node, not the full list.
+	Script *duplicateAndQualify(const AsciiString& qualifier,
+			const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;
 
 public:
-	void setName(AsciiString name) { m_scriptName = name; }
-	void setWarnings(Bool warnings) { m_hasWarnings = warnings; }
-	void setComment(AsciiString comment) { m_comment = comment; }
-	void setActionComment(AsciiString comment) { m_actionComment = comment; }
-	void setConditionComment(AsciiString comment) { m_conditionComment = comment; }
-	void setActive(Bool active) { m_isActive = active; }
-	void setOneShot(Bool one) { m_isOneShot = one; }
-	void setEasy(Bool easy) { m_easy = easy; }
-	void setNormal(Bool normal) { m_normal = normal; }
-	void setHard(Bool hard) { m_hard = hard; }
-	void setSubroutine(Bool subr) { m_isSubroutine = subr; }
-	void setNextScript(Script* pScr) { m_nextScript = pScr; }
-	void setOrCondition(OrCondition* pCond) { m_condition = pCond; }
-	void setAction(ScriptAction* pAction) { m_action = pAction; }
-	void setFalseAction(ScriptAction* pAction) { m_actionFalse = pAction; }
-	void updateFrom(Script* pSrc); ///< Updates this from pSrc.  pSrc IS MODIFIED - it's guts are removed.  jba.
-	void setFrameToEvaluate(UnsignedInt frame) { m_frameToEvaluateAt = frame; }
-	void incrementConditionCount(void) { m_conditionExecutedCount++; }
-	void addToConditionTime(Real time) { m_conditionTime += time; }
-	void setCurTime(Real time) { m_curTime = time; }
-	void setDelayEvalSeconds(Int delay) { m_delayEvaluationSeconds = delay; }
+	void setName(AsciiString name) { m_scriptName = name;}
+	void setWarnings(Bool warnings) { m_hasWarnings = warnings;}
+	void setComment(AsciiString comment) { m_comment = comment;}
+	void setActionComment(AsciiString comment) { m_actionComment = comment;}
+	void setConditionComment(AsciiString comment) { m_conditionComment = comment;}
+	void setActive(Bool active) { m_isActive = active;}
+	void setOneShot(Bool one) { m_isOneShot = one;}
+	void setEasy(Bool easy) { m_easy = easy;}
+	void setNormal(Bool normal) { m_normal = normal;}
+	void setHard(Bool hard) { m_hard = hard;}
+	void setSubroutine(Bool subr) { m_isSubroutine = subr;}
+	void setNextScript(Script *pScr) {m_nextScript = pScr;}
+	void setOrCondition(OrCondition *pCond) {m_condition = pCond;}
+	void setAction(ScriptAction *pAction) {m_action = pAction;}
+	void setFalseAction(ScriptAction *pAction) {m_actionFalse = pAction;}
+	void updateFrom(Script *pSrc); ///< Updates this from pSrc.  pSrc IS MODIFIED - it's guts are removed.  jba.
+	void setFrameToEvaluate(UnsignedInt frame) {m_frameToEvaluateAt=frame;}
+	void incrementConditionCount() {m_conditionExecutedCount++;}
+	void addToConditionTime(Real time) {m_conditionTime += time;}
+	void setCurTime(Real time) {m_curTime	= time;}
+	void setDelayEvalSeconds(Int delay) {m_delayEvaluationSeconds = delay;}
 
-	UnsignedInt getFrameToEvaluate(void) { return m_frameToEvaluateAt; }
-	Int getConditionCount(void) { return m_conditionExecutedCount; }
-	Real getConditionTime(void) { return m_conditionTime; }
-	Real getCurTime(void) { return m_curTime; }
-	Int getDelayEvalSeconds(void) { return m_delayEvaluationSeconds; }
+	UnsignedInt getFrameToEvaluate() {return m_frameToEvaluateAt;}
+	Int getConditionCount() {return m_conditionExecutedCount;}
+	Real getConditionTime() {return m_conditionTime;}
+	Real getCurTime() {return m_curTime;}
+	Int getDelayEvalSeconds() {return m_delayEvaluationSeconds;}
 
-	AsciiString getName(void) const { return m_scriptName; }
-	AsciiString getComment(void) const { return m_comment; }
-	AsciiString getActionComment(void) const { return m_actionComment; }
-	AsciiString getConditionComment(void) const { return m_conditionComment; }
-	Bool hasWarnings(void) const { return m_hasWarnings; }
-	Bool isActive(void) const { return m_isActive; }
-	Bool isOneShot(void) const { return m_isOneShot; }
-	Bool isEasy(void) const { return m_easy; }
-	Bool isNormal(void) const { return m_normal; }
-	Bool isHard(void) const { return m_hard; }
-	Bool isSubroutine(void) const { return m_isSubroutine; }
-	Script* getNext(void) const { return m_nextScript; }
-	OrCondition* getOrCondition(void) const { return m_condition; }
-	ScriptAction* getAction(void) const { return m_action; }
-	ScriptAction* getFalseAction(void) const { return m_actionFalse; }
-	AsciiString getUiText(void);
+	AsciiString getName() const { return m_scriptName;}
+	AsciiString getComment() const {return m_comment;}
+	AsciiString getActionComment() const {return m_actionComment;}
+	AsciiString getConditionComment() const {return m_conditionComment;}
+	Bool hasWarnings() const { return m_hasWarnings;}
+	Bool isActive() const { return m_isActive;}
+	Bool isOneShot() const { return m_isOneShot;}
+	Bool isEasy() const { return m_easy;}
+	Bool isNormal() const { return m_normal;}
+	Bool isHard() const { return m_hard;}
+	Bool isSubroutine() const { return m_isSubroutine;}
+	Script *getNext() const {return m_nextScript;}
+	OrCondition *getOrCondition() const {return m_condition;}
+	ScriptAction *getAction() const	{return m_action;}
+	ScriptAction *getFalseAction() const {return m_actionFalse;}
+	AsciiString getUiText();
 
 	void deleteOrCondition(OrCondition* pCond);
 	void deleteAction(ScriptAction* pAct);
@@ -699,8 +699,8 @@ public:
 	OrCondition* findPreviousOrCondition(OrCondition* curOr);
 
 	// Support routines for ScriptEngine -
-	AsciiString getConditionTeamName(void) { return m_conditionTeamName; }
-	void setConditionTeamName(AsciiString teamName) { m_conditionTeamName = teamName; }
+	AsciiString getConditionTeamName() {return m_conditionTeamName;}
+	void setConditionTeamName(AsciiString teamName) {m_conditionTeamName = teamName;}
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -817,10 +817,10 @@ protected:
 	void setStatus(ObjectStatusMaskType objectStatus) { m_objectStatus.set(objectStatus); }
 
 public:
-	Int getInt(void) const { return m_int; }
-	Real getReal(void) const { return m_real; }
-	void getCoord3D(Coord3D* pLoc) const;
-	ParameterType getParameterType(void) const { return m_paramType; }
+	Int getInt() const {return m_int;}
+	Real getReal() const {return m_real;}
+	void getCoord3D(Coord3D *pLoc) const;
+	ParameterType getParameterType() const {return m_paramType;}
 	ObjectStatusMaskType getStatus() const { return m_objectStatus; }
 
 	void friend_setInt(Int i) { m_int = i; }
@@ -830,8 +830,8 @@ public:
 
 	void qualify(const AsciiString& qualifier, const AsciiString& playerTemplateName, const AsciiString& newPlayerName);
 
-	const AsciiString& getString(void) const { return m_string; }
-	AsciiString getUiText(void) const;
+	const AsciiString& getString() const {return m_string;}
+	AsciiString getUiText() const;
 
 	void WriteParameter(DataChunkOutput& chunkWriter);
 	static Parameter* ReadParameter(DataChunkInput& file);
@@ -977,9 +977,9 @@ public:
 	Condition(enum ConditionType type);
 	//~Condition();
 
-	Condition* duplicate(void) const;
-	Condition* duplicateAndQualify(const AsciiString& qualifier,
-		const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;
+	Condition *duplicate() const;
+	Condition *duplicateAndQualify(const AsciiString& qualifier,
+			const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;
 
 protected:
 	Condition();  ///< Protected constructor for read.
@@ -998,11 +998,11 @@ public:
 	void setConditionType(enum ConditionType type);
 
 public:
-	void setNextCondition(Condition* pScr) { m_nextAndCondition = pScr; }
-	void setWarnings(Bool warnings) { m_hasWarnings = warnings; }
-	enum ConditionType getConditionType(void) { return m_conditionType; }
-	Condition* getNext(void) { return m_nextAndCondition; }
-	AsciiString getUiText(void);
+	void setNextCondition(Condition *pScr) {m_nextAndCondition = pScr;}
+	void setWarnings(Bool warnings) { m_hasWarnings = warnings;}
+	enum ConditionType getConditionType() {return m_conditionType;}
+	Condition * getNext() {return m_nextAndCondition;}
+	AsciiString getUiText();
 	Parameter* getParameter(Int ndx)
 	{
 		if (ndx >= 0 && ndx < m_numParms)
@@ -1011,14 +1011,14 @@ public:
 		return nullptr;
 	}
 
-	Int getNumParameters(void) { return m_numParms; }
+	Int getNumParameters() {return m_numParms;}
 	Int getUiStrings(AsciiString strings[MAX_PARMS]);
-	Bool hasWarnings(void) const { return m_hasWarnings; }
-	Int getCustomData(void) const { return m_customData; }
-	void setCustomData(Int val) { m_customData = val; }
+	Bool hasWarnings() const { return m_hasWarnings;}
+	Int getCustomData() const {return m_customData;}
+	void setCustomData(Int val) { m_customData = val;}
 
-	Int getCustomFrame(void) const { return m_customFrame; }
-	void setCustomFrame(Int val) { m_customFrame = val; }
+	Int getCustomFrame() const {return m_customFrame;}
+	void setCustomFrame(Int val) { m_customFrame = val;}
 
 	static void WriteConditionDataChunk(DataChunkOutput& chunkWriter, Condition* pCond);
 	static Bool ParseConditionDataChunk(DataChunkInput& file, DataChunkInfo* info, void* userData);
@@ -1056,10 +1056,10 @@ public:
 	Template();
 
 public:
-	AsciiString getName(void) const { return m_uiName; }
-	AsciiString getName2(void) const { return m_uiName2; }
+	AsciiString getName() const {return m_uiName;}
+	AsciiString getName2() const {return m_uiName2;}
 	Int getUiStrings(AsciiString strings[MAX_PARMS]) const;
-	Int getNumParameters(void) const { return m_numParameters; }
+	Int getNumParameters() const {return m_numParameters;}
 	enum Parameter::ParameterType getParameterType(Int ndx) const;
 };
 EMPTY_DTOR(Template)
@@ -1088,9 +1088,9 @@ class ScriptList : public MemoryPoolObject, public Snapshot
 protected:
 
 	// snapshot methods
-	virtual void crc(Xfer* xfer);
-	virtual void xfer(Xfer* xfer);
-	virtual void loadPostProcess(void);
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 	ScriptGroup* m_firstGroup;
 	Script* m_firstScript;
@@ -1104,26 +1104,26 @@ public:
 	//~ScriptList();
 
 public:
-	static void updateDefaults(void);
-	static void reset(void);
-	static Int getNextID(void) { m_curId++; return m_curId; };
+	static void updateDefaults();
+	static void reset();
+	static Int getNextID() {m_curId++; return m_curId;};
 
 public:
-	ScriptGroup* getScriptGroup(void) { return m_firstGroup; };
-	Script* getScript(void) { return m_firstScript; };
-	void WriteScriptListDataChunk(DataChunkOutput& chunkWriter);
-	static Bool ParseScriptListDataChunk(DataChunkInput& file, DataChunkInfo* info, void* userData);
+	ScriptGroup *getScriptGroup() {return m_firstGroup;};
+	Script *getScript() {return m_firstScript;};
+	void WriteScriptListDataChunk(DataChunkOutput &chunkWriter);
+	static Bool ParseScriptListDataChunk(DataChunkInput &file, DataChunkInfo *info, void *userData);
 
 	void addGroup(ScriptGroup* pGrp, Int ndx);
 	void addScript(Script* pScr, Int ndx);
 	void deleteScript(Script* pScr);
 	void deleteGroup(ScriptGroup* pGrp);
 
-	void discard(void);
+	void discard();
 
-	ScriptList* duplicate(void) const;
-	ScriptList* duplicateAndQualify(const AsciiString& qualifier,
-		const AsciiString& playerTemplateName, const AsciiString& newPlayerName) const;
+	ScriptList *duplicate() const;
+	ScriptList *duplicateAndQualify(const AsciiString& qualifier,
+			const AsciiString& playerTemplateName, const AsciiString& newPlayerName ) const;
 	/// Reads a set of scripts into m_readScripts.  Use getReadScripts to access.
 	static Bool ParseScriptsDataChunk(DataChunkInput& file, DataChunkInfo* info, void* userData);
 	/// Writes sides (including build list info.)

@@ -78,7 +78,7 @@ public:
 	virtual const char* debugGetName() { return "PartitionFilterHordeMember"; }
 #endif
 
-	virtual Bool allow(Object *objOther)
+	virtual Bool allow(Object *objOther) override
 	{
 		// must be exact same type as us (well, maybe)
 		if (m_data->m_exactMatch && m_obj->getTemplate() != objOther->getTemplate())
@@ -234,7 +234,7 @@ void HordeUpdate::onDrawableBoundToObject()
 }
 
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime HordeUpdate::update( void )
+UpdateSleepTime HordeUpdate::update()
 {
 
 
@@ -397,7 +397,7 @@ void HordeUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void HordeUpdate::loadPostProcess( void )
+void HordeUpdate::loadPostProcess()
 {
 
 	// extend base class

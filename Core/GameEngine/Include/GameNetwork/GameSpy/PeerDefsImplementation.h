@@ -36,105 +36,105 @@ class GameSpyInfo : public GameSpyInfoInterface
 {
 public:
 	GameSpyInfo();
-	virtual ~GameSpyInfo();
-	virtual void reset( void );
-	virtual void clearGroupRoomList( void ) { m_groupRooms.clear(); m_gotGroupRoomList = false; }
-	virtual GroupRoomMap* getGroupRoomList( void ) { return &m_groupRooms; }
-	virtual void addGroupRoom( GameSpyGroupRoom room );
-	virtual Bool gotGroupRoomList( void ) { return m_gotGroupRoomList; }
-	virtual void joinGroupRoom( Int groupID );
-	virtual void leaveGroupRoom( void );
-	virtual void joinBestGroupRoom( void );
-	virtual void setCurrentGroupRoom( Int groupID ) { m_currentGroupRoomID = groupID; m_playerInfoMap.clear(); }
-	virtual Int  getCurrentGroupRoom( void ) { return m_currentGroupRoomID; }
-	virtual void updatePlayerInfo( PlayerInfo pi, AsciiString oldNick = AsciiString::TheEmptyString );
-	virtual void playerLeftGroupRoom( AsciiString nick );
-	virtual PlayerInfoMap* getPlayerInfoMap( void ) { return &m_playerInfoMap; }
+	virtual ~GameSpyInfo() override;
+	virtual void reset() override;
+	virtual void clearGroupRoomList() override { m_groupRooms.clear(); m_gotGroupRoomList = false; }
+	virtual GroupRoomMap* getGroupRoomList() override { return &m_groupRooms; }
+	virtual void addGroupRoom( GameSpyGroupRoom room ) override;
+	virtual Bool gotGroupRoomList() override { return m_gotGroupRoomList; }
+	virtual void joinGroupRoom( Int groupID ) override;
+	virtual void leaveGroupRoom() override;
+	virtual void joinBestGroupRoom() override;
+	virtual void setCurrentGroupRoom( Int groupID ) override { m_currentGroupRoomID = groupID; m_playerInfoMap.clear(); }
+	virtual Int  getCurrentGroupRoom() override { return m_currentGroupRoomID; }
+	virtual void updatePlayerInfo( PlayerInfo pi, AsciiString oldNick = AsciiString::TheEmptyString ) override;
+	virtual void playerLeftGroupRoom( AsciiString nick ) override;
+	virtual PlayerInfoMap* getPlayerInfoMap() override { return &m_playerInfoMap; }
 
-	virtual void setLocalName( AsciiString name ) { m_localName = name; }
-	virtual AsciiString getLocalName( void ) { return m_localName; }
-	virtual void setLocalProfileID( Int profileID ) { m_localProfileID = profileID; }
-	virtual Int getLocalProfileID( void ) { return m_localProfileID; }
-	virtual AsciiString getLocalEmail( void ) { return m_localEmail; }
-	virtual void setLocalEmail( AsciiString email ) { m_localEmail = email;	}
-	virtual AsciiString getLocalPassword( void ){ return m_localPasswd;	}
-	virtual void setLocalPassword( AsciiString passwd ) { m_localPasswd = passwd;	}
-	virtual void setLocalBaseName( AsciiString name ) { m_localBaseName = name; }
-	virtual AsciiString getLocalBaseName( void ){ return m_localBaseName; }
-	virtual void setCachedLocalPlayerStats( PSPlayerStats stats ) {m_cachedLocalPlayerStats = stats;	}
-	virtual PSPlayerStats getCachedLocalPlayerStats( void ){ return m_cachedLocalPlayerStats;	}
+	virtual void setLocalName( AsciiString name ) override { m_localName = name; }
+	virtual AsciiString getLocalName() override { return m_localName; }
+	virtual void setLocalProfileID( Int profileID ) override { m_localProfileID = profileID; }
+	virtual Int getLocalProfileID() override { return m_localProfileID; }
+	virtual AsciiString getLocalEmail() override { return m_localEmail; }
+	virtual void setLocalEmail( AsciiString email ) override { m_localEmail = email;	}
+	virtual AsciiString getLocalPassword() override { return m_localPasswd;	}
+	virtual void setLocalPassword( AsciiString passwd ) override { m_localPasswd = passwd;	}
+	virtual void setLocalBaseName( AsciiString name ) override { m_localBaseName = name; }
+	virtual AsciiString getLocalBaseName() override { return m_localBaseName; }
+	virtual void setCachedLocalPlayerStats( PSPlayerStats stats ) override {m_cachedLocalPlayerStats = stats;	}
+	virtual PSPlayerStats getCachedLocalPlayerStats() override { return m_cachedLocalPlayerStats;	}
 
-	virtual BuddyInfoMap* getBuddyMap( void ) { return &m_buddyMap; }
-	virtual BuddyInfoMap* getBuddyRequestMap( void ) { return &m_buddyRequestMap; }
-	virtual BuddyMessageList* getBuddyMessages( void ) { return &m_buddyMessages; }
-	virtual Bool isBuddy( Int id );
+	virtual BuddyInfoMap* getBuddyMap() override { return &m_buddyMap; }
+	virtual BuddyInfoMap* getBuddyRequestMap() override { return &m_buddyRequestMap; }
+	virtual BuddyMessageList* getBuddyMessages() override { return &m_buddyMessages; }
+	virtual Bool isBuddy( Int id ) override;
 
-	virtual void clearStagingRoomList( void );
-	virtual StagingRoomMap* getStagingRoomList( void ) { return &m_stagingRooms; }
-	virtual GameSpyStagingRoom* findStagingRoomByID( Int id );
-	virtual void addStagingRoom( GameSpyStagingRoom room );
-	virtual void updateStagingRoom( GameSpyStagingRoom room );
-	virtual void removeStagingRoom( GameSpyStagingRoom room );
-	virtual Bool hasStagingRoomListChanged( void );
-	virtual void leaveStagingRoom( void );
-	virtual void markAsStagingRoomHost( void );
-	virtual void markAsStagingRoomJoiner( Int game );
-	virtual Int getCurrentStagingRoomID( void ) { return m_localStagingRoomID; }
+	virtual void clearStagingRoomList() override;
+	virtual StagingRoomMap* getStagingRoomList() override { return &m_stagingRooms; }
+	virtual GameSpyStagingRoom* findStagingRoomByID( Int id ) override;
+	virtual void addStagingRoom( GameSpyStagingRoom room ) override;
+	virtual void updateStagingRoom( GameSpyStagingRoom room ) override;
+	virtual void removeStagingRoom( GameSpyStagingRoom room ) override;
+	virtual Bool hasStagingRoomListChanged() override;
+	virtual void leaveStagingRoom() override;
+	virtual void markAsStagingRoomHost() override;
+	virtual void markAsStagingRoomJoiner( Int game ) override;
+	virtual Int getCurrentStagingRoomID() override { return m_localStagingRoomID; }
 
-	virtual void sawFullGameList( void ) { m_sawFullGameList = TRUE; }
+	virtual void sawFullGameList() override { m_sawFullGameList = TRUE; }
 
-	virtual void setDisallowAsianText( Bool val );
-	virtual void setDisallowNonAsianText( Bool val );
-	virtual Bool getDisallowAsianText( void );
-	virtual Bool getDisallowNonAsianText(void );
+	virtual void setDisallowAsianText( Bool val ) override;
+	virtual void setDisallowNonAsianText( Bool val ) override;
+	virtual Bool getDisallowAsianText() override;
+	virtual Bool getDisallowNonAsianText() override;
 	// chat
-	virtual void registerTextWindow( GameWindow *win );
-	virtual void unregisterTextWindow( GameWindow *win );
-	virtual Int addText( UnicodeString message, Color c, GameWindow *win );
-	virtual void addChat( PlayerInfo p, UnicodeString msg, Bool isPublic, Bool isAction, GameWindow *win );
-	virtual void addChat( AsciiString nick, Int profileID, UnicodeString msg, Bool isPublic, Bool isAction, GameWindow *win );
-	virtual Bool sendChat( UnicodeString message, Bool isAction, GameWindow *playerListbox );
+	virtual void registerTextWindow( GameWindow *win ) override;
+	virtual void unregisterTextWindow( GameWindow *win ) override;
+	virtual Int addText( UnicodeString message, Color c, GameWindow *win ) override;
+	virtual void addChat( PlayerInfo p, UnicodeString msg, Bool isPublic, Bool isAction, GameWindow *win ) override;
+	virtual void addChat( AsciiString nick, Int profileID, UnicodeString msg, Bool isPublic, Bool isAction, GameWindow *win ) override;
+	virtual Bool sendChat( UnicodeString message, Bool isAction, GameWindow *playerListbox ) override;
 
-	virtual void setMOTD( const AsciiString& motd );
-	virtual const AsciiString& getMOTD( void );
-	virtual void setConfig( const AsciiString& config );
-	virtual const AsciiString& getConfig( void );
+	virtual void setMOTD( const AsciiString& motd ) override;
+	virtual const AsciiString& getMOTD() override;
+	virtual void setConfig( const AsciiString& config ) override;
+	virtual const AsciiString& getConfig() override;
 
-	virtual void setPingString( const AsciiString& ping ) { m_pingString = ping; }
-	virtual const AsciiString& getPingString( void ) { return m_pingString; }
-	virtual Int getPingValue( const AsciiString& otherPing );
+	virtual void setPingString( const AsciiString& ping ) override { m_pingString = ping; }
+	virtual const AsciiString& getPingString() override { return m_pingString; }
+	virtual Int getPingValue( const AsciiString& otherPing ) override;
 
-	virtual Bool amIHost( void );
-	virtual GameSpyStagingRoom* getCurrentStagingRoom( void );
-	virtual void setGameOptions( void );
+	virtual Bool amIHost() override;
+	virtual GameSpyStagingRoom* getCurrentStagingRoom() override;
+	virtual void setGameOptions() override;
 
-	virtual void addToIgnoreList( AsciiString nick );
-	virtual void removeFromIgnoreList( AsciiString nick );
-	virtual Bool isIgnored( AsciiString nick );
-	virtual IgnoreList returnIgnoreList( void );
+	virtual void addToIgnoreList( AsciiString nick ) override;
+	virtual void removeFromIgnoreList( AsciiString nick ) override;
+	virtual Bool isIgnored( AsciiString nick ) override;
+	virtual IgnoreList returnIgnoreList() override;
 
-	virtual void loadSavedIgnoreList( void );
-	virtual SavedIgnoreMap returnSavedIgnoreList( void );
-	virtual void addToSavedIgnoreList( Int profileID, AsciiString nick);
-	virtual void removeFromSavedIgnoreList( Int profileID );
-	virtual Bool isSavedIgnored( Int profileID );
-	virtual void setLocalIPs(UnsignedInt internalIP, UnsignedInt externalIP);
-	virtual UnsignedInt getInternalIP(void) { return m_internalIP; }
-	virtual UnsignedInt getExternalIP(void) { return m_externalIP; }
+	virtual void loadSavedIgnoreList() override;
+	virtual SavedIgnoreMap returnSavedIgnoreList() override;
+	virtual void addToSavedIgnoreList( Int profileID, AsciiString nick) override;
+	virtual void removeFromSavedIgnoreList( Int profileID ) override;
+	virtual Bool isSavedIgnored( Int profileID ) override;
+	virtual void setLocalIPs(UnsignedInt internalIP, UnsignedInt externalIP) override;
+	virtual UnsignedInt getInternalIP() override { return m_internalIP; }
+	virtual UnsignedInt getExternalIP() override { return m_externalIP; }
 
-	virtual Bool isDisconnectedAfterGameStart(Int *reason) const { if (reason) *reason = m_disconReason; return m_isDisconAfterGameStart; }
-	virtual void markAsDisconnectedAfterGameStart(Int reason) { m_isDisconAfterGameStart = TRUE; m_disconReason = reason; }
+	virtual Bool isDisconnectedAfterGameStart(Int *reason) const override { if (reason) *reason = m_disconReason; return m_isDisconAfterGameStart; }
+	virtual void markAsDisconnectedAfterGameStart(Int reason) override { m_isDisconAfterGameStart = TRUE; m_disconReason = reason; }
 
-	virtual Bool didPlayerPreorder( Int profileID ) const;
-	virtual void markPlayerAsPreorder( Int profileID );
+	virtual Bool didPlayerPreorder( Int profileID ) const override;
+	virtual void markPlayerAsPreorder( Int profileID ) override;
 
-	virtual void setMaxMessagesPerUpdate( Int num );
-	virtual Int getMaxMessagesPerUpdate( void );
+	virtual void setMaxMessagesPerUpdate( Int num ) override;
+	virtual Int getMaxMessagesPerUpdate() override;
 
-	virtual Int getAdditionalDisconnects( void );
-	virtual void clearAdditionalDisconnects( void );
-	virtual void readAdditionalDisconnects( void );
-	virtual void updateAdditionalGameSpyDisconnections(Int count);
+	virtual Int getAdditionalDisconnects() override;
+	virtual void clearAdditionalDisconnects() override;
+	virtual void readAdditionalDisconnects() override;
+	virtual void updateAdditionalGameSpyDisconnections(Int count) override;
 private:
 	Bool m_sawFullGameList;
 	Bool m_isDisconAfterGameStart;

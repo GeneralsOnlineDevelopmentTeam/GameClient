@@ -42,15 +42,15 @@ class GameSpyMiscPreferences : public UserPreferences
 {
 public:
 	GameSpyMiscPreferences();
-	virtual ~GameSpyMiscPreferences();
+	virtual ~GameSpyMiscPreferences() override;
 
-	Int getLocale( void );
+	Int getLocale();
 	void setLocale( Int val );
 
-	AsciiString getCachedStats( void );
+	AsciiString getCachedStats();
 	void setCachedStats( AsciiString val );
 
-	Bool getQuickMatchResLocked( void );
+	Bool getQuickMatchResLocked();
 
-	Int getMaxMessagesPerUpdate( void );
+	Int getMaxMessagesPerUpdate();
 };

@@ -344,9 +344,9 @@ public:
 	void setUltraAccurate(Bool u) { setFlag(ULTRA_ACCURATE, u); }
 	Bool isUltraAccurate() const { return getFlag(ULTRA_ACCURATE); }
 
-	Bool isMovingBackwards(void) const {return getFlag(MOVING_BACKWARDS);}
+	Bool isMovingBackwards() const {return getFlag(MOVING_BACKWARDS);}
 
-	void startMove(void); ///< Indicates that a move is starting, primarily to reset the donut timer. jba.
+	void startMove(); ///< Indicates that a move is starting, primarily to reset the donut timer. jba.
 
 protected:
 	void moveTowardsPositionLegs(Object* obj, PhysicsBehavior *physics, const Coord3D& goalPos, Real onPathDistToGoal, Real desiredSpeed);
@@ -383,9 +383,9 @@ protected:
 
 protected:
 	// snapshot methods
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void );
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 protected:
 
@@ -457,11 +457,11 @@ class LocomotorStore : public SubsystemInterface
 public:
 
 	LocomotorStore();
-	~LocomotorStore();
+	virtual ~LocomotorStore() override;
 
-	void init() { };
-	void reset();
-	void update();
+	virtual void init() override { };
+	virtual void reset() override;
+	virtual void update() override;
 
 	/**
 		Find the LocomotorTemplate with the given name. If no such LocomotorTemplate exists, return null.

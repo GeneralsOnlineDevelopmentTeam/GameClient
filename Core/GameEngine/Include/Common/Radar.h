@@ -90,30 +90,29 @@ class RadarObject : public MemoryPoolObject,
 
 public:
 
-	RadarObject( void );
+	RadarObject();
 	// destructor prototype defined by memory pool glue
 
 	// color management
 	void setColor( Color c ) { m_color = c; }
-	Color getColor( void ) const { return m_color; }
+	Color getColor() const { return m_color; }
 
 	void friend_setObject( Object *obj ) { m_object = obj; }
-	Object *friend_getObject( void ) { return m_object; }
-	const Object *friend_getObject( void ) const { return m_object; }
+	Object *friend_getObject() { return m_object; }
+	const Object *friend_getObject() const { return m_object; }
 
 	void friend_setNext( RadarObject *next ) { m_next = next; }
-	RadarObject *friend_getNext( void ) { return m_next; }
-	const RadarObject *friend_getNext( void ) const { return m_next; }
+	RadarObject *friend_getNext() { return m_next; }
+	const RadarObject *friend_getNext() const { return m_next; }
 
 	Bool isTemporarilyHidden() const;
-	static Bool isTemporarilyHidden(const Object* obj);
 
 protected:
 
 	// snapshot methods
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void );
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 	Object *m_object;				///< the object
 	RadarObject *m_next;		///< next radar object
@@ -157,12 +156,12 @@ class Radar : public Snapshot,
 
 public:
 
-	Radar( void );
-	virtual ~Radar( void );
+	Radar();
+	virtual ~Radar() override;
 
-	virtual void init( void ) { }														///< subsystem initialization
-	virtual void reset( void );															///< subsystem reset
-	virtual void update( void );														///< subsystem per frame update
+	virtual void init() override { }														///< subsystem initialization
+	virtual void reset() override;															///< subsystem reset
+	virtual void update() override;														///< subsystem per frame update
 
 	// is the game window parameter the radar window
 	Bool isRadarWindow( GameWindow *window ) { return (m_radarWindow == window) && (m_radarWindow != nullptr); }
@@ -209,7 +208,7 @@ public:
 	virtual void refreshObjects() {};
 
 	/// queue a refresh of the terrain at the next available time
-	virtual void queueTerrainRefresh( void );
+	virtual void queueTerrainRefresh();
 
 	virtual void newMap( TerrainLogic *terrain );	///< reset radar for new map
 
@@ -224,25 +223,27 @@ public:
 	virtual void beginSetShroudLevel() {} ///< call this once before multiple calls to setShroudLevel for better performance
 	virtual void endSetShroudLevel() {} ///< call this once after beginSetShroudLevel and setShroudLevel
 
+	virtual void notifyViewChanged() {} ///< signals that the camera view has changed
+
 protected:
 
 	// snapshot methods
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void );
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 	/// internal method for creating a radar event with specific colors
 	void internalCreateEvent( const Coord3D *world, RadarEventType type, Real secondsToLive,
 														const RGBAColorInt *color1, const RGBAColorInt *color2 );
 
 	void deleteList( RadarObject **list );
-	void deleteListResources( void );			///< delete list radar resources used
+	void deleteListResources();			///< delete list radar resources used
 	Bool deleteFromList( Object *obj, RadarObject **list );	///< try to remove object from specific list
 
 	Real getTerrainAverageZ() const { return m_terrainAverageZ; }
 	Real getWaterAverageZ() const { return m_waterAverageZ; }
 
-	void clearAllEvents( void );					///< remove all radar events in progress
+	void clearAllEvents();					///< remove all radar events in progress
 
 	// search the object list for an object that maps to the given logical radar coordinates
 	Object *searchListForRadarLocationMatch( RadarObject *listHead, ICoord2D *radarMatch );
@@ -257,12 +258,6 @@ protected:
 	RadarObject *m_localObjectList;				/** list of objects for the local player, sorted
 																					* in exactly the same priority as the regular
 																					* object list for all other objects */
-
-	// TheSuperHackers @bugfix xezon 22/11/2025 Now stores local heroes in a separate list,
-	// because they are treated with special icons but should otherwise work like all other
-	// radar objects. In retail version, the cached hero object data was able to dangle
-	// for a few frames and cause undefined behavior.
-	RadarObject *m_localHeroObjectList; ///< list of hero objects for the local player
 
 	Real m_terrainAverageZ;								///< average Z for terrain samples
 	Real m_waterAverageZ;									///< average Z for water samples
@@ -309,7 +304,7 @@ extern Radar *TheRadar;  ///< the radar singleton extern
 class RadarDummy : public Radar
 {
 public:
-	virtual void draw(Int pixelX, Int pixelY, Int width, Int height) { }
-	virtual void clearShroud() { }
-	virtual void setShroudLevel(Int x, Int y, CellShroudStatus setting) { }
+	virtual void draw(Int pixelX, Int pixelY, Int width, Int height) override { }
+	virtual void clearShroud() override { }
+	virtual void setShroudLevel(Int x, Int y, CellShroudStatus setting) override { }
 };

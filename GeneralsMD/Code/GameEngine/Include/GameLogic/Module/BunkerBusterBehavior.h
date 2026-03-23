@@ -47,7 +47,7 @@ class BunkerBusterBehaviorModuleData : //public UpdateModuleData
 
 public:
 
-	BunkerBusterBehaviorModuleData( void );
+	BunkerBusterBehaviorModuleData();
 
 	static void buildFieldParse( MultiIniFieldParse &p );
 
@@ -83,17 +83,17 @@ public:
 	static Int getInterfaceMask() { return UpdateModule::getInterfaceMask() | (MODULEINTERFACE_DIE); }
 
 	// update module methods
-	virtual UpdateSleepTime update( void );
-  virtual void onObjectCreated( void );
+	virtual UpdateSleepTime update() override;
+  virtual void onObjectCreated() override;
 
 	// die module methods
-	virtual DieModuleInterface *getDie( void ) { return this; }
-	virtual void onDie( const DamageInfo *damageInfo );
+	virtual DieModuleInterface *getDie() override { return this; }
+	virtual void onDie( const DamageInfo *damageInfo ) override;
 
 
 
 protected:
-  void bustTheBunker( void );
+  void bustTheBunker();
 
 	const UpgradeTemplate *m_upgradeRequired;			///< Upgrade required to use the upgraded pulse FX
 

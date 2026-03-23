@@ -220,7 +220,7 @@ static UnsignedByte grabUByte(const char *s)
 	return b;
 }
 
-static void updateNumPlayersOnline(void)
+static void updateNumPlayersOnline()
 {
 	GameWindow *playersOnlineWindow = TheWindowManager->winGetWindowFromId(
 		nullptr, NAMEKEY("WOLWelcomeMenu.wnd:StaticTextNumPlayersOnline") );
@@ -378,7 +378,7 @@ void HandleOverallStats( const char* szHTTPStats, unsigned len )
 
 
 //called only from WOLWelcomeMenuInit to set %win stats
-static void updateOverallStats(void)
+static void updateOverallStats()
 {
 	NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
 	if (pStatsInterface == nullptr)
@@ -465,7 +465,7 @@ static void updateOverallStats(void)
 /** Handle player stats */
 //-------------------------------------------------------------------------------------------------
 
-void UpdateLocalPlayerStats(void)
+void UpdateLocalPlayerStats()
 {
 	GameWindow *welcomeParent = TheWindowManager->winGetWindowFromId( nullptr, NAMEKEY("WOLWelcomeMenu.wnd:WOLWelcomeMenuParent") );
 

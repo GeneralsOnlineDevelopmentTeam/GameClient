@@ -24,7 +24,7 @@
 
 // FILE: ObjectHelper.h ///////////////////////////////////////////////////////////////////////////
 // Author: Steven Johnson, Colin Day - September 202
-// Desc:   Object helpder
+// Desc:   Object helper
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #pragma once
@@ -42,9 +42,9 @@ class ObjectHelper : public UpdateModule
 protected:
 
 	// snapshot methods
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void );
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 public:
 

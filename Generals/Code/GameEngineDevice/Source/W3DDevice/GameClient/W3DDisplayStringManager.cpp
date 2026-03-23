@@ -42,7 +42,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 //-------------------------------------------------------------------------------------------------
-W3DDisplayStringManager::W3DDisplayStringManager( void )
+W3DDisplayStringManager::W3DDisplayStringManager()
 {
 	for (Int i = 0; i < MAX_GROUPS; ++i)
 	{
@@ -54,7 +54,7 @@ W3DDisplayStringManager::W3DDisplayStringManager( void )
 }
 
 //-------------------------------------------------------------------------------------------------
-W3DDisplayStringManager::~W3DDisplayStringManager( void )
+W3DDisplayStringManager::~W3DDisplayStringManager()
 {
 	for (Int i = 0; i < MAX_GROUPS; ++i)
 	{
@@ -71,7 +71,7 @@ W3DDisplayStringManager::~W3DDisplayStringManager( void )
 }
 
 //-------------------------------------------------------------------------------------------------
-void W3DDisplayStringManager::postProcessLoad( void )
+void W3DDisplayStringManager::postProcessLoad()
 {
 	// Get the font.
 	GameFont *font = TheFontLibrary->getFont(
@@ -83,16 +83,9 @@ void W3DDisplayStringManager::postProcessLoad( void )
 	{
 		m_groupNumeralStrings[i] = newDisplayString();
 		m_groupNumeralStrings[i]->setFont(font);
-
-#ifdef KRIS_BRUTAL_HACK_FOR_AIRCRAFT_CARRIER_DEBUGGING
-		UnicodeString displayNumber;
-		displayNumber.format( L"%d", i);
-		m_groupNumeralStrings[i]->setText( displayNumber );
-#else
  		AsciiString displayNumber;
  		displayNumber.format("NUMBER:%d", i);
  		m_groupNumeralStrings[i]->setText(TheGameText->fetch(displayNumber));
-#endif
 	}
 
 	m_formationLetterDisplayString = newDisplayString();
@@ -108,7 +101,7 @@ void W3DDisplayStringManager::postProcessLoad( void )
 /** Allocate a new display string and tie it to the master list so we
 	* can keep track of it */
 //-------------------------------------------------------------------------------------------------
-DisplayString *W3DDisplayStringManager::newDisplayString( void )
+DisplayString *W3DDisplayStringManager::newDisplayString()
 {
 	DisplayString *newString = newInstance(W3DDisplayString);
 
@@ -171,7 +164,7 @@ void W3DDisplayStringManager::freeDisplayString( DisplayString *string )
 	* the DisplayString will have to rebuild the rendering data before
 	* the draw will work */
 //-------------------------------------------------------------------------------------------------
-void W3DDisplayStringManager::update( void )
+void W3DDisplayStringManager::update()
 {
 	// call base in case we add something later
 	DisplayStringManager::update();

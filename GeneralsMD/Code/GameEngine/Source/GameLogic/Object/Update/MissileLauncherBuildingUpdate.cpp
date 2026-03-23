@@ -54,7 +54,7 @@ MissileLauncherBuildingUpdate::MissileLauncherBuildingUpdate( Thing *thing, cons
 }
 
 //-------------------------------------------------------------------------------------------------
-MissileLauncherBuildingUpdate::~MissileLauncherBuildingUpdate( void )
+MissileLauncherBuildingUpdate::~MissileLauncherBuildingUpdate()
 {
 	if (m_openIdleAudio.isCurrentlyPlaying())
 	{
@@ -238,7 +238,7 @@ Bool MissileLauncherBuildingUpdate::isPowerCurrentlyInUse( const CommandButton *
 }
 
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime MissileLauncherBuildingUpdate::update( void )
+UpdateSleepTime MissileLauncherBuildingUpdate::update()
 {
 	// Safety check: if the object has been destroyed, don't update
 	if (!getObject())
@@ -338,7 +338,7 @@ void MissileLauncherBuildingUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void MissileLauncherBuildingUpdate::loadPostProcess( void )
+void MissileLauncherBuildingUpdate::loadPostProcess()
 {
 
 	// extend base class

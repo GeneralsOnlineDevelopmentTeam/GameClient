@@ -43,7 +43,7 @@ class OverchargeBehaviorModuleData : public UpdateModuleData
 
 public:
 
-	OverchargeBehaviorModuleData( void );
+	OverchargeBehaviorModuleData();
 
 	static void buildFieldParse( MultiIniFieldParse &p );
 
@@ -59,9 +59,9 @@ class OverchargeBehaviorInterface
 
 public:
 
-	virtual void toggle( void ) = 0;
+	virtual void toggle() = 0;
 	virtual void enable( Bool enable ) = 0;
-	virtual Bool isOverchargeActive( void ) = 0;
+	virtual Bool isOverchargeActive() = 0;
 
 };
 
@@ -81,30 +81,30 @@ public:
 	// virtual destructor prototype provided by memory pool declaration
 
 	// interface housekeeping
-	virtual OverchargeBehaviorInterface* getOverchargeBehaviorInterface() { return this; }
-	static Int getInterfaceMask( void ) { return UpdateModule::getInterfaceMask() | (MODULEINTERFACE_DAMAGE); }
+	virtual OverchargeBehaviorInterface* getOverchargeBehaviorInterface() override { return this; }
+	static Int getInterfaceMask() { return UpdateModule::getInterfaceMask() | (MODULEINTERFACE_DAMAGE); }
 
 	// BehaviorModule
-	virtual DamageModuleInterface* getDamage( void ) { return this; }
+	virtual DamageModuleInterface* getDamage() override { return this; }
 
 	// UpdateModuleInterface
-	virtual UpdateSleepTime update( void );
+	virtual UpdateSleepTime update() override;
 
 	// DamageModuleInterface
-	virtual void onDamage( DamageInfo *damageInfo );
-	virtual void onHealing( DamageInfo *damageInfo ) { }
+	virtual void onDamage( DamageInfo *damageInfo ) override;
+	virtual void onHealing( DamageInfo *damageInfo ) override { }
 	virtual void onBodyDamageStateChange( const DamageInfo *damageInfo,
 																				BodyDamageType oldState,
-																				BodyDamageType newState ) { }
+																				BodyDamageType newState ) override { }
 
 
 	// specific methods
-	virtual void toggle( void );						///< toggle overcharge on/off
-	virtual void enable( Bool enable );			///< turn overcharge on/off
-	virtual Bool isOverchargeActive( void ) { return m_overchargeActive; }
+	virtual void toggle() override;						///< toggle overcharge on/off
+	virtual void enable( Bool enable ) override;			///< turn overcharge on/off
+	virtual Bool isOverchargeActive() override { return m_overchargeActive; }
 
-	void onDelete( void );																///< we have some work to do when this module goes away
-	void onCapture( Player *oldOwner, Player *newOwner );	///< object containing upgrade has changed teams
+	virtual void onDelete() override;																///< we have some work to do when this module goes away
+	virtual void onCapture( Player *oldOwner, Player *newOwner ) override;	///< object containing upgrade has changed teams
 
 protected:
 

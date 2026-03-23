@@ -123,7 +123,7 @@ public:
 	{
 	}
 
-	virtual Object* create( const Object* primaryObj, const Coord3D *primary, const Coord3D* secondary, UnsignedInt lifetimeFrames = 0 ) const
+	virtual Object* create( const Object* primaryObj, const Coord3D *primary, const Coord3D* secondary, UnsignedInt lifetimeFrames = 0 ) const override
 	{
 		if (!primaryObj || !primary || !secondary)
 		{
@@ -170,7 +170,7 @@ public:
 	{
 	}
 
-	virtual Object* create( const Object* primaryObj, const Coord3D *primary, const Coord3D* secondary, UnsignedInt lifetimeFrames = 0 ) const
+	virtual Object* create( const Object* primaryObj, const Coord3D *primary, const Coord3D* secondary, UnsignedInt lifetimeFrames = 0 ) const override
 	{
 		if (!primaryObj || !primary || !secondary)
 		{
@@ -179,7 +179,7 @@ public:
     }
 
 		// Star trekkin, across the universe.
-		// Boldly goin forward now, cause we can't find reverse!
+		// Boldly going forward now, cause we can't find reverse!
 
 		// 1:30 left on the clock, Demo looming, should I de-const all of OCL since this one effect needs the
 		// Primary to help make the objects?  Should I rewrite superweapons to completely subsume them
@@ -252,12 +252,12 @@ public:
 		m_transportName.clear();
 	}
 
-	virtual Object* create(const Object *primaryObj, const Coord3D *primary, const Coord3D *secondary, UnsignedInt lifetimeFrames = 0 ) const
+	virtual Object* create(const Object *primaryObj, const Coord3D *primary, const Coord3D *secondary, UnsignedInt lifetimeFrames = 0 ) const override
 	{
 		return create( primaryObj, primary, secondary, true, lifetimeFrames );
 	}
 
-	virtual Object* create(const Object* primaryObj, const Coord3D *primary, const Coord3D* secondary, Bool createOwner, UnsignedInt lifetimeFrames = 0 ) const
+	virtual Object* create(const Object* primaryObj, const Coord3D *primary, const Coord3D* secondary, Bool createOwner, UnsignedInt lifetimeFrames = 0 ) const override
 	{
 		if (!primaryObj || !primary || !secondary)
 		{
@@ -610,7 +610,7 @@ public:
 	{
 	}
 
-	virtual Object* create( const Object* primary, const Object* secondary, UnsignedInt lifetimeFrames = 0 ) const
+	virtual Object* create( const Object* primary, const Object* secondary, UnsignedInt lifetimeFrames = 0 ) const override
 	{
 		if (primary)
 		{
@@ -641,7 +641,7 @@ public:
 		return nullptr;
 	}
 
-	virtual Object* create(const Object* primaryObj, const Coord3D *primary, const Coord3D* secondary, UnsignedInt lifetimeFrames = 0 ) const
+	virtual Object* create(const Object* primaryObj, const Coord3D *primary, const Coord3D* secondary, UnsignedInt lifetimeFrames = 0 ) const override
 	{
 		DEBUG_CRASH(("You must call this effect with an object, not a location"));
 		return nullptr;
@@ -765,7 +765,7 @@ public:
 		m_offset.zero();
 	}
 
-	virtual Object* create(const Object* primary, const Object* secondary, UnsignedInt lifetimeFrames = 0 ) const
+	virtual Object* create(const Object* primary, const Object* secondary, UnsignedInt lifetimeFrames = 0 ) const override
 	{
 		if (primary)
 		{
@@ -781,7 +781,7 @@ public:
 		return nullptr;
 	}
 
-	virtual Object* create(const Object* primaryObj, const Coord3D *primary, const Coord3D* secondary, UnsignedInt lifetimeFrames = 0 ) const
+	virtual Object* create(const Object* primaryObj, const Coord3D *primary, const Coord3D* secondary, UnsignedInt lifetimeFrames = 0 ) const override
 	{
 		if (primary)
 		{
@@ -1206,7 +1206,7 @@ protected:
 			}
 			else
 			{
-				DEBUG_ASSERTCRASH(FALSE,("A OCL with ContainInsideSourceObject failed the contain and is killing the new object."));
+				DEBUG_CRASH(("A OCL with ContainInsideSourceObject failed the contain and is killing the new object."));
 				// If we fail to contain it, we can't just leave it.  Stillborn it.
 				TheGameLogic->destroyObject(obj);
 			}

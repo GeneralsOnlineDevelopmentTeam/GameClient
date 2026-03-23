@@ -65,8 +65,8 @@ typedef DrawablePtrHash::iterator DrawablePtrHashIt;
 class GameClientMessageDispatcher : public GameMessageTranslator
 {
 public:
-	virtual GameMessageDisposition translateGameMessage(const GameMessage *msg);
-	virtual ~GameClientMessageDispatcher() { }
+	virtual GameMessageDisposition translateGameMessage(const GameMessage *msg) override;
+	virtual ~GameClientMessageDispatcher() override { }
 };
 
 
@@ -82,12 +82,12 @@ class GameClient : public SubsystemInterface,
 public:
 
 	GameClient();
-	virtual ~GameClient();
+	virtual ~GameClient() override;
 
 	// subsystem methods
-	virtual void init( void );																					///< Initialize resources
-	virtual void update( void );																				///< Updates the GUI, display, audio, etc
-	virtual void reset( void );																					///< reset system
+	virtual void init() override;																					///< Initialize resources
+	virtual void update() override;																				///< Updates the GUI, display, audio, etc
+	virtual void reset() override;																					///< reset system
 
 	virtual void setFrame( UnsignedInt frame ) { m_frame = frame; }			///< Set the GameClient's internal frame number
 	virtual void registerDrawable( Drawable *draw );										///< Given a drawable, register it with the GameClient and give it a unique ID
@@ -100,16 +100,16 @@ public:
 	virtual Drawable *findDrawableByID( const DrawableID id );					///< Given an ID, return the associated drawable
 
 	void setDrawableIDCounter( DrawableID nextDrawableID ) { m_nextDrawableID = nextDrawableID; }
-	DrawableID getDrawableIDCounter( void ) { return m_nextDrawableID; }
+	DrawableID getDrawableIDCounter() { return m_nextDrawableID; }
 
-	virtual Drawable *firstDrawable( void ) { return m_drawableList; }
+	virtual Drawable *firstDrawable() { return m_drawableList; }
 
 	virtual GameMessage::Type evaluateContextCommand( Drawable *draw,
 																										const Coord3D *pos,
 																										CommandTranslator::CommandEvaluateType cmdType );
 	void addTextBearingDrawable( Drawable *tbd );
-	void flushTextBearingDrawables( void);
-	void updateFakeDrawables(void);
+	void flushTextBearingDrawables();
+	void updateFakeDrawables();
 
 	virtual void removeFromRayEffects( Drawable *draw );  ///< remove the drawable from the ray effect system if present
 	virtual void getRayEffectData( Drawable *draw, RayEffectData *effectData );  ///< get ray effect data for a drawable
@@ -130,19 +130,19 @@ public:
 	virtual void selectDrawablesInGroup( Int group );									///< select all drawables belong to the specifies group
 	virtual void assignSelectedDrawablesToGroup( Int group );						///< assign all selected drawables to the specified group
 	//---------------------------------------------------------------------------------------
-	virtual UnsignedInt getFrame( void ) { return m_frame; }						///< Returns the current simulation frame number
+	virtual UnsignedInt getFrame() { return m_frame; }						///< Returns the current simulation frame number
 
 	//---------------------------------------------------------------------------
 	virtual void setTeamColor( Int red, Int green, Int blue ) = 0;  ///< @todo superhack for demo, remove!!!
 
 	virtual void setTextureLOD( Int level ) = 0;
 
-	virtual void releaseShadows(void);	///< frees all shadow resources used by this module - used by Options screen.
-	virtual void allocateShadows(void); ///< create shadow resources if not already present. Used by Options screen.
+	virtual void releaseShadows();	///< frees all shadow resources used by this module - used by Options screen.
+	virtual void allocateShadows(); ///< create shadow resources if not already present. Used by Options screen.
 
   virtual void preloadAssets( TimeOfDay timeOfDay );									///< preload assets
 
-	virtual Drawable *getDrawableList( void ) { return m_drawableList; }
+	virtual Drawable *getDrawableList() { return m_drawableList; }
 
 	void resetRenderedObjectCount() { m_renderedObjectCount = 0; }
 	UnsignedInt getRenderedObjectCount() const { return m_renderedObjectCount; }
@@ -151,9 +151,9 @@ public:
 protected:
 
 	// snapshot methods
-	virtual void crc( Xfer *xfer );
-	virtual void xfer( Xfer *xfer );
-	virtual void loadPostProcess( void );
+	virtual void crc( Xfer *xfer ) override;
+	virtual void xfer( Xfer *xfer ) override;
+	virtual void loadPostProcess() override;
 
 	// @todo Should there be a separate GameClient frame counter?
 	UnsignedInt m_frame;																				///< Simulation frame number from server
@@ -162,7 +162,7 @@ protected:
 	DrawablePtrHash m_drawableHash;															///< Used for DrawableID lookups
 
 	DrawableID m_nextDrawableID;																///< For allocating drawable id's
-	DrawableID allocDrawableID( void );													///< Returns a new unique drawable id
+	DrawableID allocDrawableID();													///< Returns a new unique drawable id
 
 	enum { MAX_CLIENT_TRANSLATORS = 32 };
 	TranslatorID m_translators[ MAX_CLIENT_TRANSLATORS ];				///< translators we have used
@@ -175,15 +175,15 @@ private:
 
 	//---------------------------------------------------------------------------
 
-	virtual Display *createGameDisplay( void ) = 0;							///< Factory for Display classes. Called during init to instantiate TheDisplay.
-	virtual InGameUI *createInGameUI( void ) = 0;								///< Factory for InGameUI classes. Called during init to instantiate TheInGameUI
-	virtual GameWindowManager *createWindowManager( void ) = 0; ///< Factory to window manager
-	virtual FontLibrary *createFontLibrary( void ) = 0;					///< Factory for font library
-	virtual DisplayStringManager *createDisplayStringManager( void ) = 0;  ///< Factory for display strings
-	virtual VideoPlayerInterface *createVideoPlayer( void ) = 0;///< Factory for video device
-	virtual TerrainVisual *createTerrainVisual( void ) = 0;			///< Factory for TerrainVisual classes. Called during init to instance TheTerrainVisual
-	virtual Keyboard *createKeyboard( void ) = 0;								///< factory for the keyboard
-	virtual Mouse *createMouse( void ) = 0;											///< factory for the mouse
+	virtual Display *createGameDisplay() = 0;							///< Factory for Display classes. Called during init to instantiate TheDisplay.
+	virtual InGameUI *createInGameUI() = 0;								///< Factory for InGameUI classes. Called during init to instantiate TheInGameUI
+	virtual GameWindowManager *createWindowManager() = 0; ///< Factory to window manager
+	virtual FontLibrary *createFontLibrary() = 0;					///< Factory for font library
+	virtual DisplayStringManager *createDisplayStringManager() = 0;  ///< Factory for display strings
+	virtual VideoPlayerInterface *createVideoPlayer() = 0;///< Factory for video device
+	virtual TerrainVisual *createTerrainVisual() = 0;			///< Factory for TerrainVisual classes. Called during init to instance TheTerrainVisual
+	virtual Keyboard *createKeyboard() = 0;								///< factory for the keyboard
+	virtual Mouse *createMouse() = 0;											///< factory for the mouse
 
 	virtual void setFrameRate(Real msecsPerFrame) = 0;
 

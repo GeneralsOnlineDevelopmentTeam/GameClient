@@ -92,7 +92,7 @@ StealthDetectorUpdate::StealthDetectorUpdate( Thing *thing, const ModuleData* mo
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-StealthDetectorUpdate::~StealthDetectorUpdate( void )
+StealthDetectorUpdate::~StealthDetectorUpdate()
 {
 }
 
@@ -115,7 +115,7 @@ class PartitionFilterStealthedOrStealthGarrisoned : public PartitionFilter
 public:
 	PartitionFilterStealthedOrStealthGarrisoned() { }
 
-	virtual Bool allow(Object *objOther);
+	virtual Bool allow(Object *objOther) override;
 
 #if defined(RTS_DEBUG)
 	virtual const char* debugGetName() { return "PartitionFilterStealthedOrStealthGarrisoned"; }
@@ -140,7 +140,7 @@ Bool PartitionFilterStealthedOrStealthGarrisoned::allow( Object *objOther)
 //-------------------------------------------------------------------------------------------------
 /** The update callback. */
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime StealthDetectorUpdate::update( void )
+UpdateSleepTime StealthDetectorUpdate::update()
 {
 	const StealthDetectorUpdateModuleData *data = getStealthDetectorUpdateModuleData();
 	Object* self = getObject();
@@ -456,7 +456,7 @@ void StealthDetectorUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void StealthDetectorUpdate::loadPostProcess( void )
+void StealthDetectorUpdate::loadPostProcess()
 {
 
 	// extend base class

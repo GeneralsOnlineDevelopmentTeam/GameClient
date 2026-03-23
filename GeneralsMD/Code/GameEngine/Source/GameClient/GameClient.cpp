@@ -246,7 +246,7 @@ GameClient::~GameClient()
 //-------------------------------------------------------------------------------------------------
 /** Initialize resources for the game client */
 //-------------------------------------------------------------------------------------------------
-void GameClient::init( void )
+void GameClient::init()
 {
 
 	setFrameRate(MSEC_PER_LOGICFRAME_REAL);		// from GameCommon.h... tell W3D what our expected framerate is
@@ -451,7 +451,7 @@ void GameClient::init( void )
 
 //-------------------------------------------------------------------------------------------------
 /** Reset the game client for a new game */
-void GameClient::reset( void )
+void GameClient::reset()
 {
 	Drawable *draw, *nextDraw;
 //	m_drawableHash.clear();
@@ -490,7 +490,7 @@ void GameClient::reset( void )
 /** -----------------------------------------------------------------------------------------------
  * Return a new unique object id.
  */
-DrawableID GameClient::allocDrawableID( void )
+DrawableID GameClient::allocDrawableID()
 {
 	/// @todo Find unused value in current set
 	DrawableID ret = m_nextDrawableID;
@@ -517,7 +517,7 @@ void GameClient::registerDrawable( Drawable *draw )
  */
 DECLARE_PERF_TIMER(GameClient_update)
 DECLARE_PERF_TIMER(GameClient_draw)
-void GameClient::update( void )
+void GameClient::update()
 {
 	USE_PERF_TIMER(GameClient_update)
 	// create the FRAME_TICK message
@@ -620,8 +620,7 @@ void GameClient::update( void )
     Drawable *draw = TheInGameUI->getFirstSelectedDrawable();
     if ( draw )
     {
-      const Coord3D *pos = draw->getPosition();
-      TheTacticalView->lookAt( pos );
+      TheTacticalView->userLookAt( draw->getPosition() );
     }
     else
       TheInGameUI->setCameraTrackingDrawable( FALSE );
@@ -630,8 +629,8 @@ void GameClient::update( void )
 	if(TheGlobalData->m_playIntro || TheGlobalData->m_afterIntro)
 	{
 		// redraw all views, update the GUI
-		TheDisplay->DRAW();
 		TheDisplay->UPDATE();
+		TheDisplay->DRAW();
 		return;
 	}
 
@@ -810,14 +809,11 @@ void GameClient::step()
 
 void GameClient::updateHeadless()
 {
-	// TheSuperHackers @info helmutbuhler 03/05/2025
-	// When we play a replay back in headless mode, we want to skip the update of GameClient
-	// because it's not necessary for CRC checking.
-	// But we do reset the particles. The problem is that particles can be generated during
-	// GameLogic and are only cleaned up during rendering. If we don't clean this up here,
-	// the particles accumulate and slow things down a lot and can even cause a crash on
-	// longer replays.
-	TheParticleSystemManager->reset();
+	// TheSuperHackers @info helmutbuhler 03/05/2025 bobtista 02/02/2026
+	// Update particles to prevent accumulation in headless mode. Particles are generated
+	// during GameLogic and only cleaned up during rendering. update() lets particles finish
+	// their lifecycle naturally instead of abruptly removing them with reset().
+	TheParticleSystemManager->update();
 }
 
 /** -----------------------------------------------------------------------------------------------
@@ -845,7 +841,7 @@ void GameClient::iterateDrawablesInRegion( Region3D *region, GameClientFuncPtr u
 /**Helper function to update fake GLA structures to become visible to certain players.
 We should only call this during critical moments, such as changing teams, changing to
 observer, etc.*/
-void GameClient::updateFakeDrawables(void)
+void GameClient::updateFakeDrawables()
 {
 	for( Drawable *draw = getDrawableList(); draw; draw = draw->getNextDrawable() )
 	{
@@ -1039,7 +1035,7 @@ void GameClient::addTextBearingDrawable( Drawable *tbd )
 		m_textBearingDrawableList.push_back( tbd );
 }
 // ------------------------------------------------------------------------------------------------
-void GameClient::flushTextBearingDrawables( void )
+void GameClient::flushTextBearingDrawables()
 {
 
 	/////////////////////////////
@@ -1075,7 +1071,7 @@ void GameClient::getRayEffectData( Drawable *draw, RayEffectData *effectData )
 }
 
 //-------------------------------------------------------------------------------------------------
-/** remove the drawble from the ray effects system if present */
+/** remove the drawable from the ray effects system if present */
 void GameClient::removeFromRayEffects( Drawable *draw )
 {
 
@@ -1084,7 +1080,7 @@ void GameClient::removeFromRayEffects( Drawable *draw )
 }
 
 /** frees all shadow resources used by this module - used by Options screen.*/
-void GameClient::releaseShadows(void)
+void GameClient::releaseShadows()
 {
 	Drawable *draw;
 	for( draw = firstDrawable(); draw; draw = draw->getNextDrawable() )
@@ -1092,7 +1088,7 @@ void GameClient::releaseShadows(void)
 }
 
 /** create shadow resources if not already present. Used by Options screen.*/
-void GameClient::allocateShadows(void)
+void GameClient::allocateShadows()
 {
 	Drawable *draw;
 	for( draw = firstDrawable(); draw; draw = draw->getNextDrawable() )
@@ -1116,7 +1112,7 @@ void GameClient::preloadAssets( TimeOfDay timeOfDay )
 		draw->preloadAssets( timeOfDay );
 
 	//
-	// now create a temporary drawble for each of the faction things we can create, preload
+	// now create a temporary drawable for each of the faction things we can create, preload
 	// their assets, and dump the drawable
 	//
 	AsciiString side;
@@ -1637,7 +1633,7 @@ void GameClient::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void GameClient::loadPostProcess( void )
+void GameClient::loadPostProcess()
 {
 
 	//

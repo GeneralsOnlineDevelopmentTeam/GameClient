@@ -173,7 +173,7 @@ std::list<PeerResponse> TheLobbyQueuedUTMs;
 
 // Slash commands -------------------------------------------------------------------------
 extern "C" {
-int getQR2HostingStatus(void);
+int getQR2HostingStatus();
 }
 extern int isThreadHosting;
 
@@ -757,7 +757,7 @@ static Int insertPlayerInListbox(const PlayerInfo& info, Color color)
 
 std::vector<int64_t> m_vecUsersProcessed;
 
-void PopulateLobbyPlayerListbox(void)
+void PopulateLobbyPlayerListbox()
 {
 	NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
 	NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();

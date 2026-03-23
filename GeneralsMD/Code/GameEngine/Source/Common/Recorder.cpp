@@ -45,7 +45,7 @@
 #include "GameLogic/GameLogic.h"
 #include "Common/RandomValue.h"
 #include "Common/CRCDebug.h"
-#include "Common/UserPreferences.h"
+#include "Common/OptionPreferences.h"
 #include "Common/version.h"
 #include "../NGMPGame.h"
 #include "../OnlineServices_Init.h"
@@ -183,7 +183,7 @@ void RecorderClass::logPlayerDisconnect(UnicodeString player, Int slot)
 #endif
 }
 
-void RecorderClass::logCRCMismatch(void)
+void RecorderClass::logCRCMismatch()
 {
 	if (!m_file)
 		return;
@@ -229,7 +229,7 @@ void RecorderClass::logCRCMismatch(void)
 #endif
 }
 
-void RecorderClass::logGameEnd(void)
+void RecorderClass::logGameEnd()
 {
 	if (!m_file)
 		return;
@@ -287,7 +287,7 @@ void RecorderClass::logGameEnd(void)
 #endif
 }
 
-void RecorderClass::cleanUpReplayFile(void)
+void RecorderClass::cleanUpReplayFile()
 {
 #if defined(RTS_DEBUG)
 	if (TheGlobalData->m_saveStats)
@@ -1017,12 +1017,12 @@ Bool RecorderClass::analyzeReplay(AsciiString filename)
 
 #endif
 
-Bool RecorderClass::isPlaybackInProgress(void) const
+Bool RecorderClass::isPlaybackInProgress() const
 {
 	return isPlaybackMode() && m_nextFrame != -1;
 }
 
-AsciiString RecorderClass::getCurrentReplayFilename(void)
+AsciiString RecorderClass::getCurrentReplayFilename()
 {
 	if (isPlaybackMode())
 	{
@@ -1051,14 +1051,14 @@ class CRCInfo
 public:
 	CRCInfo(UnsignedInt localPlayer, Bool isMultiplayer);
 	void addCRC(UnsignedInt val);
-	UnsignedInt readCRC(void);
+	UnsignedInt readCRC();
 
 	int GetQueueSize() const { return m_data.size(); }
 
-	UnsignedInt getLocalPlayer(void) { return m_localPlayer; }
+	UnsignedInt getLocalPlayer() { return m_localPlayer; }
 
-	void setSawCRCMismatch(void) { m_sawCRCMismatch = TRUE; }
-	Bool sawCRCMismatch(void) const { return m_sawCRCMismatch; }
+	void setSawCRCMismatch() { m_sawCRCMismatch = TRUE; }
+	Bool sawCRCMismatch() const { return m_sawCRCMismatch; }
 
 protected:
 
@@ -1092,7 +1092,7 @@ void CRCInfo::addCRC(UnsignedInt val)
 	//DEBUG_LOG(("CRCInfo::addCRC() - crc %8.8X pushes list to %d entries (full=%d)", val, m_data.size(), !m_data.empty()));
 }
 
-UnsignedInt CRCInfo::readCRC(void)
+UnsignedInt CRCInfo::readCRC()
 {
 	if (m_data.empty())
 	{
@@ -1329,7 +1329,6 @@ Bool RecorderClass::playbackFile(AsciiString filename)
 		if (maxFPS != 0)
 			msg->appendIntegerArgument(maxFPS);
 		TheCommandList->appendMessage(msg);
-		//InitGameLogicRandom( m_gameInfo.getSeed());
 		InitRandom(m_gameInfo.getSeed());
 	}
 
@@ -1696,7 +1695,7 @@ AsciiString RecorderClass::getReplayArchiveDir()
 }
 
 /**
- * returns the file extention for the replay files.
+ * returns the file extension for the replay files.
  */
 AsciiString RecorderClass::getReplayExtention() {
 	return AsciiString(replayExtention);
@@ -1807,7 +1806,7 @@ void RecorderClass::initControls()
 }
 
 ///< is this a multiplayer game (record OR playback)?
-Bool RecorderClass::isMultiplayer(void)
+Bool RecorderClass::isMultiplayer()
 {
 
 	if (isPlaybackMode())

@@ -50,7 +50,7 @@ public:
 
 	PartitionFilterFlammable(){ }
 
-	virtual Bool allow(Object *objOther);
+	virtual Bool allow(Object *objOther) override;
 #if defined(RTS_DEBUG)
 	virtual const char* debugGetName() { return "PartitionFilterFlammable"; }
 #endif
@@ -108,13 +108,13 @@ FireSpreadUpdate::FireSpreadUpdate( Thing *thing, const ModuleData* moduleData )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-FireSpreadUpdate::~FireSpreadUpdate( void )
+FireSpreadUpdate::~FireSpreadUpdate()
 {
 }
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime FireSpreadUpdate::update( void )
+UpdateSleepTime FireSpreadUpdate::update()
 {
 	const FireSpreadUpdateModuleData* d = getFireSpreadUpdateModuleData();
 	Object* me = getObject();
@@ -211,7 +211,7 @@ void FireSpreadUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void FireSpreadUpdate::loadPostProcess( void )
+void FireSpreadUpdate::loadPostProcess()
 {
 
 	// extend base class

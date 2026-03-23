@@ -212,7 +212,7 @@ public:
 	AsciiString m_PendingCreation_InitialMapPath;
 	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers);
 
-	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(void)> fnCallback);
+	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(bool)> fnCallback);
 
 	UnicodeString GetCurrentLobbyDisplayName();
 	UnicodeString GetCurrentLobbyMapDisplayName();
@@ -323,7 +323,7 @@ public:
 
 	bool IsHost();
 
-	void UpdateRoomDataCache(std::function<void(void)> fnCallback = nullptr);
+	void UpdateRoomDataCache(std::function<void(bool)> fnCallback = nullptr);
 
 	std::function<void(LobbyMemberEntry)> m_cbPlayerDoesntHaveMap = nullptr;
 	void RegisterForPlayerDoesntHaveMapCallback(std::function<void(LobbyMemberEntry)> cb)

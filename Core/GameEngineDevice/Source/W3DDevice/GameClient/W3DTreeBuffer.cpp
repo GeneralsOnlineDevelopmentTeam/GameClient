@@ -432,7 +432,7 @@ public:
 //=============================================================================
 /** Creates a new texture. */
 //=============================================================================
-void W3DTreeBuffer::updateTexture(void)
+void W3DTreeBuffer::updateTexture()
 {
 
 	const Int MAX_TEX_WIDTH = 2048;
@@ -459,10 +459,10 @@ void W3DTreeBuffer::updateTexture(void)
 	for (i=0; i<m_numTreeTypes; i++) {
 		char texturePath[ _MAX_PATH ];
 		m_treeTypes[i].m_numTiles = 0;
-		sprintf( texturePath, "%s%s", TERRAIN_TGA_DIR_PATH, m_treeTypes[i].m_data->m_textureName.str() );
+		snprintf( texturePath, ARRAY_SIZE(texturePath), "%s%s", TERRAIN_TGA_DIR_PATH, m_treeTypes[i].m_data->m_textureName.str() );
 		theFile = TheFileSystem->openFile( texturePath, File::READ|File::BINARY);
 		if (theFile==nullptr) {
-			sprintf( texturePath, "%s%s", TGA_DIR_PATH, m_treeTypes[i].m_data->m_textureName.str() );
+			snprintf( texturePath, ARRAY_SIZE(texturePath), "%s%s", TGA_DIR_PATH, m_treeTypes[i].m_data->m_textureName.str() );
 			theFile = TheFileSystem->openFile( texturePath, File::READ|File::BINARY);
 		}
 		if (theFile != nullptr) {
@@ -698,14 +698,11 @@ void W3DTreeBuffer::loadTreesInVertexAndIndexBuffers(RefRenderObjListIterator *p
 
 	if (m_shadow == nullptr && TheW3DProjectedShadowManager) {
 		Shadow::ShadowTypeInfo shadowInfo;
-		shadowInfo.m_ShadowName[0] = 0;
 		shadowInfo.allowUpdates=FALSE;	//shadow image will never update
 		shadowInfo.allowWorldAlign=TRUE;	//shadow image will wrap around world objects
 		shadowInfo.m_type = (ShadowType)SHADOW_DECAL;
 		shadowInfo.m_sizeX=20;
 		shadowInfo.m_sizeY=20;
-		shadowInfo.m_offsetX=0;
-		shadowInfo.m_offsetY=0;
 		m_shadow = TheW3DProjectedShadowManager->createDecalShadow(&shadowInfo);
 	}
 
@@ -977,7 +974,7 @@ void W3DTreeBuffer::loadTreesInVertexAndIndexBuffers(RefRenderObjListIterator *p
 //=============================================================================
 /** Updates the push aside offset in vertex buffer. */
 //=============================================================================
-void W3DTreeBuffer::updateVertexBuffer(void)
+void W3DTreeBuffer::updateVertexBuffer()
 {
 	if (!m_indexTree[0] || !m_vertexTree[0] || !m_initialized) {
 		return;
@@ -1070,7 +1067,7 @@ void W3DTreeBuffer::updateVertexBuffer(void)
 //=============================================================================
 /** Destructor. Releases w3d assets. */
 //=============================================================================
-W3DTreeBuffer::~W3DTreeBuffer(void)
+W3DTreeBuffer::~W3DTreeBuffer()
 {
 	freeTreeBuffers();
 	REF_PTR_RELEASE(m_treeTexture);
@@ -1089,7 +1086,7 @@ W3DTreeBuffer::~W3DTreeBuffer(void)
 /** Constructor. Sets m_initialized to true if it finds the w3d models it needs
 for the trees. */
 //=============================================================================
-W3DTreeBuffer::W3DTreeBuffer(void)
+W3DTreeBuffer::W3DTreeBuffer()
 {
 	m_initialized = false;
 	Int i;
@@ -1117,7 +1114,7 @@ W3DTreeBuffer::W3DTreeBuffer(void)
 //=============================================================================
 /** Frees the index and vertex buffers. */
 //=============================================================================
-void W3DTreeBuffer::freeTreeBuffers(void)
+void W3DTreeBuffer::freeTreeBuffers()
 {
 	Int i;
 	for	(i=0; i<MAX_BUFFERS; i++) {
@@ -1218,7 +1215,7 @@ void W3DTreeBuffer::unitMoved(Object *unit)
 //=============================================================================
 /** Allocates the index and vertex buffers. */
 //=============================================================================
-void W3DTreeBuffer::allocateTreeBuffers(void)
+void W3DTreeBuffer::allocateTreeBuffers()
 {
 	Int i;
 	for	(i=0; i<MAX_BUFFERS; i++) {
@@ -1260,7 +1257,7 @@ void W3DTreeBuffer::allocateTreeBuffers(void)
 //=============================================================================
 /** Removes all trees. */
 //=============================================================================
-void W3DTreeBuffer::clearAllTrees(void)
+void W3DTreeBuffer::clearAllTrees()
 {
 	m_numTrees=0;
 	m_bounds.lo.x = m_bounds.lo.y = 0;
@@ -2033,7 +2030,7 @@ void W3DTreeBuffer::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void W3DTreeBuffer::loadPostProcess( void )
+void W3DTreeBuffer::loadPostProcess()
 {
 	// empty. jba [8/11/2003]
 }

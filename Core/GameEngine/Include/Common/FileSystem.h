@@ -142,11 +142,11 @@ class FileSystem : public SubsystemInterface
 
 public:
 	FileSystem();
-	virtual	~FileSystem();
+	virtual ~FileSystem() override;
 
-	void init();
-	void reset();
-	void update();
+	virtual void init() override;
+	virtual void reset() override;
+	virtual void update() override;
 
 	File* openFile( const Char *filename, Int access = File::NONE, size_t bufferSize = File::BUFFERSIZE, FileInstance instance = 0 ); ///< opens a File interface to the specified file
 	Bool doesFileExist(const Char *filename, FileInstance instance = 0) const; ///< returns TRUE if the file exists.  filename should have no directory.
@@ -154,10 +154,6 @@ public:
 	Bool getFileInfo(const AsciiString& filename, FileInfo *fileInfo, FileInstance instance = 0) const; ///< fills in the FileInfo struct for the file given. returns TRUE if successful.
 
 	Bool createDirectory(AsciiString directory); ///< create a directory of the given name.
-
-	Bool areMusicFilesOnCD();
-	void loadMusicFilesFromCD();
-	void unloadMusicFilesFromCD();
 
 	static AsciiString normalizePath(const AsciiString& path);	///< normalizes a file path. The path can refer to a directory. File path must be absolute, but does not need to exist. Returns an empty string on failure.
 	static Bool isPathInDirectory(const AsciiString& testPath, const AsciiString& basePath);	///< determines if a file path is within a base path. Both paths must be absolute, but do not need to exist.

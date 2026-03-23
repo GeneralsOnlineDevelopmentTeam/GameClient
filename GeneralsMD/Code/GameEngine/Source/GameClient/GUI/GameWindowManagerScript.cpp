@@ -335,7 +335,7 @@ static Int scanUnsignedInt( const char *source, UnsignedInt& val )
 
 // resetWindowStack ===========================================================
 //=============================================================================
-static void resetWindowStack( void )
+static void resetWindowStack()
 {
 
   memset( windowStack, 0, sizeof( windowStack ) );
@@ -345,7 +345,7 @@ static void resetWindowStack( void )
 
 // resetWindowDefaults ========================================================
 //=============================================================================
-static void resetWindowDefaults( void )
+static void resetWindowDefaults()
 {
 
 	defEnabledColor = 0;
@@ -360,7 +360,7 @@ static void resetWindowDefaults( void )
 
 // peekWindow =================================================================
 //=============================================================================
-static GameWindow *peekWindow( void )
+static GameWindow *peekWindow()
 {
   if (stackPtr == windowStack)
     return nullptr;
@@ -371,7 +371,7 @@ static GameWindow *peekWindow( void )
 
 // popWindow ==================================================================
 //=============================================================================
-static GameWindow *popWindow( void )
+static GameWindow *popWindow()
 {
 
   if( stackPtr == windowStack )
@@ -1359,7 +1359,7 @@ static Bool parseDrawData( const char *token, WinInstanceData *instData,
 // getDataTemplate ============================================================
 /** Given a window type style string return the address of a static
 	* gadget data type used for the generic data pointers in the
-	* GUI gadget contorls */
+	* GUI gadget controls */
 //=============================================================================
 void *getDataTemplate( char *type )
 {
@@ -2665,7 +2665,7 @@ WindowLayout *GameWindowManager::winCreateLayout( AsciiString filename )
 /** Free up the memory used by static strings.  Normally this memory
 is freed by the string destructor but we do it here to make the
 memory leak detection code happy.*/
-void GameWindowManager::freeStaticStrings(void)
+void GameWindowManager::freeStaticStrings()
 {
 	theSystemString.clear();
 	theInputString.clear();
@@ -2722,7 +2722,7 @@ GameWindow *GameWindowManager::winCreateFromScript( AsciiString filenameString,
 	// place for the window files subdirectory
 	//
 	if( strchr( filename, '\\' ) == nullptr )
-		sprintf( filepath, "Window\\%s", filename );
+		snprintf( filepath, ARRAY_SIZE(filepath), "Window\\%s", filename );
 	else
 		strlcpy(filepath, filename, ARRAY_SIZE(filepath));
 

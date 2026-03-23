@@ -37,7 +37,7 @@ class CommandTranslator : public GameMessageTranslator
 public:
 
 	CommandTranslator();
-	~CommandTranslator();
+	virtual ~CommandTranslator() override;
 
 	enum CommandEvaluateType { DO_COMMAND, DO_HINT, EVALUATE_ONLY };
 
@@ -50,7 +50,7 @@ private:
 	Int m_objective;
 	Bool m_teamExists;				///< is there a currently selected "team"?
 
- 	// these are for determining if a drag occurred or it wasjust a sloppy click
+ 	// these are for determining if a drag occurred or it was just a sloppy click
  	ICoord2D m_mouseRightDragAnchor;		// the location of a possible mouse drag start
  	ICoord2D m_mouseRightDragLift;			// the location of a possible mouse drag end
  	UnsignedInt m_mouseRightDown;	// when the mouse down happened
@@ -65,7 +65,7 @@ private:
 	GameMessage::Type issueFireWeaponCommand( const CommandButton *command, CommandEvaluateType commandType, Drawable *target, const Coord3D *pos );
 	GameMessage::Type issueCombatDropCommand( const CommandButton *command, CommandEvaluateType commandType, Drawable *target, const Coord3D *pos );
 
-	virtual GameMessageDisposition translateGameMessage(const GameMessage *msg);
+	virtual GameMessageDisposition translateGameMessage(const GameMessage *msg) override;
 };
 
 

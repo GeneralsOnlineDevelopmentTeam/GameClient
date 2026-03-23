@@ -24,7 +24,7 @@
 
 // FILE: ObjectSMCHelper.h ////////////////////////////////////////////////////////////////////////
 // Author: Steven Johnson, Colin Day - September 202
-// Desc:   Object helpder - SMC
+// Desc:   Object helper - SMC
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #pragma once
@@ -52,6 +52,6 @@ public:
 	ObjectSMCHelper( Thing *thing, const ModuleData *modData ) : ObjectHelper( thing, modData ) { }
 	// virtual destructor prototype provided by memory pool object
 
-	virtual UpdateSleepTime update();
+	virtual UpdateSleepTime update() override;
 
 };

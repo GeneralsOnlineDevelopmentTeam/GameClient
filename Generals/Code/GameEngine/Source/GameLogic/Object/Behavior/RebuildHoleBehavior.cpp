@@ -45,7 +45,7 @@
 
 //-------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-RebuildHoleBehaviorModuleData::RebuildHoleBehaviorModuleData( void )
+RebuildHoleBehaviorModuleData::RebuildHoleBehaviorModuleData()
 {
 
 	m_workerRespawnDelay = 0.0f;
@@ -93,7 +93,7 @@ RebuildHoleBehavior::RebuildHoleBehavior( Thing *thing, const ModuleData* module
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-RebuildHoleBehavior::~RebuildHoleBehavior( void )
+RebuildHoleBehavior::~RebuildHoleBehavior()
 {
 	// ensure that our generated worker is destroyed,
 	// just in case someone decides to destroy (not kill) us...
@@ -179,7 +179,7 @@ void RebuildHoleBehavior::transferBombs( Object *reconstruction )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime RebuildHoleBehavior::update( void )
+UpdateSleepTime RebuildHoleBehavior::update()
 {
 	const RebuildHoleBehaviorModuleData *modData = getRebuildHoleBehaviorModuleData();
 	Object *hole = getObject();
@@ -294,7 +294,7 @@ UpdateSleepTime RebuildHoleBehavior::update( void )
 
 	}
 
-	// holes get auto-healed when they're sittin around
+	// holes get auto-healed when they're sitting around
 	BodyModuleInterface *body = hole->getBodyModule();
 	if( body->getHealth() < body->getMaxHealth() )
 	{
@@ -473,7 +473,7 @@ void RebuildHoleBehavior::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void RebuildHoleBehavior::loadPostProcess( void )
+void RebuildHoleBehavior::loadPostProcess()
 {
 
 	// extend base class

@@ -151,7 +151,6 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 		std::map<std::string, std::string> mapHeaders;
 
 		nlohmann::json j;
-		j["client_id"] = GENERALS_ONLINE_CLIENT_ID;
 		j["reserved_0"] = std::string();
 		j["reserved_1"] = std::string();
 		j["reserved_2"] = std::string();

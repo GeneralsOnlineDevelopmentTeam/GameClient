@@ -91,10 +91,10 @@ class WWMath
 {
 public:
 
-	// Initialization and Shutdown.  Other math sub-systems which require initialization and
-	// shutdown processing will be handled in these functions
-	static void			Init(void);
-	static void			Shutdown(void);
+// Initialization and Shutdown.  Other math sub-systems which require initialization and
+// shutdown processing will be handled in these functions
+static void			Init();
+static void			Shutdown();
 
 	// These are meant to be a collection of small math utility functions to be optimized at some point.
 	static WWINLINE float Fabs(float val)
@@ -142,7 +142,7 @@ public:
 	static WWINLINE bool			Fast_Is_Float_Positive(const float& val);
 	static WWINLINE bool			Is_Power_Of_2(const unsigned int val);
 
-	static float		Random_Float(void);
+static float		Random_Float();
 
 	static WWINLINE float		Random_Float(float min, float max);
 	static WWINLINE float		Clamp(float val, float min = 0.0f, float max = 1.0f);

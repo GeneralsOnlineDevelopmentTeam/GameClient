@@ -110,7 +110,7 @@ static GameWindow *checkBoxLimitArmies = nullptr;
 static GameWindow *checkBoxUseStats = nullptr;
 
 
-void createGame( void );
+void createGame();
 
 //-----------------------------------------------------------------------------
 // PUBLIC FUNCTIONS ///////////////////////////////////////////////////////////
@@ -253,7 +253,7 @@ void PopulateCustomLadderListBox( GameWindow *win )
 	isPopulatingLadderBox = false;
 }
 
-void PopulateCustomLadderComboBox( void )
+void PopulateCustomLadderComboBox()
 {
 	if (!parentPopup || !comboBoxLadderName)
 		return;
@@ -596,16 +596,10 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 				name.trim();
 				if(name.isEmpty())
 				{
-					NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-					if (pAuthInterface != nullptr)
-					{
-						name.format(L"%s", pAuthInterface->GetDisplayName());
-						GadgetTextEntrySetText(textEntryGameName, name);
-					}
-					else
-					{
-						name = L"Generals Online Lobby";
-					}
+					SetLobbyAttemptHostJoin(FALSE);
+					GameSpyCloseOverlay(GSOVERLAY_GAMEOPTIONS);
+					GSMessageBoxOk(TheGameText->fetch("GUI:Error"), UnicodeString(L"Please enter a lobby name."), nullptr);
+					break;
 				}
 #if defined(GENERALS_ONLINE)
 				// save last used lobby name to CustomPref.ini
@@ -647,7 +641,7 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 //-----------------------------------------------------------------------------
 
 extern GlobalData* TheWritableGlobalData;
-void createGame( void )
+void createGame()
 {
 	// TODO_NGMP: exe and ini crc, verison etc
 	// TODO_NGMP: passworded lobbies

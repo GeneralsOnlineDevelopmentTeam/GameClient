@@ -53,7 +53,7 @@ BridgeScaffoldBehavior::BridgeScaffoldBehavior( Thing *thing, const ModuleData *
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-BridgeScaffoldBehavior::~BridgeScaffoldBehavior( void )
+BridgeScaffoldBehavior::~BridgeScaffoldBehavior()
 {
 
 }
@@ -108,7 +108,7 @@ void BridgeScaffoldBehavior::setMotion( ScaffoldTargetMotion targetMotion )
 // ------------------------------------------------------------------------------------------------
 /** Whatever our current state of motion is, reverse it */
 // ------------------------------------------------------------------------------------------------
-void BridgeScaffoldBehavior::reverseMotion( void )
+void BridgeScaffoldBehavior::reverseMotion()
 {
 
 	switch( m_targetMotion )
@@ -141,7 +141,7 @@ void BridgeScaffoldBehavior::reverseMotion( void )
 // ------------------------------------------------------------------------------------------------
 /** The update method */
 // ------------------------------------------------------------------------------------------------
-UpdateSleepTime BridgeScaffoldBehavior::update( void )
+UpdateSleepTime BridgeScaffoldBehavior::update()
 {
 
 	// do nothing if we're not in motion
@@ -231,7 +231,7 @@ UpdateSleepTime BridgeScaffoldBehavior::update( void )
 	//
 	// will this new position push us beyond our target destination, we will take the vector
 	// from the new position to the destination and the vector from our current present position
-	// tot he destination and dot them togehter ... if the result is < 0 then we have will
+	// tot he destination and dot them together ... if the result is < 0 then we have will
 	// overshoot the distance if we use the new position
 	//
 	Coord3D tooFarVector;
@@ -357,7 +357,7 @@ void BridgeScaffoldBehavior::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void BridgeScaffoldBehavior::loadPostProcess( void )
+void BridgeScaffoldBehavior::loadPostProcess()
 {
 
 	// extend base class

@@ -67,21 +67,21 @@ class DebugHintObject : public RenderObjClass
 
 public:
 
-	DebugHintObject(void);
+	DebugHintObject();
 	DebugHintObject(const DebugHintObject & src);
 	DebugHintObject & operator = (const DebugHintObject &);
-	~DebugHintObject(void);
+	~DebugHintObject();
 
-	virtual RenderObjClass *	Clone(void) const;
-	virtual int						Class_ID(void) const;
+	virtual RenderObjClass *	Clone() const;
+	virtual int						Class_ID() const;
 	virtual void					Render(RenderInfoClass & rinfo);
 	virtual Bool					Cast_Ray(RayCollisionTestClass & raytest);
 
 	virtual void					Get_Obj_Space_Bounding_Sphere(SphereClass & sphere) const;
   virtual void					Get_Obj_Space_Bounding_Box(AABoxClass & aabox) const;
 
-	int updateBlock(void);
-	void freeMapResources(void);
+	int updateBlock();
+	void freeMapResources();
 	void setLocAndColorAndSize(const Coord3D *loc, Int argb, Int size);
 
 protected:
@@ -95,7 +95,7 @@ protected:
 	VertexMaterialClass	  	  *m_vertexMaterialClass;
 	DX8VertexBufferClass			*m_vertexBufferTile;	//First vertex buffer.
 
-	void initData(void);
+	void initData();
 };
 
 // Texturing, no zbuffer, disabled zbuffer write, primary gradient, alpha blending
@@ -105,12 +105,12 @@ protected:
 	ShaderClass::DETAILCOLOR_DISABLE, ShaderClass::DETAILALPHA_DISABLE) )
 
 
-DebugHintObject::~DebugHintObject(void)
+DebugHintObject::~DebugHintObject()
 {
 	freeMapResources();
 }
 
-DebugHintObject::DebugHintObject(void) :
+DebugHintObject::DebugHintObject() :
 	m_indexBuffer(nullptr),
 	m_vertexMaterialClass(nullptr),
 	m_vertexBufferTile(nullptr),
@@ -150,19 +150,19 @@ void DebugHintObject::Get_Obj_Space_Bounding_Box(AABoxClass & box) const
 	box.Init(minPt,maxPt);
 }
 
-Int DebugHintObject::Class_ID(void) const
+Int DebugHintObject::Class_ID() const
 {
 	return RenderObjClass::CLASSID_UNKNOWN;
 }
 
-RenderObjClass * DebugHintObject::Clone(void) const
+RenderObjClass * DebugHintObject::Clone() const
 {
 	DEBUG_CRASH(("oops"));
 	return NEW DebugHintObject(*this);
 }
 
 
-void DebugHintObject::freeMapResources(void)
+void DebugHintObject::freeMapResources()
 {
 	REF_PTR_RELEASE(m_indexBuffer);
 	REF_PTR_RELEASE(m_vertexBufferTile);
@@ -171,7 +171,7 @@ void DebugHintObject::freeMapResources(void)
 
 //Allocate a heightmap of x by y vertices.
 //data must be an array matching this size.
-void DebugHintObject::initData(void)
+void DebugHintObject::initData()
 {
 	freeMapResources();	//free old data and ib/vb
 
@@ -338,7 +338,7 @@ static void loadText( char *filename, GameWindow *listboxText )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-void W3DInGameUI::init( void )
+void W3DInGameUI::init()
 {
 
 	// extending functionality
@@ -366,7 +366,7 @@ void W3DInGameUI::init( void )
 //-------------------------------------------------------------------------------------------------
 /** Update in game UI */
 //-------------------------------------------------------------------------------------------------
-void W3DInGameUI::update( void )
+void W3DInGameUI::update()
 {
 
 	// call base
@@ -377,7 +377,7 @@ void W3DInGameUI::update( void )
 //-------------------------------------------------------------------------------------------------
 /** Reset the in game ui */
 //-------------------------------------------------------------------------------------------------
-void W3DInGameUI::reset( void )
+void W3DInGameUI::reset()
 {
 
 	// call base
@@ -388,7 +388,7 @@ void W3DInGameUI::reset( void )
 //-------------------------------------------------------------------------------------------------
 /** Draw member for the W3D implementation of the game user interface */
 //-------------------------------------------------------------------------------------------------
-void W3DInGameUI::draw( void )
+void W3DInGameUI::draw()
 {
 	preDraw();
 
@@ -447,7 +447,7 @@ void W3DInGameUI::draw( void )
 //-------------------------------------------------------------------------------------------------
 /** draw 2d selection region on screen */
 //-------------------------------------------------------------------------------------------------
-void W3DInGameUI::drawSelectionRegion( void )
+void W3DInGameUI::drawSelectionRegion()
 {
 	Real width = 2.0f;
 	UnsignedInt color = 0x9933FF33;  //0xAARRGGBB
@@ -506,7 +506,7 @@ void W3DInGameUI::drawMoveHints( View *view )
 
 				}
 
-				// asign render objects to GUI data
+				// assign render objects to GUI data
 				m_moveHintRenderObj[ i ] = hint;
 
 				// note that 'anim' is returned from Get_HAnim with an AddRef, so we don't need to addref it again.

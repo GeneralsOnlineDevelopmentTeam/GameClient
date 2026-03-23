@@ -95,9 +95,9 @@ public:
 	DeployStyleAIUpdate( Thing *thing, const ModuleData* moduleData );
 	// virtual destructor prototype provided by memory pool declaration
 
- 	virtual void aiDoCommand(const AICommandParms* parms);
-	virtual Bool isIdle() const;
-	virtual UpdateSleepTime update();
+ 	virtual void aiDoCommand(const AICommandParms* parms) override;
+	virtual Bool isIdle() const override;
+	virtual UpdateSleepTime update() override;
 
 #if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	UnsignedInt getUnpackTime()					const { return getDeployStyleAIUpdateModuleData()->m_unpackTime/ GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER; }

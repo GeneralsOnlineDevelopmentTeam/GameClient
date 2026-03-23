@@ -69,7 +69,7 @@ void UpgradeModule::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void UpgradeModule::loadPostProcess( void )
+void UpgradeModule::loadPostProcess()
 {
 
 	// call base class
@@ -162,7 +162,7 @@ Bool UpgradeMux::testUpgradeConditions( const UpgradeMaskType& keyMask ) const
 	getUpgradeActivationMasks(activation, conflicting);
 
 	//Okay, make sure we don't have any conflicting upgrades
-	if( !keyMask.any() || !keyMask.testForAny( conflicting ) )
+	if( keyMask.testForNone( conflicting ) )
 	{
 		//Make sure we have activation conditions
 		if( activation.any() )
@@ -238,7 +238,7 @@ void UpgradeMux::upgradeMuxXfer( Xfer *xfer )
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-void UpgradeMux::upgradeMuxLoadPostProcess( void )
+void UpgradeMux::upgradeMuxLoadPostProcess()
 {
 
 }

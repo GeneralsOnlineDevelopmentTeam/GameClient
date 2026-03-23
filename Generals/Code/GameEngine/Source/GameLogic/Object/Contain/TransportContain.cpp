@@ -115,7 +115,7 @@ void TransportContainModuleData::buildFieldParse(MultiIniFieldParse& p)
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-Int TransportContain::getContainMax( void ) const
+Int TransportContain::getContainMax() const
 {
 	if (getTransportContainModuleData())
 		return getTransportContainModuleData()->m_slotCapacity;
@@ -135,7 +135,7 @@ TransportContain::TransportContain( Thing *thing, const ModuleData *moduleData )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-TransportContain::~TransportContain( void )
+TransportContain::~TransportContain()
 {
 
 }
@@ -456,6 +456,14 @@ Bool TransportContain::isSpecificRiderFreeToExit(Object* specificObject)
 	if (ai && ai->getAiFreeToExit(specificObject) != FREE_TO_EXIT)
 		return FALSE;
 
+#if !RETAIL_COMPATIBLE_CRC
+	// TheSuperHackers @bugfix Stubbjax 02/03/2026 If our parent container is held, then we
+	// are not free to exit.
+	DEBUG_ASSERTCRASH(specificObject->getContainedBy(), ("rider must be contained"));
+	if (specificObject->getContainedBy()->isDisabledByType(DISABLED_HELD))
+		return FALSE;
+#endif
+
   // I can always kick people out if I am in the air, I know what I'm doing
   if (me->isUsingAirborneLocomotor())
    	return TRUE;
@@ -549,7 +557,7 @@ void TransportContain::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void TransportContain::loadPostProcess( void )
+void TransportContain::loadPostProcess()
 {
 
 	// extend base class

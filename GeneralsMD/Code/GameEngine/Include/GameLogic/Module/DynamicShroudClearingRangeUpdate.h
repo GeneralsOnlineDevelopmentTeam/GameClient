@@ -73,11 +73,11 @@ public:
 	DynamicShroudClearingRangeUpdate( Thing *thing, const ModuleData* moduleData );
 	// virtual destructor prototype provided by memory pool declaration
 
-	virtual UpdateSleepTime update();
+	virtual UpdateSleepTime update() override;
 
 	void createGridDecals( const RadiusDecalTemplate& tmpl, Real radius, const Coord3D& pos );
-	void killGridDecals( void );
-	void animateGridDecals( void );
+	void killGridDecals();
+	void animateGridDecals();
 
 
 protected:

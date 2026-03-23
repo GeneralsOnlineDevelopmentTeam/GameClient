@@ -509,7 +509,7 @@ const char *FunctionLexicon::funcToName( void *func, TableEntry *table )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-FunctionLexicon::FunctionLexicon( void )
+FunctionLexicon::FunctionLexicon()
 {
 	Int i;
 
@@ -521,7 +521,7 @@ FunctionLexicon::FunctionLexicon( void )
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-FunctionLexicon::~FunctionLexicon( void )
+FunctionLexicon::~FunctionLexicon()
 {
 
 }
@@ -529,7 +529,7 @@ FunctionLexicon::~FunctionLexicon( void )
 //-------------------------------------------------------------------------------------------------
 /** Initialize our dictionary of function pointers and symbols */
 //-------------------------------------------------------------------------------------------------
-void FunctionLexicon::init( void )
+void FunctionLexicon::init()
 {
 
 	// if you change this method, check the reset() and make sure it's OK
@@ -551,7 +551,7 @@ void FunctionLexicon::init( void )
 //-------------------------------------------------------------------------------------------------
 /** reset */
 //-------------------------------------------------------------------------------------------------
-void FunctionLexicon::reset( void )
+void FunctionLexicon::reset()
 {
 
 	//
@@ -567,7 +567,7 @@ void FunctionLexicon::reset( void )
 //-------------------------------------------------------------------------------------------------
 /** Update */
 //-------------------------------------------------------------------------------------------------
-void FunctionLexicon::update( void )
+void FunctionLexicon::update()
 {
 
 }
@@ -611,13 +611,13 @@ char *FunctionLexicon::functionToName( void *func )
 	* same parameters) which we MUST keep separate for when we add code to
 	* them */
 //-------------------------------------------------------------------------------------------------
-Bool FunctionLexicon::validate( void )
+Bool FunctionLexicon::validate()
 {
 	Bool valid = TRUE;
 	Int i, j;
 	TableEntry *sourceEntry, *lookAtEntry;
 
-	// scan all talbes
+	// scan all tables
 	for( i = 0; i < MAX_FUNCTION_TABLES; i++ )
 	{
 

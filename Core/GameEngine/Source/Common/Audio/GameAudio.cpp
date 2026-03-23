@@ -59,7 +59,7 @@
 #include "Common/OSDisplay.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
-#include "Common/UserPreferences.h"
+#include "Common/OptionPreferences.h"
 
 #include "GameClient/ControlBar.h"
 #include "GameClient/Drawable.h"
@@ -116,6 +116,8 @@ static const FieldParse audioSettingsFieldParseTable[] =
 	{ "Default3DSpeakerType",		 parseSpeakerType,							nullptr,							offsetof( AudioSettings, m_defaultSpeakerType3D) },
 
 	{ "MinSampleVolume",			INI::parsePercentToReal,						nullptr,							offsetof( AudioSettings, m_minVolume) },
+	{ "Use3DSoundRangeVolumeFade", INI::parseBool,								nullptr,							offsetof( AudioSettings, m_use3DSoundRangeVolumeFade) },
+	{ "3DSoundRangeVolumeFadeExponent", INI::parseReal,						nullptr,							offsetof( AudioSettings, m_3DSoundRangeVolumeFadeExponent) },
 	{ "GlobalMinRange",				INI::parseInt,											nullptr,							offsetof( AudioSettings, m_globalMinRange) },
 	{ "GlobalMaxRange",				INI::parseInt,											nullptr,							offsetof( AudioSettings, m_globalMaxRange) },
 	{ "TimeBetweenDrawableSounds", INI::parseDurationUnsignedInt, nullptr,							offsetof( AudioSettings, m_drawableAmbientFrames) },
@@ -139,6 +141,10 @@ static const FieldParse audioSettingsFieldParseTable[] =
 // Singleton TheAudio /////////////////////////////////////////////////////////////////////////////
 AudioManager *TheAudio = nullptr;
 
+const char *const AudioManager::MuteAudioReasonNames[] =
+{
+	"MuteAudioReason_WindowFocus",
+};
 
 // AudioManager Device Independent functions //////////////////////////////////////////////////////
 AudioManager::AudioManager() :
@@ -149,9 +155,10 @@ AudioManager::AudioManager() :
 	m_music(nullptr),
 	m_sound(nullptr),
 	m_surroundSpeakers(FALSE),
-	m_hardwareAccel(FALSE),
-	m_musicPlayingFromCD(FALSE)
+	m_hardwareAccel(FALSE)
 {
+	static_assert(ARRAY_SIZE(AudioManager::MuteAudioReasonNames) == MuteAudioReason_Count, "Incorrect array size");
+
 	m_adjustedVolumes.clear();
 	m_audioRequests.clear();
 	m_listenerPosition.zero();
@@ -171,6 +178,7 @@ AudioManager::AudioManager() :
 	m_miscAudio = NEW MiscAudio;
 	m_silentAudioEvent = NEW AudioEventRTS;
 	m_savedValues = nullptr;
+	m_muteReasonBits = 0;
 	m_disallowSpeech = FALSE;
 }
 
@@ -225,35 +233,6 @@ void AudioManager::init()
 
 	// do the miscellaneous sound files last so that we find the AudioEventRTS associated with the events.
 	ini.loadFileDirectory( "Data\\INI\\MiscAudio", INI_LOAD_OVERWRITE, nullptr);
-
-	// determine if one of the music tracks exists. Since their now BIGd, one implies all.
-	// If they don't exist, then attempt to load them from the CD.
-	if (!TheGlobalData->m_headless && !isMusicAlreadyLoaded())
-	{
-		m_musicPlayingFromCD = TRUE;
-		while (TRUE)
-		{
-			// @todo Unload any files from CD first. - jkmcd
-
-			TheFileSystem->loadMusicFilesFromCD();
-			if (isMusicAlreadyLoaded())
-			{
-				break;
-			}
-			// We loop infinitely on the splash screen if we don't allow breaking out of this loop.
-//#if !defined( RTS_DEBUG )
-			else
-			{
-				// Display the warning.
-
-				if (OSDisplayWarningBox("GUI:InsertCDPrompt", "GUI:InsertCDMessage", OSDBT_OK | OSDBT_CANCEL, OSDOF_SYSTEMMODAL | OSDOF_EXCLAMATIONICON) == OSDBT_CANCEL) {
-					//TheGameEngine->setQuitting(TRUE);  // Can't do this to WorldBuilder
-					break;
-				}
-			}
-//#endif
-		}
-	}
 
 	m_music = NEW MusicManager;
 	m_sound = NEW SoundManager;
@@ -803,7 +782,7 @@ void AudioManager::setListenerPosition( const Coord3D *newListenerPos, const Coo
 }
 
 //-------------------------------------------------------------------------------------------------
-const Coord3D *AudioManager::getListenerPosition( void ) const
+const Coord3D *AudioManager::getListenerPosition() const
 {
 	return &m_listenerPosition;
 }
@@ -833,7 +812,7 @@ void AudioManager::appendAudioRequest( AudioRequest *m_request )
 
 //-------------------------------------------------------------------------------------------------
 // Remove all pending audio requests
-void AudioManager::removeAllAudioRequests( void )
+void AudioManager::removeAllAudioRequests()
 {
   std::list<AudioRequest*>::iterator it;
   for ( it = m_audioRequests.begin(); it != m_audioRequests.end(); it++ ) {
@@ -844,7 +823,7 @@ void AudioManager::removeAllAudioRequests( void )
 }
 
 //-------------------------------------------------------------------------------------------------
-void AudioManager::processRequestList( void )
+void AudioManager::processRequestList()
 {
 
 }
@@ -893,7 +872,7 @@ AudioEventInfo *AudioManager::findAudioEventInfo( AsciiString eventName ) const
 
 //-------------------------------------------------------------------------------------------------
 // Remove all AudioEventInfo's with the m_isLevelSpecific flag
-void AudioManager::removeLevelSpecificAudioEventInfos(void)
+void AudioManager::removeLevelSpecificAudioEventInfos()
 {
   AudioEventInfoHash::iterator it = m_allAudioEventInfo.begin();
 
@@ -914,31 +893,31 @@ void AudioManager::removeLevelSpecificAudioEventInfos(void)
 }
 
 //-------------------------------------------------------------------------------------------------
-const AudioSettings *AudioManager::getAudioSettings( void ) const
+const AudioSettings *AudioManager::getAudioSettings() const
 {
 	return m_audioSettings;
 }
 
 //-------------------------------------------------------------------------------------------------
-AudioSettings *AudioManager::friend_getAudioSettings( void )
+AudioSettings *AudioManager::friend_getAudioSettings()
 {
 	return m_audioSettings;
 }
 
 //-------------------------------------------------------------------------------------------------
-const MiscAudio *AudioManager::getMiscAudio( void ) const
+const MiscAudio *AudioManager::getMiscAudio() const
 {
 	return m_miscAudio;
 }
 
 //-------------------------------------------------------------------------------------------------
-MiscAudio *AudioManager::friend_getMiscAudio( void )
+MiscAudio *AudioManager::friend_getMiscAudio()
 {
 	return m_miscAudio;
 }
 
 //-------------------------------------------------------------------------------------------------
-const FieldParse *AudioManager::getFieldParseTable( void ) const
+const FieldParse *AudioManager::getFieldParseTable() const
 {
 	return audioSettingsFieldParseTable;
 }
@@ -970,7 +949,7 @@ Real AudioManager::getAudioLengthMS( const AudioEventRTS *event )
 }
 
 //-------------------------------------------------------------------------------------------------
-Bool AudioManager::isMusicAlreadyLoaded(void) const
+Bool AudioManager::isMusicAlreadyLoaded() const
 {
 	const AudioEventInfo *musicToLoad = nullptr;
 	AudioEventInfoHash::const_iterator it;
@@ -1093,7 +1072,7 @@ Bool AudioManager::shouldPlayLocally(const AudioEventRTS *audioEvent)
 }
 
 //-------------------------------------------------------------------------------------------------
-AudioHandle AudioManager::allocateNewHandle( void )
+AudioHandle AudioManager::allocateNewHandle()
 {
 	// note, intenionally a post increment rather than a pre increment.
 	return theAudioHandlePool++;
@@ -1107,12 +1086,17 @@ void AudioManager::releaseAudioEventRTS( AudioEventRTS *&eventToRelease )
 }
 
 //-------------------------------------------------------------------------------------------------
-void AudioManager::loseFocus( void )
+void AudioManager::muteAudio( MuteAudioReason reason )
 {
-	if (m_savedValues)
+	m_muteReasonBits |= 1u << reason;
+
+	DEBUG_LOG(("AudioManager::muteAudio(%s): m_muteReason=%u muted=%d",
+		MuteAudioReasonNames[reason], m_muteReasonBits, (int)(m_muteReasonBits != 0)));
+
+	if (m_muteReasonBits == 0 || m_savedValues)
 		return;
 
-	// In this case, make all the audio go silent.
+	// Make all the audio go silent.
 	m_savedValues = NEW Real[NUM_VOLUME_TYPES];
 	m_savedValues[VOLUME_TYPE_MUSIC] = m_systemMusicVolume;
 	m_savedValues[VOLUME_TYPE_SOUND] = m_systemSoundVolume;
@@ -1124,12 +1108,17 @@ void AudioManager::loseFocus( void )
 }
 
 //-------------------------------------------------------------------------------------------------
-void AudioManager::regainFocus( void )
+void AudioManager::unmuteAudio( MuteAudioReason reason )
 {
-	if (!m_savedValues)
+	m_muteReasonBits &= ~(1u << reason);
+
+	DEBUG_LOG(("AudioManager::unmuteAudio(%s): m_muteReason=%u muted=%d",
+		MuteAudioReasonNames[reason], m_muteReasonBits, (int)(m_muteReasonBits != 0)));
+
+	if (m_muteReasonBits != 0 || !m_savedValues)
 		return;
 
-	// We got focus back. Restore the previous audio values.
+	// Restore the previous audio values.
 	setVolume(m_savedValues[VOLUME_TYPE_MUSIC], (AudioAffect) (AudioAffect_Music | AudioAffect_SystemSetting));
 	setVolume(m_savedValues[VOLUME_TYPE_SOUND], (AudioAffect) (AudioAffect_Sound | AudioAffect_SystemSetting));
 	setVolume(m_savedValues[VOLUME_TYPE_SOUND3D], (AudioAffect) (AudioAffect_Sound3D | AudioAffect_SystemSetting));

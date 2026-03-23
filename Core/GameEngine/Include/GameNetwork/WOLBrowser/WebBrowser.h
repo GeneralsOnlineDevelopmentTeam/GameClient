@@ -61,7 +61,7 @@ public:
 	WebBrowserURL();
 	// virtual destructor prototype defined by memory pool object
 
-	const FieldParse *getFieldParse( void ) const { return m_URLFieldParseTable; }
+	const FieldParse *getFieldParse() const { return m_URLFieldParseTable; }
 
 	AsciiString m_tag;
 	AsciiString m_url;
@@ -79,9 +79,9 @@ class WebBrowser :
 		public SubsystemInterface
 	{
 	public:
-		void init( void );
-		void reset( void );
-		void update( void );
+		virtual void init() override;
+		virtual void reset() override;
+		virtual void update() override;
 
 		// Create an instance of the embedded browser for Dune Emperor.
 		virtual Bool createBrowserWindow(const char *tag, GameWindow *win) = 0;
@@ -93,7 +93,7 @@ class WebBrowser :
 	protected:
 		// Protected to prevent direct construction via new, use CreateInstance() instead.
 		WebBrowser();
-		virtual ~WebBrowser();
+		virtual ~WebBrowser() override;
 
 		// Protected to prevent copy and assignment
 		WebBrowser(const WebBrowser&);
@@ -111,8 +111,8 @@ class WebBrowser :
 	//---------------------------------------------------------------------------
 	protected:
 		HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject) IUNKNOWN_NOEXCEPT;
-		ULONG STDMETHODCALLTYPE AddRef(void) IUNKNOWN_NOEXCEPT;
-		ULONG STDMETHODCALLTYPE Release(void) IUNKNOWN_NOEXCEPT;
+		ULONG STDMETHODCALLTYPE AddRef() IUNKNOWN_NOEXCEPT;
+		ULONG STDMETHODCALLTYPE Release() IUNKNOWN_NOEXCEPT;
 
 	//---------------------------------------------------------------------------
 	// IBrowserDispatch methods

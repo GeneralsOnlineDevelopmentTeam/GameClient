@@ -56,7 +56,7 @@ class PrisonVisual : public MemoryPoolObject
 
 public:
 
-	PrisonVisual( void );
+	PrisonVisual();
 	// virtual destructor prototype provided by memory pool object
 
 	ObjectID m_objectID;				///< object that is contained
@@ -67,7 +67,7 @@ public:
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-PrisonVisual::PrisonVisual( void )
+PrisonVisual::PrisonVisual()
 {
 
 	m_objectID = INVALID_ID;
@@ -78,7 +78,7 @@ PrisonVisual::PrisonVisual( void )
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-PrisonVisual::~PrisonVisual( void )
+PrisonVisual::~PrisonVisual()
 {
 
 }
@@ -89,7 +89,7 @@ PrisonVisual::~PrisonVisual( void )
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-PrisonBehaviorModuleData::PrisonBehaviorModuleData( void )
+PrisonBehaviorModuleData::PrisonBehaviorModuleData()
 {
 
 	m_showPrisoners = FALSE;
@@ -131,14 +131,14 @@ PrisonBehavior::PrisonBehavior( Thing *thing, const ModuleData *moduleData )
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-PrisonBehavior::~PrisonBehavior( void )
+PrisonBehavior::~PrisonBehavior()
 {
 
 }
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-void PrisonBehavior::onDelete( void )
+void PrisonBehavior::onDelete()
 {
 
 	// extend functionality
@@ -312,11 +312,11 @@ void PrisonBehavior::addVisual( Object *obj )
 	else
 		draw->setIndicatorColor( obj->getIndicatorColor() );
 
-	// pick a location insid the prison yard
+	// pick a location inside the prison yard
 	Coord3D pos;
 	pickVisualLocation( &pos );
 
-	// place drawable withing the prison yard area
+	// place drawable within the prison yard area
 	draw->setPosition( &pos );
 	draw->setOrientation( GameLogicRandomValueReal( 0, TWO_PI ) );
 	DrawableInfo *drawInfo=draw->getDrawableInfo();
@@ -466,7 +466,7 @@ void PrisonBehavior::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void PrisonBehavior::loadPostProcess( void )
+void PrisonBehavior::loadPostProcess()
 {
 
 	// extend base class

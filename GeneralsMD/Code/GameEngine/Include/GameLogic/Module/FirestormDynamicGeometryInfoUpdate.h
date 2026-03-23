@@ -70,11 +70,11 @@ public:
 	FirestormDynamicGeometryInfoUpdate( Thing *thing, const ModuleData* moduleData );
 	// virtual destructor prototype provided by memory pool declaration
 
-	virtual UpdateSleepTime update();
+	virtual UpdateSleepTime update() override;
 
 protected:
 
-	void doDamageScan( void );
+	void doDamageScan();
 
 	ParticleSystemID m_myParticleSystemID[ MAX_FIRESTORM_SYSTEMS ];
 	Bool m_effectsFired;							///< TRUE once the effects have been fired off
