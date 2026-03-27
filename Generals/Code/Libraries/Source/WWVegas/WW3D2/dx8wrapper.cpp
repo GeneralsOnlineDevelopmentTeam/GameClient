@@ -620,6 +620,32 @@ bool DX8Wrapper::Reset_Device(bool reload_assets)
 		memset(Vertex_Shader_Constants,0,sizeof(Vector4)*MAX_VERTEX_SHADER_CONSTANTS);
 		memset(Pixel_Shader_Constants,0,sizeof(Vector4)*MAX_PIXEL_SHADER_CONSTANTS);
 
+		// TheSuperHackers @bugfix 02/2025
+		// Release and nullify render target and depth buffer pointers before device reset.
+		// These surfaces are invalidated by the device reset and must not be accessed afterward.
+		// Failure to clear these can cause access violations when D3D internally references
+		// the depth stencil surface (e.g., in GetDepthStencilSurface during Clear operations).
+		if (DefaultDepthBuffer)
+		{
+			DefaultDepthBuffer->Release();
+			DefaultDepthBuffer = nullptr;
+		}
+		if (DefaultRenderTarget)
+		{
+			DefaultRenderTarget->Release();
+			DefaultRenderTarget = nullptr;
+		}
+		if (CurrentRenderTarget)
+		{
+			CurrentRenderTarget->Release();
+			CurrentRenderTarget = nullptr;
+		}
+		if (CurrentDepthBuffer)
+		{
+			CurrentDepthBuffer->Release();
+			CurrentDepthBuffer = nullptr;
+		}
+
 		// TheSuperHackers @bugfix 01/2025
 		// Add delay after releasing resources to allow GPU to complete pending operations.
 		// This mitigates race conditions in the D3D9-to-D3D12 translation layer on Windows 10+
