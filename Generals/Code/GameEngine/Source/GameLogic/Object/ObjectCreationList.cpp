@@ -1196,7 +1196,16 @@ protected:
 		if( m_containInsideSourceObject )
 		{
 			// The Obj has been totally made, so stuff it inside ourselves if desired.
-			if( sourceObj->getContain()  &&  sourceObj->getContain()->isValidContainerFor(obj, TRUE))
+			// Guard against sourceObj being null or already destroyed (e.g. when this OCL fires
+			// from a CreateObjectDie handler -- the dying object may be in the process of being
+			// deleted, making the pointer dangling/invalid).
+			if( !sourceObj || sourceObj->isDestroyed() )
+			{
+				DEBUG_CRASH(("A OCL with ContainInsideSourceObject has a null or already-destroyed sourceObj and is killing the new object."));
+				// If the source object is gone, we can't contain the new object.  Stillborn it.
+				TheGameLogic->destroyObject(obj);
+			}
+			else if( sourceObj->getContain()  &&  sourceObj->getContain()->isValidContainerFor(obj, TRUE))
 			{
 				sourceObj->getContain()->addToContain( obj );
 
