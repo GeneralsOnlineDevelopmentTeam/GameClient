@@ -86,7 +86,9 @@ void W3DOverlordTankDraw::doDrawModule(const Matrix3D* transformMtx)
 		)
 	{
 		Drawable *riderDraw = me->getContain()->friend_getRider()->getDrawable();
-		riderDraw->setColorTintEnvelope( *getDrawable()->getColorTintEnvelope() );
+		TintEnvelope *env = getDrawable()->getColorTintEnvelope();
+		if ( env )
+			riderDraw->setColorTintEnvelope( *env );
 
 		riderDraw->notifyDrawableDependencyCleared();
 		riderDraw->draw( );// What the hell?  This param isn't used for anything
