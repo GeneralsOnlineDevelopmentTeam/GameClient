@@ -2544,7 +2544,7 @@ void W3DDisplay::drawImage( const Image *image, Int startX, Int startY,
 	}
 
 	// if we have raw texture data we will use it, otherwise we are referencing filenames
-	if( BitIsSet( image->getStatus(), IMAGE_STATUS_RAW_TEXTURE ) )
+	if( BitIsSet( image->getStatus(), IMAGE_STATUS_RAW_TEXTURE ) && image->getRawTextureData() != nullptr )
 		m_2DRender->Set_Texture( (TextureClass *)(image->getRawTextureData()) );
 	else
 		m_2DRender->Set_Texture( image->getFilename().str() );
