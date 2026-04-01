@@ -643,10 +643,15 @@ void HTreeClass::Anim_Update_Without_Interpolation(const Matrix3D & root,HRawAni
 	endpivot=pivot+(NumPivots-1);
 	lastAnimPivot = &Pivot[num_anim_pivots];
 
-	for (int piv_idx=1; pivot < endpivot; pivot++,nodeMotion++) {
+	for (int piv_idx=1; pivot < endpivot; pivot++) {
 
 		// base pose
-		assert(pivot->Parent != nullptr);
+		if (pivot->Parent == nullptr)
+		{
+			if (pivot < lastAnimPivot)
+				nodeMotion++;
+			continue;
+		}
 		Matrix3D::Multiply(pivot->Parent->Transform, pivot->BaseTransform, &(pivot->Transform));
 
 		// Don't update this pivot if the HTree doesn't have animation data for it...
@@ -683,6 +688,8 @@ void HTreeClass::Anim_Update_Without_Interpolation(const Matrix3D & root,HRawAni
 				pivot->IsVisible=(nodeMotion->Vis->Get_Bit(iframe) == 1);
 			else
 				pivot->IsVisible=1;
+
+			nodeMotion++;
 		}
 
 		if (pivot->Is_Captured())
