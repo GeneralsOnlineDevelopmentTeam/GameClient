@@ -772,6 +772,10 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
+			// safety, lobby interface could've been destroyed by the time we get our response (use-after-free guard)
+			if (NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>() == nullptr)
+				return;
+
 			// safety, lobby could've been torn down by the time we get our response
 				if (m_CurrentLobby.lobbyID != -1 && TheNGMPGame != nullptr)
 				{
