@@ -929,6 +929,10 @@ void ChallengeLoadScreen::activatePiecesMinSpec(const GeneralPersona *generalPla
 
 void ChallengeLoadScreen::init( GameInfo *game )
 {
+	DEBUG_ASSERTCRASH(TheChallengeGenerals, ("TheChallengeGenerals is not initialized, cannot load ChallengeLoadScreen"));
+	if ( !TheChallengeGenerals )
+		return;
+
 	const Campaign *campaign = TheCampaignManager->getCurrentCampaign();
 	const Mission *mission = TheCampaignManager->getCurrentMission();
 
