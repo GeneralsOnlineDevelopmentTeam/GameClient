@@ -212,9 +212,17 @@ DX8TextureCategoryClass::DX8TextureCategoryClass(
 
 DX8TextureCategoryClass::~DX8TextureCategoryClass()
 {
+	// Clear texture_category pointers from all polygon renderers to prevent use-after-free
+	// when they are deleted during Unregister_Mesh_Type
+	DX8PolygonRendererClass* p_renderer = PolygonRendererList.Get_Head();
+	while (p_renderer) {
+		p_renderer->Set_Texture_Category(NULL);
+		p_renderer = PolygonRendererList.Get_Next(p_renderer);
+	}
+
 	// Unregistering the mesh where polygon renderers are connected to kills all polygon renderers
-	while (DX8PolygonRendererClass* p_renderer=PolygonRendererList.Get_Head()) {
-		TheDX8MeshRenderer.Unregister_Mesh_Type(p_renderer->Get_Mesh_Model_Class());
+	while (DX8PolygonRendererClass* renderer=PolygonRendererList.Get_Head()) {
+		TheDX8MeshRenderer.Unregister_Mesh_Type(renderer->Get_Mesh_Model_Class());
 	}
 	for (int a=0;a<MeshMatDescClass::MAX_TEX_STAGES;++a)
 	{
