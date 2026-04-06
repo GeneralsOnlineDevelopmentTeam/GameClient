@@ -39,6 +39,7 @@ public:
 
 	bool Graphics_DrawStatsOverlay() const { return m_Render_DrawStatsOverlay; }
 	bool Graphics_LimitFramerate() const { return m_Render_LimitFramerate; }
+	bool LobbyList_AlternateColors() const { return m_LobbyList_AlternateColors; }
 	int Graphics_GetFPSLimit() const
 	{
 		if (!m_Render_LimitFramerate)
@@ -135,6 +136,8 @@ private:
 	bool m_Social_Notification_PlayerAcceptsRequest_Gameplay = true;
 	bool m_Social_Notification_PlayerSendsRequest_Menus = true;
 	bool m_Social_Notification_PlayerSendsRequest_Gameplay = true;
+
+	bool m_LobbyList_AlternateColors = true;
 
 	EHTTPVersion m_Network_HTTPVersion = EHTTPVersion::HTTP_VERSION_AUTO;
 	bool m_Network_UseAlternativeEndpoint = false;
