@@ -892,7 +892,10 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	bool bAlternate = (rowCount % 2 == 0);
 	if (bAlternate && gameColor == GameSpyColor[GSCOLOR_GAME])
 	{
-		gameColor = GameMakeColor(191, 198, 201, 255);
+		if (NGMP_OnlineServicesManager::Settings.LobbyList_AlternateColors())
+		{
+			gameColor = GameMakeColor(191, 198, 201, 255);
+		}
 	}
 	Int index = GadgetListBoxAddEntryText(win, gameName, gameColor, -1, COLUMN_NAME);
 	GadgetListBoxSetItemData(win, (void*)gameID, index);

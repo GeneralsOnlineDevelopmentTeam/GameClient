@@ -26,6 +26,9 @@
 #define SETTINGS_KEY_SOCIAL_NOTIFICATIONS_PLAYER_SENDS_REQUEST_MENUS "notification_player_sends_request_menus"
 #define SETTINGS_KEY_SOCIAL_NOTIFICATIONS_PLAYER_SENDS_REQUEST_GAMEPLAY "notification_player_sends_request_gameplay"
 
+#define SETTINGS_KEY_LOBBY_LIST "lobby_list"
+#define SETTINGS_KEY_LOBBY_LIST_ALTERNATE_COLORS "alternate_lobby_colors"
+
 #define SETTINGS_KEY_DEBUG "debug"
 #define SETTINGS_KEY_DEBUG_VERBOSE_LOGGING "verbose_logging"
 
@@ -245,6 +248,14 @@ void GenOnlineSettings::Load(void)
                     m_Social_Notification_PlayerSendsRequest_Gameplay = socialSettings[SETTINGS_KEY_SOCIAL_NOTIFICATIONS_PLAYER_SENDS_REQUEST_GAMEPLAY];
                 }
             }
+
+			if (jsonSettings.contains(SETTINGS_KEY_LOBBY_LIST))
+			{
+				auto lobbyListSettings = jsonSettings[SETTINGS_KEY_LOBBY_LIST];
+
+				if (lobbyListSettings.contains(SETTINGS_KEY_LOBBY_LIST_ALTERNATE_COLORS))
+					m_LobbyList_AlternateColors = lobbyListSettings[SETTINGS_KEY_LOBBY_LIST_ALTERNATE_COLORS];
+			}
 		}
 		
 	}
@@ -334,6 +345,13 @@ void GenOnlineSettings::Save()
                     {SETTINGS_KEY_SOCIAL_NOTIFICATIONS_PLAYER_SENDS_REQUEST_GAMEPLAY, m_Social_Notification_PlayerSendsRequest_Gameplay},
                 }
         },
+
+		{
+			SETTINGS_KEY_LOBBY_LIST,
+				{
+					{SETTINGS_KEY_LOBBY_LIST_ALTERNATE_COLORS, m_LobbyList_AlternateColors},
+				}
+		},
     };
 	
 	std::string strData = root.dump(1);
