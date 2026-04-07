@@ -133,6 +133,14 @@ int W3DTreeBuffer::W3DTreeTextureClass::update(W3DTreeBuffer *buffer)
 	Get_Filter().Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
 	Get_Filter().Set_V_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
 
+	// Check if the D3D texture has been initialized
+	if (!Peek_D3D_Texture()) {
+		DEBUG_CRASH(("D3D texture not initialized in W3DTreeTextureClass::update()"));
+		return 0;
+	}
+
+
+
 	IDirect3DSurface8 *surface_level;
 	D3DSURFACE_DESC surface_desc;
 	D3DLOCKED_RECT locked_rect;
@@ -603,6 +611,8 @@ void W3DTreeBuffer::updateTexture()
 	}
 	DEBUG_ASSERTCRASH(maxHeight<=m_textureWidth, ("Bad max height."));
 	W3DTreeTextureClass *tex = new W3DTreeTextureClass((DWORD)m_textureWidth, (DWORD)m_textureWidth);
+	tex->Init();
+
 	m_textureHeight = tex->update(this);
 
 	m_treeTexture = tex;
@@ -2034,6 +2044,10 @@ void W3DTreeBuffer::loadPostProcess()
 {
 	// empty. jba [8/11/2003]
 }
+
+
+
+
 
 
 
