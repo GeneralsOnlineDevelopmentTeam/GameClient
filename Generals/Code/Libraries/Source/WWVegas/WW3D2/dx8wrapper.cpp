@@ -2452,6 +2452,13 @@ IDirect3DTexture8 * DX8Wrapper::_Create_DX8_Texture
 {
 	DX8_THREAD_ASSERT();
 	DX8_Assert();
+	
+	// Validate surface parameter
+	if (surface == nullptr) {
+		WWDEBUG_SAY(("Error: NULL surface passed to _Create_DX8_Texture"));
+		return MissingTexture::_Get_Missing_Texture();
+	}
+	
 	IDirect3DTexture8 *texture = nullptr;
 
 	D3DSURFACE_DESC surface_desc;
@@ -2462,10 +2469,24 @@ IDirect3DTexture8 * DX8Wrapper::_Create_DX8_Texture
 	// not in a supported texture format.
 	WW3DFormat format=D3DFormat_To_WW3DFormat(surface_desc.Format);
 	texture = _Create_DX8_Texture(surface_desc.Width, surface_desc.Height, format, mip_level_count);
+	
+	// Validate texture was created successfully
+	if (texture == nullptr) {
+		WWDEBUG_SAY(("Error: Failed to create texture in _Create_DX8_Texture"));
+		return MissingTexture::_Get_Missing_Texture();
+	}
 
 	// Copy the surface to the texture
 	IDirect3DSurface8 *tex_surface = nullptr;
-	texture->GetSurfaceLevel(0, &tex_surface);
+	HRESULT hr = texture->GetSurfaceLevel(0, &tex_surface);
+	
+	// Validate GetSurfaceLevel succeeded and tex_surface is valid
+	if (FAILED(hr) || tex_surface == nullptr) {
+		WWDEBUG_SAY(("Error: GetSurfaceLevel failed or returned NULL surface in _Create_DX8_Texture"));
+		texture->Release();
+		return MissingTexture::_Get_Missing_Texture();
+	}
+	
 	DX8_ErrorCode(D3DXLoadSurfaceFromSurface(tex_surface, nullptr, nullptr, surface, nullptr, nullptr, D3DX_FILTER_BOX, 0));
 	tex_surface->Release();
 

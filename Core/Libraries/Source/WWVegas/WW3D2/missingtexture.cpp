@@ -98,9 +98,18 @@ void MissingTexture::_Init()
 	DX8_ErrorCode(tex->UnlockRect(0));
 
 	for (unsigned i=1;i<tex->GetLevelCount();++i) {
-		IDirect3DSurface8 *src,*dst;
-		DX8_ErrorCode(tex->GetSurfaceLevel(i-1,&src));
-		DX8_ErrorCode(tex->GetSurfaceLevel(i,&dst));
+		IDirect3DSurface8 *src = nullptr;
+		IDirect3DSurface8 *dst = nullptr;
+		HRESULT hr_src = tex->GetSurfaceLevel(i-1,&src);
+		HRESULT hr_dst = tex->GetSurfaceLevel(i,&dst);
+		
+		// Validate both GetSurfaceLevel calls succeeded and surfaces are valid
+		if (FAILED(hr_src) || src == nullptr || FAILED(hr_dst) || dst == nullptr) {
+			WWDEBUG_SAY(("Error: GetSurfaceLevel failed or returned NULL surface in MissingTexture::_Init"));
+			if (src != nullptr) src->Release();
+			if (dst != nullptr) dst->Release();
+			continue;
+		}
 
 		DX8_ErrorCode(D3DXLoadSurfaceFromSurface(
 			dst,
