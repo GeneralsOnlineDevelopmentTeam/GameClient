@@ -346,6 +346,9 @@ void NGMP_OnlineServicesManager::Shutdown()
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] HTTPManager shutdown complete");
 	}
 
+	// Cleanup libcurl global state after all curl usage is complete
+	curl_global_cleanup();
+
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] OnlineServicesManager shutdown complete");
 }
 
@@ -817,6 +820,10 @@ void NGMP_OnlineServicesManager::OnLogin(ELoginResult loginResult, const char* s
 void NGMP_OnlineServicesManager::Init()
 {
 	g_MainThreadID = std::this_thread::get_id();
+
+	// Initialize libcurl globally before any curl usage to prevent threading race conditions
+	// This must be called before curl_easy_init() or curl_multi_init() to ensure thread-safe initialization
+	curl_global_init(CURL_GLOBAL_ALL);
 
 	// initialize child classes, these need the platform handle
 	m_pAuthInterface = new NGMP_OnlineServices_AuthInterface();
