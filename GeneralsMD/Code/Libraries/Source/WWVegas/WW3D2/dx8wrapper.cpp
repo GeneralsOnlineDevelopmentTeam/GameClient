@@ -1901,6 +1901,13 @@ void DX8Wrapper::End_Scene(bool flip_frames)
 		}
 	}
 
+	// TheSuperHackers @bugfix 01/2025
+	// Add delay before releasing resources to allow GPU to complete pending operations.
+	// This mitigates race conditions in the D3D9-to-D3D12 translation layer on Windows 10+
+	// where the GPU may still be processing commands from the current frame when the CPU
+	// releases vertex/index buffers, causing access violations in CViewBoundState::IsDirty.
+	ThreadClass::Sleep_Ms(50);
+
 	// Each frame, release all of the buffers and textures.
 	Set_Vertex_Buffer(nullptr);
 	Set_Index_Buffer(nullptr,0);
