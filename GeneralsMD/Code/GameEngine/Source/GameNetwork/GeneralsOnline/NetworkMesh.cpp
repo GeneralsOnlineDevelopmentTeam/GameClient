@@ -3,6 +3,7 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
 #include <ws2ipdef.h>
+#include <atomic>
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "GameLogic/GameLogic.h"
@@ -333,16 +334,24 @@ class CSignalingClient : public ISignalingClient
 	{
 		CSignalingClient* const m_pOwner;
 		int64_t const m_targetUserID;
+		std::atomic<int> m_refCount;
 
 		ConnectionSignaling(CSignalingClient* owner, int64_t target_user_id)
 			: m_pOwner(owner)
 			, m_targetUserID(target_user_id)
+			, m_refCount(1)
 		{
 		}
 
 		//
 		// Implements ISteamNetworkingConnectionSignaling
 		//
+
+		// AddRef - increment reference count
+		virtual int AddRef() override
+		{
+			return ++m_refCount;
+		}
 
 		// This is called from SteamNetworkingSockets to send a signal.  This could be called from any thread,
 		// so we need to be threadsafe, and avoid duoing slow stuff or calling back into SteamNetworkingSockets
@@ -362,7 +371,11 @@ class CSignalingClient : public ISignalingClient
 		// Self destruct.  This will be called by SteamNetworkingSockets when it's done with us.
 		virtual void Release() override
 		{
-			delete this;
+			int refCount = --m_refCount;
+			if (refCount == 0)
+			{
+				delete this;
+			}
 		}
 	};
 
