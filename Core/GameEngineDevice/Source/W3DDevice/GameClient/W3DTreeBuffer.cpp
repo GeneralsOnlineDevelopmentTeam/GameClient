@@ -1182,23 +1182,31 @@ void W3DTreeBuffer::unitMoved(Object *unit)
 					DEBUG_CRASH(("Invalid index."));
 					break;
 				}
-				if (m_trees[treeNdx].treeType<0) {
+				Int treeType = m_trees[treeNdx].treeType;
+			if (treeType<0) {
 					treeNdx = m_trees[treeNdx].nextInPartition;
 					continue;	//  Tree is deleted. [7/11/2003]
 				}
+				// Additional bounds check to prevent out-of-bounds access to m_treeTypes array
+				if (treeType >= m_numTreeTypes) {
+					DEBUG_CRASH(("Invalid tree type index."));
+					treeNdx = m_trees[treeNdx].nextInPartition;
+					continue;
+				}
+
 				Coord3D delta;
 				delta.set(m_trees[treeNdx].location.X, m_trees[treeNdx].location.Y, m_trees[treeNdx].location.Z );
 				delta.sub(&pos);
 				if (radius*radius>delta.lengthSqr()) {
 					bool canTopple = unit->getCrusherLevel() > 1;
-					if (canTopple && m_treeTypes[m_trees[treeNdx].treeType].m_data->m_doTopple) {
+					if (canTopple && m_treeTypes[treeType].m_data->m_doTopple) {
 						// Give a vector with direction to thing.
 						Coord3D toppleVector;
 						toppleVector.set(m_trees[treeNdx].location.X, m_trees[treeNdx].location.Y, 0);
 						toppleVector.x -= unit->getPosition()->x;
 						toppleVector.y -= unit->getPosition()->y;
 						applyTopplingForce(m_trees+treeNdx, &toppleVector, 0, W3D_TOPPLE_OPTIONS_NONE);
-					} else if (m_treeTypes[m_trees[treeNdx].treeType].m_data->m_framesToMoveOutward>1) {
+					} else if (m_treeTypes[treeType].m_data->m_framesToMoveOutward>1) {
 						pushAsideTree(m_trees[treeNdx].drawableID, &pos, unit->getUnitDirectionVector2D(), unit->getID());
 					}
 				}
@@ -1467,7 +1475,10 @@ Bool W3DTreeBuffer::updateTreePosition(DrawableID id, Coord3D location, Real ang
 			m_trees[i].sin = WWMath::Sin(angle);
 			m_trees[i].cos = WWMath::Cos(angle);
 			// Translate the bounding sphere of the model.
-			m_trees[i].bounds = m_treeTypes[m_trees[i].treeType].m_bounds;
+			Int treeType = m_trees[i].treeType;
+			if (treeType >= 0 && treeType < m_numTreeTypes) {
+				m_trees[i].bounds = m_treeTypes[treeType].m_bounds;
+			}
 			m_trees[i].bounds.Center *= m_trees[i].scale;
 			m_trees[i].bounds.Radius *= m_trees[i].scale;
 			m_trees[i].bounds.Center += m_trees[i].location;
@@ -1512,7 +1523,10 @@ void W3DTreeBuffer::pushAsideTree(DrawableID id, const Coord3D *pusherPos,
 				m_trees[i].pushAsideSin = -pusherDirection->x;
 			}
 			m_anyPushChanged = true;
-			m_trees[i].pushAsideDelta = 1.0f/(Real)m_treeTypes[m_trees[i].treeType].m_data->m_framesToMoveOutward;
+			Int treeType = m_trees[i].treeType;
+		if (treeType >= 0 && treeType < m_numTreeTypes) {
+			m_trees[i].pushAsideDelta = 1.0f/(Real)m_treeTypes[treeType].m_data->m_framesToMoveOutward;
+		}
 		}
 	}
 }
@@ -2034,6 +2048,10 @@ void W3DTreeBuffer::loadPostProcess()
 {
 	// empty. jba [8/11/2003]
 }
+
+
+
+
 
 
 

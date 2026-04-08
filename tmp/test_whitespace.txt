@@ -1,0 +1,2 @@
+Line with tabs:			if (m_trees[treeNdx].treeType<0) {
+Line with spaces:        if (m_trees[treeNdx].treeType<0) {
