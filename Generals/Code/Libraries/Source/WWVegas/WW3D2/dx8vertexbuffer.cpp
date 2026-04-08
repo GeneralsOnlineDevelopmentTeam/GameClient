@@ -781,6 +781,11 @@ void DynamicVBAccessClass::Allocate_DX8_Dynamic_Buffer()
 			_DynamicDX8VertexBufferSize,
 			(DX8VertexBufferClass::UsageType)usage));
 		_DynamicDX8VertexBufferOffset=0;
+
+		// If allocation failed, leave VertexBuffer as nullptr and return early
+		if (!_DynamicDX8VertexBuffer) {
+			return;
+		}
 	}
 
 	// Any room at the end of the buffer?
@@ -839,6 +844,12 @@ DynamicVBAccessClass::WriteLockClass::WriteLockClass(DynamicVBAccessClass* dynam
 		WWASSERT(_DynamicDX8VertexBuffer);
 //		WWASSERT(!_DynamicDX8VertexBuffer->Engine_Refs());
 
+		// Guard against a failed vertex buffer allocation
+		if (!DynamicVBAccess->VertexBuffer) {
+			Vertices=nullptr;
+			break;
+		}
+
 		DX8_Assert();
 		// Lock with discard contents if the buffer offset is zero
 		DX8_ErrorCode(static_cast<DX8VertexBufferClass*>(DynamicVBAccess->VertexBuffer)->Get_DX8_Vertex_Buffer()->Lock(
@@ -870,6 +881,10 @@ DynamicVBAccessClass::WriteLockClass::~WriteLockClass()
 		WWASSERT(!dx8_lock);
 		WWDEBUG_SAY(("DynamicVertexBuffer->Unlock()"));
 #endif
+		// Guard against a failed vertex buffer allocation
+		if (!DynamicVBAccess->VertexBuffer) {
+			break;
+		}
 		DX8_Assert();
 		DX8_ErrorCode(static_cast<DX8VertexBufferClass*>(DynamicVBAccess->VertexBuffer)->Get_DX8_Vertex_Buffer()->Unlock());
 		break;
