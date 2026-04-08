@@ -793,6 +793,13 @@ void DX8Wrapper::Release_Device()
 		if (render_state.index_buffer) render_state.index_buffer->Release_Engine_Ref();
 		REF_PTR_RELEASE(render_state.index_buffer);
 
+		// TheSuperHackers @bugfix 01/2025
+		// Add delay after releasing resources to allow GPU to complete pending operations.
+		// This mitigates race conditions during shutdown where the NVIDIA driver's cleanup code
+		// (destroyFinalizer) may attempt to access texture or render state information that has
+		// already been freed, causing division by zero errors in GPU state calculations.
+		ThreadClass::Sleep_Ms(50);
+
 		/*
 		** Shutdown all subsystems
 		*/
