@@ -7,6 +7,9 @@
 #include "GameNetwork/GeneralsOnline/ngmp_include.h"
 #include "GameNetwork/GeneralsOnline/ngmp_interfaces.h"
 
+// GENERALS ONLINE - Voice Chat
+#include "GameNetwork/GeneralsOnline/Voice/NGMPVoiceBridge.h"
+
 #ifdef _INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
@@ -182,6 +185,24 @@ Bool NextGenTransport::doRecv(void)
                 }
             }
 #endif
+
+            // GENERALS ONLINE - Voice Chat
+            // Voice packets reuse the same 6-byte TransportMessageHeader
+            // prefix but stamp a different magic number so we can
+            // dispatch them without going through the generals CRC path.
+            if (incomingMessage.header.magic == VOICE_MAGIC_NUMBER)
+            {
+                if (payloadLen > 0)
+                {
+                    NGMPVoiceBridge::DispatchIncoming(
+                        kvPair.second.m_userID,
+                        incomingMessage.data,
+                        static_cast<int>(payloadLen));
+                }
+                m_incomingPackets[m_statisticsSlot]++;
+                m_incomingBytes[m_statisticsSlot] += numBytes;
+                continue;
+            }
 
             const bool isGenerals = isGeneralsPacket(&incomingMessage);
 

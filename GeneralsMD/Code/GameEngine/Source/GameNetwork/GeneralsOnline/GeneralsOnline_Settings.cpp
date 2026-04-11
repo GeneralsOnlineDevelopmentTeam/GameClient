@@ -3,6 +3,36 @@
 #include "../OnlineServices_LobbyInterface.h"
 #include "../OnlineServices_Init.h"
 
+#include <windows.h>  // MultiByteToWideChar / WideCharToMultiByte for voice device id
+
+namespace
+{
+	// UTF-8 <-> wstring helpers for JSON-serialising the capture device id.
+	std::string WStringToUtf8(const std::wstring& ws)
+	{
+		if (ws.empty()) return std::string();
+		int needed = ::WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), static_cast<int>(ws.size()),
+			nullptr, 0, nullptr, nullptr);
+		if (needed <= 0) return std::string();
+		std::string out(static_cast<size_t>(needed), '\0');
+		::WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), static_cast<int>(ws.size()),
+			out.data(), needed, nullptr, nullptr);
+		return out;
+	}
+
+	std::wstring Utf8ToWString(const std::string& s)
+	{
+		if (s.empty()) return std::wstring();
+		int needed = ::MultiByteToWideChar(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()),
+			nullptr, 0);
+		if (needed <= 0) return std::wstring();
+		std::wstring out(static_cast<size_t>(needed), L'\0');
+		::MultiByteToWideChar(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()),
+			out.data(), needed);
+		return out;
+	}
+}
+
 #define SETTINGS_KEY_CAMERA "camera"
 #define SETTINGS_KEY_CAMERA_MIN_HEIGHT "min_height"
 #define SETTINGS_KEY_CAMERA_MOVE_SPEED_RATIO "move_speed_ratio"
@@ -32,6 +62,13 @@
 #define SETTINGS_KEY_NETWORK "network"
 #define SETTINGS_KEY_NETWORK_HTTP_VERSION "http_version"
 #define SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT "use_alternative_endpoint"
+
+#define SETTINGS_KEY_VOICE "voice"
+#define SETTINGS_KEY_VOICE_ENABLED "enabled"
+#define SETTINGS_KEY_VOICE_CAPTURE_DEVICE_ID "capture_device_id"
+#define SETTINGS_KEY_VOICE_MIC_GAIN "mic_gain"
+#define SETTINGS_KEY_VOICE_GLOBAL_VOLUME "global_volume"
+#define SETTINGS_KEY_VOICE_MUTED_PEERS "muted_peers"
 
 
 #define SETTINGS_FILENAME_LEGACY "GeneralsOnline_settings.json"
@@ -181,6 +218,81 @@ void GenOnlineSettings::Load(void)
                 }
             }
 
+            if (jsonSettings.contains(SETTINGS_KEY_VOICE))
+            {
+                auto voiceSettings = jsonSettings[SETTINGS_KEY_VOICE];
+
+                if (voiceSettings.contains(SETTINGS_KEY_VOICE_ENABLED))
+                {
+                    m_Voice_Enabled = voiceSettings[SETTINGS_KEY_VOICE_ENABLED];
+                }
+
+                if (voiceSettings.contains(SETTINGS_KEY_VOICE_CAPTURE_DEVICE_ID))
+                {
+                    std::string idUtf8 = voiceSettings[SETTINGS_KEY_VOICE_CAPTURE_DEVICE_ID];
+                    m_Voice_CaptureDeviceID = Utf8ToWString(idUtf8);
+                }
+
+                if (voiceSettings.contains(SETTINGS_KEY_VOICE_MIC_GAIN))
+                {
+                    m_Voice_MicGain = std::clamp<float>(
+                        static_cast<float>(voiceSettings[SETTINGS_KEY_VOICE_MIC_GAIN]),
+                        0.0f, 4.0f);
+                }
+
+                if (voiceSettings.contains(SETTINGS_KEY_VOICE_GLOBAL_VOLUME))
+                {
+                    m_Voice_GlobalVolume = std::clamp<float>(
+                        static_cast<float>(voiceSettings[SETTINGS_KEY_VOICE_GLOBAL_VOLUME]),
+                        0.0f, 2.0f);
+                }
+
+                // Persistent per-client mute list. Stored as decimal
+                // strings to preserve int64 precision (see header comment).
+                if (voiceSettings.contains(SETTINGS_KEY_VOICE_MUTED_PEERS))
+                {
+                    m_Voice_MutedPeers.clear();
+                    const auto& arr = voiceSettings[SETTINGS_KEY_VOICE_MUTED_PEERS];
+                    if (arr.is_array())
+                    {
+                        for (const auto& item : arr)
+                        {
+                            int64_t id = 0;
+                            try
+                            {
+                                if (item.is_string())
+                                {
+                                    id = std::stoll(item.get<std::string>());
+                                }
+                                else if (item.is_number_integer())
+                                {
+                                    id = item.get<int64_t>();
+                                }
+                                else
+                                {
+                                    continue;
+                                }
+                            }
+                            catch (...)
+                            {
+                                continue; // corrupt entry, skip silently
+                            }
+
+                            if (id <= 0) continue;
+
+                            // Dedupe on load so a hand-edited file cannot
+                            // blow up memory with repeats.
+                            bool dup = false;
+                            for (int64_t existing : m_Voice_MutedPeers)
+                            {
+                                if (existing == id) { dup = true; break; }
+                            }
+                            if (!dup) m_Voice_MutedPeers.push_back(id);
+                        }
+                    }
+                }
+            }
+
 			if (jsonSettings.contains(SETTINGS_KEY_DEBUG))
 			{
 				auto debugSettings = jsonSettings[SETTINGS_KEY_DEBUG];
@@ -322,6 +434,16 @@ void GenOnlineSettings::Save()
 		},
 
         {
+            SETTINGS_KEY_VOICE,
+                {
+                    {SETTINGS_KEY_VOICE_ENABLED, m_Voice_Enabled},
+                    {SETTINGS_KEY_VOICE_CAPTURE_DEVICE_ID, WStringToUtf8(m_Voice_CaptureDeviceID)},
+                    {SETTINGS_KEY_VOICE_MIC_GAIN, m_Voice_MicGain},
+                    {SETTINGS_KEY_VOICE_GLOBAL_VOLUME, m_Voice_GlobalVolume}
+                }
+        },
+
+        {
 			SETTINGS_KEY_SOCIAL,
                 {
                     {SETTINGS_KEY_SOCIAL_NOTIFICATIONS_FRIEND_COMES_ONLINE_MENUS, m_Social_Notification_FriendComesOnline_Menus},
@@ -335,7 +457,21 @@ void GenOnlineSettings::Save()
                 }
         },
     };
-	
+
+	// Persistent voice ignore list. Stored as an array of decimal strings
+	// to preserve full int64 precision (nlohmann::json uses double for raw
+	// numbers, which truncates NGMP user IDs above ~2^53). Built after the
+	// root initializer to avoid init-list template ambiguities.
+	{
+		nlohmann::json mutedArr = nlohmann::json::array();
+		for (int64_t id : m_Voice_MutedPeers)
+		{
+			if (id <= 0) continue;
+			mutedArr.push_back(std::to_string(id));
+		}
+		root[SETTINGS_KEY_VOICE][SETTINGS_KEY_VOICE_MUTED_PEERS] = mutedArr;
+	}
+
 	std::string strData = root.dump(1);
 
 	std::string strSettingsFilePath = std::format("{}/GeneralsOnlineData/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
