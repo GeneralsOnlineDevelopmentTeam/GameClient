@@ -412,7 +412,7 @@ Bool ModuleInfo::clearAiModuleInfo()
 	std::vector<Nugget>::iterator it = m_info.begin();
 	while( it != m_info.end() )
 	{
-		if (it->second->isAiModuleData() )
+		if (it->second != nullptr && it->second->isAiModuleData() )
 		{
 			it = m_info.erase( it );
 			ret = true;
