@@ -104,6 +104,8 @@ public:
 
 	virtual Drawable *findDrawableByID( const DrawableID id );					///< Given an ID, return the associated drawable
 
+	HANDLE getDrawableLookupMutex() const { return m_drawableLookupMutex; }	///< Returns the mutex that guards drawable lookup access and drawable lifetime
+
 	void setDrawableIDCounter( DrawableID nextDrawableID ) { m_nextDrawableID = nextDrawableID; }
 	DrawableID getDrawableIDCounter() { return m_nextDrawableID; }
 
@@ -181,6 +183,7 @@ protected:
 	Drawable *m_drawableList;																		///< All of the drawables in the world
 //	DrawablePtrHash m_drawableHash;															///< Used for DrawableID lookups
 	DrawablePtrVector m_drawableVector;
+	HANDLE m_drawableLookupMutex;																///< Guards drawable lookup access and drawable lifetime against concurrent audio thread access
 
 	DrawableID m_nextDrawableID;																///< For allocating drawable id's
 	DrawableID allocDrawableID();													///< Returns a new unique drawable id

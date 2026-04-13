@@ -56,6 +56,7 @@
 
 #include "GameClient/Drawable.h"	// For getPosition
 #include "GameClient/GameClient.h"	// For getDrawableByID
+#include "Common/ScopedMutex.h"		// For ScopedMutex
 
 
 //-------------------------------------------------------------------------------------------------
@@ -741,13 +742,21 @@ const Coord3D *AudioEventRTS::getCurrentPosition()
 		return &m_positionOfAudio;
 
 	case OT_Drawable:
-		if (Drawable *draw = TheGameClient->findDrawableByID(m_drawableID))
 		{
-			m_positionOfAudio.set( draw->getPosition() );
-		}
-		else
-		{
-			m_ownerType = OT_Dead;
+			// Hold the drawable lookup mutex for the duration of the find-and-read to prevent
+			// the main thread from destroying the drawable (and freeing its memory) between
+			// findDrawableByID() returning a non-null pointer and getPosition() being called.
+			// This function can be invoked from the Miles audio background thread via
+			// notifyOfAudioCompletion(), so the mutex is needed to close this race window.
+			ScopedMutex mut(TheGameClient->getDrawableLookupMutex());
+			if (Drawable *draw = TheGameClient->findDrawableByID(m_drawableID))
+			{
+				m_positionOfAudio.set( draw->getPosition() );
+			}
+			else
+			{
+				m_ownerType = OT_Dead;
+			}
 		}
 		return &m_positionOfAudio;
 
