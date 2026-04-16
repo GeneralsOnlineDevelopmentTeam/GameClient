@@ -527,6 +527,9 @@ WorldHeightMap::WorldHeightMap(ChunkInputStream *pStrm, Bool logicalDataOnly):
 			if (m_extraBlendTileNdxes[i]<0 || m_extraBlendTileNdxes[i]>= m_numBlendedTiles) {
 				m_extraBlendTileNdxes[i] = 0;
 			}
+			if (m_tileNdxes[i] < 0 || (m_tileNdxes[i] >> 2) >= NUM_SOURCE_TILES) {
+				m_tileNdxes[i] = 0;
+			}
 		}
 	}
 	if (TheGlobalData && TheGlobalData->m_drawEntireTerrain) {
