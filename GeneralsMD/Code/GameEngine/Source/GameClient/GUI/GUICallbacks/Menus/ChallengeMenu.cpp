@@ -197,6 +197,10 @@ void setGeneralCampaign( Int buttonIndex )
 //-------------------------------------------------------------------------------------------------
 void setGeneralBio( Int buttonIndex )
 {
+	// Always reset the animation position so that a stale bioTextPosition from a previous
+	// bio can never be used against newly-assigned (possibly shorter) bioLine strings.
+	bioTextPosition = 0;
+
 	if (buttonIndex < 0 || buttonIndex >= NUM_GENERALS)
 		return;
 
@@ -208,8 +212,6 @@ void setGeneralBio( Int buttonIndex )
 	const Image *image = generals[buttonIndex].getBioPortraitSmall();
 	bioPortrait->winSetEnabledImage( 0, image );
 	bioPortrait->winSetStatus( WIN_STATUS_IMAGE );
-
-	bioTextPosition = 0;
 	bioLine1 = TheGameText->fetch(generals[buttonIndex].getBioName());
 	bioLine2 = TheGameText->fetch(generals[buttonIndex].getBioRank());
 	bioLine3 = TheGameText->fetch(generals[buttonIndex].getBioBranch());
@@ -278,35 +280,50 @@ Bool updateBio(Int frames)
 {
 	Bool ret = FALSE;
 
+	// Recompute the actual total length from the current strings to ensure bioTotalLength
+	// is never stale if the bio strings were replaced (e.g. via a rapid mouse-leave event)
+	// before bioTextPosition could be validated against the new strings.
+	Int actualTotalLength = bioLine1.getLength() + bioLine2.getLength() + bioLine3.getLength() + bioLine4.getLength();
+
 	for (Int i = 0; i < frames; i++)
 	{
-		if (bioTextPosition < bioTotalLength)
+		if (bioTextPosition < actualTotalLength)
 		{
 			UnicodeString text;
 			WideChar wChar;
 			GameWindow *window;
-			if (bioTextPosition < bioLine1.getLength())
+			Int line1Len = bioLine1.getLength();
+			Int line2Len = bioLine2.getLength();
+			Int line3Len = bioLine3.getLength();
+			Int line4Len = bioLine4.getLength();
+			if (bioTextPosition < line1Len)
 			{
 				text = GadgetStaticTextGetText(bioLine1Entry);
 				wChar = bioLine1.getCharAt(bioTextPosition);
 				window = bioLine1Entry;
 			}
-			else if (bioTextPosition < bioLine1.getLength() + bioLine2.getLength())
+			else if (bioTextPosition < line1Len + line2Len)
 			{
+				Int idx = bioTextPosition - line1Len;
+				if (idx < 0 || idx >= line2Len) break;
 				text = GadgetStaticTextGetText(bioLine2Entry);
-				wChar = bioLine2.getCharAt(bioTextPosition - bioLine1.getLength());
+				wChar = bioLine2.getCharAt(idx);
 				window = bioLine2Entry;
 			}
-			else if (bioTextPosition < bioLine1.getLength() + bioLine2.getLength() + bioLine3.getLength())
+			else if (bioTextPosition < line1Len + line2Len + line3Len)
 			{
+				Int idx = bioTextPosition - line1Len - line2Len;
+				if (idx < 0 || idx >= line3Len) break;
 				text = GadgetStaticTextGetText(bioLine3Entry);
-				wChar = bioLine3.getCharAt(bioTextPosition - bioLine1.getLength() - bioLine2.getLength());
+				wChar = bioLine3.getCharAt(idx);
 				window = bioLine3Entry;
 			}
 			else
 			{
+				Int idx = bioTextPosition - line1Len - line2Len - line3Len;
+				if (idx < 0 || idx >= line4Len) break;
 				text = GadgetStaticTextGetText(bioLine4Entry);
-				wChar = bioLine4.getCharAt(bioTextPosition - bioLine1.getLength() - bioLine2.getLength() - bioLine3.getLength());
+				wChar = bioLine4.getCharAt(idx);
 				window = bioLine4Entry;
 			}
 
