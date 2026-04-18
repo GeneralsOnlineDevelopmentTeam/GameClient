@@ -56,8 +56,6 @@
 
 // DEFINES ////////////////////////////////////////////////////////////////////
 
-int GetGameListRowPixelOffsetForRow(GameWindow* window, int rowIndex, int rowHeight);
-
 // PRIVATE TYPES //////////////////////////////////////////////////////////////
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////
@@ -69,6 +67,73 @@ int GetGameListRowPixelOffsetForRow(GameWindow* window, int rowIndex, int rowHei
 ///////////////////////////////////////////////////////////////////////////////
 // PRIVATE FUNCTIONS //////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
+
+// ApplyListBoxRowAnimation====================================================
+// applies row entry animation offset to drawY.
+// rows slide in from below their target position and settle into place
+//=============================================================================
+struct RowAnimState
+{
+	Real        currentIndex;   // where the row is drawn right now, catches up to targetIndex over time
+	Real        targetIndex;    // where the row actually belongs in the list
+	UnsignedInt lastUpdateTime; // last time this row was drawn, used to detect when a listbox reopens
+	void	   *lastItemData;   // last item data seen in this slot, used to detect when the item changes
+
+	RowAnimState()
+	{
+		currentIndex = 0.f;
+		targetIndex = 0.f;
+		lastUpdateTime = 0;
+		lastItemData = nullptr;
+	}
+};
+
+static std::map<Int, RowAnimState> theRowAnimState;
+static void ApplyListBoxRowAnimation(GameWindow *window, Int rowIndex, Int rowHeight, Int &drawY)
+{
+	if (!window)
+		return;
+
+	// shift window ID to avoid collisions with rowIndex
+	Int rowAnimKey = (window->winGetWindowId() << 16) + rowIndex;
+	RowAnimState &anim = theRowAnimState[rowAnimKey];
+	UnsignedInt now = timeGetTime();
+	Real deltaTime = 0.f;
+
+	if (anim.lastUpdateTime != 0)
+	{
+		UnsignedInt elapsedMs = now - anim.lastUpdateTime;
+
+		// if this row hasn't been drawn for over 60ms, the listbox was closed, reset its state so it re-animates on the next open
+		if (elapsedMs > 60)
+		{
+			anim = RowAnimState();
+		}
+		else
+		{
+			deltaTime = elapsedMs / (Real)MSEC_PER_SECOND;
+		}
+	}
+
+	anim.lastUpdateTime = now;
+	void *itemData = GadgetListBoxGetItemData(window, rowIndex);
+	Real  rowIndexF = (Real)rowIndex;
+
+	// trigger animation when first seen, when the row moves, or when the item in this slot changes
+	if (anim.currentIndex < 0.f || anim.targetIndex != rowIndexF || itemData != anim.lastItemData)
+	{
+		const Real rowAnimStartOffset = 1.f;
+		anim.currentIndex = rowIndexF + rowAnimStartOffset;
+	}
+
+	anim.lastItemData = itemData;
+	anim.targetIndex = rowIndexF;
+
+	const Real snapSpeed = 20.f;
+	anim.currentIndex += (anim.targetIndex - anim.currentIndex) * snapSpeed * deltaTime;
+
+	drawY += (Int)((anim.currentIndex - rowIndexF) * (Real)rowHeight);
+}
 
 // drawHiliteBar ==============================================================
 /** Draw image for the hilite bar */
@@ -197,13 +262,8 @@ static void drawListBoxText( GameWindow *window, WinInstanceData *instData,
 	IRegion2D clipRegion;
 	ICoord2D start, end;
 
-    Color debugBg = TheWindowManager->winMakeColor(3, 93, 166, 20);
-	TheWindowManager->winFillRect(
-		debugBg,
-		WIN_DRAW_LINE_WIDTH,
-		x, y,
-		x + width, y + height
-	);
+    Color WindowBg = TheWindowManager->winMakeColor(3, 93, 166, 20);
+	TheWindowManager->winFillRect(WindowBg, WIN_DRAW_LINE_WIDTH, x, y, x + width, y + height);
 
 	//
 	// save the clipping information region cause we're going to use it here
@@ -244,8 +304,7 @@ static void drawListBoxText( GameWindow *window, WinInstanceData *instData,
 		selected = FALSE;
 
 		int rowDrawY = drawY;
-
-		rowDrawY += GetGameListRowPixelOffsetForRow(window, i, listLineHeight);
+		ApplyListBoxRowAnimation(window, i, listLineHeight, rowDrawY);
 
 		if (list->multiSelect)
 		{
@@ -682,4 +741,3 @@ void W3DGadgetListBoxImageDraw( GameWindow *window, WinInstanceData *instData )
 
 
 }
-

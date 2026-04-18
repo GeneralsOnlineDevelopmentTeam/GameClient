@@ -123,16 +123,3 @@ inline Color GadgetTextEntryGetHiliteBorderColor( GameWindow *g )					{ return g
 
 // EXTERNALS //////////////////////////////////////////////////////////////////
 
-struct GameRowAnim
-{
-	float currentIndex;
-	float targetIndex;
-	bool  alive;
-
-	GameRowAnim()
-		: currentIndex(0.0f)
-		, targetIndex(0.0f)
-		, alive(false)
-	{
-	}
-};
