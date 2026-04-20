@@ -370,7 +370,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
 
 		case WM_QUERYENDSESSION:
 		{
-			TheMessageStream->appendMessage(GameMessage::MSG_META_DEMO_INSTANT_QUIT);
+			if (TheMessageStream)
+			{
+				TheMessageStream->appendMessage(GameMessage::MSG_META_DEMO_INSTANT_QUIT);
+			}
 			return 0;	//don't allow Windows to shutdown while game is running.
 		}
 
@@ -382,7 +385,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
 
 				//This method didn't work in cinematics because we don't process messages.
 				//But it's the cleanest way to exit that's similar to using menus.
-				TheMessageStream->appendMessage(GameMessage::MSG_META_DEMO_INSTANT_QUIT);
+				if (TheMessageStream)
+				{
+					TheMessageStream->appendMessage(GameMessage::MSG_META_DEMO_INSTANT_QUIT);
+				}
 
 				//This method used to disable quitting.  We just put up the options screen instead.
 				//TheMessageStream->appendMessage(GameMessage::MSG_META_OPTIONS);

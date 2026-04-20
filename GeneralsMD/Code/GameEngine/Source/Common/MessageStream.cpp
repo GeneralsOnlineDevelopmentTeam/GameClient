@@ -54,7 +54,15 @@ CommandList *TheCommandList = nullptr;
  */
 GameMessage::GameMessage( GameMessage::Type type )
 {
-	m_playerIndex = ThePlayerList->getLocalPlayer()->getPlayerIndex();
+	// Handle early initialization when ThePlayerList might not be initialized yet
+	if (ThePlayerList && ThePlayerList->getLocalPlayer())
+	{
+		m_playerIndex = ThePlayerList->getLocalPlayer()->getPlayerIndex();
+	}
+	else
+	{
+		m_playerIndex = 0; // Default to player 0 during initialization
+	}
 	m_type = type;
 	m_argList = nullptr;
 	m_argTail = nullptr;
