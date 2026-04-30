@@ -1,5 +1,8 @@
 #pragma once
 #include "libcurl/curl.h"
+#include <string>
+#include <vector>
+#include <cstdint>
 
 enum EHTTPVersion
 {
@@ -60,6 +63,69 @@ public:
 
 
 	bool Debug_VerboseLogging() const { return m_bVerbose; }
+
+	// -------- Lobby voice chat settings --------
+	bool  Voice_GetEnabled() const { return m_Voice_Enabled; }
+	const std::wstring& Voice_GetCaptureDeviceID() const { return m_Voice_CaptureDeviceID; }
+	float Voice_GetMicGain() const { return m_Voice_MicGain; }
+	float Voice_GetGlobalVolume() const { return m_Voice_GlobalVolume; }
+
+	// -------- Persistent per-client voice ignore list --------
+	// Client-local only. Never transmitted, never uploaded. When the local
+	// user mutes a peer via /voice mute, that peer's NGMP userID gets
+	// appended here and the list survives game restarts, so a troll that
+	// constantly leaves and re-joins the same lobby cannot bypass the mute
+	// just by reconnecting.
+	//
+	// Muting affects ONLY the muter's own playback: VoicePlayback drops the
+	// decoded audio locally. Nobody else's client knows or cares.
+	const std::vector<int64_t>& Voice_GetMutedPeers() const { return m_Voice_MutedPeers; }
+
+	void Save_Voice_Enabled(bool enabled)
+	{
+		m_Voice_Enabled = enabled;
+		Save();
+	}
+	void Save_Voice_CaptureDeviceID(const std::wstring& deviceID)
+	{
+		m_Voice_CaptureDeviceID = deviceID;
+		Save();
+	}
+	void Save_Voice_MicGain(float gain)
+	{
+		if (gain < 0.0f) gain = 0.0f;
+		if (gain > 4.0f) gain = 4.0f;
+		m_Voice_MicGain = gain;
+		Save();
+	}
+	void Save_Voice_GlobalVolume(float volume)
+	{
+		if (volume < 0.0f) volume = 0.0f;
+		if (volume > 2.0f) volume = 2.0f;
+		m_Voice_GlobalVolume = volume;
+		Save();
+	}
+
+	// Replace the full persistent mute list. Caller is expected to dedupe
+	// and drop invalid IDs (<=0) beforehand; we still re-validate here so
+	// a corrupt caller cannot poison the file.
+	void Save_Voice_MutedPeers(const std::vector<int64_t>& mutedPeers)
+	{
+		m_Voice_MutedPeers.clear();
+		m_Voice_MutedPeers.reserve(mutedPeers.size());
+		for (int64_t id : mutedPeers)
+		{
+			if (id <= 0) continue;
+			// dedupe - small N, linear scan is cheaper than a set
+			bool dup = false;
+			for (int64_t existing : m_Voice_MutedPeers)
+			{
+				if (existing == id) { dup = true; break; }
+			}
+			if (!dup) m_Voice_MutedPeers.push_back(id);
+		}
+		Save();
+	}
 
 	int GetChatLifeSeconds() const { return std::max<int>(m_Chat_LifeSeconds, 10); }
 
@@ -138,4 +204,17 @@ private:
 
 	EHTTPVersion m_Network_HTTPVersion = EHTTPVersion::HTTP_VERSION_AUTO;
 	bool m_Network_UseAlternativeEndpoint = false;
+
+	// -------- Lobby voice chat settings --------
+	// Empty string = use the system default communications device.
+	bool  m_Voice_Enabled = true;
+	std::wstring m_Voice_CaptureDeviceID;
+	float m_Voice_MicGain = 1.0f;
+	float m_Voice_GlobalVolume = 1.0f;
+
+	// Persistent per-client ignore list. See comment on Voice_GetMutedPeers.
+	// Stored in the settings JSON as an array of DECIMAL STRINGS (not raw
+	// numbers) because NGMP user IDs can exceed the ~2^53 safe integer
+	// precision of nlohmann::json's default number handling.
+	std::vector<int64_t> m_Voice_MutedPeers;
 };

@@ -2,6 +2,10 @@
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
+#include "GameNetwork/GeneralsOnline/Voice/NGMPVoiceBridge.h" // GENERALS ONLINE - Voice Chat
+#ifdef ENABLE_VOICE_CHAT
+#include "GameNetwork/GeneralsOnline/Voice/VoiceSlashCommands.h"
+#endif
 #include "GameClient/MapUtil.h"
 #include "GameLogic/GameLogic.h"
 
@@ -470,6 +474,43 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 
 void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
+#ifdef ENABLE_VOICE_CHAT
+	// ------------------------------------------------------------------
+	// Intercept "/voice ..." locally so voice chat can be tuned from the
+	// lobby chat box without touching any vanilla chat-input files. The
+	// command never leaves the client - it is consumed here and the
+	// output is pushed into the same chat listbox via the existing
+	// m_OnChatCallback pipeline.
+	// ------------------------------------------------------------------
+	if (!bIsAction && strChatMsgUnicode.getLength() >= 6)
+	{
+		AsciiString asciiMsg;
+		asciiMsg.translate(strChatMsgUnicode);
+		if (asciiMsg.getCharAt(0) == '/')
+		{
+			AsciiString rest = asciiMsg.str() + 1;
+			AsciiString token;
+			rest.nextToken(&token);
+			token.toLower();
+			if (token == "voice")
+			{
+				// Same yellow as existing GenOnline lobby notices (GameMakeColor(255,194,15,255))
+			// Color is ARGB packed int: (a<<24)|(r<<16)|(g<<8)|b.
+			const Color voiceColor = static_cast<Color>(0xFFFFC20F);
+				Voice::HandleVoiceSlashCommand(rest,
+					[this, voiceColor](const UnicodeString& line)
+					{
+						if (m_OnChatCallback != nullptr)
+						{
+							m_OnChatCallback(line, voiceColor);
+						}
+					});
+				return; // fully handled locally, do NOT forward to server
+			}
+		}
+	}
+#endif
+
 	std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();;
 	if (pWS != nullptr)
 	{
@@ -551,6 +592,17 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				lobbyEntryIter["IsTrackingStats"].get_to(lobbyEntry.track_stats);
 				lobbyEntryIter["IsPassworded"].get_to(lobbyEntry.passworded);
 				lobbyEntryIter["AllowObservers"].get_to(lobbyEntry.allow_observers);
+#if defined(ENABLE_VOICE_CHAT)
+				// NGMP: Voice flag is optional for backwards compat; default TRUE.
+				if (lobbyEntryIter.contains("VoiceEnabled"))
+				{
+					lobbyEntryIter["VoiceEnabled"].get_to(lobbyEntry.voice_enabled);
+				}
+				else
+				{
+					lobbyEntry.voice_enabled = true;
+				}
+#endif
 				lobbyEntryIter["MaximumCameraHeight"].get_to(lobbyEntry.max_cam_height);
 				lobbyEntryIter["ExeCRC"].get_to(lobbyEntry.exe_crc);
 				lobbyEntryIter["IniCRC"].get_to(lobbyEntry.ini_crc);
@@ -816,6 +868,17 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryIter["IsTrackingStats"].get_to(lobbyEntry.track_stats);
 						lobbyEntryIter["IsPassworded"].get_to(lobbyEntry.passworded);
 						lobbyEntryIter["AllowObservers"].get_to(lobbyEntry.allow_observers);
+#if defined(ENABLE_VOICE_CHAT)
+						// NGMP: Voice flag is optional for backwards compat; default TRUE.
+						if (lobbyEntryIter.contains("VoiceEnabled"))
+						{
+							lobbyEntryIter["VoiceEnabled"].get_to(lobbyEntry.voice_enabled);
+						}
+						else
+						{
+							lobbyEntry.voice_enabled = true;
+						}
+#endif
 						lobbyEntryIter["MaximumCameraHeight"].get_to(lobbyEntry.max_cam_height);
 						lobbyEntryIter["ExeCRC"].get_to(lobbyEntry.exe_crc);
 						lobbyEntryIter["IniCRC"].get_to(lobbyEntry.ini_crc);
@@ -1196,6 +1259,10 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 	// reset host migration flags
 	ResetHostMigrationFlags();
 
+	// GENERALS ONLINE - Voice Chat: tear down audio BEFORE the mesh is
+	// deleted so the sink never references a dangling mesh pointer.
+	NGMPVoiceBridge::OnLeftLobby();
+
 	// kill mesh
 	if (m_pLobbyMesh != nullptr)
 	{
@@ -1259,7 +1326,7 @@ struct CreateLobbyResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateLobbyResponse, result, lobby_id, turn_username, turn_token)
 };
 
-void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers)
+void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers, bool bVoiceEnabled)
 {
 	NGMP_OnlineServicesManager::GetInstance()->GetAndParseServiceConfig([=]()
 		{
@@ -1295,6 +1362,11 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 			j["passworded"] = bPassworded;
 			j["password"] = strPassword;
 			j["allow_observers"] = bAllowObservers;
+#if defined(ENABLE_VOICE_CHAT)
+			// NGMP: voice chat enabled flag. The server currently ignores
+			// unknown fields, so this is forward-compatible with older backends.
+			j["voice_enabled"] = bVoiceEnabled;
+#endif
 			j["exe_crc"] = TheGlobalData->m_exeCRC;
 			j["ini_crc"] = TheGlobalData->m_iniCRC;
 			j["max_cam_height"] = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight_WhenLobbyHost();
@@ -1411,6 +1483,17 @@ void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpd
 	if (m_pLobbyMesh == nullptr)
 	{
 		m_pLobbyMesh = new NetworkMesh();
+	}
+
+	// GENERALS ONLINE - Voice Chat: open mic/speaker and hook the sink now
+	// that we have a live mesh to broadcast over.
+	{
+		NGMP_OnlineServices_AuthInterface* pAuthInterface =
+			NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+		if (pAuthInterface != nullptr)
+		{
+			NGMPVoiceBridge::OnEnteredLobby(pAuthInterface->GetUserID());
+		}
 	}
 
 	m_bMarkedGameAsFinished = false;

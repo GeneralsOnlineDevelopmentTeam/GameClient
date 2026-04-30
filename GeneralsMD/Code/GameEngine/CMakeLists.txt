@@ -1196,6 +1196,21 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/GeneralsOnline/OnlineServices_MatchmakingInterface.cpp
     Source/GameNetwork/GeneralsOnline/NextGenTransport.cpp
     Source/GameNetwork/GeneralsOnline/NetworkBitstream.cpp
+    # Lobby voice chat
+    Include/GameNetwork/GeneralsOnline/Voice/VoiceCapture.h
+    Include/GameNetwork/GeneralsOnline/Voice/VoicePlayback.h
+    Include/GameNetwork/GeneralsOnline/Voice/VoiceOpusCodec.h
+    Include/GameNetwork/GeneralsOnline/Voice/VoiceManager.h
+    Include/GameNetwork/GeneralsOnline/Voice/NGMPVoiceBridge.h
+    Include/GameNetwork/GeneralsOnline/Voice/VoiceSlashCommands.h
+    Include/GameNetwork/GeneralsOnline/Voice/VoiceOptionsUI.h
+    Source/GameNetwork/GeneralsOnline/Voice/VoiceCapture.cpp
+    Source/GameNetwork/GeneralsOnline/Voice/VoicePlayback.cpp
+    Source/GameNetwork/GeneralsOnline/Voice/VoiceOpusCodec.cpp
+    Source/GameNetwork/GeneralsOnline/Voice/VoiceManager.cpp
+    Source/GameNetwork/GeneralsOnline/Voice/NGMPVoiceBridge.cpp
+    Source/GameNetwork/GeneralsOnline/Voice/VoiceSlashCommands.cpp
+    Source/GameNetwork/GeneralsOnline/Voice/VoiceOptionsUI.cpp
 )
 
 if(RTS_GAMEMEMORY_ENABLE)
@@ -1241,6 +1256,29 @@ target_link_libraries(z_gameengine PUBLIC
     z_wwvegas
 )
 
+# --------------------------------------------------------------------
+# Voice chat support (lobby VoIP)
+#
+# Uses Opus for encoding + WASAPI for capture/playback. Both are always
+# available on Windows: Opus comes via vcpkg, WASAPI is part of the OS.
+# The ENABLE_VOICE_CHAT define gates all voice-chat code so the feature
+# can be compiled out cleanly.
+# --------------------------------------------------------------------
+find_package(Opus CONFIG QUIET)
+if(Opus_FOUND)
+    target_link_libraries(z_gameengine PRIVATE Opus::opus)
+    target_compile_definitions(z_gameengine PUBLIC ENABLE_VOICE_CHAT)
+    # WASAPI / MMDevice / CoreAudio
+    target_link_libraries(z_gameengine PRIVATE
+        ole32
+        winmm
+        avrt
+    )
+    message(STATUS "Voice chat: ENABLED (Opus ${Opus_VERSION} + WASAPI)")
+else()
+    message(STATUS "Voice chat: DISABLED (Opus not found via vcpkg)")
+endif()
+
 target_precompile_headers(z_gameengine PRIVATE
     [["Utility/CppMacros.h"]] # Must be first, to be removed when abandoning VC6
     Include/Precompiled/PreRTS.h
@@ -1248,4 +1286,4 @@ target_precompile_headers(z_gameengine PRIVATE
 
 
 add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
-add_compile_definitions(GENERALS_ONLINE)
+add_compile_definitions(GENERALS_ONLINE)
