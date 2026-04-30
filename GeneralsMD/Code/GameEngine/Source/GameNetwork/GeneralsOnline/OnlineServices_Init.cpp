@@ -1,4 +1,5 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#include "GameNetwork/GeneralsOnline/AnticheatPluginResolver.h"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "../json.hpp"
 #include "GameClient/MessageBox.h"
@@ -37,6 +38,16 @@ std::vector<S3ScreenshotEntry> NGMP_OnlineServicesManager::m_vecGuardedSSData;
 
 
 bool NGMP_OnlineServicesManager::g_bAdvancedNetworkStats;
+
+namespace
+{
+	UnicodeString ToUnicodeString(const std::string& value)
+	{
+		UnicodeString out;
+		out.translate(AsciiString(value.c_str()));
+		return out;
+	}
+}
 
 NetworkMesh* NGMP_OnlineServicesManager::GetNetworkMesh()
 {
@@ -831,14 +842,66 @@ void NGMP_OnlineServicesManager::Init()
 	m_pHTTPManager = new HTTPManager();
 	m_pHTTPManager->Initialize();
 
-    std::string strPlugin = NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
-	std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
+	NGMP_OnlineServicesManager::Settings.EnsureInitialized();
 
-#if _DEBUG
-	AnticheatPlugInterface::LoadPlugin(pluginPath.c_str());
-#else
-	AnticheatPlugInterface::LoadPlugin(pluginPath.c_str());
-#endif
+	const std::string configuredPlugin =
+		NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
+
+	const AnticheatPluginResolutionResult acResolution =
+		AnticheatPluginResolver::Resolve(
+			configuredPlugin,
+			NGMP_OnlineServicesManager::Settings.WasAnticheatPluginDefaulted());
+
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "%s", acResolution.ToLogString().c_str());
+
+	if (!acResolution.found)
+	{
+		const std::string message = acResolution.ToUserFacingString();
+
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] %s", message.c_str());
+
+		ClearGSMessageBoxes();
+		MessageBoxOk(
+			UnicodeString(L"AntiCheat Error"),
+			ToUnicodeString(message),
+			[]()
+			{
+				TheGameEngine->setQuitting(TRUE);
+			});
+
+		return;
+	}
+
+	std::string loadFailure;
+	if (!AnticheatPlugInterface::LoadPlugin(acResolution.selectedPath.string().c_str(), &loadFailure))
+	{
+		std::string message;
+		message += "GeneralsOnline found the AntiCheat plugin file, but Windows could not load it.\n\n";
+		message += "Plugin path:\n";
+		message += acResolution.selectedPath.string();
+		message += "\n\n";
+		message += "Windows/load error:\n";
+		message += loadFailure;
+		message += "\n\n";
+		message += "Common causes:\n";
+		message += "- Missing dependency DLL next to the plugin\n";
+		message += "- Antivirus quarantined part of the plugin\n";
+		message += "- 32-bit / 64-bit DLL mismatch\n";
+		message += "- EasyAntiCheat service is not installed or not running\n";
+
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] %s", message.c_str());
+
+		ClearGSMessageBoxes();
+		MessageBoxOk(
+			UnicodeString(L"AntiCheat Error"),
+			ToUnicodeString(message),
+			[]()
+			{
+				TheGameEngine->setQuitting(TRUE);
+			});
+
+		return;
+	}
 
 	// TODO_NGMP: Better location
 	// TODO_NGMP: Get all of this from the service

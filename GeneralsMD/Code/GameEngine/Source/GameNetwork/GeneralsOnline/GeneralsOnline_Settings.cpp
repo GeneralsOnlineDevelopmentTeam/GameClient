@@ -3,6 +3,9 @@
 #include "../OnlineServices_LobbyInterface.h"
 #include "../OnlineServices_Init.h"
 
+#include <algorithm>
+#include <cctype>
+
 #define SETTINGS_KEY_CAMERA "camera"
 #define SETTINGS_KEY_CAMERA_MIN_HEIGHT "min_height"
 #define SETTINGS_KEY_CAMERA_MOVE_SPEED_RATIO "move_speed_ratio"
@@ -39,6 +42,40 @@
 
 #define SETTINGS_FILENAME_LEGACY "GeneralsOnline_settings.json"
 #define SETTINGS_FILENAME "settings.json"
+
+namespace
+{
+	std::string TrimSettingsValue(std::string value)
+	{
+		auto notSpace = [](unsigned char c)
+		{
+			return !std::isspace(c);
+		};
+
+		value.erase(value.begin(), std::find_if(value.begin(), value.end(), notSpace));
+		value.erase(std::find_if(value.rbegin(), value.rend(), notSpace).base(), value.end());
+
+		return value;
+	}
+
+	std::string NormalizeAnticheatPluginSetting(std::string value, bool* outUsedDefault = nullptr)
+	{
+		value = TrimSettingsValue(value);
+		const bool usedDefault = value.empty();
+
+		if (outUsedDefault != nullptr)
+		{
+			*outUsedDefault = usedDefault;
+		}
+
+		if (usedDefault)
+		{
+			return GenOnlineSettings::DEFAULT_ANTICHEAT_PLUGIN;
+		}
+
+		return value;
+	}
+}
 
 GenOnlineSettings::GenOnlineSettings()
 {
@@ -249,15 +286,27 @@ void GenOnlineSettings::Load(void)
                 }
             }
 
+			bool anticheatSettingPresent = false;
+			bool anticheatSettingNormalizedToDefault = false;
+
 			if (jsonSettings.contains(SETTINGS_KEY_PLUGINS))
 			{
 				auto pluginSettings = jsonSettings[SETTINGS_KEY_PLUGINS];
 
 				if (pluginSettings.contains(SETTINGS_KEY_PLUGINS_ANTICHEAT))
 				{
-					m_Plugins_Anticheat = pluginSettings[SETTINGS_KEY_PLUGINS_ANTICHEAT];
+					anticheatSettingPresent = true;
+					const auto& anticheatSetting = pluginSettings[SETTINGS_KEY_PLUGINS_ANTICHEAT];
+					m_Plugins_Anticheat = anticheatSetting.is_string()
+						? anticheatSetting.get<std::string>()
+						: std::string();
 				}
 			}
+
+			m_Plugins_Anticheat = NormalizeAnticheatPluginSetting(
+				m_Plugins_Anticheat,
+				&anticheatSettingNormalizedToDefault);
+			m_bAnticheatPluginDefaulted = !anticheatSettingPresent || anticheatSettingNormalizedToDefault;
 		}
 		
 	}
@@ -275,6 +324,8 @@ void GenOnlineSettings::Load(void)
 		m_Render_FramerateLimit_FPSVal = 60;
 		m_Render_DrawStatsOverlay = true;
 		m_Chat_LifeSeconds = 30;
+		m_Plugins_Anticheat = GenOnlineSettings::DEFAULT_ANTICHEAT_PLUGIN;
+		m_bAnticheatPluginDefaulted = true;
 
         m_Social_Notification_FriendComesOnline_Menus = true;
         m_Social_Notification_FriendComesOnline_Gameplay = true;
@@ -292,6 +343,8 @@ void GenOnlineSettings::Save()
 	{
 		Initialize();
 	}
+
+	m_Plugins_Anticheat = NormalizeAnticheatPluginSetting(m_Plugins_Anticheat);
 
 	nlohmann::json root = {
 		  {

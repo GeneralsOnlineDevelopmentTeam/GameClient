@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 
 enum class EAnticheatActionType : int32_t
 {
@@ -41,7 +42,7 @@ public:
 
     static int GetAnticheatIdentifier();
 
-    static void LoadPlugin(const char* szPluginName);
+    static bool LoadPlugin(const char* szPluginPath, std::string* outFailureReason = nullptr);
     static void Authenticate();
     static void UnloadPlugin();
     static void Tick();
@@ -111,6 +112,8 @@ public:
     // Module
     static HMODULE g_hACPluginModule;
     static bool m_bPluginLoadFailed;
+    static DWORD m_lastLoadError;
+    static std::string m_lastLoadPath;
 
     static int64_t m_tokenCreationTime;
 };

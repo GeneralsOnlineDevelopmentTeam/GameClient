@@ -4,13 +4,53 @@
 #include "../OnlineServices_Init.h"
 #include "../OnlineServices_Auth.h"
 
+#include <format>
+
+namespace
+{
+    std::string FormatWin32ErrorMessage(DWORD errorCode)
+    {
+        LPSTR messageBuffer = nullptr;
+
+        const DWORD size = FormatMessageA(
+            FORMAT_MESSAGE_ALLOCATE_BUFFER |
+            FORMAT_MESSAGE_FROM_SYSTEM |
+            FORMAT_MESSAGE_IGNORE_INSERTS,
+            nullptr,
+            errorCode,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            reinterpret_cast<LPSTR>(&messageBuffer),
+            0,
+            nullptr);
+
+        std::string message;
+
+        if (size > 0 && messageBuffer != nullptr)
+        {
+            message = messageBuffer;
+            LocalFree(messageBuffer);
+        }
+        else
+        {
+            message = "Unknown Windows error";
+        }
+
+        while (!message.empty() &&
+            (message.back() == '\r' || message.back() == '\n' || message.back() == ' '))
+        {
+            message.pop_back();
+        }
+
+        return std::format("{} ({})", message, errorCode);
+    }
+}
+
 #define AC_PLUGIN_LOAD_FUNCTION(funcName) \
-    AnticheatPlugInterface::Functions.fn##funcName = (FuncDef##funcName)GetProcAddress(g_hACPluginModule, #funcName); \
+    AnticheatPlugInterface::Functions.fn##funcName = \
+        (FuncDef##funcName)GetProcAddress(g_hACPluginModule, #funcName); \
     if (!AnticheatPlugInterface::Functions.fn##funcName) \
     { \
-        NetworkLog(ELogVerbosity::LOG_RELEASE, "Failed to find " #funcName " function", MB_OK); \
-        FreeLibrary(g_hACPluginModule); \
-        return; \
+        return Fail(std::format("Plugin loaded, but required export '{}' was not found.", #funcName)); \
     }
 
 bool AnticheatPlugInterface::IsExternalProcessRunning()
@@ -33,129 +73,167 @@ int AnticheatPlugInterface::GetAnticheatIdentifier()
     return 0;
 }
 
-void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
+bool AnticheatPlugInterface::LoadPlugin(const char* szPluginPath, std::string* outFailureReason)
 {
-    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Attempting to load plugin from %s", szPluginName);
+    auto Fail = [&](const std::string& reason) -> bool
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Plugin load failed: %s", reason.c_str());
+
+        if (outFailureReason != nullptr)
+        {
+            *outFailureReason = reason;
+        }
+
+        if (g_hACPluginModule != nullptr)
+        {
+            FreeLibrary(g_hACPluginModule);
+            g_hACPluginModule = nullptr;
+        }
+
+        Functions = AnticheatPluginFunctionPtrs{};
+        m_bPluginLoadFailed = true;
+
+        return false;
+    };
+
+    if (g_hACPluginModule != nullptr)
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Existing plugin module is loaded; unloading before reload.");
+        UnloadPlugin();
+    }
 
     m_bPluginLoadFailed = false;
-    g_hACPluginModule = LoadLibraryA(szPluginName);
+    m_lastLoadError = ERROR_SUCCESS;
+    m_lastLoadPath.clear();
+    Functions = AnticheatPluginFunctionPtrs{};
+
+    if (szPluginPath == nullptr || szPluginPath[0] == '\0')
+    {
+        return Fail("Resolved AntiCheat plugin path was empty.");
+    }
+
+    m_lastLoadPath = szPluginPath;
+
+    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Attempting to load plugin from absolute path: %s", szPluginPath);
+
+    g_hACPluginModule = LoadLibraryExA(
+        szPluginPath,
+        nullptr,
+        LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
 
     if (!g_hACPluginModule)
     {
-        g_hACPluginModule = nullptr;
-        m_bPluginLoadFailed = true;
+        m_lastLoadError = GetLastError();
 
-        DWORD err = GetLastError();
-        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Failed to load %s (%u)", szPluginName, err);
+        return Fail(
+            std::format(
+                "Windows failed to load '{}'. GetLastError={}",
+                szPluginPath,
+                FormatWin32ErrorMessage(m_lastLoadError)));
     }
-    else
-    {
-        // set logger 
-        AC_PLUGIN_LOAD_FUNCTION(SetLoggingFunction);
 
-        Functions.fnSetLoggingFunction([](const char* szMsg)
-            {
-                //MessageBoxA(nullptr, szMsg, szMsg, MB_OK);
-                NetworkLog(ELogVerbosity::LOG_RELEASE, szMsg);
-            });
+    AC_PLUGIN_LOAD_FUNCTION(SetLoggingFunction);
 
-        // Initialize AC
-        AC_PLUGIN_LOAD_FUNCTION(Initialize);
+    Functions.fnSetLoggingFunction([](const char* szMsg)
+        {
+            NetworkLog(ELogVerbosity::LOG_RELEASE, "%s", szMsg);
+        });
 
-        int result = Functions.fnInitialize();
-        NetworkLog(ELogVerbosity::LOG_RELEASE, "Initialize result = %d", result);
+    AC_PLUGIN_LOAD_FUNCTION(Initialize);
 
-        // check loaded
-        AC_PLUGIN_LOAD_FUNCTION(IsExternalProcessRunning);
+    const int result = Functions.fnInitialize();
+    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Initialize result = %d", result);
 
-        AC_PLUGIN_LOAD_FUNCTION(GetAnticheatIdentifier);
+    AC_PLUGIN_LOAD_FUNCTION(IsExternalProcessRunning);
+    AC_PLUGIN_LOAD_FUNCTION(GetAnticheatIdentifier);
 
 #if _DEBUG
-        SetWindowText(ApplicationHWnd, Functions.fnIsExternalProcessRunning() ? "SECURED" : "INSECURE");
+    SetWindowText(ApplicationHWnd, Functions.fnIsExternalProcessRunning() ? "SECURED" : "INSECURE");
 #endif
 
-        // integrity callback
-        AC_PLUGIN_LOAD_FUNCTION(SetACIntegrityViolationOccurredCallback);
+    AC_PLUGIN_LOAD_FUNCTION(SetACIntegrityViolationOccurredCallback);
 
-        Functions.fnSetACIntegrityViolationOccurredCallback([](const char* szReason, int violationType)
+    Functions.fnSetACIntegrityViolationOccurredCallback([](const char* szReason, int violationType)
+        {
+            NetworkLog(
+                ELogVerbosity::LOG_RELEASE,
+                "[AC] Leaving lobby, local AC integrity violation occurred (%d): %s.",
+                violationType,
+                szReason);
+
+            g_bPendingExitLobby = true;
+        });
+
+    AC_PLUGIN_LOAD_FUNCTION(SetACActionRequiredCallback);
+
+    Functions.fnSetACActionRequiredCallback([](
+        uint32_t userID,
+        const char* szReason,
+        EAnticheatActionType actionType,
+        EAnticheatActionReason actionReason)
+        {
+            NGMP_OnlineServices_AuthInterface* pAuthInterface =
+                NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+
+            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Action required.");
+
+            if (pAuthInterface == nullptr)
             {
-                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, local AC integrity violation occured (%d): %s.", violationType, szReason);
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, no auth interface.");
                 g_bPendingExitLobby = true;
-            });
+                return;
+            }
 
-        // set action required callback
-        AC_PLUGIN_LOAD_FUNCTION(SetACActionRequiredCallback);
-
-        Functions.fnSetACActionRequiredCallback([](uint32_t userID, const char* szReason, EAnticheatActionType actionType, EAnticheatActionReason actionReason)
+            if (pAuthInterface->GetUserID() == userID)
             {
-                NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, action requested against local user.");
+                g_bPendingExitLobby = true;
+                return;
+            }
 
-                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Action required.");
+            NetworkLog(
+                ELogVerbosity::LOG_RELEASE,
+                "[AC] Disconnecting remote user %u, action requested by AntiCheat.",
+                userID);
 
-                if (pAuthInterface == nullptr)
-                {
-                    // no auth interface? bail out
-                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, no auth interface.");
-                    g_bPendingExitLobby = true;
-                }
-                else
-                {
-                    // If it's us, leave, if its someone else, d/c them
-                    if (pAuthInterface->GetUserID() == userID)
-                    {
-                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, action was requested against local user.");
-                        g_bPendingExitLobby = true;
-                    }
-                    else
-                    {
-                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnecting remote user, lobby isn't secure, action was requested against remote user %u.", userID);
-
-                        NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-                        if (pMesh != nullptr)
-                        {
-                            pMesh->DisconnectUser(userID);
-                            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnected: %u.", userID);
-                        }
-                        else // no mesh, just back out
-                        {
-                            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, actionable player was remote, but no mesh exists to take action.");
-                            g_bPendingExitLobby = true;
-                        }
-                    }
-                }
-            });
-
-        // set transport callback
-        AC_PLUGIN_LOAD_FUNCTION(SetSendMessageViaTransportCallback);
-        Functions.fnSetSendMessageViaTransportCallback([](uint32_t goUserID, const void* pData, uint32_t dataLen)
+            NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+            if (pMesh != nullptr)
             {
-                NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-                if (pMesh != nullptr)
-                {
-                    pMesh->SendACPacket(goUserID, pData, dataLen);
-                }
-            });
+                pMesh->DisconnectUser(userID);
+            }
+            else
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, no mesh exists for remote action.");
+                g_bPendingExitLobby = true;
+            }
+        });
 
-        // AC network message arrived callback
-        AC_PLUGIN_LOAD_FUNCTION(ACMessageArrivedViaTransport);
+    AC_PLUGIN_LOAD_FUNCTION(SetSendMessageViaTransportCallback);
 
-        // Login funcs
-        AC_PLUGIN_LOAD_FUNCTION(Login);
-        AC_PLUGIN_LOAD_FUNCTION(RefreshToken);
-        AC_PLUGIN_LOAD_FUNCTION(IsLoggedIn);
-        AC_PLUGIN_LOAD_FUNCTION(GetMiddlewareAuthToken);
+    Functions.fnSetSendMessageViaTransportCallback([](uint32_t goUserID, const void* pData, uint32_t dataLen)
+        {
+            NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+            if (pMesh != nullptr)
+            {
+                pMesh->SendACPacket(goUserID, pData, dataLen);
+            }
+        });
 
-        // Begin and end session funcs
-        AC_PLUGIN_LOAD_FUNCTION(BeginSession);
-        AC_PLUGIN_LOAD_FUNCTION(EndSession);
+    AC_PLUGIN_LOAD_FUNCTION(ACMessageArrivedViaTransport);
+    AC_PLUGIN_LOAD_FUNCTION(Login);
+    AC_PLUGIN_LOAD_FUNCTION(RefreshToken);
+    AC_PLUGIN_LOAD_FUNCTION(IsLoggedIn);
+    AC_PLUGIN_LOAD_FUNCTION(GetMiddlewareAuthToken);
+    AC_PLUGIN_LOAD_FUNCTION(BeginSession);
+    AC_PLUGIN_LOAD_FUNCTION(EndSession);
+    AC_PLUGIN_LOAD_FUNCTION(RegisterPlayer);
+    AC_PLUGIN_LOAD_FUNCTION(DeregisterPlayer);
+    AC_PLUGIN_LOAD_FUNCTION(Tick);
+    AC_PLUGIN_LOAD_FUNCTION(Shutdown);
 
-        // register player funcs
-        AC_PLUGIN_LOAD_FUNCTION(RegisterPlayer);
-        AC_PLUGIN_LOAD_FUNCTION(DeregisterPlayer);
+    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Plugin loaded successfully: %s", szPluginPath);
 
-        AC_PLUGIN_LOAD_FUNCTION(Tick);
-        AC_PLUGIN_LOAD_FUNCTION(Shutdown);
-    }
+    return true;
 }
 
 bool AnticheatPlugInterface::g_bPendingExitLobby = false;
@@ -252,6 +330,8 @@ AnticheatPlugInterface::AnticheatPluginFunctionPtrs AnticheatPlugInterface::Func
 
 HMODULE AnticheatPlugInterface::g_hACPluginModule = nullptr;
 bool AnticheatPlugInterface::m_bPluginLoadFailed = false;
+DWORD AnticheatPlugInterface::m_lastLoadError = ERROR_SUCCESS;
+std::string AnticheatPlugInterface::m_lastLoadPath;
 
 int64_t AnticheatPlugInterface::m_tokenCreationTime = -1;
 
