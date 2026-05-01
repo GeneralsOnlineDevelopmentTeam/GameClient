@@ -1,6 +1,8 @@
 #pragma once
 #include "libcurl/curl.h"
 
+#include <string>
+
 enum EHTTPVersion
 {
     HTTP_VERSION_AUTO,
@@ -14,6 +16,8 @@ class GenOnlineSettings
 {
 public:
 	GenOnlineSettings();
+
+	static constexpr const char* DEFAULT_ANTICHEAT_PLUGIN = "easyanticheat";
 
 	float Camera_MoveSpeedRatio() const { return m_Camera_MoveSpeedRatio; }
 	float Camera_GetMinHeight() const { return m_Camera_MinHeight; }
@@ -49,7 +53,33 @@ public:
 		return m_Render_FramerateLimit_FPSVal;
 	}
 
-    std::string GetAnticheatPlugin() const { return m_Plugins_Anticheat; }
+	void EnsureInitialized()
+	{
+		if (!m_bInitialized)
+		{
+			Initialize();
+		}
+	}
+
+	bool IsInitialized() const
+	{
+		return m_bInitialized;
+	}
+
+	bool WasAnticheatPluginDefaulted() const
+	{
+		return m_bAnticheatPluginDefaulted;
+	}
+
+    std::string GetAnticheatPlugin() const
+	{
+		if (m_Plugins_Anticheat.empty())
+		{
+			return DEFAULT_ANTICHEAT_PLUGIN;
+		}
+
+		return m_Plugins_Anticheat;
+	}
 
 	bool Social_Notifications_FriendComesOnline_Menus() { return m_Social_Notification_FriendComesOnline_Menus; }
 	bool Social_Notifications_FriendComesOnline_Gameplay() { return m_Social_Notification_FriendComesOnline_Gameplay; }
@@ -123,6 +153,7 @@ private:
 	bool m_bInitialized = false;
 
 	bool m_bVerbose = false;
+	bool m_bAnticheatPluginDefaulted = false;
 
 	bool m_Render_DrawStatsOverlay = true;
 	bool m_Render_LimitFramerate = true;
@@ -138,7 +169,7 @@ private:
 	bool m_Social_Notification_PlayerSendsRequest_Menus = true;
 	bool m_Social_Notification_PlayerSendsRequest_Gameplay = true;
 
-	std::string m_Plugins_Anticheat = std::string();
+	std::string m_Plugins_Anticheat = DEFAULT_ANTICHEAT_PLUGIN;
 
 	EHTTPVersion m_Network_HTTPVersion = EHTTPVersion::HTTP_VERSION_AUTO;
 	bool m_Network_UseAlternativeEndpoint = false;

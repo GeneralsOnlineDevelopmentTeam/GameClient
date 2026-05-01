@@ -1153,6 +1153,7 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/OnlineServices_StatsInterface.h
     Include/GameNetwork/GeneralsOnline/OnlineServices_SocialInterface.h
     Include/GameNetwork/GeneralsOnline/OnlineServices_MatchmakingInterface.h
+    Include/GameNetwork/GeneralsOnline/AnticheatPluginResolver.h
     Include/GameNetwork/GeneralsOnline/GeneralsOnline_Settings.h
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPManager.h
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h
@@ -1184,6 +1185,7 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/Vendor/libcurl/websockets.h
     Source/GameNetwork/GeneralsOnline/NGMP_Helpers.cpp
     Source/GameNetwork/GeneralsOnline/NGMPGame.cpp
+    Source/GameNetwork/GeneralsOnline/AnticheatPluginResolver.cpp
     Source/GameNetwork/GeneralsOnline/GeneralsOnline_Settings.cpp
     Source/GameNetwork/GeneralsOnline/HTTP/HTTPManager.cpp
     Source/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.cpp
