@@ -37,18 +37,18 @@ static void appendSimulationMathCrc(XferCRC &xfer)
         0.9f, 1.0f, 2.1f, 1.2f);
 
     factorsMatrix.Set(
-        WWMath::Sin(0.7f) * log10f(2.3f),
-        WWMath::Cos(1.1f) * powf(1.1f, 2.0f),
-        tanf(0.3f),
-        asinf(0.967302263f),
-        acosf(0.967302263f),
-        atanf(0.967302263f) * powf(1.1f, 2.0f),
-        atan2f(0.4f, 1.3f),
-        sinhf(0.2f),
-        coshf(0.4f) * tanhf(0.5f),
-        sqrtf(55788.84375f),
-        expf(0.1f) * log10f(2.3f),
-        logf(1.4f));
+        WWMath::Sin(0.7f) * WWMath::Cos(2.3f),
+        WWMath::Cos(1.1f) * WWMath::Sin(1.1f),
+        WWMath::Tan(0.3f),
+        WWMath::Asin(0.967302263f),
+        WWMath::Acos(0.967302263f),
+        WWMath::Atan(0.967302263f) * WWMath::Sqrt(1.21f),
+        WWMath::Atan2(0.4f, 1.3f),
+        WWMath::Sin(0.2f) * WWMath::Cos(0.2f),
+        WWMath::Sqrt(0.4f) * WWMath::Tan(0.5f),
+        WWMath::Sqrt(55788.84375f),
+        WWMath::Acos(0.1f) * WWMath::Cos(2.3f),
+        WWMath::Asin(0.4f));
 
     Matrix3D::Multiply(matrix, factorsMatrix, &matrix);
     matrix.Get_Inverse(matrix);
@@ -65,7 +65,57 @@ UnsignedInt SimulationMathCrc::calculate()
 
     appendSimulationMathCrc(xfer);
 
+#ifdef _WIN32
     _fpreset();
+#endif
+
+    xfer.close();
+
+    return xfer.getCRC();
+}
+
+static void appendSimulationMathCrcSystemMath(XferCRC &xfer)
+{
+    Matrix3D matrix;
+    Matrix3D factorsMatrix;
+
+    matrix.Set(
+        4.1f, 1.2f, 0.3f, 0.4f,
+        0.5f, 3.6f, 0.7f, 0.8f,
+        0.9f, 1.0f, 2.1f, 1.2f);
+
+    factorsMatrix.Set(
+        sinf(0.7f) * cosf(2.3f),
+        cosf(1.1f) * sinf(1.1f),
+        tanf(0.3f),
+        asinf(0.967302263f),
+        acosf(0.967302263f),
+        atanf(0.967302263f) * sqrtf(1.21f),
+        atan2f(0.4f, 1.3f),
+        sinf(0.2f) * cosf(0.2f),
+        sqrtf(0.4f) * tanf(0.5f),
+        sqrtf(55788.84375f),
+        acosf(0.1f) * cosf(2.3f),
+        asinf(0.4f));
+
+    Matrix3D::Multiply(matrix, factorsMatrix, &matrix);
+    matrix.Get_Inverse(matrix);
+
+    xfer.xferMatrix3D(&matrix);
+}
+
+UnsignedInt SimulationMathCrc::calculateSystemMath()
+{
+    XferCRC xfer;
+    xfer.open("SimulationMathCrc_SystemMath");
+
+    setFPMode();
+
+    appendSimulationMathCrcSystemMath(xfer);
+
+#ifdef _WIN32
+    _fpreset();
+#endif
 
     xfer.close();
 

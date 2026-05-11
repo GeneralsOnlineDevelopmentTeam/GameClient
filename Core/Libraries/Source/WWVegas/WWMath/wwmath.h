@@ -39,7 +39,12 @@
 #include "always.h"
 #include <math.h>
 #include <float.h>
+#include "gmath.h"
 #include <assert.h>
+
+#ifdef RETAIL_COMPATIBLE_CRC
+#define USE_DETERMINISTIC_MATH
+#endif
 
  /*
  ** Some global constants.
@@ -107,19 +112,11 @@ public:
 	static WWINLINE int Float_To_Int_Chop(const float& f);
 	static WWINLINE int Float_To_Int_Floor(const float& f);
 
-#if defined(_MSC_VER) && defined(_M_IX86)
-	static WWINLINE float Cos(float val);
-	static WWINLINE float Sin(float val);
-	static WWINLINE float Sqrt(float val);
-	static WWINLINE float Inv_Sqrt(float a);	// Some 30% faster inverse square root than regular C++ compiled, from Intel's math library
-	static WWINLINE long	 Float_To_Long(float f);
-#else
 	static WWINLINE float Cos(float val);
 	static WWINLINE float Sin(float val);
 	static WWINLINE float Sqrt(float val);
 	static WWINLINE float Inv_Sqrt(float a);
 	static WWINLINE long	Float_To_Long(float f);
-#endif
 
 
 	static WWINLINE float Fast_Sin(float val);
@@ -133,8 +130,29 @@ public:
 	static WWINLINE float Asin(float val);
 
 
+#ifdef USE_DETERMINISTIC_MATH
+	static WWINLINE float		Atan(float x) { return gm_atanf(x); }
+	static WWINLINE float		Atan2(float y, float x) { return gm_atan2f(y, x); }
+	static WWINLINE float		Tan(float x) { return gm_tanf(x); }	
+	static WWINLINE float		Sinh(float x) { return gm_sinhf(x); }
+	static WWINLINE float		Cosh(float x) { return gm_coshf(x); }
+	static WWINLINE float		Tanh(float x) { return gm_tanhf(x); }
+	static WWINLINE float		Exp(float x) { return gm_expf(x); }
+	static WWINLINE float		Log(float x) { return gm_logf(x); }
+	static WWINLINE float		Log10(float x) { return gm_log10f(x); }
+	static WWINLINE float		Pow(float x, float y) { return gm_powf(x, y); }
+#else
 	static WWINLINE float		Atan(float x) { return static_cast<float>(atan(x)); }
 	static WWINLINE float		Atan2(float y, float x) { return static_cast<float>(atan2(y, x)); }
+	static WWINLINE float		Tan(float x) { return static_cast<float>(tan(x)); }
+	static WWINLINE float		Sinh(float x) { return static_cast<float>(sinh(x)); }
+	static WWINLINE float		Cosh(float x) { return static_cast<float>(cosh(x)); }
+	static WWINLINE float		Tanh(float x) { return static_cast<float>(tanh(x)); }
+	static WWINLINE float		Exp(float x) { return static_cast<float>(exp(x)); }
+	static WWINLINE float		Log(float x) { return static_cast<float>(log(x)); }
+	static WWINLINE float		Log10(float x) { return static_cast<float>(log10(x)); }
+	static WWINLINE float		Pow(float x, float y) { return static_cast<float>(pow(x, y)); }
+#endif
 	static WWINLINE float		Sign(float val);
 	static WWINLINE float		Ceil(float val) { return ceilf(val); }
 	static WWINLINE float		Floor(float val) { return floorf(val); }
@@ -313,41 +331,26 @@ WWINLINE bool WWMath::Is_Valid_Double(double x)
 // Float to long
 // ----------------------------------------------------------------------------
 
-#if defined(_MSC_VER) && defined(_M_IX86)
 WWINLINE long WWMath::Float_To_Long(float f)
 {
-	long i;
-
-	__asm {
-		fld[f]
-		fistp[i]
-	}
-
-	return i;
+	return (long)(f + (f >= 0.0f ? 0.5f : -0.5f));
 }
-#else
-WWINLINE long WWMath::Float_To_Long(float f)
-{
-	return (long)f;
-}
-#endif
 
 WWINLINE long WWMath::Float_To_Long(double f)
 {
-#if defined(_MSC_VER) && defined(_M_IX86)
-	long retval;
-	__asm fld	qword ptr[f]
-		__asm fistp dword ptr[retval]
-		return retval;
-#else
-	return (long)f;
-#endif
+	return (long)(f + (f >= 0.0 ? 0.5 : -0.5));
 }
 
 // ----------------------------------------------------------------------------
-// Cos
+// Cos (deterministic, GameMath)
 // ----------------------------------------------------------------------------
 
+#ifdef USE_DETERMINISTIC_MATH
+WWINLINE float WWMath::Cos(float val)
+{
+	return gm_cosf(val);
+}
+#else
 #if defined(_MSC_VER) && defined(_M_IX86)
 WWINLINE float WWMath::Cos(float val)
 {
@@ -365,11 +368,18 @@ WWINLINE float WWMath::Cos(float val)
 	return cosf(val);
 }
 #endif
+#endif
 
 // ----------------------------------------------------------------------------
-// Sin
+// Sin (deterministic, GameMath)
 // ----------------------------------------------------------------------------
 
+#ifdef USE_DETERMINISTIC_MATH
+WWINLINE float WWMath::Sin(float val)
+{
+	return gm_sinf(val);
+}
+#else
 #if defined(_MSC_VER) && defined(_M_IX86)
 WWINLINE float WWMath::Sin(float val)
 {
@@ -386,6 +396,7 @@ WWINLINE float WWMath::Sin(float val)
 {
 	return sinf(val);
 }
+#endif
 #endif
 
 // ----------------------------------------------------------------------------
@@ -516,10 +527,17 @@ WWINLINE float WWMath::Fast_Acos(float val)
 // Arc cos
 // ----------------------------------------------------------------------------
 
+#ifdef USE_DETERMINISTIC_MATH
+WWINLINE float WWMath::Acos(float val)
+{
+	return gm_acosf(val);
+}
+#else
 WWINLINE float WWMath::Acos(float val)
 {
 	return (float)acos(val);
 }
+#endif
 
 // ----------------------------------------------------------------------------
 // Fast, table based arc sin
@@ -553,15 +571,28 @@ WWINLINE float WWMath::Fast_Asin(float val)
 // Arc sin
 // ----------------------------------------------------------------------------
 
+#ifdef USE_DETERMINISTIC_MATH
+WWINLINE float WWMath::Asin(float val)
+{
+	return gm_asinf(val);
+}
+#else
 WWINLINE float WWMath::Asin(float val)
 {
 	return (float)asin(val);
 }
+#endif
 
 // ----------------------------------------------------------------------------
-// Sqrt
+// Sqrt (IEEE 754 guarantees correctly-rounded results on all platforms)
 // ----------------------------------------------------------------------------
 
+#ifdef USE_DETERMINISTIC_MATH
+WWINLINE float WWMath::Sqrt(float val)
+{
+	return gm_sqrtf(val);
+}
+#else
 #if defined(_MSC_VER) && defined(_M_IX86)
 WWINLINE float WWMath::Sqrt(float val)
 {
@@ -578,6 +609,7 @@ WWINLINE float WWMath::Sqrt(float val)
 {
 	return (float)sqrt(val);
 }
+#endif
 #endif
 
 WWINLINE int WWMath::Float_To_Int_Chop(const float& f)
@@ -606,10 +638,16 @@ WWINLINE int WWMath::Float_To_Int_Floor(const float& f)
 	return r;
 }
 
-// ----------------------------------------------------------------------------
-// Inverse square root
+/// ----------------------------------------------------------------------------
+// Inverse square root (deterministic, portable Quake III style + GameMath)
 // ----------------------------------------------------------------------------
 
+#ifdef USE_DETERMINISTIC_MATH
+WWINLINE float WWMath::Inv_Sqrt(float number)
+{
+	return 1.0f / WWMath::Sqrt(number);
+}
+#else
 #if defined(_MSC_VER) && defined(_M_IX86)
 WWINLINE float WWMath::Inv_Sqrt(float a)
 {
@@ -666,6 +704,7 @@ WWINLINE float WWMath::Inv_Sqrt(float val)
 {
 	return 1.0f / (float)sqrt(val);
 }
+#endif
 #endif
 
 WWINLINE float WWMath::Normalize_Angle(float angle)

@@ -49,6 +49,8 @@
 //-----------------------------------------------------------------------------
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#include "WWMath/wwmath.h"
+
 #include "Common/ActionManager.h"
 #include "Common/DiscreteCircle.h"
 #include "Common/GameEngine.h"
@@ -405,8 +407,8 @@ static void testRotatedPointsAgainstRect(
 	Real major = a->geom.getMajorRadius();
 	Real minor = (a->geom.getGeomType() == GEOMETRY_SPHERE) ? a->geom.getMajorRadius() : a->geom.getMinorRadius();
 
-	Real c = (Real)Cos(-a->angle);
-	Real s = (Real)Sin(-a->angle);
+	Real c = (Real)WWMath::Cos(-a->angle);
+	Real s = (Real)WWMath::Sin(-a->angle);
 
 	for (Int i = 0; i < 4; ++i, ++pts)
 	{
@@ -439,8 +441,8 @@ static void rectToFourPoints(
 	Coord2D pts[]
 )
 {
-	Real c = (Real)Cos(a->angle);
-	Real s = (Real)Sin(a->angle);
+	Real c = (Real)WWMath::Cos(a->angle);
+	Real s = (Real)WWMath::Sin(a->angle);
 
 	Real exc = a->geom.getMajorRadius()*c;
 	Real eyc = a->geom.getMinorRadius()*c;
@@ -621,7 +623,7 @@ inline Bool z_collideTest_Sphere_Nonsphere(CollideTestProc xyproc, const Collide
 		// find the radius of the slice of the sphere that is at b_bot
 		CollideInfo amod = *a;
 		amod.position.z = b_bot;
-		amod.geom.setMajorRadius((Real)sqrtf(sqr(a->geom.getMajorRadius()) - sqr(b_bot - a->position.z)));
+		amod.geom.setMajorRadius((Real)Sqrt(sqr(a->geom.getMajorRadius()) - sqr(b_bot - a->position.z)));
 		if (xyproc(&amod, b, cinfo))
 		{
 			// if you want to have 'end' collisions, you should add something like:
@@ -639,7 +641,7 @@ inline Bool z_collideTest_Sphere_Nonsphere(CollideTestProc xyproc, const Collide
 	{
 		CollideInfo amod = *a;
 		amod.position.z = b_top;
-		amod.geom.setMajorRadius((Real)sqrtf(sqr(a->geom.getMajorRadius()) - sqr(a->position.z - b_top)));
+		amod.geom.setMajorRadius((Real)Sqrt(sqr(a->geom.getMajorRadius()) - sqr(a->position.z - b_top)));
 		if (xyproc(&amod, b, cinfo))
 		{
 			// if you want to have 'end' collisions, you should add something like:
@@ -827,7 +829,7 @@ static Bool distCalcProc_BoundaryAndBoundary_2D(
 
 	if (totalRad > 0.0f)
 	{
-		Real actualDist = sqrtf(actualDistSqr);
+		Real actualDist = Sqrt(actualDistSqr);
 		Real shrunkenDist = actualDist - totalRad;
 		if (shrunkenDist <= 0.0f)
 		{
@@ -915,7 +917,7 @@ static Bool distCalcProc_BoundaryAndBoundary_3D(
 	Real totalRad = (geomA?geomA->getBoundingSphereRadius():0) + (geomB?geomB->getBoundingSphereRadius():0);
 	if (totalRad > 0.0f)
 	{
-		Real actualDist = sqrtf(actualDistSqr);
+		Real actualDist = Sqrt(actualDistSqr);
 		Real shrunkenDist = actualDist - totalRad;
 		if (shrunkenDist <= 0.0f)
 		{
@@ -1778,8 +1780,8 @@ void PartitionData::doRectFill(
 	Real angle
 )
 {
-	Real c = (Real)Cos(angle);
-	Real s = (Real)Sin(angle);
+	Real c = (Real)WWMath::Cos(angle);
+	Real s = (Real)WWMath::Sin(angle);
 
 	Real actualCellSize = ThePartitionManager->getCellSize();
 	Real stepSize = actualCellSize * 0.5f; // in theory, should be getCellSize() exactly, but needs to be smaller to avoid aliasing problems
@@ -2222,7 +2224,7 @@ Int PartitionData::calcMaxCoiForShape(GeometryType geom, Real majorRadius, Real 
 			}
 			case GEOMETRY_BOX:
 			{
-				Real diagonal = (Real)(sqrtf(majorRadius*majorRadius + minorRadius*minorRadius));
+				Real diagonal = (Real)(Sqrt(majorRadius*majorRadius + minorRadius*minorRadius));
 				Int cells = ThePartitionManager->worldToCellDist(diagonal*2) + 1;
 				result = cells * cells;
 				break;
@@ -3213,7 +3215,7 @@ Int PartitionManager::calcMinRadius(const ICoord2D& cur)
 	}
 
 	// double, not real
-	double dist = sqrtf(minDistSqr);
+	double dist = Sqrt(minDistSqr);
 	Int minRadius = REAL_TO_INT_CEIL( dist / m_cellSize );
 
 	return minRadius;
@@ -3231,7 +3233,7 @@ void PartitionManager::calcRadiusVec()
 	// double, not real
 	double dx = (double)cx * (double)cellSize;
 	double dy = (double)cy * (double)cellSize;
-	double maxPossibleDist = sqrt(dx*dx + dy*dy);
+	double maxPossibleDist = WWMath::Sqrt(dx*dx + dy*dy);
 
 	m_maxGcoRadius = REAL_TO_INT_CEIL(maxPossibleDist / cellSize);
 
@@ -3501,7 +3503,7 @@ Object *PartitionManager::getClosestObjects(
 	}
 	if (closestDistArg)
 	{
-		*closestDistArg = (Real)sqrtf(closestDistSqr);
+		*closestDistArg = (Real)Sqrt(closestDistSqr);
 	}
 
 #ifdef RTS_DEBUG
@@ -3628,7 +3630,7 @@ Real PartitionManager::getRelativeAngle2D( const Object *obj, const Coord3D *pos
 	v.y = pos->y - objPos.y;
 	v.z = 0.0f;
 
-	Real dist = (Real)sqrtf(sqr(v.x) + sqr(v.y));
+	Real dist = (Real)Sqrt(sqr(v.x) + sqr(v.y));
 
 	// normalize
 	if (dist == 0.0f)
@@ -3788,8 +3790,8 @@ Bool PartitionManager::tryPosition( const Coord3D *center,
 
 	// compute the spot on the terrain we've picked
 	Coord3D pos;
-	pos.x = dist * Cos( angle ) + center->x;
-	pos.y = dist * Sin( angle ) + center->y;
+	pos.x = dist * WWMath::Cos( angle ) + center->x;
+	pos.y = dist * WWMath::Sin( angle ) + center->y;
 
 	PathfindLayerEnum layer = LAYER_GROUND;
 	if ((options->flags & FPF_USE_HIGHEST_LAYER) != 0)
@@ -4562,7 +4564,7 @@ Int PartitionManager::iterateCellsBreadthFirst(const Coord3D *pos, CellBreadthFi
 //-----------------------------------------------------------------------------
 static Real calcDist2D(Real x1, Real y1, Real x2, Real y2)
 {
-	return sqrtf(sqr(x1-x2) + sqr(y1-y2));
+	return Sqrt(sqr(x1-x2) + sqr(y1-y2));
 }
 
 //-----------------------------------------------------------------------------
@@ -5753,7 +5755,7 @@ void hLineAddThreat(Int x1, Int x2, Int y, void *threatValueParms)
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
 			continue;
 
-		distance = sqrt( pow(x - parms->xCenter, 2) + pow(y - parms->yCenter, 2) );
+		distance = WWMath::Sqrt( (x - parms->xCenter) * (x - parms->xCenter) + (y - parms->yCenter) * (y - parms->yCenter) );
 		mulVal = 1 - distance / parms->radius;
 		if (mulVal < 0.0f)
 			mulVal = 0.0f;
@@ -5781,7 +5783,7 @@ void hLineRemoveThreat(Int x1, Int x2, Int y, void *threatValueParms)
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
 			continue;
 
-		distance = sqrt( pow(x - parms->xCenter, 2) + pow(y - parms->yCenter, 2) );
+		distance = WWMath::Sqrt( (x - parms->xCenter) * (x - parms->xCenter) + (y - parms->yCenter) * (y - parms->yCenter) );
 		mulVal = 1 - distance / parms->radius;
 		if (mulVal < 0.0f)
 			mulVal = 0.0f;
@@ -5809,7 +5811,7 @@ void hLineAddValue(Int x1, Int x2, Int y, void *threatValueParms)
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
 			continue;
 
-		distance = sqrt( pow(x - parms->xCenter, 2) + pow(y - parms->yCenter, 2) );
+		distance = WWMath::Sqrt( (x - parms->xCenter) * (x - parms->xCenter) + (y - parms->yCenter) * (y - parms->yCenter) );
 		mulVal = 1 - distance / parms->radius;
 		if (mulVal < 0.0f)
 			mulVal = 0.0f;
@@ -5837,7 +5839,7 @@ void hLineRemoveValue(Int x1, Int x2, Int y, void *threatValueParms)
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
 			continue;
 
-		distance = sqrt( pow(x - parms->xCenter, 2) + pow(y - parms->yCenter, 2) );
+		distance = WWMath::Sqrt( (x - parms->xCenter) * (x - parms->xCenter) + (y - parms->yCenter) * (y - parms->yCenter) );
 		mulVal = 1 - distance / parms->radius;
 		if (mulVal < 0.0f)
 			mulVal = 0.0f;
