@@ -792,6 +792,15 @@ void DynamicVBAccessClass::Allocate_DX8_Dynamic_Buffer()
 			_DynamicDX8VertexBufferSize,
 			(DX8VertexBufferClass::UsageType)usage));
 		_DynamicDX8VertexBufferOffset=0;
+		
+		// Check if vertex buffer creation failed
+		if (!_DynamicDX8VertexBuffer) {
+			WWDEBUG_SAY(("ERROR: Failed to create dynamic DX8 vertex buffer (size: %d vertices)", _DynamicDX8VertexBufferSize));
+			_DynamicDX8VertexBufferInUse=false;
+			VertexBuffer=NULL;
+			VertexBufferOffset=0;
+			return;
+		}
 	}
 
 	// Any room at the end of the buffer?
@@ -820,6 +829,15 @@ void DynamicVBAccessClass::Allocate_Sorting_Dynamic_Buffer()
 	if (!_DynamicSortingVertexArray) {
 		_DynamicSortingVertexArray=NEW_REF(SortingVertexBufferClass,(_DynamicSortingVertexArraySize));
 		_DynamicSortingVertexArrayOffset=0;
+		
+		// Check if vertex buffer creation failed
+		if (!_DynamicSortingVertexArray) {
+			WWDEBUG_SAY(("ERROR: Failed to create dynamic sorting vertex buffer (size: %d vertices)", _DynamicSortingVertexArraySize));
+			_DynamicSortingVertexArrayInUse=false;
+			VertexBuffer=NULL;
+			VertexBufferOffset=0;
+			return;
+		}
 	}
 
 	REF_PTR_SET(VertexBuffer,_DynamicSortingVertexArray);
@@ -830,9 +848,17 @@ void DynamicVBAccessClass::Allocate_Sorting_Dynamic_Buffer()
 static int dx8_lock;
 DynamicVBAccessClass::WriteLockClass::WriteLockClass(DynamicVBAccessClass* dynamic_vb_access_)
 	:
-	DynamicVBAccess(dynamic_vb_access_)
+	DynamicVBAccess(dynamic_vb_access_),
+	Vertices(NULL)
 {
 	DX8_THREAD_ASSERT();
+	
+	// Add defensive null check for VertexBuffer
+	if (!DynamicVBAccess->VertexBuffer) {
+		WWDEBUG_SAY(("ERROR: Cannot lock NULL vertex buffer in DynamicVBAccessClass::WriteLockClass"));
+		return;
+	}
+	
 	switch (DynamicVBAccess->Get_Type()) {
 	case BUFFER_TYPE_DYNAMIC_DX8:
 #ifdef VERTEX_BUFFER_LOG
