@@ -2344,6 +2344,12 @@ IDirect3DTexture8 * DX8Wrapper::_Create_DX8_Texture
 	DX8_Assert();
 	IDirect3DTexture8 *texture = nullptr;
 
+	// Validate dimensions to prevent D3D crashes
+	if (width == 0 || height == 0) {
+		WWDEBUG_SAY(("Error: Invalid texture dimensions (%d x %d). Width and height must be greater than 0.", width, height));
+		return NULL;
+	}
+
 	// Paletted textures not supported!
 	WWASSERT(format!=D3DFMT_P8);
 
@@ -2458,6 +2464,12 @@ IDirect3DTexture8 * DX8Wrapper::_Create_DX8_Texture
 	::ZeroMemory(&surface_desc, sizeof(D3DSURFACE_DESC));
 	surface->GetDesc(&surface_desc);
 
+	// Validate surface dimensions to prevent D3D crashes
+	if (surface_desc.Width == 0 || surface_desc.Height == 0) {
+		WWDEBUG_SAY(("Error: Invalid surface dimensions (%d x %d). Width and height must be greater than 0.", surface_desc.Width, surface_desc.Height));
+		return NULL;
+	}
+
 	// This function will create a texture with a different (but similar) format if the surface is
 	// not in a supported texture format.
 	WW3DFormat format=D3DFormat_To_WW3DFormat(surface_desc.Format);
@@ -2494,6 +2506,12 @@ IDirect3DTexture8 * DX8Wrapper::_Create_DX8_ZTexture
 	DX8_THREAD_ASSERT();
 	DX8_Assert();
 	IDirect3DTexture8* texture = nullptr;
+
+	// Validate dimensions to prevent D3D crashes
+	if (width == 0 || height == 0) {
+		WWDEBUG_SAY(("Error: Invalid Z-texture dimensions (%d x %d). Width and height must be greater than 0.", width, height));
+		return NULL;
+	}
 
 	D3DFORMAT zfmt=WW3DZFormat_To_D3DFormat(zformat);
 
@@ -2577,6 +2595,12 @@ IDirect3DCubeTexture8* DX8Wrapper::_Create_DX8_Cube_Texture
 	DX8_THREAD_ASSERT();
 	DX8_Assert();
 	IDirect3DCubeTexture8* texture=nullptr;
+
+	// Validate dimensions to prevent D3D crashes
+	if (width == 0 || height == 0) {
+		WWDEBUG_SAY(("Error: Invalid cube texture dimensions (%d x %d). Width and height must be greater than 0.", width, height));
+		return NULL;
+	}
 
 	// Paletted textures not supported!
 	WWASSERT(format!=D3DFMT_P8);
@@ -2715,6 +2739,12 @@ IDirect3DVolumeTexture8* DX8Wrapper::_Create_DX8_Volume_Texture
 	DX8_Assert();
 	IDirect3DVolumeTexture8* texture=nullptr;
 
+	// Validate dimensions to prevent D3D crashes
+	if (width == 0 || height == 0 || depth == 0) {
+		WWDEBUG_SAY(("Error: Invalid volume texture dimensions (%d x %d x %d). Width, height, and depth must be greater than 0.", width, height, depth));
+		return NULL;
+	}
+
 	// Paletted textures not supported!
 	WWASSERT(format!=D3DFMT_P8);
 
@@ -2784,6 +2814,12 @@ IDirect3DSurface8 * DX8Wrapper::_Create_DX8_Surface(unsigned int width, unsigned
 	DX8_Assert();
 
 	IDirect3DSurface8 *surface = nullptr;
+
+	// Validate dimensions to prevent D3D crashes
+	if (width == 0 || height == 0) {
+		WWDEBUG_SAY(("Error: Invalid surface dimensions (%d x %d). Width and height must be greater than 0.", width, height));
+		return NULL;
+	}
 
 	// Paletted surfaces not supported!
 	WWASSERT(format!=D3DFMT_P8);
