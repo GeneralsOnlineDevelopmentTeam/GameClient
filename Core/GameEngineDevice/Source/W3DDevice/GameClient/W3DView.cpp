@@ -3562,9 +3562,9 @@ void W3DView::updateTerrain()
 	DEBUG_ASSERTCRASH(TheTerrainRenderObject != nullptr, ("TheTerrainRenderObject is null"));
 
 	RefRenderObjListIterator* it = W3DDisplay::m_3DScene->createLightsIterator();
-	TheTerrainRenderObject->updateCenter(m_3DCamera, it);
 	if (it)
 	{
+		TheTerrainRenderObject->updateCenter(m_3DCamera, it);
 		W3DDisplay::m_3DScene->destroyLightsIterator(it);
 		it = nullptr;
 	}
