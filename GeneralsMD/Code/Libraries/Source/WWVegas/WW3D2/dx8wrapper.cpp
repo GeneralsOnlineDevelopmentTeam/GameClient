@@ -3600,7 +3600,11 @@ DX8Wrapper::Set_Render_Target(IDirect3DSurface8 *render_target, bool use_default
 		//
 		//	We'll need the depth buffer later...
 		//
-		if (DefaultDepthBuffer == nullptr)
+		// GO_CHANGE
+		// Guard against calling GetDepthStencilSurface on a lost/invalid device.
+		// The D3D9-to-D3D12 translation layer may access freed GPU memory if the
+		// device is in a lost state, causing an EXCEPTION_ACCESS_VIOLATION_READ crash.
+		if (DefaultDepthBuffer == nullptr && !IsDeviceLost)
 		{
 //		IDirect3DSurface8 *depth_buffer = nullptr;
 			DX8CALL(GetDepthStencilSurface (&DefaultDepthBuffer));
@@ -3728,7 +3732,11 @@ void DX8Wrapper::Set_Render_Target
 		//
 		//	We'll need the depth buffer later...
 		//
-		if (DefaultDepthBuffer == nullptr)
+		// GO_CHANGE
+		// Guard against calling GetDepthStencilSurface on a lost/invalid device.
+		// The D3D9-to-D3D12 translation layer may access freed GPU memory if the
+		// device is in a lost state, causing an EXCEPTION_ACCESS_VIOLATION_READ crash.
+		if (DefaultDepthBuffer == nullptr && !IsDeviceLost)
 		{
 //		IDirect3DSurface8 *depth_buffer = nullptr;
 			DX8CALL(GetDepthStencilSurface (&DefaultDepthBuffer));
