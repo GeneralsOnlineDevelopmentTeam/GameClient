@@ -53,6 +53,7 @@ public:
 
     static void BeginSession();
     static void EndSession();
+    static void RegisterHostCallbacks();
 
     // Callbacks from plugin
     typedef void (*LoginCallback)(bool bSuccess);
@@ -84,6 +85,7 @@ public:
     typedef void (*FuncDefTick)(void);
 
     typedef void (*FuncDefShutdown)(void);
+    typedef void (*FuncDefClearAllHostCallbacks)(void);
 
     struct AnticheatPluginFunctionPtrs
     {
@@ -105,6 +107,7 @@ public:
         FuncDefDeregisterPlayer fnDeregisterPlayer = nullptr;
         FuncDefTick fnTick = nullptr;
         FuncDefShutdown fnShutdown = nullptr;
+        FuncDefClearAllHostCallbacks fnClearAllHostCallbacks = nullptr;
     };
     static AnticheatPluginFunctionPtrs Functions;
 

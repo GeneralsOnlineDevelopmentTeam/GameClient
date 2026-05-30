@@ -1,0 +1,142 @@
+diff --git a/GeneralsMD/Code/GameEngine/Include/GameNetwork/GeneralsOnline/PluginInterfaces.h b/GeneralsMD/Code/GameEngine/Include/GameNetwork/GeneralsOnline/PluginInterfaces.h
+index 8c96db5..652f3fd 100644
+--- a/GeneralsMD/Code/GameEngine/Include/GameNetwork/GeneralsOnline/PluginInterfaces.h
++++ b/GeneralsMD/Code/GameEngine/Include/GameNetwork/GeneralsOnline/PluginInterfaces.h
+@@ -84,6 +84,7 @@ public:
+     typedef void (*FuncDefTick)(void);
+ 
+     typedef void (*FuncDefShutdown)(void);
++    typedef void (*FuncDefClearAllHostCallbacks)(void);
+ 
+     struct AnticheatPluginFunctionPtrs
+     {
+@@ -105,6 +106,7 @@ public:
+         FuncDefDeregisterPlayer fnDeregisterPlayer = nullptr;
+         FuncDefTick fnTick = nullptr;
+         FuncDefShutdown fnShutdown = nullptr;
++        FuncDefClearAllHostCallbacks fnClearAllHostCallbacks = nullptr;
+     };
+     static AnticheatPluginFunctionPtrs Functions;
+ 
+diff --git a/GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/PluginInterfaces.cpp b/GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/PluginInterfaces.cpp
+index 0cd3df1..b12dcbc 100644
+--- a/GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/PluginInterfaces.cpp
++++ b/GeneralsMD/Code/GameEngine/Source/GameNetwork/GeneralsOnline/PluginInterfaces.cpp
+@@ -3,6 +3,7 @@
+ #include "../NetworkMesh.h"
+ #include "../OnlineServices_Init.h"
+ #include "../OnlineServices_Auth.h"
++#include <atomic>
+ 
+ #define AC_PLUGIN_LOAD_FUNCTION(funcName) \
+     AnticheatPlugInterface::Functions.fn##funcName = (FuncDef##funcName)GetProcAddress(g_hACPluginModule, #funcName); \
+@@ -14,6 +15,12 @@
+         return; \
+     }
+ 
++// Tracks whether an anti-cheat session is currently active. The Set* callbacks
++// registered below are invoked asynchronously by EOS; once EndSession() clears
++// this flag (which LeaveCurrentLobby() does before deleting the lobby mesh),
++// they must not dereference lobby/mesh objects that are about to be freed.
++static std::atomic<bool> g_bACSessionActive{ false };
++
+ bool AnticheatPlugInterface::IsExternalProcessRunning()
+ {
+     if (IsPluginLoaded() && Functions.fnIsExternalProcessRunning != nullptr)
+@@ -104,6 +111,12 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
+ 
+         Functions.fnSetACActionRequiredCallback([](uint32_t userID, const char* szReason, EAnticheatActionType actionType, EAnticheatActionReason actionReason)
+             {
++                // Session torn down - the mesh this may act on can be freed. Bail.
++                if (!g_bACSessionActive)
++                {
++                    return;
++                }
++
+                 if (szReason == nullptr)
+                 {
+                     szReason = "(null reason)";
+@@ -150,6 +163,12 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
+         AC_PLUGIN_LOAD_FUNCTION(SetSendMessageViaTransportCallback);
+         Functions.fnSetSendMessageViaTransportCallback([](uint32_t goUserID, const void* pData, uint32_t dataLen)
+             {
++                // Session torn down (e.g. leaving a lobby) - the mesh may be freed. Bail.
++                if (!g_bACSessionActive)
++                {
++                    return;
++                }
++
+                 if (pData == nullptr || dataLen == 0)
+                 {
+                     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: SendMessageViaTransport received null/empty data");
+@@ -217,6 +236,11 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
+ 
+         AC_PLUGIN_LOAD_FUNCTION(Tick);
+         AC_PLUGIN_LOAD_FUNCTION(Shutdown);
++
++        // Optional: callback de-registration (added in AntiCheatPlugin PR #2).
++        // Resolved WITHOUT the fail-hard macro so older plugin DLLs still load.
++        Functions.fnClearAllHostCallbacks =
++            (FuncDefClearAllHostCallbacks)GetProcAddress(g_hACPluginModule, "ClearAllHostCallbacks");
+     }
+ }
+ 
+@@ -294,6 +318,13 @@ bool g_bSessionStarted = false;
+ 
+ void AnticheatPlugInterface::BeginSession()
+ {
++    if (g_bSessionStarted)
++    {
++        // Already active - a duplicate BeginSession() is rejected by the plugin
++        // (EOS_AlreadyConfigured) and is part of the begin/end churn.
++        return;
++    }
++
+     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] BeginSession() called");
+     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] IsPluginLoaded=%d, fnBeginSession=%p", IsPluginLoaded(), Functions.fnBeginSession);
+     
+@@ -302,6 +333,7 @@ void AnticheatPlugInterface::BeginSession()
+         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Calling plugin fnBeginSession()");
+         Functions.fnBeginSession();
+         g_bSessionStarted = true;
++        g_bACSessionActive = true;
+         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Plugin fnBeginSession() completed");
+     }
+     else
+@@ -312,11 +344,21 @@ void AnticheatPlugInterface::BeginSession()
+ 
+ void AnticheatPlugInterface::EndSession()
+ {
++    if (!g_bSessionStarted)
++    {
++        // No active session - calling EndSession() now is rejected by the
++        // plugin (EOS_NotConfigured) and is part of the begin/end churn.
++        return;
++    }
++
++    // Stop our async callbacks from touching the mesh BEFORE it is torn down.
++    g_bACSessionActive = false;
++
+     if (IsPluginLoaded() && Functions.fnEndSession != nullptr)
+     {
+         Functions.fnEndSession();
+-        g_bSessionStarted = false;
+     }
++    g_bSessionStarted = false;
+ }
+ 
+ AnticheatPlugInterface::AnticheatPluginFunctionPtrs AnticheatPlugInterface::Functions;
+@@ -411,6 +453,13 @@ void AnticheatPlugInterface::UnloadPlugin()
+ {
+     if (IsPluginLoaded())
+     {
++        // Stop async callbacks and de-register host callbacks before teardown.
++        g_bACSessionActive = false;
++        if (Functions.fnClearAllHostCallbacks != nullptr)
++        {
++            Functions.fnClearAllHostCallbacks();
++        }
++
+         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Starting Shutdown");
+         if (Functions.fnShutdown != nullptr)
+         {
