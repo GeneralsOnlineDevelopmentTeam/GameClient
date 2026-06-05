@@ -3,6 +3,7 @@
 #include "../NetworkMesh.h"
 #include "../OnlineServices_Init.h"
 #include "../OnlineServices_Auth.h"
+#include <atomic>
 
 #define AC_PLUGIN_LOAD_FUNCTION(funcName) \
     AnticheatPlugInterface::Functions.fn##funcName = (FuncDef##funcName)GetProcAddress(g_hACPluginModule, #funcName); \
@@ -13,6 +14,12 @@
         g_hACPluginModule = nullptr; \
         return; \
     }
+
+// Tracks whether an anti-cheat session is currently active. The Set* callbacks
+// registered below are invoked asynchronously by EOS; once EndSession() clears
+// this flag (which LeaveCurrentLobby() does before deleting the lobby mesh),
+// they must not dereference lobby/mesh objects that are about to be freed.
+static std::atomic<bool> g_bACSessionActive{ false };
 
 bool AnticheatPlugInterface::IsExternalProcessRunning()
 {
@@ -61,11 +68,6 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
         // set logger 
         AC_PLUGIN_LOAD_FUNCTION(SetLoggingFunction);
 
-        Functions.fnSetLoggingFunction([](const char* szMsg)
-            {
-                //MessageBoxA(nullptr, szMsg, szMsg, MB_OK);
-                NetworkLog(ELogVerbosity::LOG_RELEASE, szMsg);
-            });
 
         // Initialize AC
         AC_PLUGIN_LOAD_FUNCTION(Initialize);
@@ -88,115 +90,13 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
         // integrity callback
         AC_PLUGIN_LOAD_FUNCTION(SetACIntegrityViolationOccurredCallback);
 
-        Functions.fnSetACIntegrityViolationOccurredCallback([](const char* szReason, int violationType)
-            {
-                if (szReason == nullptr)
-                {
-                    szReason = "(null reason)";
-                }
-
-                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, local AC integrity violation occured (%d): %s.", violationType, szReason);
-                g_bPendingExitLobby = true;
-            });
 
         // set action required callback
         AC_PLUGIN_LOAD_FUNCTION(SetACActionRequiredCallback);
 
-        Functions.fnSetACActionRequiredCallback([](uint32_t userID, const char* szReason, EAnticheatActionType actionType, EAnticheatActionReason actionReason)
-            {
-                if (szReason == nullptr)
-                {
-                    szReason = "(null reason)";
-                }
-
-                NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-
-                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Action required: %s", szReason);
-
-                if (pAuthInterface == nullptr)
-                {
-                    // no auth interface? bail out
-                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, no auth interface.");
-                    g_bPendingExitLobby = true;
-                    return;
-                }
-
-                // If it's us, leave, if its someone else, d/c them
-                uint32_t localUserID = pAuthInterface->GetUserID();
-                if (localUserID == userID)
-                {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, action was requested against local user.");
-                    g_bPendingExitLobby = true;
-                }
-                else
-                {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnecting remote user, lobby isn't secure, action was requested against remote user %u.", userID);
-
-                    NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-                    if (pMesh != nullptr)
-                    {
-                        pMesh->DisconnectUser(userID);
-                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnected: %u.", userID);
-                    }
-                    else // no mesh, just back out
-                    {
-                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, actionable player was remote, but no mesh exists to take action.");
-                        g_bPendingExitLobby = true;
-                    }
-                }
-            });
 
         // set transport callback
         AC_PLUGIN_LOAD_FUNCTION(SetSendMessageViaTransportCallback);
-        Functions.fnSetSendMessageViaTransportCallback([](uint32_t goUserID, const void* pData, uint32_t dataLen)
-            {
-                if (pData == nullptr || dataLen == 0)
-                {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: SendMessageViaTransport received null/empty data");
-                    return;
-                }
-
-                // prefer websocket if we have it, otherwise fall back to p2p mesh
-                bool bFallbackToP2P = false;
-                std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
-                if (pWS != nullptr)
-                {
-                    if (pWS->IsConnected())
-                    {
-                        if (dataLen > 0)
-                        {
-                            std::vector<uint8_t> vecPayload((uint8_t*)pData, (uint8_t*)pData + dataLen);
-                            pWS->SendData_ACMessage(goUserID, vecPayload);
-                        }
-                        else
-                        {
-                            bFallbackToP2P = true;
-                        }
-                    }
-                    else
-                    {
-                        bFallbackToP2P = true;
-                    }
-                }
-                else
-                {
-                    bFallbackToP2P = true;
-                }
-
-                if (bFallbackToP2P)
-                {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AC Packets - WebSocket unavailable, falling back to P2P");
-                    NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-                    if (pMesh != nullptr)
-                    {
-                        pMesh->SendACPacket(goUserID, pData, dataLen);
-                    }
-                    else
-                    {
-                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Cannot send AC packet - NetworkMesh is null");
-                    }
-                }
-            });
 
         // AC network message arrived callback
         AC_PLUGIN_LOAD_FUNCTION(ACMessageArrivedViaTransport);
@@ -217,7 +117,151 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 
         AC_PLUGIN_LOAD_FUNCTION(Tick);
         AC_PLUGIN_LOAD_FUNCTION(Shutdown);
+
+        // Optional: callback de-registration (added in AntiCheatPlugin PR #2).
+        // Resolved WITHOUT the fail-hard macro so older plugin DLLs still load.
+        Functions.fnClearAllHostCallbacks =
+            (FuncDefClearAllHostCallbacks)GetProcAddress(g_hACPluginModule, "ClearAllHostCallbacks");
+
+        // Install the host callbacks for the first time. EndSession() clears them
+        // before the lobby mesh is freed; BeginSession() re-installs them.
+        RegisterHostCallbacks();
     }
+}
+
+void AnticheatPlugInterface::RegisterHostCallbacks()
+{
+    // (Re)install every host callback the plugin may invoke. The action-required
+    // and transport callbacks dereference the per-lobby NetworkMesh, so EndSession()
+    // clears them all (ClearAllHostCallbacks) before that mesh is freed; they must
+    // therefore be re-registered whenever a session starts.
+    if (!IsPluginLoaded())
+    {
+        return;
+    }
+
+    Functions.fnSetLoggingFunction([](const char* szMsg)
+        {
+            //MessageBoxA(nullptr, szMsg, szMsg, MB_OK);
+            NetworkLog(ELogVerbosity::LOG_RELEASE, szMsg);
+        });
+
+    Functions.fnSetACIntegrityViolationOccurredCallback([](const char* szReason, int violationType)
+        {
+            if (szReason == nullptr)
+            {
+                szReason = "(null reason)";
+            }
+
+            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, local AC integrity violation occured (%d): %s.", violationType, szReason);
+            g_bPendingExitLobby = true;
+        });
+
+    Functions.fnSetACActionRequiredCallback([](uint32_t userID, const char* szReason, EAnticheatActionType actionType, EAnticheatActionReason actionReason)
+        {
+            // Session torn down - the mesh this may act on can be freed. Bail.
+            if (!g_bACSessionActive)
+            {
+                return;
+            }
+
+            if (szReason == nullptr)
+            {
+                szReason = "(null reason)";
+            }
+
+            NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+
+            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Action required: %s", szReason);
+
+            if (pAuthInterface == nullptr)
+            {
+                // no auth interface? bail out
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, no auth interface.");
+                g_bPendingExitLobby = true;
+                return;
+            }
+
+            // If it's us, leave, if its someone else, d/c them
+            uint32_t localUserID = pAuthInterface->GetUserID();
+            if (localUserID == userID)
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, action was requested against local user.");
+                g_bPendingExitLobby = true;
+            }
+            else
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnecting remote user, lobby isn't secure, action was requested against remote user %u.", userID);
+
+                NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+                if (pMesh != nullptr)
+                {
+                    pMesh->DisconnectUser(userID);
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnected: %u.", userID);
+                }
+                else // no mesh, just back out
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, actionable player was remote, but no mesh exists to take action.");
+                    g_bPendingExitLobby = true;
+                }
+            }
+        });
+
+    Functions.fnSetSendMessageViaTransportCallback([](uint32_t goUserID, const void* pData, uint32_t dataLen)
+        {
+            // Session torn down (e.g. leaving a lobby) - the mesh may be freed. Bail.
+            if (!g_bACSessionActive)
+            {
+                return;
+            }
+
+            if (pData == nullptr || dataLen == 0)
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: SendMessageViaTransport received null/empty data");
+                return;
+            }
+
+            // prefer websocket if we have it, otherwise fall back to p2p mesh
+            bool bFallbackToP2P = false;
+            std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
+            if (pWS != nullptr)
+            {
+                if (pWS->IsConnected())
+                {
+                    if (dataLen > 0)
+                    {
+                        std::vector<uint8_t> vecPayload((uint8_t*)pData, (uint8_t*)pData + dataLen);
+                        pWS->SendData_ACMessage(goUserID, vecPayload);
+                    }
+                    else
+                    {
+                        bFallbackToP2P = true;
+                    }
+                }
+                else
+                {
+                    bFallbackToP2P = true;
+                }
+            }
+            else
+            {
+                bFallbackToP2P = true;
+            }
+
+            if (bFallbackToP2P)
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AC Packets - WebSocket unavailable, falling back to P2P");
+                NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+                if (pMesh != nullptr)
+                {
+                    pMesh->SendACPacket(goUserID, pData, dataLen);
+                }
+                else
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Cannot send AC packet - NetworkMesh is null");
+                }
+            }
+        });
 }
 
 bool AnticheatPlugInterface::g_bPendingExitLobby = false;
@@ -294,6 +338,18 @@ bool g_bSessionStarted = false;
 
 void AnticheatPlugInterface::BeginSession()
 {
+    if (g_bSessionStarted)
+    {
+        // Already active - a duplicate BeginSession() is rejected by the plugin
+        // (EOS_AlreadyConfigured) and is part of the begin/end churn.
+        return;
+    }
+
+    // Re-install the host callbacks for this session: EndSession() de-registered
+    // them so the plugin could not call into a freed mesh, so they must be set
+    // again before the session (and any callbacks) start.
+    RegisterHostCallbacks();
+
     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] BeginSession() called");
     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] IsPluginLoaded=%d, fnBeginSession=%p", IsPluginLoaded(), Functions.fnBeginSession);
     
@@ -302,6 +358,7 @@ void AnticheatPlugInterface::BeginSession()
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Calling plugin fnBeginSession()");
         Functions.fnBeginSession();
         g_bSessionStarted = true;
+        g_bACSessionActive = true;
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Plugin fnBeginSession() completed");
     }
     else
@@ -312,11 +369,32 @@ void AnticheatPlugInterface::BeginSession()
 
 void AnticheatPlugInterface::EndSession()
 {
+    if (!g_bSessionStarted)
+    {
+        // No active session - calling EndSession() now is rejected by the
+        // plugin (EOS_NotConfigured) and is part of the begin/end churn.
+        return;
+    }
+
+    // Stop our async callbacks from touching the mesh BEFORE it is torn down.
+    g_bACSessionActive = false;
+
     if (IsPluginLoaded() && Functions.fnEndSession != nullptr)
     {
         Functions.fnEndSession();
-        g_bSessionStarted = false;
     }
+
+    // De-register the host callbacks under the plugin state lock. This blocks
+    // until any in-flight worker-thread callback returns and nulls the stored
+    // pointers, so the lobby mesh (freed right after EndSession() in
+    // LeaveCurrentLobby) can no longer be dereferenced by a late callback.
+    // No-ops against older plugin DLLs that do not export it yet.
+    if (Functions.fnClearAllHostCallbacks != nullptr)
+    {
+        Functions.fnClearAllHostCallbacks();
+    }
+
+    g_bSessionStarted = false;
 }
 
 AnticheatPlugInterface::AnticheatPluginFunctionPtrs AnticheatPlugInterface::Functions;
@@ -411,6 +489,13 @@ void AnticheatPlugInterface::UnloadPlugin()
 {
     if (IsPluginLoaded())
     {
+        // Stop async callbacks and de-register host callbacks before teardown.
+        g_bACSessionActive = false;
+        if (Functions.fnClearAllHostCallbacks != nullptr)
+        {
+            Functions.fnClearAllHostCallbacks();
+        }
+
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Starting Shutdown");
         if (Functions.fnShutdown != nullptr)
         {
