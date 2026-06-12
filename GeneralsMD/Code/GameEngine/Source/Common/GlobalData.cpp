@@ -832,7 +832,19 @@ GlobalData::GlobalData()
 	m_getHealedAnimationName.clear();
 	m_specialPowerViewObjectName.clear();
 
+#if defined(GENERALS_ONLINE_TEMP_FIX_DRAW_ENTIRE_TERRAIN)
+	// TheSuperHackers/GeneralsOnline @bugfix: Force full-terrain rendering.
+	// The "DrawEntireTerrain" INI field is intentionally not parsed in GeneralsOnline builds, so it
+	// stays out of the INI CRC and all players remain retail-compatible/consistent. However,
+	// GeneralsOnline also enables a non-retail extended camera zoom. With the default partial draw
+	// window, zooming out on a map larger than that window leaves the rest of the terrain undrawn and
+	// exposes the global water plane, so the map looks flooded even when it contains no water.
+	// Forcing the value on restores full-map rendering. This is a client-side visual setting only:
+	// it does not affect the simulation or the INI CRC.
+	m_drawEntireTerrain = TRUE;
+#else
 	m_drawEntireTerrain = FALSE;
+#endif
 	m_maxParticleCount = 0;
 	m_maxFieldParticleCount = 30;
 
