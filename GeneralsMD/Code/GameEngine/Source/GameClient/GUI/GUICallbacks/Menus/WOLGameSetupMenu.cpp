@@ -1216,7 +1216,7 @@ static void StartPressed()
 	else if (allHaveMap)
 	{
 		// send HWS chat message
-		
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
 		if (!pLobbyInterface->HasAutoReadyCountdown())
 		{
 			// local msg
@@ -1239,6 +1239,12 @@ static void StartPressed()
 			UnicodeString strInform = UnicodeString(L"You have already informed players you want to start. A countdown has begun after which they will be marked as ready.");
 			GadgetListBoxAddEntryText(listboxGameSetupChat, strInform, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 		}
+#else
+		// notify players that the host wants to start.
+		UnicodeString strInform = TheGameText->fetch("GUI:HostWantsToStart");
+		pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, false);
+		GadgetListBoxAddEntryText(listboxGameSetupChat, TheGameText->fetch("GUI:NotifiedStartIntent"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+#endif
 	}
 
 }
