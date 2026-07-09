@@ -1648,6 +1648,16 @@ void ControlBar::onDrawableDeselected( Drawable *draw )
 	// set a dirty flag so next time we update we can reconstruct the UI
 	markUIDirty();
 
+	// TheSuperHackers @fix Clear the stale drawable pointer to prevent use-after-free crashes.
+	// m_currentSelectedDrawable is set in switchToContext but never cleared on drawable destruction.
+	// When destroyDrawable is called, disregardDrawable -> deselectDrawable -> onDrawableDeselected
+	// fires before deleteInstance(draw), so this check is safe and prevents the dangling pointer
+	// from being dereferenced in subsequent update/evaluateContextUI calls.
+	if( m_currentSelectedDrawable == draw )
+	{
+		m_currentSelectedDrawable = nullptr;
+	}
+
 	if (TheInGameUI->getSelectCount() == 0)
 	{
 		// we just deselected everything - cancel any pending GUI commands
