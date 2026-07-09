@@ -33,6 +33,7 @@
 
 // USER INCLUDES //////////////////////////////////////////////////////////////
 #include "Common/ActionManager.h"
+#include "Common/ScopedMutex.h"
 #include "Common/GameEngine.h"
 #include "Common/GameState.h"
 #include "Common/GameUtility.h"
@@ -119,6 +120,8 @@ GameClient::GameClient()
 
 	m_nextDrawableID = (DrawableID)1;
 	TheDrawGroupInfo = new DrawGroupInfo;
+
+	m_drawableLookupMutex = CreateMutex(nullptr, FALSE, nullptr);
 }
 
 //std::vector<std::string>	preloadTextureNamesGlobalHack;
@@ -240,6 +243,9 @@ GameClient::~GameClient()
 
 	delete TheSnowManager;
 	TheSnowManager = nullptr;
+
+	CloseHandle(m_drawableLookupMutex);
+	m_drawableLookupMutex = nullptr;
 
 }
 
@@ -932,11 +938,13 @@ void GameClient::destroyDrawable( Drawable *draw )
 
 	}
 
-	// remove the drawable from our hash of drawables
-	removeDrawableFromLookupTable( draw );
-
-	// free storage
-	deleteInstance(draw);
+	// Remove from lookup and free storage under the mutex so that audio threads looking up
+	// drawables by ID cannot observe a drawable pointer after its memory has been freed.
+	{
+		ScopedMutex mut(m_drawableLookupMutex);
+		removeDrawableFromLookupTable( draw );
+		deleteInstance(draw);
+	}
 
 }
 
