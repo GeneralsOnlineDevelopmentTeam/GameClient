@@ -3205,6 +3205,11 @@ void *AudioFileCache::openFile( AudioEventRTS *eventToOpenFrom )
 	}
 
 	if (soundInfo.format == WAVE_FORMAT_IMA_ADPCM) {
+		if (soundInfo.channels > 1) {
+			DEBUG_CRASH(("Attempted ADPCM decompression of stereo audio '%s', which is unsupported.", strToFind.str()));
+			delete [] buffer;
+			return nullptr;
+		}
 		void *decompressFileBuffer;
 		U32 newFileSize;
 		AIL_decompress_ADPCM(&soundInfo, &decompressFileBuffer, &newFileSize);
