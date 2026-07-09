@@ -430,7 +430,7 @@ void ControlBar::populatePurchaseScience( Player* player )
 	}
 
 	win = TheWindowManager->winGetWindowFromId( m_contextParent[ CP_PURCHASE_SCIENCE ], TheNameKeyGenerator->nameToKey( "GeneralsExpPoints.wnd:StaticTextTitle" ) );
-	if(win)
+	if(win && TheGameText)
 	{
 		AsciiString tempAs;
 
