@@ -321,6 +321,10 @@ class MilesAudioManager : public AudioManager
 		UnsignedInt m_num3DSamples;
 		UnsignedInt m_numStreams;
 
+		// Mutex to protect access to m_playingSounds, m_playing3DSounds, m_playingStreams from 
+		// concurrent access by the Miles Audio callback thread and the main game thread
+		HANDLE m_playingAudioMutex;
+
 #if defined(RTS_DEBUG)
 		typedef std::set<AsciiString> SetAsciiString;
 		typedef SetAsciiString::iterator SetAsciiStringIt;

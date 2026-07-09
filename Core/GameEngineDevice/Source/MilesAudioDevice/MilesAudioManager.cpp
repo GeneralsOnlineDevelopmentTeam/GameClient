@@ -92,9 +92,11 @@ MilesAudioManager::MilesAudioManager() :
 	m_delayFilter(nullptr),
 	m_binkHandle(nullptr),
 	m_pref3DProvider(AsciiString::TheEmptyString),
-	m_prefSpeaker(AsciiString::TheEmptyString)
+	m_prefSpeaker(AsciiString::TheEmptyString),
+	m_playingAudioMutex(NULL)
 {
 	m_audioCache = NEW AudioFileCache;
+	m_playingAudioMutex = CreateMutex(NULL, FALSE, NULL);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -104,6 +106,11 @@ MilesAudioManager::~MilesAudioManager()
 	releaseHandleForBink();
 	closeDevice();
 	delete m_audioCache;
+
+	if (m_playingAudioMutex) {
+		CloseHandle(m_playingAudioMutex);
+		m_playingAudioMutex = NULL;
+	}
 
 	DEBUG_ASSERTCRASH(this == TheAudio, ("Umm..."));
 	TheAudio = nullptr;
@@ -501,6 +508,7 @@ void MilesAudioManager::stopAudio( AudioAffect which )
 	// 3) Set the status to stopped, so that when we next process the playing list, we will
 	//		correctly clean up the sample.
 
+	ScopedMutex lock(m_playingAudioMutex);
 
 	std::list<PlayingAudio *>::iterator it;
 
@@ -551,6 +559,8 @@ void MilesAudioManager::stopAudio( AudioAffect which )
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::pauseAudio( AudioAffect which )
 {
+	ScopedMutex lock(m_playingAudioMutex);
+
 	std::list<PlayingAudio *>::iterator it;
 
 	PlayingAudio *playing = nullptr;
@@ -612,6 +622,8 @@ void MilesAudioManager::pauseAudio( AudioAffect which )
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::resumeAudio( AudioAffect which )
 {
+	ScopedMutex lock(m_playingAudioMutex);
+
 	std::list<PlayingAudio *>::iterator it;
 
 	PlayingAudio *playing = nullptr;
@@ -906,6 +918,8 @@ void MilesAudioManager::stopAudioEvent( AudioHandle handle )
 	DEBUG_LOG(("MILES (%d) - Processing stop request: %d", TheGameLogic->getFrame(), handle));
 #endif
 
+	ScopedMutex lock(m_playingAudioMutex);
+
 	std::list<PlayingAudio *>::iterator it;
 	if ( handle == AHSV_StopTheMusic || handle == AHSV_StopTheMusicFade ) {
 		// for music, just find the currently playing music stream and kill it.
@@ -989,6 +1003,8 @@ void MilesAudioManager::killAudioEventImmediately( AudioHandle audioEvent )
 			return;
 		}
 	}
+
+	ScopedMutex lock(m_playingAudioMutex);
 
 	//Look for matching 3D sound to kill
 	std::list<PlayingAudio *>::iterator it;
@@ -1134,6 +1150,8 @@ void MilesAudioManager::releasePlayingAudio( PlayingAudio *release )
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::stopAllAudioImmediately()
 {
+	ScopedMutex lock(m_playingAudioMutex);
+
 	std::list<PlayingAudio *>::iterator it;
 	PlayingAudio *playing;
 
@@ -1344,12 +1362,15 @@ void MilesAudioManager::initFilters3D( H3DSAMPLE sample, const AudioEventRTS *ev
 void MilesAudioManager::nextMusicTrack()
 {
 	AsciiString trackName;
-	std::list<PlayingAudio *>::iterator it;
-	PlayingAudio *playing;
-	for (it = m_playingStreams.begin(); it != m_playingStreams.end(); ++it) {
-		playing = *it;
-		if (playing && playing->m_audioEventRTS->getAudioEventInfo()->m_soundType == AT_Music) {
-			trackName = playing->m_audioEventRTS->getEventName();
+	{
+		ScopedMutex lock(m_playingAudioMutex);
+		std::list<PlayingAudio *>::iterator it;
+		PlayingAudio *playing;
+		for (it = m_playingStreams.begin(); it != m_playingStreams.end(); ++it) {
+			playing = *it;
+			if (playing && playing->m_audioEventRTS->getAudioEventInfo()->m_soundType == AT_Music) {
+				trackName = playing->m_audioEventRTS->getEventName();
+			}
 		}
 	}
 
@@ -1365,12 +1386,15 @@ void MilesAudioManager::nextMusicTrack()
 void MilesAudioManager::prevMusicTrack()
 {
 	AsciiString trackName;
-	std::list<PlayingAudio *>::iterator it;
-	PlayingAudio *playing;
-	for (it = m_playingStreams.begin(); it != m_playingStreams.end(); ++it) {
-		playing = *it;
-		if (playing && playing->m_audioEventRTS->getAudioEventInfo()->m_soundType == AT_Music) {
-			trackName = playing->m_audioEventRTS->getEventName();
+	{
+		ScopedMutex lock(m_playingAudioMutex);
+		std::list<PlayingAudio *>::iterator it;
+		PlayingAudio *playing;
+		for (it = m_playingStreams.begin(); it != m_playingStreams.end(); ++it) {
+			playing = *it;
+			if (playing && playing->m_audioEventRTS->getAudioEventInfo()->m_soundType == AT_Music) {
+				trackName = playing->m_audioEventRTS->getEventName();
+			}
 		}
 	}
 
@@ -1385,6 +1409,8 @@ void MilesAudioManager::prevMusicTrack()
 //-------------------------------------------------------------------------------------------------
 Bool MilesAudioManager::isMusicPlaying() const
 {
+	ScopedMutex lock(m_playingAudioMutex);
+
 	std::list<PlayingAudio *>::const_iterator it;
 	PlayingAudio *playing;
 	for (it = m_playingStreams.begin(); it != m_playingStreams.end(); ++it) {
@@ -1400,6 +1426,8 @@ Bool MilesAudioManager::isMusicPlaying() const
 //-------------------------------------------------------------------------------------------------
 Bool MilesAudioManager::hasMusicTrackCompleted( const AsciiString& trackName, Int numberOfTimes ) const
 {
+	ScopedMutex lock(m_playingAudioMutex);
+
 	std::list<PlayingAudio *>::const_iterator it;
 	PlayingAudio *playing;
 	for (it = m_playingStreams.begin(); it != m_playingStreams.end(); ++it) {
@@ -1434,6 +1462,8 @@ AsciiString MilesAudioManager::getMusicTrackName() const
 			return (*ait)->m_pendingEvent->getEventName();
 		}
 	}
+
+	ScopedMutex lock(m_playingAudioMutex);
 
 	std::list<PlayingAudio *>::const_iterator it;
 	PlayingAudio *playing;
@@ -1514,6 +1544,8 @@ void MilesAudioManager::closeDevice()
 //-------------------------------------------------------------------------------------------------
 Bool MilesAudioManager::isCurrentlyPlaying( AudioHandle handle )
 {
+	ScopedMutex lock(m_playingAudioMutex);
+
 	std::list<PlayingAudio *>::iterator it;
 	PlayingAudio *playing;
 
@@ -1554,6 +1586,9 @@ Bool MilesAudioManager::isCurrentlyPlaying( AudioHandle handle )
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::notifyOfAudioCompletion( UnsignedInt audioCompleted, UnsignedInt flags )
 {
+	// Protect access to playing audio lists from concurrent modification by main thread
+	ScopedMutex lock(m_playingAudioMutex);
+
 	PlayingAudio *playing = findPlayingAudioFrom(audioCompleted, flags);
 	if (!playing) {
 		DEBUG_CRASH(("Audio has completed playing, but we can't seem to find it. - jkmcd"));
@@ -2126,6 +2161,8 @@ Bool MilesAudioManager::killLowestPrioritySoundImmediately( AudioEventRTS *event
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::adjustVolumeOfPlayingAudio(AsciiString eventName, Real newVolume)
 {
+	ScopedMutex lock(m_playingAudioMutex);
+
 	Real pan;
 	std::list<PlayingAudio *>::iterator it;
 
@@ -2164,6 +2201,8 @@ void MilesAudioManager::adjustVolumeOfPlayingAudio(AsciiString eventName, Real n
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::removePlayingAudio( AsciiString eventName )
 {
+	ScopedMutex lock(m_playingAudioMutex);
+
 	std::list<PlayingAudio *>::iterator it;
 
 	PlayingAudio *playing = nullptr;
@@ -2213,6 +2252,8 @@ void MilesAudioManager::removePlayingAudio( AsciiString eventName )
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::removeAllDisabledAudio()
 {
+	ScopedMutex lock(m_playingAudioMutex);
+
 	std::list<PlayingAudio *>::iterator it;
 
 	PlayingAudio *playing = nullptr;
@@ -2286,6 +2327,9 @@ void MilesAudioManager::processRequestList()
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::processPlayingList()
 {
+	// Protect access to playing audio lists from concurrent modification by callback thread
+	ScopedMutex lock(m_playingAudioMutex);
+
 	// There are two types of processing we have to do here.
 	// 1. Move the item to the stopped list if it has become stopped.
 	// 2. Update the position of the audio if it is positional
@@ -2425,6 +2469,8 @@ void MilesAudioManager::processPlayingList()
 
 Bool MilesAudioManager::has3DSensitiveStreamsPlaying() const
 {
+  ScopedMutex lock(m_playingAudioMutex);
+
   if ( m_playingStreams.empty() )
     return FALSE;
 
