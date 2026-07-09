@@ -172,6 +172,10 @@ void W3DPowerDraw( GameWindow *window, WinInstanceData *instData )
 	if( !slider || !centerBar)
 		return;
 
+	// Validate image dimensions to prevent division by zero
+	if( centerBar->getImageWidth() <= 0 )
+		return;
+
 	Int range;
 	range = logN(production, TheGlobalData->m_powerBarBase) * (size.x / TheGlobalData->m_powerBarIntervals);
 	if(range >= size.x)
@@ -337,6 +341,10 @@ void W3DPowerDrawA( GameWindow *window, WinInstanceData *instData )
 	}
 	//slider = TheMappedImageCollection->findImageByName("PowerBarSlider");
 	if( !slider || !endBar || !beginBar || !centerBar)
+		return;
+
+	// Validate image dimensions to prevent division by zero
+	if( centerBar->getImageWidth() <= 0 )
 		return;
 
 	Int range;
@@ -515,6 +523,10 @@ void W3DCommandBarGenExpDraw( GameWindow *window, WinInstanceData *instData )
 
 
 	if( !endBar || !beginBar || !centerBar)
+		return;
+
+	// Validate image dimensions to prevent division by zero
+	if( centerBar->getImageHeight() <= 0 )
 		return;
 
 	Int range;
@@ -929,6 +941,9 @@ void W3DCommandBarHelpPopupDraw( GameWindow *window, WinInstanceData *instData )
 	if( !endBar || !beginBar || !centerBar)
 		return;
 
+	// Validate image dimensions to prevent division by zero
+	if( centerBar->getImageHeight() <= 0 )
+		return;
 
 //	Int range;
 //	range = size.y;
