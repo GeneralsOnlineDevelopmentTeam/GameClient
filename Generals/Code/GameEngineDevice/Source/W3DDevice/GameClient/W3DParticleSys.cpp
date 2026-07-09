@@ -209,6 +209,10 @@ void W3DParticleSystemManager::doParticles(RenderInfoClass &rinfo)
 
 		TextureClass *texture = W3DDisplay::m_assetManager->Get_Texture( sys->getParticleTypeName().str() );
 
+		// Skip rendering if texture is null or invalid (use-after-free protection)
+		if ( !texture )
+			continue;
+
 		if ( m_streakLine && sys->isUsingStreak() && (count >= 2) )
 		{
 			m_streakLine->Reset_Line();
