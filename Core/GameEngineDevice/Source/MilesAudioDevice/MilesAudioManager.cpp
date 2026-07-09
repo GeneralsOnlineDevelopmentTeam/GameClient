@@ -92,7 +92,8 @@ MilesAudioManager::MilesAudioManager() :
 	m_delayFilter(nullptr),
 	m_binkHandle(nullptr),
 	m_pref3DProvider(AsciiString::TheEmptyString),
-	m_prefSpeaker(AsciiString::TheEmptyString)
+	m_prefSpeaker(AsciiString::TheEmptyString),
+	m_providerInitializing(FALSE)
 {
 	m_audioCache = NEW AudioFileCache;
 }
@@ -1236,6 +1237,12 @@ HSAMPLE MilesAudioManager::getFirst2DSample( AudioEventRTS *event )
 //-------------------------------------------------------------------------------------------------
 H3DSAMPLE MilesAudioManager::getFirst3DSample( AudioEventRTS *event )
 {
+	// Don't allocate 3D samples while provider is still initializing
+	// This prevents race conditions where samples are used before DirectSound buffers are fully set up
+	if (m_providerInitializing) {
+		return NULL;
+	}
+	
 	if (m_available3DSamples.begin() != m_available3DSamples.end()) {
 		H3DSAMPLE retSample = *m_available3DSamples.begin();
 		m_available3DSamples.erase(m_available3DSamples.begin());
@@ -1750,6 +1757,10 @@ void MilesAudioManager::selectProvider( UnsignedInt providerNdx )
 	{
 		providerNdx = getProviderIndex( "Miles Fast 2D Positional Audio" );
 	}
+	
+	// Set initialization flag to prevent samples from being used before provider is ready
+	m_providerInitializing = TRUE;
+	
 	success = AIL_open_3D_provider( m_provider3D[providerNdx].id ) == 0;
 
 	//if (providerNdx < m_providerCount)
@@ -1771,14 +1782,31 @@ void MilesAudioManager::selectProvider( UnsignedInt providerNdx )
 	{
 		m_selectedProvider = providerNdx;
 
+		// Create listener first to ensure provider has proper context
+		createListener();
+		
+		// Force the provider to complete internal initialization by updating listener position
+		// This ensures DirectSound buffers are fully set up before sample allocation
+		if (m_listener) {
+			AIL_update_3D_position(m_listener);
+		}
+		
+		// Now it's safe to initialize sample pools
 		initSamplePools();
 
-		createListener();
 		setSpeakerType(m_selectedSpeakerType);
 		if (TheVideoPlayer)
 		{
 			TheVideoPlayer->notifyVideoPlayerOfNewProvider(TRUE);
 		}
+		
+		// Clear initialization flag - provider is now fully ready
+		m_providerInitializing = FALSE;
+	}
+	else
+	{
+		// Failed to open provider, clear initialization flag
+		m_providerInitializing = FALSE;
 	}
 }
 

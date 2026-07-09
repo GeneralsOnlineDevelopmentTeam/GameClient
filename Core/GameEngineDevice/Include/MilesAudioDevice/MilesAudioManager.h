@@ -282,6 +282,7 @@ class MilesAudioManager : public AudioManager
 		UnsignedInt m_selectedProvider;
 		UnsignedInt m_lastProvider;
 		UnsignedInt m_selectedSpeakerType;
+		Bool m_providerInitializing;
 
 		AsciiString m_pref3DProvider;
 		AsciiString m_prefSpeaker;
