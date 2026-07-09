@@ -74,6 +74,15 @@ void ControlBar::populateUnderConstruction( Object *objectUnderConstruction )
 	if( objectUnderConstruction == nullptr )
 		return;
 
+	// Additional safety check: verify the object is still valid before using it
+	// This prevents crashes when objects are destroyed during game logic updates
+	// but the drawable still has a reference to them
+	if( !objectUnderConstruction->getStatusBits().test( OBJECT_STATUS_UNDER_CONSTRUCTION ) )
+	{
+		// Object is no longer under construction or has been destroyed
+		return;
+	}
+
 	// get our parent window
 	GameWindow *parent = m_contextParent[ CP_UNDER_CONSTRUCTION ];
 

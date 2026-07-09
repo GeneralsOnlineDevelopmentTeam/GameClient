@@ -2322,7 +2322,11 @@ void ControlBar::switchToContext( ControlBarContext context, Drawable *draw )
 			m_contextParent[ CP_OBSERVER_LIST ]->winHide( TRUE );
 
 			// fill the specific UI info
-			populateUnderConstruction( draw->getObject() );
+			// Validate that draw and its object are valid before populating
+			if( draw && draw->getObject() )
+			{
+				populateUnderConstruction( draw->getObject() );
+			}
 
 			break;
 
