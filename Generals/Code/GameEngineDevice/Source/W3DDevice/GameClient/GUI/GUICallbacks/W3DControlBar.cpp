@@ -99,7 +99,13 @@ void W3DRightHUDDraw( GameWindow *window, WinInstanceData *instData )
 
 Real logN(Real value, Real logBase)
 {
-	return (Real)log10(value)/ log10(logBase);
+	Real logBaseValue = (Real)log10(logBase);
+	// Prevent division by zero when logBase is 1 (log10(1) = 0)
+	if (logBaseValue == 0.0f)
+	{
+		return 0.0f;
+	}
+	return (Real)log10(value) / logBaseValue;
 }
 
 //-------------------------------------------------------------------------------------------------
