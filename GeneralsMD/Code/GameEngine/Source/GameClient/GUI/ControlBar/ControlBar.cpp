@@ -2742,10 +2742,26 @@ void ControlBar::showRallyPoint(const Coord3D* loc)
 		}
 	}
 	else
+	{
 		marker = TheGameClient->findDrawableByID(m_rallyPointDrawableID);
+		// If the drawable was destroyed elsewhere, reset the ID and create a new one
+		if (marker == NULL)
+		{
+			m_rallyPointDrawableID = INVALID_DRAWABLE_ID;
+			const ThingTemplate* ttn = TheThingFactory->findTemplate("RallyPointMarker");
+			marker = TheThingFactory->newDrawable(ttn);
+			DEBUG_ASSERTCRASH(marker, ("showRallyPoint: Unable to create rally point drawable"));
+			if (marker)
+			{
+				marker->setDrawableStatus(DRAWABLE_STATUS_NO_SAVE);
+				m_rallyPointDrawableID = marker->getID();
+			}
+		}
+	}
 
-	// sanity
-	DEBUG_ASSERTCRASH(marker, ("showRallyPoint: No rally point marker found"));
+	// sanity - if we still don't have a marker, bail out
+	if (marker == NULL)
+		return;
 
 	// set the position of the rally point drawable to the position passed in
 	marker->setPosition(loc);
