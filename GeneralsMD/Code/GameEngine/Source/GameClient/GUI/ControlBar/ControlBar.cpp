@@ -1847,7 +1847,9 @@ void ControlBar::evaluateContextUI()
 
 	}
 	else // get the first and only drawble in the selection list
-		drawToEvaluateFor = selectedDrawables->front();
+		// TheSuperHackers @fix The first access to this can return an empty list
+		if (!selectedDrawables->empty())
+			drawToEvaluateFor = selectedDrawables->front();
 
 
 
