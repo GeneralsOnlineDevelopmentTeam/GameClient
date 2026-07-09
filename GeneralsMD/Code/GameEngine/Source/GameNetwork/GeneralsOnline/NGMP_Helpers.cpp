@@ -25,6 +25,31 @@ std::wstring from_utf8(const std::string& utf8_str)
 	return converter.from_bytes(utf8_str);
 }
 
+// Safe time formatting helper to avoid INT_DIVIDE_BY_ZERO crashes from invalid localtime() results
+std::string SafeTimeFormat(time_t time_value, const char* format)
+{
+	// Get local time
+	struct tm* tm_ptr = std::localtime(&time_value);
+	
+	// Check if localtime succeeded and returned valid data
+	if (tm_ptr == nullptr || 
+	    tm_ptr->tm_year < -1900 || tm_ptr->tm_year > 8099 ||  // Valid year range check (0-9999 AD)
+	    tm_ptr->tm_mon < 0 || tm_ptr->tm_mon > 11 ||           // Valid month range (0-11)
+	    tm_ptr->tm_mday < 1 || tm_ptr->tm_mday > 31 ||         // Valid day range (1-31)
+	    tm_ptr->tm_hour < 0 || tm_ptr->tm_hour > 23 ||         // Valid hour range (0-23)
+	    tm_ptr->tm_min < 0 || tm_ptr->tm_min > 59 ||           // Valid minute range (0-59)
+	    tm_ptr->tm_sec < 0 || tm_ptr->tm_sec > 61)             // Valid second range (0-61, allowing leap seconds)
+	{
+		// If localtime failed or returned invalid data, return a fallback string
+		return "INVALID_TIME";
+	}
+	
+	// Use std::put_time with the validated tm structure
+	std::ostringstream oss;
+	oss << std::put_time(tm_ptr, format);
+	return oss.str();
+}
+
 void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 {
 	if (!NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
@@ -78,7 +103,8 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 		std::ofstream overwriteFile(m_strNetworkLogFileName);
 
 		// log start msg
-		overwriteFile << std::put_time(std::localtime(&in_time_t), "Log Started at %Y/%m/%d %H:%M") << std::endl;
+		std::string startTimeStr = SafeTimeFormat(in_time_t, "Log Started at %Y/%m/%d %H:%M");
+		overwriteFile << startTimeStr << std::endl;
 	}
 
 	auto const rawNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());

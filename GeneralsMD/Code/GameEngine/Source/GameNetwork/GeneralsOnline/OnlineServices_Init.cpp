@@ -118,10 +118,9 @@ void NGMP_OnlineServicesManager::CaptureScreenshotToDisk()
 	// calculate path
 	auto now = std::chrono::system_clock::now();
 	auto in_time_t = std::chrono::system_clock::to_time_t(now);
-	std::stringstream ss;
-	ss << std::put_time(std::localtime(&in_time_t), "GeneralsOnline_Screenshot_%Y-%m-%d-%H-%M-%S.jpg");
+	std::string screenshotFilename = SafeTimeFormat(in_time_t, "GeneralsOnline_Screenshot_%Y-%m-%d-%H-%M-%S.jpg");
 
-	std::string strFilePath = std::format("{}\\{}", strScreenshotsDir.c_str(), ss.str().c_str());
+	std::string strFilePath = std::format("{}\\{}", strScreenshotsDir.c_str(), screenshotFilename.c_str());
 
 	// do UI output immediately on mainthread (if ingame)
 	if (TheInGameUI != nullptr)
