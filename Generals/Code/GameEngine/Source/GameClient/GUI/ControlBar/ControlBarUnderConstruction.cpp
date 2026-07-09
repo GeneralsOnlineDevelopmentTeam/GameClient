@@ -77,12 +77,25 @@ void ControlBar::populateUnderConstruction( Object *objectUnderConstruction )
 	// get our parent window
 	GameWindow *parent = m_contextParent[ CP_UNDER_CONSTRUCTION ];
 
+	// sanity - check if parent window exists
+	if( parent == NULL )
+		return;
+
 	// set the cancel construction button
 /// @todo srj -- remove hard-coding here, please
 	const CommandButton *commandButton = findCommandButton( "Command_CancelConstruction" );
+	
+	// sanity - check if command button exists
+	if( commandButton == NULL )
+		return;
+
 	NameKeyType id;
 	id = TheNameKeyGenerator->nameToKey( "ControlBar.wnd:ButtonCancelConstruction" );
 	GameWindow *win = TheWindowManager->winGetWindowFromId( parent, id );
+
+	// sanity - check if window exists
+	if( win == NULL )
+		return;
 
 	setControlCommand( win, commandButton );
 	win->winSetStatus( WIN_STATUS_USE_OVERLAY_STATES );
