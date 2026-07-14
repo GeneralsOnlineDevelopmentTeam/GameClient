@@ -115,8 +115,8 @@
 
 struct QuitGameException {};
 
-#include "../ngmp_include.h"
-#include "../ngmp_interfaces.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
 #include "../NextGenMP_defines.h"
 

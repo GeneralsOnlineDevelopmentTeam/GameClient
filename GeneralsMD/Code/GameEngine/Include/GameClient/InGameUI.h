@@ -627,6 +627,7 @@ public:
   void addObserverNotificationRaw(const UnicodeString& message, Color color);
   void notifyGeneralPromotion(Player* player, ScienceType science);
   void notifySpecialPowerUsed(Player* player, const SpecialPowerTemplate* powerTemplate);
+  void onSpecialPowerTriggered(Player* player, const SpecialPowerTemplate* spTemplate, const Coord3D& location);
   void refreshObserverNotificationResources(void);
   Bool m_observerNotificationsHidden;   // hide/show observer notifications
 
@@ -647,6 +648,15 @@ protected:
 	virtual void crc(Xfer* xfer) override;
 	virtual void xfer(Xfer* xfer) override;
 	virtual void loadPostProcess() override;
+
+	// TheSuperHackers @feature 14/07/2026 Overlay extension data collection
+	void resolveOverlayPlayers();
+	void gatherOverlayExtData();
+	void drawUnitQueues(Int baseX, Int baseY, Int lineH, Real scale);
+	void drawPowerCooldowns(Int baseX, Int baseY, Int lineH, Real scale);
+	void drawPowerFlashes();
+	static void collectQueueEntries(Object* obj, void* userData);
+	static void findPowerModule(Object* obj, void* userData);
 
 protected:
 
@@ -1085,6 +1095,39 @@ protected:
 	int m_currentFPS = -1;
 	int64_t lastFPSUpdate = -1;
 #endif
+
+	// TheSuperHackers @feature 14/07/2026 Spectator overlay: unit queues and power cooldowns
+	static const Int MAX_VISIBLE_QUEUE = 5;
+	static const Int MAX_POWERS_PER_PLAYER = 8;
+	enum BuildingType { BUILDING_WAR_FACTORY, BUILDING_BARRACKS, BUILDING_AIRFIELD, BUILDING_COUNT };
+
+	struct QueueEntry
+	{
+		const ThingTemplate* tmpl;
+		Real percentComplete;
+	};
+
+	struct PlayerPowerInfo
+	{
+		const CommandButton* button;
+		UnsignedInt readyFrame;
+		UnsignedInt lastUsedFrame;
+		Bool hasModule;
+	};
+
+	struct PlayerOverlayExt
+	{
+		Bool isPresent;
+		std::vector<QueueEntry> queue[BUILDING_COUNT];
+		PlayerPowerInfo powers[MAX_POWERS_PER_PLAYER];
+		Int powerCount;
+		ICoord2D powerUsePos[MAX_POWERS_PER_PLAYER];
+	};
+
+	PlayerOverlayExt m_playerOverlayExt[MAX_SLOTS];
+
+	Int m_overlayPlayerSlots[2];    // Game slot indices for the two 1v1 players
+	Bool m_isValid1v1;              // Whether we have exactly 2 active non-observer players
 
 	// ----------------------------------------------------------------------------------------------
 	// STATIC Protected Data -------------------------------------------------------------------------------

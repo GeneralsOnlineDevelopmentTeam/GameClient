@@ -482,6 +482,19 @@ Bool SpecialPowerModule::initiateIntentToDoSpecialPower( const Object *targetObj
 //-------------------------------------------------------------------------------------------------
 void SpecialPowerModule::triggerSpecialPower( const Coord3D *location )
 {
+	// TheSuperHackers @feature 14/07/2026 Notify overlay of power use at this location
+	// Must guard: TheInGameUI may not exist, location may be null, object may have no controller
+	if (TheInGameUI && location && getObject())
+	{
+		const Object* obj = getObject();
+		Player* player = obj ? obj->getControllingPlayer() : nullptr;
+		if (player)
+		{
+			TheInGameUI->onSpecialPowerTriggered(player,
+				getSpecialPowerTemplate(), *location);
+		}
+	}
+
 	aboutToDoSpecialPower( location );	// do BEFORE recharge
 
 	createViewObject(location);

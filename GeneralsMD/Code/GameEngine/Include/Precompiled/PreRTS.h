@@ -80,7 +80,6 @@ class STLSpecialAlloc;
 #include <time.h>
 #include <vfw.h>
 #include <winerror.h>
-#include <wininet.h>
 #include <winreg.h>
 
 #ifndef DIRECTINPUT_VERSION

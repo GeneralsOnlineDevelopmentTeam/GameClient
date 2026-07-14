@@ -41,6 +41,7 @@
 #include "Common/PerfTimer.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
+#include "Common/PlayerTemplate.h"
 #include "Common/Radar.h"
 #include "Common/Team.h"
 #include "Common/ThingFactory.h"
@@ -48,7 +49,6 @@
 #include "Common/BuildAssistant.h"
 #include "Common/Recorder.h"
 #include "Common/SpecialPower.h"
-
 #include "GameClient/Anim2D.h"
 #include "GameClient/ControlBar.h"
 #include "GameClient/DisplayStringManager.h"
@@ -103,6 +103,28 @@ extern NetworkInterface * TheNetwork;
 #endif
 #include "ValveNetworkingSockets/steam/isteamnetworkingsockets.h"
 
+
+// TheSuperHackers @feature SEH-safe production entry accessors for replay mode
+// ProductionUpdate linked list can be corrupt in replay mode; these wrappers catch access violations.
+#pragma warning(push)
+#pragma warning(disable: 4611) // interaction between _try and C++ object destruction
+static const ProductionEntry* safeFirstProduction(ProductionUpdateInterface* prod) {
+	__try { return prod->firstProduction(); }
+	__except(EXCEPTION_EXECUTE_HANDLER) { return nullptr; }
+}
+static const ThingTemplate* safeGetProductionObject(const ProductionEntry* entry) {
+	__try { return entry->getProductionObject(); }
+	__except(EXCEPTION_EXECUTE_HANDLER) { return nullptr; }
+}
+static Real safeGetPercentComplete(const ProductionEntry* entry) {
+	__try { return entry->getPercentComplete(); }
+	__except(EXCEPTION_EXECUTE_HANDLER) { return 0.0f; }
+}
+static const ProductionEntry* safeNextProduction(ProductionUpdateInterface* prod, const ProductionEntry* entry) {
+	__try { return prod->nextProduction(const_cast<ProductionEntry*>(entry)); }
+	__except(EXCEPTION_EXECUTE_HANDLER) { return nullptr; }
+}
+#pragma warning(pop)
 
 // ------------------------------------------------------------------------------------------------
 static const RGBColor IllegalBuildColor = { 1.0, 0.0, 0.0 };
@@ -1281,20 +1303,37 @@ InGameUI::InGameUI()
 	m_moveRMBScrollAnchor = FALSE;
 	m_displayedMaxWarning = FALSE;
 
-	m_idleWorkerWin = nullptr;
-	m_currentIdleWorkerDisplay = -1;
+		m_idleWorkerWin = nullptr;
+		m_currentIdleWorkerDisplay = -1;
 
-	m_waypointMode = false;
-	m_forceAttackMode = false;
-	m_forceMoveToMode = false;
-	m_attackMoveToMode = false;
-	m_preferSelection = false;
+		m_waypointMode = false;
+		m_forceAttackMode = false;
+		m_forceMoveToMode = false;
+		m_attackMoveToMode = false;
+		m_preferSelection = false;
 
-	m_curRcType = RADIUSCURSOR_NONE;
+		m_curRcType = RADIUSCURSOR_NONE;
 
-	m_soloNexusSelectedDrawableID = INVALID_DRAWABLE_ID;
+		m_soloNexusSelectedDrawableID = INVALID_DRAWABLE_ID;
 
-}
+		// TheSuperHackers @feature 14/07/2026 Init overlay ext data
+		m_isValid1v1 = false;
+		m_overlayPlayerSlots[0] = -1;
+		m_overlayPlayerSlots[1] = -1;
+		for (Int s = 0; s < MAX_SLOTS; ++s)
+		{
+			m_playerOverlayExt[s].isPresent = false;
+			m_playerOverlayExt[s].powerCount = 0;
+			for (Int p = 0; p < MAX_POWERS_PER_PLAYER; ++p)
+			{
+				m_playerOverlayExt[s].powers[p].button = nullptr;
+				m_playerOverlayExt[s].powers[p].lastUsedFrame = 0;
+				m_playerOverlayExt[s].powers[p].hasModule = false;
+				m_playerOverlayExt[s].powerUsePos[p].x = 0;
+				m_playerOverlayExt[s].powerUsePos[p].y = 0;
+			}
+		}
+	}
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
@@ -6523,10 +6562,15 @@ void InGameUI::drawObserverStats(Int & x, Int & y)
 	if (!localPlayer || (TheGameLogic && TheGameLogic->getFrame() <= 1))
 		return;
 
-	if (!localPlayer->isPlayerObserver() && !localPlayer->isPlayerDead())
-		return;
+		if (!localPlayer->isPlayerObserver() && !localPlayer->isPlayerDead())
+			return;
 
-	if (!isAtHudAnchorPos(m_observerStatsPosition) || m_observerStatsHidden)
+		// TheSuperHackers @feature 14/07/2026 Gather overlay extension data for unit queues and powers
+		// Delay 60 frames (1s) to let replay mode fully initialize game state
+		if (TheGameLogic && TheGameLogic->getFrame() >= 60)
+			gatherOverlayExtData();
+
+		if (!isAtHudAnchorPos(m_observerStatsPosition) || m_observerStatsHidden)
 		return;
 
 	// couldn't allocate memory, early out
@@ -6751,7 +6795,18 @@ void InGameUI::drawObserverStats(Int & x, Int & y)
     Int lineHeight = (m_observerStatsLineStep > 0) ? m_observerStatsLineStep : Int(16 * scale);
     Int rowSpacing = Int(2 * scale);
 
-    totalHeight = (lineHeight + rowSpacing) * (1 + Int(actualNumPlayers));
+	totalHeight = (lineHeight + rowSpacing) * (1 + Int(actualNumPlayers));
+
+	// TheSuperHackers @feature 14/07/2026 Draw unit queues and power cooldowns
+	// Compute positions independently of stats table (may be empty in replay mode)
+	{	Int queueBaseY = screenH - Int(80 * scale);
+		if (queueBaseY < 0) queueBaseY = 0;
+		Int queueLineH = Int(18 * scale);
+		if (queueLineH < 1) queueLineH = 1;
+		drawUnitQueues(Int(10 * scale), queueBaseY, queueLineH, scale);
+		drawPowerCooldowns(Int(10 * scale), queueBaseY, queueLineH, scale);
+		drawPowerFlashes();
+	}
 
 	if (actualNumPlayers == 0)
 		return;
@@ -7354,6 +7409,453 @@ void InGameUI::drawPlayerInfoList()
 
 		m_playerInfoList.values[PlayerInfoList::ValueType_Name][row]->draw(labelX, drawY, rowColors[row], m_playerInfoListDropColor);
 
-		drawY += lineH;
-	}
-}
+				drawY += lineH;
+			}
+		}
+
+		// =================================================================================================
+		// TheSuperHackers @feature 14/07/2026 Spectator overlay: unit queues and power cooldowns
+		// =================================================================================================
+
+				void InGameUI::collectQueueEntries(Object* obj, void* userData)
+				{
+					if (!obj) return;
+					const ThingTemplate* tmpl = obj->getTemplate();
+					if (!tmpl) return;
+
+					// TheSuperHackers @test step 2: only check building type
+					InGameUI::BuildingType bt = InGameUI::BUILDING_COUNT;
+					AsciiString name = tmpl->getName();
+					if (name.endsWith("WarFactory"))       bt = InGameUI::BUILDING_WAR_FACTORY;
+					else if (name.endsWith("Barracks"))     bt = InGameUI::BUILDING_BARRACKS;
+					else if (name.endsWith("AirField"))     bt = InGameUI::BUILDING_AIRFIELD;
+					if (bt == InGameUI::BUILDING_COUNT) return;
+
+					// TheSuperHackers @test step 3: try production module access
+					ProductionUpdateInterface* prod = (ProductionUpdateInterface*)obj->findUpdateModule(
+						TheNameKeyGenerator->nameToKey("ProductionUpdate"));
+					if (!prod || prod->getProductionCount() == 0) return;
+
+										// TheSuperHackers @test step 4: slot-finding loop
+										Int slot = -1;
+										for (Int s = 0; s < MAX_SLOTS; ++s)
+					{
+						AsciiString nsk;
+						nsk.format("player%d", s);
+						Player* pp = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nsk));
+						if (pp && obj->getControllingPlayer() == pp) { slot = s; break; }
+					}
+					if (slot < 0) return;
+
+					// TheSuperHackers @fix: production entry traversal can crash in replay mode (corrupted linked list).
+					// Use safe wrapper functions that handle the crash gracefully.
+					InGameUI* ui = (InGameUI*)userData;
+					InGameUI::PlayerOverlayExt& ext = ui->m_playerOverlayExt[slot];
+					const ProductionEntry* entry = safeFirstProduction(prod);
+					Int count = 0;
+					while (entry && count < InGameUI::MAX_VISIBLE_QUEUE)
+					{
+						if (entry->getProductionType() == PRODUCTION_UNIT)
+						{
+							InGameUI::QueueEntry qe;
+							qe.tmpl = safeGetProductionObject(entry);
+							qe.percentComplete = safeGetPercentComplete(entry);
+							ext.queue[bt].push_back(qe);
+							++count;
+						}
+						entry = safeNextProduction(prod, entry);
+					}
+			}
+	
+			// Helper: find special power module for one power slot
+		void InGameUI::findPowerModule(Object* obj, void* userData)
+		{
+			if (!obj) return;
+			InGameUI::PlayerPowerInfo* info = (InGameUI::PlayerPowerInfo*)userData;
+			if (info->hasModule) return;
+			SpecialPowerModuleInterface* mod = obj->getSpecialPowerModule(info->button->getSpecialPowerTemplate());
+			if (mod)
+			{
+				info->hasModule = true;
+				info->readyFrame = mod->getReadyFrame();
+			}
+		}
+
+		void InGameUI::resolveOverlayPlayers()
+		{
+			m_isValid1v1 = false;
+			m_overlayPlayerSlots[0] = -1;
+			m_overlayPlayerSlots[1] = -1;
+
+			if (!ThePlayerList || !TheNameKeyGenerator)
+				return;
+
+			Int found[2] = { -1, -1 };
+			Int count = 0;
+
+			// Iterate all slots, look up each player by name key.
+			// Works in skirmish AND replay mode (no dependency on TheGameInfo, which is null in replay)
+			for (Int slotIndex = 0; slotIndex < MAX_SLOTS; ++slotIndex)
+			{
+				AsciiString nameKeyStr;
+				nameKeyStr.format("player%d", slotIndex);
+				Player* p = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nameKeyStr));
+				if (!p || !p->isPlayerActive() || p->isPlayerObserver())
+					continue;
+
+				if (count < 2)
+					found[count] = slotIndex;
+				++count;
+			}
+
+			if (count == 2)
+			{
+				m_isValid1v1 = true;
+				m_overlayPlayerSlots[0] = found[0];
+				m_overlayPlayerSlots[1] = found[1];
+			}
+		}
+
+		// TheSuperHackers @feature 14/07/2026 Power use target tracking
+		void InGameUI::onSpecialPowerTriggered(Player* player, const SpecialPowerTemplate* spTemplate, const Coord3D& location)
+		{
+			if (!player || !spTemplate || !ThePlayerList || !TheNameKeyGenerator || !TheGameLogic)
+				return;
+
+			if (!m_isValid1v1)
+				return;
+
+			UnsignedInt currentFrame = TheGameLogic->getFrame();
+
+			for (Int ovIdx = 0; ovIdx < 2; ++ovIdx)
+			{
+				Int slot = m_overlayPlayerSlots[ovIdx];
+				if (slot < 0 || slot >= MAX_SLOTS) continue;
+
+				// Verify this player is one of our tracked 1v1 players
+				AsciiString nameKeyStr;
+				nameKeyStr.format("player%d", slot);
+				Player* p = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nameKeyStr));
+				if (p != player) continue;
+
+				// Find the matching power slot and store the target location
+				for (Int pi = 0; pi < m_playerOverlayExt[slot].powerCount; ++pi)
+				{
+					PlayerPowerInfo& ppi = m_playerOverlayExt[slot].powers[pi];
+					if (!ppi.button) continue;
+					if (ppi.button->getSpecialPowerTemplate() == spTemplate)
+					{
+						ppi.lastUsedFrame = currentFrame;
+						m_playerOverlayExt[slot].powerUsePos[pi].x = (Int)location.x;
+						m_playerOverlayExt[slot].powerUsePos[pi].y = (Int)location.y;
+						return;
+					}
+				}
+			}
+		}
+
+		void InGameUI::gatherOverlayExtData()
+		{
+			if (!TheGameLogic || !ThePlayerList || !TheNameKeyGenerator)
+				return;
+
+			UnsignedInt currentFrame = TheGameLogic ? TheGameLogic->getFrame() : 0;
+			UnsignedInt flashWindow = (UnsignedInt)(LOGICFRAMES_PER_SECOND * 3); // 3 seconds
+
+			// Resolve the two 1v1 player slots
+			resolveOverlayPlayers();
+
+			// Clear all overlay ext slots first
+			for (Int slot = 0; slot < MAX_SLOTS; ++slot)
+				m_playerOverlayExt[slot].isPresent = false;
+
+			if (!m_isValid1v1)
+				return;
+
+			// Only process the two mapped 1v1 players
+			for (Int ovIdx = 0; ovIdx < 2; ++ovIdx)
+			{
+				Int slot = m_overlayPlayerSlots[ovIdx];
+				if (slot < 0 || slot >= MAX_SLOTS)
+					continue;
+
+				m_playerOverlayExt[slot].isPresent = true;
+
+				AsciiString nameKeyStr;
+				nameKeyStr.format("player%d", slot);
+				NameKeyType key = TheNameKeyGenerator->nameToKey(nameKeyStr);
+				Player* p = ThePlayerList->findPlayerWithNameKey(key);
+				if (!p)
+				{
+					m_playerOverlayExt[slot].isPresent = false;
+					continue;
+				}
+
+				// ---- Unit queues ----
+				for (Int bt = 0; bt < BUILDING_COUNT; ++bt)
+															m_playerOverlayExt[slot].queue[bt].clear();
+
+														p->iterateObjects(collectQueueEntries, this);
+
+														// ---- General power cooldowns ----
+				const PlayerTemplate* pt = p->getPlayerTemplate();
+				if (!pt) continue;
+
+				Int numPowers = 0;
+				AsciiString cmdSetName = pt->getSpecialPowerShortcutCommandSet();
+				if (cmdSetName.isEmpty()) continue;
+
+				const CommandSet* cmdSet = TheControlBar ? TheControlBar->findCommandSet(cmdSetName) : nullptr;
+				if (!cmdSet) continue;
+
+				for (Int i = 0; i < MAX_COMMANDS_PER_SET && numPowers < MAX_POWERS_PER_PLAYER; ++i)
+				{
+					const CommandButton* btn = cmdSet->getCommandButton(i);
+					if (!btn || !btn->getSpecialPowerTemplate()) continue;
+
+					PlayerPowerInfo& ppi = m_playerOverlayExt[slot].powers[numPowers];
+					ppi.button = btn;
+					ppi.hasModule = false;
+					ppi.readyFrame = 0;
+																														if (ppi.lastUsedFrame > 0 && (currentFrame - ppi.lastUsedFrame) >= flashWindow)
+																															ppi.lastUsedFrame = 0;
+
+																														// Find an object with this special power module
+																														if (TheRecorder && TheRecorder->isPlaybackMode())
+																															ppi.hasModule = true; // replay: show all faction powers
+																														else
+																															p->iterateObjects(findPowerModule, &ppi);
+
+					++numPowers;
+				}
+				m_playerOverlayExt[slot].powerCount = numPowers;
+
+				for (Int i = 0; i < numPowers; ++i)
+				{
+					if (m_playerOverlayExt[slot].powers[i].lastUsedFrame == 0)
+						m_playerOverlayExt[slot].powerUsePos[i].x = m_playerOverlayExt[slot].powerUsePos[i].y = 0;
+				}
+			}
+		}
+
+		void InGameUI::drawUnitQueues(Int baseX, Int baseY, Int lineH, Real scale)
+		{
+			if (!TheDisplay || !m_isValid1v1) return;
+
+			Int iconSize = Int(20 * scale);
+			Int iconSpacing = Int(2 * scale);
+			Int startX = baseX;
+
+			for (Int ovIdx = 0; ovIdx < 2; ++ovIdx)
+			{
+				Int slot = m_overlayPlayerSlots[ovIdx];
+				if (slot < 0 || slot >= MAX_SLOTS) continue;
+				if (!m_playerOverlayExt[slot].isPresent) continue;
+
+				Int rowY = baseY + (ovIdx + 1) * lineH;
+				for (Int bt = 0; bt < BUILDING_COUNT; ++bt)
+				{
+					const std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue[bt];
+					if (q.empty()) continue;
+
+					Int iconX = startX;
+					for (size_t ei = 0; ei < q.size(); ++ei)
+					{
+						if (q[ei].tmpl && q[ei].tmpl->getButtonImage())
+						{
+							const Image* img = q[ei].tmpl->getButtonImage();
+							TheDisplay->drawImage(img, iconX, rowY, iconX + iconSize, rowY + iconSize);
+							// Draw progress bar at bottom of icon
+							Int progW = (Int)(iconSize * q[ei].percentComplete / 100.0f);
+							if (progW > 0)
+								TheWindowManager->winFillRect(
+									TheWindowManager->winMakeColor(0, 200, 0, 180), 1,
+									iconX, rowY + iconSize - 3, iconX + progW, rowY + iconSize);
+						}
+						iconX += iconSize + iconSpacing;
+						if (iconX > startX + 150) break;
+					}
+					rowY += iconSize + iconSpacing;
+				}
+			}
+		}
+
+		void InGameUI::drawPowerCooldowns(Int baseX, Int baseY, Int lineH, Real scale)
+		{
+			if (!TheGameLogic || !m_isValid1v1) return;
+
+			UnsignedInt currentFrame = TheGameLogic->getFrame();
+			Int ringSize = Int(44 * scale);
+			Int ringSpacing = Int(6 * scale);
+			UnsignedInt flashWindow = (UnsignedInt)(LOGICFRAMES_PER_SECOND * 3);
+
+			Int screenW = TheDisplay ? TheDisplay->getWidth() : 1920;
+			Int screenH = TheDisplay ? TheDisplay->getHeight() : 1080;
+
+			for (Int ovIdx = 0; ovIdx < 2; ++ovIdx)
+			{
+				Int slot = m_overlayPlayerSlots[ovIdx];
+				if (slot < 0 || slot >= MAX_SLOTS) continue;
+				if (!m_playerOverlayExt[slot].isPresent) continue;
+				if (m_playerOverlayExt[slot].powerCount == 0) continue;
+
+				// Position: left edge (player 1) / right edge (player 2), vertically centered
+				Int panelX;
+				if (ovIdx == 0)
+					panelX = Int(12 * scale);
+				else
+					panelX = screenW - Int(12 * scale) - ringSize;
+
+				Int totalPanelH = m_playerOverlayExt[slot].powerCount * (ringSize + ringSpacing) - ringSpacing;
+				Int panelY = (screenH - totalPanelH) / 2;
+				if (panelY < 0) panelY = 0;
+
+				Int curY = panelY;
+				for (Int pi = 0; pi < m_playerOverlayExt[slot].powerCount; ++pi)
+				{
+					const PlayerPowerInfo& ppi = m_playerOverlayExt[slot].powers[pi];
+					if (!ppi.button) continue;
+					if (!ppi.hasModule) continue;
+
+					Bool isReady = ppi.hasModule && currentFrame >= ppi.readyFrame;
+					Bool isFlashing = ppi.lastUsedFrame > 0 &&
+						(currentFrame - ppi.lastUsedFrame) < flashWindow;
+
+					// Draw power button icon
+					const Image* btnImg = ppi.button->getButtonImage();
+					if (btnImg)
+					{
+						TheDisplay->drawImage(btnImg, panelX, curY, panelX + ringSize, curY + ringSize,
+							GameMakeColor(255, 255, 255, 200));
+					}
+					else
+					{
+						TheWindowManager->winFillRect(
+							TheWindowManager->winMakeColor(0, 0, 0, 180), 1,
+							panelX, curY, panelX + ringSize, curY + ringSize);
+					}
+
+					// Cooldown indicator (orange fill from bottom)
+					if (!isReady && ppi.hasModule)
+					{
+						Real progress = 1.0f - ((Real)(ppi.readyFrame - currentFrame) / (Real)LOGICFRAMES_PER_SECOND / 60.0f);
+						if (progress < 0) progress = 0;
+						if (progress > 1) progress = 1;
+
+						Int progH = (Int)(ringSize * progress);
+						TheWindowManager->winFillRect(
+							TheWindowManager->winMakeColor(255, 200, 0, 120), 1,
+							panelX, curY + ringSize - progH, panelX + ringSize, curY + ringSize);
+					}
+					else if (isReady)
+					{
+						// Green border = ready
+						TheWindowManager->winFillRect(
+							TheWindowManager->winMakeColor(0, 255, 0, 200), 1,
+							panelX, curY, panelX + ringSize, curY + 2);
+						TheWindowManager->winFillRect(
+							TheWindowManager->winMakeColor(0, 255, 0, 200), 1,
+							panelX, curY + ringSize - 2, panelX + ringSize, curY + ringSize);
+						TheWindowManager->winFillRect(
+							TheWindowManager->winMakeColor(0, 255, 0, 200), 1,
+							panelX, curY, panelX + 2, curY + ringSize);
+						TheWindowManager->winFillRect(
+							TheWindowManager->winMakeColor(0, 255, 0, 200), 1,
+							panelX + ringSize - 2, curY, panelX + ringSize, curY + ringSize);
+					}
+
+					// Flash effect on recently used
+					if (isFlashing)
+					{
+						Real flashIntensity = 0.5f + 0.5f * sin((Real)(currentFrame) * 0.3f);
+						UnsignedInt flashR = (UnsignedInt)(255 * flashIntensity);
+						UnsignedInt flashG = (UnsignedInt)(128 * flashIntensity);
+						Color flashColor = TheWindowManager->winMakeColor(flashR, flashG, 0, 220);
+						TheWindowManager->winFillRect(flashColor, 1,
+							panelX - 1, curY - 1, panelX + ringSize + 1, curY);
+						TheWindowManager->winFillRect(flashColor, 1,
+							panelX - 1, curY + ringSize, panelX + ringSize + 1, curY + ringSize + 1);
+						TheWindowManager->winFillRect(flashColor, 1,
+							panelX - 1, curY - 1, panelX, curY + ringSize + 1);
+						TheWindowManager->winFillRect(flashColor, 1,
+							panelX + ringSize, curY - 1, panelX + ringSize + 1, curY + ringSize + 1);
+					}
+
+					curY += ringSize + ringSpacing;
+				}
+			}
+		}
+
+		void InGameUI::drawPowerFlashes()
+		{
+			// Click-to-navigate: check if mouse clicked on a power icon
+			if (!TheDisplay || !TheMouse || !TheTacticalView || !m_isValid1v1)
+				return;
+			if (!TheGameLogic)
+				return;
+
+			const MouseIO* mouse = TheMouse->getMouseStatus();
+			if (!mouse)
+				return;
+
+			// Only handle on the frame the left button is first pressed down
+			if (mouse->leftState != MBS_Down)
+				return;
+
+			Int mx = mouse->pos.x;
+			Int my = mouse->pos.y;
+
+			Int screenW = TheDisplay->getWidth();
+			Int screenH = TheDisplay->getHeight();
+			Real scale = (Real)screenW / 1920.0f;
+			scale = (scale < 0.7f) ? 0.7f : (scale > 2.0f) ? 2.0f : scale;
+			Int ringSize = Int(44 * scale);
+			Int ringSpacing = Int(6 * scale);
+
+			for (Int ovIdx = 0; ovIdx < 2; ++ovIdx)
+			{
+				Int slot = m_overlayPlayerSlots[ovIdx];
+				if (slot < 0 || slot >= MAX_SLOTS) continue;
+				if (!m_playerOverlayExt[slot].isPresent) continue;
+				if (m_playerOverlayExt[slot].powerCount == 0) continue;
+
+				// Must match drawPowerCooldowns layout
+				Int panelX;
+				if (ovIdx == 0)
+					panelX = Int(12 * scale);
+				else
+					panelX = screenW - Int(12 * scale) - ringSize;
+
+				Int totalPanelH = m_playerOverlayExt[slot].powerCount * (ringSize + ringSpacing) - ringSpacing;
+				Int panelY = (screenH - totalPanelH) / 2;
+				if (panelY < 0) panelY = 0;
+
+				Int curY = panelY;
+				for (Int pi = 0; pi < m_playerOverlayExt[slot].powerCount; ++pi)
+				{
+					const PlayerPowerInfo& ppi = m_playerOverlayExt[slot].powers[pi];
+					if (!ppi.button) { curY += ringSize + ringSpacing; continue; }
+					if (!ppi.hasModule) { curY += ringSize + ringSpacing; continue; }
+
+					if (mx >= panelX && mx <= panelX + ringSize &&
+						my >= curY && my <= curY + ringSize)
+					{
+						// Clicked on this power icon — navigate to target location
+						if (m_playerOverlayExt[slot].powerUsePos[pi].x != 0 ||
+							m_playerOverlayExt[slot].powerUsePos[pi].y != 0)
+						{
+							Coord3D dest;
+							dest.x = (Real)m_playerOverlayExt[slot].powerUsePos[pi].x;
+							dest.y = (Real)m_playerOverlayExt[slot].powerUsePos[pi].y;
+							dest.z = 0.0f;
+							TheTacticalView->lookAt(&dest);
+						}
+						break;
+					}
+					curY += ringSize + ringSpacing;
+				}
+			}
+		}
+
+		// @todo notifyGeneralPromotion and notifySpecialPowerUsed are already implemented above
+		// (they are observer notification functions, not overlay data functions).

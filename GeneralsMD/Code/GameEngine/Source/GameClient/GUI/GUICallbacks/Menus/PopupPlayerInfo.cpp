@@ -60,8 +60,8 @@
 
 #include "WWDownload/Registry.h"
 
-#include "../ngmp_interfaces.h"
-#include "../ngmp_include.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "../OnlineServices_Init.h"
 
 
