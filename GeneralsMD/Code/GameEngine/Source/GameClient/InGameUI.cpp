@@ -108,6 +108,10 @@ extern NetworkInterface * TheNetwork;
 // ProductionUpdate linked list can be corrupt in replay mode; these wrappers catch access violations.
 #pragma warning(push)
 #pragma warning(disable: 4611) // interaction between _try and C++ object destruction
+static UnsignedInt safeGetProductionCount(ProductionUpdateInterface* prod) {
+	__try { return prod->getProductionCount(); }
+	__except(EXCEPTION_EXECUTE_HANDLER) { return 0; }
+}
 static const ProductionEntry* safeFirstProduction(ProductionUpdateInterface* prod) {
 	__try { return prod->firstProduction(); }
 	__except(EXCEPTION_EXECUTE_HANDLER) { return nullptr; }
@@ -7434,7 +7438,7 @@ void InGameUI::drawPlayerInfoList()
 					// TheSuperHackers @test step 3: try production module access
 					ProductionUpdateInterface* prod = (ProductionUpdateInterface*)obj->findUpdateModule(
 						TheNameKeyGenerator->nameToKey("ProductionUpdate"));
-					if (!prod || prod->getProductionCount() == 0) return;
+					if (!prod || safeGetProductionCount(prod) == 0) return;
 
 										// TheSuperHackers @test step 4: slot-finding loop
 										Int slot = -1;
@@ -7622,9 +7626,25 @@ void InGameUI::drawPlayerInfoList()
 
 																														// Find an object with this special power module
 																														if (TheRecorder && TheRecorder->isPlaybackMode())
-																															ppi.hasModule = true; // replay: show all faction powers
+																														{
+																															// In replay, check if player has the required science for this power
+																															// This way only purchased/chosen powers are shown
+																															const SpecialPowerTemplate* sp = btn->getSpecialPowerTemplate();
+																															if (sp && sp->getRequiredScience() != SCIENCE_INVALID) {
+																																ppi.hasModule = p->hasScience(sp->getRequiredScience());
+																															} else {
+																																ppi.hasModule = true; // no science gate, show it
+																															}
+																															if (ppi.hasModule) {
+																																// Also try to get the module state (readyFrame)
+																																p->iterateObjects(findPowerModule, &ppi);
+																															}
+																														}
 																														else
+																														{
+																															// Skirmish: find modules normally
 																															p->iterateObjects(findPowerModule, &ppi);
+																														}
 
 					++numPowers;
 				}
@@ -7714,8 +7734,8 @@ void InGameUI::drawPlayerInfoList()
 				for (Int pi = 0; pi < m_playerOverlayExt[slot].powerCount; ++pi)
 				{
 					const PlayerPowerInfo& ppi = m_playerOverlayExt[slot].powers[pi];
-					if (!ppi.button) continue;
-					if (!ppi.hasModule) continue;
+					if (!ppi.button) { curY += ringSize + ringSpacing; continue; }
+					if (!ppi.hasModule) { curY += ringSize + ringSpacing; continue; }
 
 					Bool isReady = ppi.hasModule && currentFrame >= ppi.readyFrame;
 					Bool isFlashing = ppi.lastUsedFrame > 0 &&
