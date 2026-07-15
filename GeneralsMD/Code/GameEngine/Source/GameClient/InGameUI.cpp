@@ -7480,8 +7480,14 @@ void InGameUI::drawPlayerInfoList()
 			SpecialPowerModuleInterface* mod = obj->getSpecialPowerModule(info->button->getSpecialPowerTemplate());
 			if (mod)
 			{
-				info->hasModule = true;
-				info->readyFrame = mod->getReadyFrame();
+				// Only count this module if the building is fully built.
+				// Buildings under construction return 0..100; CONSTRUCTION_COMPLETE = -1 means done.
+				Real constPct = obj->getConstructionPercent();
+				if (constPct == CONSTRUCTION_COMPLETE || constPct >= 100.0f)
+				{
+					info->hasModule = true;
+					info->readyFrame = mod->getReadyFrame();
+				}
 			}
 		}
 
