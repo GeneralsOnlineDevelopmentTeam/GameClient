@@ -1112,6 +1112,7 @@ protected:
 		const CommandButton* button;
 		UnsignedInt readyFrame;
 		UnsignedInt lastUsedFrame;
+		UnsignedInt cooldownEndFrame;  // Our own cooldown tracker (set by onSpecialPowerTriggered)
 		Bool hasModule;
 	};
 

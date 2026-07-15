@@ -7550,6 +7550,7 @@ void InGameUI::drawPlayerInfoList()
 					if (ppi.button->getSpecialPowerTemplate() == spTemplate)
 					{
 						ppi.lastUsedFrame = currentFrame;
+						ppi.cooldownEndFrame = currentFrame + spTemplate->getReloadTime();
 						m_playerOverlayExt[slot].powerUsePos[pi].x = (Int)location.x;
 						m_playerOverlayExt[slot].powerUsePos[pi].y = (Int)location.y;
 						return;
@@ -7617,34 +7618,53 @@ void InGameUI::drawPlayerInfoList()
 					const CommandButton* btn = cmdSet->getCommandButton(i);
 					if (!btn || !btn->getSpecialPowerTemplate()) continue;
 
+					const SpecialPowerTemplate* sp = btn->getSpecialPowerTemplate();
+
+					// Skip non-shortcut powers (super weapons like Particle Cannon, Nuke, SCUD Storm
+					// have ShortcutPower=No in INI — they belong to the superweapon panel, not general powers)
+					if (!sp->isShortcutPower()) continue;
+
 					PlayerPowerInfo& ppi = m_playerOverlayExt[slot].powers[numPowers];
 					ppi.button = btn;
 					ppi.hasModule = false;
 					ppi.readyFrame = 0;
-																														if (ppi.lastUsedFrame > 0 && (currentFrame - ppi.lastUsedFrame) >= flashWindow)
-																															ppi.lastUsedFrame = 0;
+					ppi.cooldownEndFrame = 0;
+					if (ppi.lastUsedFrame > 0 && (currentFrame - ppi.lastUsedFrame) >= flashWindow)
+						ppi.lastUsedFrame = 0;
 
-																														// Find an object with this special power module
-																														if (TheRecorder && TheRecorder->isPlaybackMode())
-																														{
-																															// In replay, check if player has the required science for this power
-																															// This way only purchased/chosen powers are shown
-																															const SpecialPowerTemplate* sp = btn->getSpecialPowerTemplate();
-																															if (sp && sp->getRequiredScience() != SCIENCE_INVALID) {
-																																ppi.hasModule = p->hasScience(sp->getRequiredScience());
-																															} else {
-																																ppi.hasModule = true; // no science gate, show it
-																															}
-																															if (ppi.hasModule) {
-																																// Also try to get the module state (readyFrame)
-																																p->iterateObjects(findPowerModule, &ppi);
-																															}
-																														}
-																														else
-																														{
-																															// Skirmish: find modules normally
-																															p->iterateObjects(findPowerModule, &ppi);
-																														}
+					// Find an object with this special power module
+					if (TheRecorder && TheRecorder->isPlaybackMode())
+					{
+						// In replay: science check as proxy, then try iterateObjects for accuracy
+						if (sp->getRequiredScience() != SCIENCE_INVALID)
+							ppi.hasModule = p->hasScience(sp->getRequiredScience());
+						else
+							ppi.hasModule = true;
+
+						if (ppi.hasModule)
+						{
+							PlayerPowerInfo backup = ppi;
+							backup.hasModule = false;
+							p->iterateObjects(findPowerModule, &backup);
+							if (backup.hasModule)
+							{
+								// Module found on live object — accurate state
+								ppi.hasModule = true;
+								ppi.readyFrame = backup.readyFrame;
+							}
+							else
+							{
+								// Module not found — science known but building gone
+								ppi.hasModule = false;
+								ppi.readyFrame = 0;
+							}
+						}
+					}
+					else
+					{
+						// Skirmish: find modules normally
+						p->iterateObjects(findPowerModule, &ppi);
+					}
 
 					++numPowers;
 				}
@@ -7758,7 +7778,13 @@ void InGameUI::drawPlayerInfoList()
 					// Cooldown indicator (orange fill from bottom)
 					if (!isReady && ppi.hasModule)
 					{
-						Real progress = 1.0f - ((Real)(ppi.readyFrame - currentFrame) / (Real)LOGICFRAMES_PER_SECOND / 60.0f);
+						// Use actual reload time from the SpecialPowerTemplate
+						UnsignedInt reloadFrames = LOGICFRAMES_PER_SECOND * 60; // fallback 60s
+						const SpecialPowerTemplate* sp = ppi.button->getSpecialPowerTemplate();
+						if (sp && sp->getReloadTime() > 0)
+							reloadFrames = sp->getReloadTime();
+
+						Real progress = 1.0f - ((Real)(ppi.readyFrame - currentFrame) / (Real)reloadFrames);
 						if (progress < 0) progress = 0;
 						if (progress > 1) progress = 1;
 
@@ -7784,21 +7810,14 @@ void InGameUI::drawPlayerInfoList()
 							panelX + ringSize - 2, curY, panelX + ringSize, curY + ringSize);
 					}
 
-					// Flash effect on recently used
+					// Flash effect on recently used — green overlay over entire icon
 					if (isFlashing)
 					{
-						Real flashIntensity = 0.5f + 0.5f * sin((Real)(currentFrame) * 0.3f);
-						UnsignedInt flashR = (UnsignedInt)(255 * flashIntensity);
-						UnsignedInt flashG = (UnsignedInt)(128 * flashIntensity);
-						Color flashColor = TheWindowManager->winMakeColor(flashR, flashG, 0, 220);
+						Real flashIntensity = 0.3f + 0.4f * sin((Real)(currentFrame) * 0.3f);
+						UnsignedInt flashA = (UnsignedInt)(180 * flashIntensity);
+						Color flashColor = TheWindowManager->winMakeColor(0, 255, 0, flashA);
 						TheWindowManager->winFillRect(flashColor, 1,
-							panelX - 1, curY - 1, panelX + ringSize + 1, curY);
-						TheWindowManager->winFillRect(flashColor, 1,
-							panelX - 1, curY + ringSize, panelX + ringSize + 1, curY + ringSize + 1);
-						TheWindowManager->winFillRect(flashColor, 1,
-							panelX - 1, curY - 1, panelX, curY + ringSize + 1);
-						TheWindowManager->winFillRect(flashColor, 1,
-							panelX + ringSize, curY - 1, panelX + ringSize + 1, curY + ringSize + 1);
+							panelX, curY, panelX + ringSize, curY + ringSize);
 					}
 
 					curY += ringSize + ringSpacing;
