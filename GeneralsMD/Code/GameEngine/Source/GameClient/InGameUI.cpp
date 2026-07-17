@@ -7973,7 +7973,7 @@ void InGameUI::drawPlayerInfoList()
 
 				// Position: P1 left of scoreboard, P2 right of scoreboard (above command panel)
 				// Layout: max 3 columns per row, filling top→bottom, pinned to screen bottom
-				// Only the last 3 rows are visible; older rows scroll off below viewport
+				// Oldest items at top (always visible); newest push downward, may fall off viewport
 				Int panelX;
 				if (ovIdx == 0)
 					panelX = Int(screenW * 0.17f);  // between minimap and scoreboard
@@ -7983,23 +7983,18 @@ void InGameUI::drawPlayerInfoList()
 				static const Int MAX_COLS = 3;
 				static const Int MAX_VISIBLE_ROWS = 3;
 				Int step = iconSize + iconSpacing;
-				Int bottomMargin = Int(20 * scale);  // tight against bottom edge
-				Int bottomY = screenH - bottomMargin;
+				Int bottomY = screenH - Int(40 * scale);  // above bottom UI
 
-				Int totalRows = (Int)((q.size() + MAX_COLS - 1) / MAX_COLS);
-				Int visibleRows = (totalRows < MAX_VISIBLE_ROWS) ? totalRows : MAX_VISIBLE_ROWS;
-				Int skipRows = totalRows - visibleRows;  // rows above viewport (older)
-
+				// Show the OLDEST items first (row 0 at top of visible area)
 				for (size_t ei = 0; ei < q.size(); ++ei)
 				{
 					Int row = (Int)(ei / MAX_COLS);
-					Int visibleRow = row - skipRows;
-					if (visibleRow < 0) continue;  // above viewport → skip
+					if (row >= MAX_VISIBLE_ROWS) continue;  // below viewport → skip
 
 					Int col = (Int)(ei % MAX_COLS);
 					Int ix = panelX + col * step;
-					// visibleRow 0 = top of visible area, visibleRow 2 = bottom (against screen edge)
-					Int iy = bottomY - (MAX_VISIBLE_ROWS - visibleRow) * step;
+					// row 0 = top visible row, row 2 = bottom (against screen edge)
+					Int iy = bottomY - (MAX_VISIBLE_ROWS - row) * step;
 
 					// Try drawing the button image first
 					if (q[ei].tmpl && q[ei].tmpl->getButtonImage())
@@ -8244,7 +8239,7 @@ void InGameUI::drawPlayerInfoList()
 				const std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue;
 				if (q.empty()) continue;
 
-				// Must match drawUnitQueuesImpl layout (bottom-pinned, 3 rows visible, top→bottom fill)
+				// Must match drawUnitQueuesImpl layout (bottom-pinned, 3 rows, oldest at top)
 				Int panelX;
 				if (ovIdx == 0)
 					panelX = Int(screenW * 0.17f);
@@ -8254,22 +8249,16 @@ void InGameUI::drawPlayerInfoList()
 				static const Int MAX_COLS = 3;
 				static const Int MAX_VISIBLE_ROWS = 3;
 				Int step = iconSize + iconSpacing;
-				Int bottomMargin = Int(20 * scale);
-				Int bottomY = screenH - bottomMargin;
-
-				Int totalRows = (Int)((q.size() + MAX_COLS - 1) / MAX_COLS);
-				Int visibleRows = (totalRows < MAX_VISIBLE_ROWS) ? totalRows : MAX_VISIBLE_ROWS;
-				Int skipRows = totalRows - visibleRows;
+				Int bottomY = screenH - Int(40 * scale);
 
 				for (size_t ei = 0; ei < q.size(); ++ei)
 				{
 					Int row = (Int)(ei / MAX_COLS);
-					Int visibleRow = row - skipRows;
-					if (visibleRow < 0) continue;
+					if (row >= MAX_VISIBLE_ROWS) continue;
 
 					Int col = (Int)(ei % MAX_COLS);
 					Int ix = panelX + col * step;
-					Int iy = bottomY - (MAX_VISIBLE_ROWS - visibleRow) * step;
+					Int iy = bottomY - (MAX_VISIBLE_ROWS - row) * step;
 
 					if (mx >= ix && mx <= ix + iconSize &&
 						my >= iy && my <= iy + iconSize)
