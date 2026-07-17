@@ -1408,6 +1408,8 @@ InGameUI::InGameUI()
 		m_isValid1v1 = false;
 		m_overlayPlayerSlots[0] = -1;
 		m_overlayPlayerSlots[1] = -1;
+		m_queuePanelX[0] = 0;
+		m_queuePanelX[1] = 0;
 		for (Int s = 0; s < MAX_SLOTS; ++s)
 		{
 			m_playerOverlayExt[s].isPresent = false;
@@ -7956,7 +7958,6 @@ void InGameUI::drawPlayerInfoList()
 
 			overlayLog("DRAW_Q: entry valid1v1=%d\n", (Int)m_isValid1v1);
 
-			Int screenW = TheDisplay->getWidth();
 			Int screenH = TheDisplay->getHeight();
 			Int iconSize = Int(24 * scale);
 			Int iconSpacing = Int(3 * scale);
@@ -7971,14 +7972,8 @@ void InGameUI::drawPlayerInfoList()
 				overlayLog("DRAW_Q: player slot=%d ovIdx=%d queueSize=%zu\n", slot, ovIdx, q.size());
 				if (q.empty()) continue;
 
-				// Position: P1 left of scoreboard, P2 right of scoreboard (above command panel)
-				// Layout: max 3 columns per row, filling top→bottom, pinned to screen bottom
-				// Oldest items at top (always visible); newest push downward, may fall off viewport
-				Int panelX;
-				if (ovIdx == 0)
-					panelX = Int(screenW * 0.17f);  // between minimap and scoreboard
-				else
-					panelX = Int(screenW * 0.75f);  // between scoreboard and command panel
+				// Use runtime-snapped panel X (between minimap & scoreboard, or scoreboard & right HUD)
+				Int panelX = m_queuePanelX[ovIdx];
 
 				static const Int MAX_COLS = 3;
 				static const Int MAX_VISIBLE_ROWS = 3;
@@ -8239,12 +8234,8 @@ void InGameUI::drawPlayerInfoList()
 				const std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue;
 				if (q.empty()) continue;
 
-				// Must match drawUnitQueuesImpl layout (bottom-pinned, 3 rows, oldest at top)
-				Int panelX;
-				if (ovIdx == 0)
-					panelX = Int(screenW * 0.17f);
-				else
-					panelX = Int(screenW * 0.75f);
+				// Use runtime-snapped panel X (matches drawUnitQueuesImpl)
+				Int panelX = m_queuePanelX[ovIdx];
 
 				static const Int MAX_COLS = 3;
 				static const Int MAX_VISIBLE_ROWS = 3;
@@ -8285,6 +8276,7 @@ void InGameUI::drawPlayerInfoList()
 				return;
 
 			// Reset shadow queues on new game/replay start (frame 2 is the first real frame)
+			// Also snapshot UI element positions for accurate queue placement
 			if (TheGameLogic->getFrame() == 2)
 			{
 				for (Int slot = 0; slot < MAX_SLOTS; ++slot)
@@ -8292,6 +8284,50 @@ void InGameUI::drawPlayerInfoList()
 					m_playerOverlayExt[slot].queue.clear();
 					m_playerOverlayExt[slot].isPresent = false;
 				}
+
+				// Snapshot radar (minimap) right edge and right HUD left edge
+				Int radarRight = 0;
+				Int rightHUDLeft = TheDisplay->getWidth();
+				if (TheWindowManager && TheNameKeyGenerator)
+				{
+					// Minimap / radar window
+					GameWindow* radarWin = TheWindowManager->winGetWindowFromId(nullptr,
+						TheNameKeyGenerator->nameToKey("ControlBar.wnd:Radar"));
+					if (radarWin)
+					{
+						IRegion2D radarRegion;
+						radarWin->winGetRegion(&radarRegion);
+						radarRight = radarRegion.hi.x;
+						overlayLog("LAYOUT: radar region lo=(%d,%d) hi=(%d,%d)\n",
+							radarRegion.lo.x, radarRegion.lo.y, radarRegion.hi.x, radarRegion.hi.y);
+					}
+
+					// Right HUD / command panel (faction logo + power bar)
+					GameWindow* rightHUD = TheWindowManager->winGetWindowFromId(nullptr,
+						TheNameKeyGenerator->nameToKey("ControlBar.wnd:RightHUD"));
+					if (rightHUD)
+					{
+						IRegion2D hudRegion;
+						rightHUD->winGetRegion(&hudRegion);
+						rightHUDLeft = hudRegion.lo.x;
+						overlayLog("LAYOUT: rightHUD region lo=(%d,%d) hi=(%d,%d)\n",
+							hudRegion.lo.x, hudRegion.lo.y, hudRegion.hi.x, hudRegion.hi.y);
+					}
+				}
+
+				// Store for use in draw: P1 between radar and scoreboard, P2 between scoreboard and right HUD
+				// Fallback: use screen-relative positions if windows not found
+				if (radarRight > 0)
+					m_queuePanelX[0] = radarRight + 4;  // small gap after minimap
+				else
+					m_queuePanelX[0] = Int(TheDisplay->getWidth() * 0.14f);
+
+				if (rightHUDLeft < TheDisplay->getWidth())
+					m_queuePanelX[1] = rightHUDLeft - 85; // queue width (3*27px) before right HUD
+				else
+					m_queuePanelX[1] = Int(TheDisplay->getWidth() * 0.76f);
+				overlayLog("LAYOUT: queue panel X: P1=%d P2=%d screenW=%d\n",
+					m_queuePanelX[0], m_queuePanelX[1], TheDisplay->getWidth());
 			}
 
 			if (!localPlayer->isPlayerObserver() && !localPlayer->isPlayerDead())

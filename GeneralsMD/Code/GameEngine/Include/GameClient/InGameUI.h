@@ -1145,6 +1145,7 @@ protected:
 	PlayerOverlayExt m_playerOverlayExt[MAX_SLOTS];
 
 	Int m_overlayPlayerSlots[2];    // Game slot indices for the two 1v1 players
+	Int m_queuePanelX[2];           // Runtime-snapped X positions for queue panels (frame 2)
 	Bool m_isValid1v1;              // Whether we have exactly 2 active non-observer players
 
 	// ----------------------------------------------------------------------------------------------
