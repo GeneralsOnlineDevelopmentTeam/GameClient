@@ -7562,7 +7562,7 @@ void InGameUI::drawPlayerInfoList()
 				overlayLog("COLLECT: %s slot=%d firstProduction=nullptr (prodCount=%u) — replay mode, linked list not restored\n",
 					name.str(), slot, prodCount);
 				// Fallback: push a single placeholder entry with just the building info
-				InGameUI::QueueEntry qe;
+				InGameUI::QueueEntry qe = {};
 				qe.tmpl = tmpl;  // use building template so we get the building icon
 				qe.percentComplete = 0.0f;
 				qe.buildingPos = buildingPos;
@@ -7577,7 +7577,7 @@ void InGameUI::drawPlayerInfoList()
 				overlayLog("COLLECT: %s entry type=%d\n", name.str(), (Int)pt);
 				if (pt == PRODUCTION_UNIT)
 				{
-					InGameUI::QueueEntry qe;
+					InGameUI::QueueEntry qe = {};
 					qe.tmpl = safeGetProductionObject(entry);
 					qe.percentComplete = safeGetPercentComplete(entry);
 					qe.buildingPos = buildingPos;
@@ -7591,7 +7591,7 @@ void InGameUI::drawPlayerInfoList()
 				}
 				else if (pt == PRODUCTION_UPGRADE)
 				{
-					InGameUI::QueueEntry qe;
+					InGameUI::QueueEntry qe = {};
 					qe.upgradeTmpl = safeGetProductionUpgrade(entry);
 					qe.percentComplete = safeGetPercentComplete(entry);
 					qe.buildingPos = buildingPos;
@@ -7728,7 +7728,7 @@ void InGameUI::drawPlayerInfoList()
 			if (btmpl) buildingName = btmpl->getName();
 
 			// Push into the player's queue
-			QueueEntry qe;
+			QueueEntry qe = {};
 			qe.tmpl = unitType;
 			qe.percentComplete = percentComplete;
 			qe.buildingPos = buildingPos;
@@ -7836,7 +7836,7 @@ void InGameUI::drawPlayerInfoList()
 			const ThingTemplate* btmpl = producer->getTemplate();
 			if (btmpl) buildingName = btmpl->getName();
 
-			QueueEntry qe;
+			QueueEntry qe = {};
 			qe.upgradeTmpl = upgradeType;
 			qe.percentComplete = percentComplete;
 			qe.buildingPos = buildingPos;
