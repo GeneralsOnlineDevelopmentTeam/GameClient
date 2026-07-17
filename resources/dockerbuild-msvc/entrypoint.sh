@@ -123,4 +123,10 @@ echo "Fixed paths: ${FIXED} occurrences with Z: prefix"
 
 # Build - pass MSVC environment into the Windows cmd session
 cd "${BUILD_DIR}"
-wine cmd /c "set TMP=Z:\build\tmp& set TEMP=Z:\build\tmp& set INCLUDE=${INCLUDE}& set LIB=${LIB}& set LIBPATH=${LIBPATH}& set PATH=${WINEPATH};%PATH%& Z:\build\tools\ninja.exe ${MAKE_TARGET:-z_generals}"
+wine cmd /c "set TMP=Z:\\build\\tmp& set TEMP=Z:\\build\\tmp& set INCLUDE=${INCLUDE}& set LIB=${LIB}& set LIBPATH=${LIBPATH}& set PATH=${WINEPATH};%PATH%& Z:\\build\\tools\\ninja.exe ${MAKE_TARGET:-z_generals}"
+
+# Deploy: copy the built executable to the deploy directory
+DEPLOY_DIR="/build/cnc/build/deploy"
+mkdir -p "${DEPLOY_DIR}"
+cp "${BUILD_DIR}/GeneralsMD/GeneralsOnlineZH.exe" "${DEPLOY_DIR}/GeneralsOnlineZH.exe"
+echo "Deployed: ${DEPLOY_DIR}/GeneralsOnlineZH.exe"

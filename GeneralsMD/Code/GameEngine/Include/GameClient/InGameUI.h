@@ -612,6 +612,7 @@ private:
 	void drawSystemTime(Int& x, Int& y);
 	void drawGameTime();
 	void drawPlayerInfoList();
+	void drawOverlayExt();  // safe overlay draw (queues + powers) — called every frame, independent of stats font
 	void drawObserverStats(Int &x, Int &y);
 	Bool m_observerStatsHidden = false;   // hide/show observer overlay
 
@@ -628,6 +629,10 @@ public:
   void notifyGeneralPromotion(Player* player, ScienceType science);
   void notifySpecialPowerUsed(Player* player, const SpecialPowerTemplate* powerTemplate);
   void onSpecialPowerTriggered(Player* player, const SpecialPowerTemplate* spTemplate, const Coord3D& location);
+  void onUnitQueued(Player* player, const ThingTemplate* unitType, Object* producer, Real percentComplete);
+  void onUnitCancelled(Player* player, const ThingTemplate* unitType, Object* producer);
+  void onUnitCompleted(Player* player, const ThingTemplate* unitType, Object* producer);
+  void onBuildingDestroyed(Object* producer);
   void refreshObserverNotificationResources(void);
   Bool m_observerNotificationsHidden;   // hide/show observer notifications
 
@@ -649,14 +654,23 @@ protected:
 	virtual void xfer(Xfer* xfer) override;
 	virtual void loadPostProcess() override;
 
+public: // TheSuperHackers: overlay methods must be public for file-scope safe* wrappers
 	// TheSuperHackers @feature 14/07/2026 Overlay extension data collection
 	void resolveOverlayPlayers();
 	void gatherOverlayExtData();
 	void drawUnitQueues(Int baseX, Int baseY, Int lineH, Real scale);
 	void drawPowerCooldowns(Int baseX, Int baseY, Int lineH, Real scale);
 	void drawPowerFlashes();
+	void drawUnitQueueClicks();  // click-to-navigate for queue icons
 	static void collectQueueEntries(Object* obj, void* userData);
 	static void findPowerModule(Object* obj, void* userData);
+
+	// TheSuperHackers @feature 15/07/2026 SEH-safe Impl methods (called via safe* wrappers)
+	void gatherOverlayExtDataImpl();
+	void drawUnitQueuesImpl(Int baseX, Int baseY, Int lineH, Real scale);
+	void drawPowerCooldownsImpl(Int baseX, Int baseY, Int lineH, Real scale);
+	void drawPowerFlashesImpl();
+	void drawUnitQueueClicksImpl();  // click-to-navigate for queue icons
 
 protected:
 
@@ -1105,6 +1119,9 @@ protected:
 	{
 		const ThingTemplate* tmpl;
 		Real percentComplete;
+		Coord3D buildingPos;       // world position of producing building (for click-to-navigate)
+		AsciiString buildingName;  // template name of producing building (for debug logging)
+		Object* producer;          // specific building instance (for accurate removal)
 	};
 
 	struct PlayerPowerInfo
@@ -1119,7 +1136,7 @@ protected:
 	struct PlayerOverlayExt
 	{
 		Bool isPresent;
-		std::vector<QueueEntry> queue[BUILDING_COUNT];
+		std::vector<QueueEntry> queue;  // flat queue across all building types, sorted by spawn order
 		PlayerPowerInfo powers[MAX_POWERS_PER_PLAYER];
 		Int powerCount;
 		ICoord2D powerUsePos[MAX_POWERS_PER_PLAYER];

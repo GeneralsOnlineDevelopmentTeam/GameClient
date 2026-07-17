@@ -31,6 +31,9 @@
 
 #define DEFINE_SHADOW_NAMES
 
+#include <cstdarg>  // TheSuperHackers: va_list for overlayLog
+#include <cstdio>    // TheSuperHackers: fopen/vfprintf for overlayLog
+
 #include "Common/ActionManager.h"
 #include "Common/FramePacer.h"
 #include "Common/GameAudio.h"
@@ -127,6 +130,87 @@ static Real safeGetPercentComplete(const ProductionEntry* entry) {
 static const ProductionEntry* safeNextProduction(ProductionUpdateInterface* prod, const ProductionEntry* entry) {
 	__try { return prod->nextProduction(const_cast<ProductionEntry*>(entry)); }
 	__except(EXCEPTION_EXECUTE_HANDLER) { return nullptr; }
+}
+static ProductionType safeGetProductionType(const ProductionEntry* entry) {
+	__try { return entry->getProductionType(); }
+	__except(EXCEPTION_EXECUTE_HANDLER) { return PRODUCTION_INVALID; }
+}
+#pragma warning(pop)
+
+// TheSuperHackers @feature 15/07/2026 Debug logging for overlay diagnostics
+static FILE* g_overlayLogFile = nullptr;
+static void overlayLog(const char* fmt, ...)
+{
+	__try {
+		if (!g_overlayLogFile) {
+			g_overlayLogFile = fopen("genovly_debug.log", "a");
+			
+			if (g_overlayLogFile) {
+				fprintf(g_overlayLogFile, "=== genovly overlay log started ===\n");
+				fflush(g_overlayLogFile);
+			}
+		}
+		if (g_overlayLogFile) {
+			va_list args;
+			va_start(args, fmt);
+			vfprintf(g_overlayLogFile, fmt, args);
+			va_end(args);
+			fflush(g_overlayLogFile);
+		}
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		// Logging itself failed — silently ignore, don't crash the game
+	}
+}
+
+// TheSuperHackers @feature 15/07/2026 SEH-safe wrappers for overlay drawing calls.
+// These ensure the game never crashes due to overlay rendering failures.
+#pragma warning(push)
+#pragma warning(disable: 4611)
+static void safeDrawUnitQueues(InGameUI* ui, Int baseX, Int baseY, Int lineH, Real scale)
+{
+	__try {
+		ui->drawUnitQueuesImpl(baseX, baseY, lineH, scale);
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		overlayLog("SEH CRASH in drawUnitQueues — caught, game continues\n");
+	}
+}
+static void safeDrawPowerCooldowns(InGameUI* ui, Int baseX, Int baseY, Int lineH, Real scale)
+{
+	__try {
+		ui->drawPowerCooldownsImpl(baseX, baseY, lineH, scale);
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		overlayLog("SEH CRASH in drawPowerCooldowns — caught, game continues\n");
+	}
+}
+static void safeDrawPowerFlashes(InGameUI* ui)
+{
+	__try {
+		ui->drawPowerFlashesImpl();
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		overlayLog("SEH CRASH in drawPowerFlashes — caught, game continues\n");
+	}
+}
+static void safeDrawUnitQueueClicks(InGameUI* ui)
+{
+	__try {
+		ui->drawUnitQueueClicksImpl();
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		overlayLog("SEH CRASH in drawUnitQueueClicks — caught, game continues\n");
+	}
+}
+static void safeGatherOverlayExtData(InGameUI* ui)
+{
+	__try {
+		ui->gatherOverlayExtDataImpl();
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		overlayLog("SEH CRASH in gatherOverlayExtData — caught, game continues\n");
+	}
 }
 #pragma warning(pop)
 
@@ -3911,6 +3995,9 @@ void InGameUI::postWindowDraw()
 	hudOffsetX = 0;
 	hudOffsetY += 250;
 
+	// TheSuperHackers @feature 15/07/2026 Overlay (queues + powers) always runs regardless of stats font size.
+	drawOverlayExt();
+
 	if (m_observerStatsPointSize > 0)
 		drawObserverStats(hudOffsetX, hudOffsetY);
 
@@ -6545,6 +6632,8 @@ void InGameUI::notifySpecialPowerUsed(Player* player, const SpecialPowerTemplate
 
 void InGameUI::drawObserverStats(Int & x, Int & y)
 {
+	overlayLog("OBS: drawObserverStats called\n");
+
 	// do we need to re-create our fonts?
 	if (m_observerStatsPointSize != TheGlobalData->m_observerStatsFontSize)
 	{
@@ -6564,18 +6653,20 @@ void InGameUI::drawObserverStats(Int & x, Int & y)
 
 	Player* localPlayer = ThePlayerList->getLocalPlayer();
 	if (!localPlayer || (TheGameLogic && TheGameLogic->getFrame() <= 1))
+	{
+		overlayLog("OBS: early return — no localPlayer or frame<=1\n");
 		return;
+	}
 
 		if (!localPlayer->isPlayerObserver() && !localPlayer->isPlayerDead())
+		{
+			overlayLog("OBS: early return — not observer and not dead (observer=%d dead=%d)\n",
+					(Int)localPlayer->isPlayerObserver(), (Int)localPlayer->isPlayerDead());
 			return;
-
-		// TheSuperHackers @feature 14/07/2026 Gather overlay extension data for unit queues and powers
-		// Delay 60 frames (1s) to let replay mode fully initialize game state
-		if (TheGameLogic && TheGameLogic->getFrame() >= 60)
-			gatherOverlayExtData();
+		}
 
 		if (!isAtHudAnchorPos(m_observerStatsPosition) || m_observerStatsHidden)
-		return;
+			return;
 
 	// couldn't allocate memory, early out
 	if (m_observerStatsString == nullptr)
@@ -6800,17 +6891,6 @@ void InGameUI::drawObserverStats(Int & x, Int & y)
     Int rowSpacing = Int(2 * scale);
 
 	totalHeight = (lineHeight + rowSpacing) * (1 + Int(actualNumPlayers));
-
-	// TheSuperHackers @feature 14/07/2026 Draw unit queues and power cooldowns
-	// Compute positions independently of stats table (may be empty in replay mode)
-	{	Int queueBaseY = screenH - Int(80 * scale);
-		if (queueBaseY < 0) queueBaseY = 0;
-		Int queueLineH = Int(18 * scale);
-		if (queueLineH < 1) queueLineH = 1;
-		drawUnitQueues(Int(10 * scale), queueBaseY, queueLineH, scale);
-		drawPowerCooldowns(Int(10 * scale), queueBaseY, queueLineH, scale);
-		drawPowerFlashes();
-	}
 
 	if (actualNumPlayers == 0)
 		return;
@@ -7422,54 +7502,81 @@ void InGameUI::drawPlayerInfoList()
 		// =================================================================================================
 
 				void InGameUI::collectQueueEntries(Object* obj, void* userData)
-				{
-					if (!obj) return;
-					const ThingTemplate* tmpl = obj->getTemplate();
-					if (!tmpl) return;
+		{
+			if (!obj) return;
+			const ThingTemplate* tmpl = obj->getTemplate();
+			if (!tmpl) return;
 
-					// TheSuperHackers @test step 2: only check building type
-					InGameUI::BuildingType bt = InGameUI::BUILDING_COUNT;
-					AsciiString name = tmpl->getName();
-					if (name.endsWith("WarFactory"))       bt = InGameUI::BUILDING_WAR_FACTORY;
-					else if (name.endsWith("Barracks"))     bt = InGameUI::BUILDING_BARRACKS;
-					else if (name.endsWith("AirField"))     bt = InGameUI::BUILDING_AIRFIELD;
-					if (bt == InGameUI::BUILDING_COUNT) return;
+			// Match any production building (War Factory, Barracks, Airfield)
+			AsciiString name = tmpl->getName();
+			Bool isProdBuilding = name.endsWith("WarFactory") || name.endsWith("Barracks") || name.endsWith("AirField") || name.endsWith("CommandCenter");
+			if (!isProdBuilding) return;
 
-					// TheSuperHackers @test step 3: try production module access
-					ProductionUpdateInterface* prod = (ProductionUpdateInterface*)obj->findUpdateModule(
-						TheNameKeyGenerator->nameToKey("ProductionUpdate"));
-					if (!prod || safeGetProductionCount(prod) == 0) return;
+			overlayLog("COLLECT: found building %s\n", name.str());
 
-										// TheSuperHackers @test step 4: slot-finding loop
-										Int slot = -1;
-										for (Int s = 0; s < MAX_SLOTS; ++s)
-					{
-						AsciiString nsk;
-						nsk.format("player%d", s);
-						Player* pp = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nsk));
-						if (pp && obj->getControllingPlayer() == pp) { slot = s; break; }
-					}
-					if (slot < 0) return;
+			// Get the world position of this building for future click-to-navigate.
+			// In replay mode getPosition() may return nullptr — use zero vec as fallback.
+			Coord3D buildingPos = { 0, 0, 0 };
+			const Coord3D* pos = obj->getPosition();
+			if (pos) buildingPos = *pos;
 
-					// TheSuperHackers @fix: production entry traversal can crash in replay mode (corrupted linked list).
-					// Use safe wrapper functions that handle the crash gracefully.
-					InGameUI* ui = (InGameUI*)userData;
-					InGameUI::PlayerOverlayExt& ext = ui->m_playerOverlayExt[slot];
-					const ProductionEntry* entry = safeFirstProduction(prod);
-					Int count = 0;
-					while (entry && count < InGameUI::MAX_VISIBLE_QUEUE)
-					{
-						if (entry->getProductionType() == PRODUCTION_UNIT)
-						{
-							InGameUI::QueueEntry qe;
-							qe.tmpl = safeGetProductionObject(entry);
-							qe.percentComplete = safeGetPercentComplete(entry);
-							ext.queue[bt].push_back(qe);
-							++count;
-						}
-						entry = safeNextProduction(prod, entry);
-					}
+			// TheSuperHackers @test step 3: try production module access
+			ProductionUpdateInterface* prod = (ProductionUpdateInterface*)obj->findUpdateModule(
+				TheNameKeyGenerator->nameToKey("ProductionUpdate"));
+			if (!prod) { overlayLog("COLLECT: %s has NO ProductionUpdate module\n", name.str()); return; }
+			UnsignedInt prodCount = safeGetProductionCount(prod);
+			if (prodCount == 0) { overlayLog("COLLECT: %s prodCount=0\n", name.str()); return; }
+			overlayLog("COLLECT: %s prodCount=%u\n", name.str(), prodCount);
+
+			// TheSuperHackers @test step 4: slot-finding loop
+			Int slot = -1;
+			for (Int s = 0; s < MAX_SLOTS; ++s)
+			{
+				AsciiString nsk;
+				nsk.format("player%d", s);
+				Player* pp = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nsk));
+				if (pp && obj->getControllingPlayer() == pp) { slot = s; break; }
 			}
+			if (slot < 0) { overlayLog("COLLECT: %s slot not found\n", name.str()); return; }
+
+			InGameUI* ui = (InGameUI*)userData;
+			InGameUI::PlayerOverlayExt& ext = ui->m_playerOverlayExt[slot];
+
+			const ProductionEntry* entry = safeFirstProduction(prod);
+			if (!entry) {
+				overlayLog("COLLECT: %s slot=%d firstProduction=nullptr (prodCount=%u) — replay mode, linked list not restored\n",
+					name.str(), slot, prodCount);
+				// Fallback: push a single placeholder entry with just the building info
+				InGameUI::QueueEntry qe;
+				qe.tmpl = tmpl;  // use building template so we get the building icon
+				qe.percentComplete = 0.0f;
+				qe.buildingPos = buildingPos;
+				qe.buildingName = name;
+				ext.queue.push_back(qe);
+				return;
+			}
+
+			while (entry)
+			{
+				ProductionType pt = safeGetProductionType(entry);
+				overlayLog("COLLECT: %s entry type=%d\n", name.str(), (Int)pt);
+				if (pt == PRODUCTION_UNIT)
+				{
+					InGameUI::QueueEntry qe;
+					qe.tmpl = safeGetProductionObject(entry);
+					qe.percentComplete = safeGetPercentComplete(entry);
+					qe.buildingPos = buildingPos;
+					qe.buildingName = name;
+					ext.queue.push_back(qe);
+
+					overlayLog("Queue: slot=%d building=%s unit=%s pct=%.0f%%\n",
+						slot, name.str(),
+						qe.tmpl ? qe.tmpl->getName().str() : "NULL",
+						qe.percentComplete);
+				}
+				entry = safeNextProduction(prod, entry);
+			}
+		}
 	
 			// Helper: find special power module for one power slot
 		void InGameUI::findPowerModule(Object* obj, void* userData)
@@ -7559,20 +7666,175 @@ void InGameUI::drawPlayerInfoList()
 			}
 		}
 
-		void InGameUI::gatherOverlayExtData()
+		// TheSuperHackers @feature 15/07/2026 Shadow queue: called from ProductionUpdate::queueCreateUnit hook.
+		// Builds queue entries from actual game events — works in both live and replay mode.
+		void InGameUI::onUnitQueued(Player* player, const ThingTemplate* unitType, Object* producer, Real percentComplete)
+		{
+			if (!player || !unitType || !producer || !ThePlayerList || !TheNameKeyGenerator)
+				return;
+
+			if (!m_isValid1v1)
+				return;
+
+			// Find which slot this player is in
+			Int slot = -1;
+			for (Int s = 0; s < MAX_SLOTS; ++s)
+			{
+				AsciiString nsk;
+				nsk.format("player%d", s);
+				Player* pp = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nsk));
+				if (pp == player) { slot = s; break; }
+			}
+			if (slot < 0 || slot >= MAX_SLOTS) return;
+			if (!m_playerOverlayExt[slot].isPresent) return;
+
+			// Get building position
+			const Coord3D* pos = producer->getPosition();
+			Coord3D buildingPos = { 0, 0, 0 };
+			if (pos) buildingPos = *pos;
+
+			// Get building name
+			AsciiString buildingName;
+			const ThingTemplate* btmpl = producer->getTemplate();
+			if (btmpl) buildingName = btmpl->getName();
+
+			// Push into the player's queue
+			QueueEntry qe;
+			qe.tmpl = unitType;
+			qe.percentComplete = percentComplete;
+			qe.buildingPos = buildingPos;
+			qe.buildingName = buildingName;
+			qe.producer = producer;
+			m_playerOverlayExt[slot].queue.push_back(qe);
+
+			overlayLog("QUEUED: slot=%d building=%s unit=%s pct=%.0f%%\n",
+				slot, buildingName.str(),
+				unitType ? unitType->getName().str() : "NULL",
+				percentComplete);
+		}
+
+		// TheSuperHackers @feature 15/07/2026 Called from ProductionUpdate::update hook.
+		// Removes the completed unit from the shadow queue.
+		void InGameUI::onUnitCompleted(Player* player, const ThingTemplate* unitType, Object* producer)
+		{
+			if (!player || !unitType || !producer || !ThePlayerList || !TheNameKeyGenerator)
+				return;
+
+			Int slot = -1;
+			for (Int s = 0; s < MAX_SLOTS; ++s)
+			{
+				AsciiString nsk;
+				nsk.format("player%d", s);
+				Player* pp = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nsk));
+				if (pp == player) { slot = s; break; }
+			}
+			if (slot < 0 || slot >= MAX_SLOTS) return;
+
+			std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue;
+
+			for (size_t i = 0; i < q.size(); ++i)
+			{
+				if (q[i].producer == producer && q[i].tmpl == unitType)
+				{
+					overlayLog("COMPLETED: slot=%d building=%s unit=%s removed\n",
+						slot, q[i].buildingName.str(),
+						unitType->getName().str());
+					q.erase(q.begin() + i);
+					return;
+				}
+			}
+		}
+
+		// TheSuperHackers @feature 15/07/2026 Called from ProductionUpdate::cancelUnitCreate hook.
+		// Removes the matching entry from the shadow queue.
+		void InGameUI::onUnitCancelled(Player* player, const ThingTemplate* unitType, Object* producer)
+		{
+			if (!player || !unitType || !producer || !ThePlayerList || !TheNameKeyGenerator)
+				return;
+
+			// Find which slot this player is in
+			Int slot = -1;
+			for (Int s = 0; s < MAX_SLOTS; ++s)
+			{
+				AsciiString nsk;
+				nsk.format("player%d", s);
+				Player* pp = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nsk));
+				if (pp == player) { slot = s; break; }
+			}
+			if (slot < 0 || slot >= MAX_SLOTS) return;
+
+			std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue;
+
+			// Find and remove the first matching entry (same building instance, same unit type)
+			for (size_t i = 0; i < q.size(); ++i)
+			{
+				if (q[i].producer == producer && q[i].tmpl == unitType)
+				{
+					overlayLog("CANCEL: slot=%d building=%s unit=%s removed\n",
+						slot, q[i].buildingName.str(),
+						unitType->getName().str());
+					q.erase(q.begin() + i);
+					return;
+				}
+			}
+		}
+
+		// TheSuperHackers @feature 15/07/2026 Called from ProductionUpdate::onDie hook.
+		// Removes ALL queued units for a destroyed/sold building (bypasses corrupt linked list in replay).
+		void InGameUI::onBuildingDestroyed(Object* producer)
+		{
+			if (!producer) return;
+
+			// Search all player slots for entries from this building instance and remove them
+			for (Int slot = 0; slot < MAX_SLOTS; ++slot)
+			{
+				std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue;
+				for (size_t i = 0; i < q.size(); )
+				{
+					if (q[i].producer == producer)
+					{
+						overlayLog("DESTROYED: slot=%d building=%s unit=%s removed\n",
+							slot, q[i].buildingName.str(),
+							q[i].tmpl ? q[i].tmpl->getName().str() : "NULL");
+						q.erase(q.begin() + i);
+						// don't increment i — erase shifts elements
+					}
+					else
+					{
+						++i;
+					}
+				}
+			}
+		}
+
+		void InGameUI::gatherOverlayExtDataImpl()
 		{
 			if (!TheGameLogic || !ThePlayerList || !TheNameKeyGenerator)
+			{
+				overlayLog("GATHER: early return — null globals\n");
 				return;
+			}
 
 			UnsignedInt currentFrame = TheGameLogic ? TheGameLogic->getFrame() : 0;
 			UnsignedInt flashWindow = (UnsignedInt)(LOGICFRAMES_PER_SECOND * 3); // 3 seconds
+			Bool isReplay = (TheRecorder && TheRecorder->isPlaybackMode());
 
 			// Resolve the two 1v1 player slots
 			resolveOverlayPlayers();
 
-			// Clear all overlay ext slots first
-			for (Int slot = 0; slot < MAX_SLOTS; ++slot)
-				m_playerOverlayExt[slot].isPresent = false;
+			overlayLog("GATHER: frame=%u isValid=%d slots=[%d,%d]\n",
+				currentFrame, (Int)m_isValid1v1,
+				m_overlayPlayerSlots[0], m_overlayPlayerSlots[1]);
+
+			// Clear all overlay ext slots first (only in live mode — replay uses shadow queue)
+			if (!isReplay)
+			{
+				for (Int slot = 0; slot < MAX_SLOTS; ++slot)
+				{
+					m_playerOverlayExt[slot].isPresent = false;
+					m_playerOverlayExt[slot].queue.clear();
+				}
+			}
 
 			if (!m_isValid1v1)
 				return;
@@ -7597,10 +7859,20 @@ void InGameUI::drawPlayerInfoList()
 				}
 
 				// ---- Unit queues ----
-				for (Int bt = 0; bt < BUILDING_COUNT; ++bt)
-															m_playerOverlayExt[slot].queue[bt].clear();
-
-														p->iterateObjects(collectQueueEntries, this);
+				// In replay mode, the linked list is not restored — use the shadow queue
+				// built by the onUnitQueued hook in ProductionUpdate::queueCreateUnit.
+				if (!isReplay)
+				{
+					m_playerOverlayExt[slot].queue.clear();
+					overlayLog("GATHER: about to iterateObjects for slot=%d (live mode)\n", slot);
+					p->iterateObjects(collectQueueEntries, this);
+					overlayLog("GATHER: done iterateObjects slot=%d queueSize=%zu\n", slot, m_playerOverlayExt[slot].queue.size());
+				}
+				else
+				{
+					// Replay mode: queue is built by onUnitQueued hook — don't clear it
+					overlayLog("GATHER: replay mode slot=%d queueSize=%zu (shadow queue)\n", slot, m_playerOverlayExt[slot].queue.size());
+				}
 
 														// ---- General power cooldowns ----
 				const PlayerTemplate* pt = p->getPlayerTemplate();
@@ -7678,13 +7950,16 @@ void InGameUI::drawPlayerInfoList()
 			}
 		}
 
-		void InGameUI::drawUnitQueues(Int baseX, Int baseY, Int lineH, Real scale)
+		void InGameUI::drawUnitQueuesImpl(Int baseX, Int baseY, Int lineH, Real scale)
 		{
 			if (!TheDisplay || !m_isValid1v1) return;
 
-			Int iconSize = Int(20 * scale);
-			Int iconSpacing = Int(2 * scale);
-			Int startX = baseX;
+			overlayLog("DRAW_Q: entry valid1v1=%d\n", (Int)m_isValid1v1);
+
+			Int screenW = TheDisplay->getWidth();
+			Int screenH = TheDisplay->getHeight();
+			Int iconSize = Int(24 * scale);
+			Int iconSpacing = Int(3 * scale);
 
 			for (Int ovIdx = 0; ovIdx < 2; ++ovIdx)
 			{
@@ -7692,37 +7967,64 @@ void InGameUI::drawPlayerInfoList()
 				if (slot < 0 || slot >= MAX_SLOTS) continue;
 				if (!m_playerOverlayExt[slot].isPresent) continue;
 
-				Int rowY = baseY + (ovIdx + 1) * lineH;
-				for (Int bt = 0; bt < BUILDING_COUNT; ++bt)
-				{
-					const std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue[bt];
-					if (q.empty()) continue;
+				const std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue;
+				overlayLog("DRAW_Q: player slot=%d ovIdx=%d queueSize=%zu\n", slot, ovIdx, q.size());
+				if (q.empty()) continue;
 
-					Int iconX = startX;
-					for (size_t ei = 0; ei < q.size(); ++ei)
+				// Position: P1 left of scoreboard, P2 right of scoreboard (above command panel)
+				// Layout: max 3 icons per row, expanding upward from bottom
+				Int panelX;
+				if (ovIdx == 0)
+					panelX = Int(screenW * 0.17f);  // between minimap and scoreboard
+				else
+					panelX = Int(screenW * 0.75f);  // between scoreboard and command panel
+
+				static const Int MAX_COLS = 3;
+				Int startY = screenH - Int(200 * scale); // above bottom UI bar
+				if (startY < 0) startY = 0;
+
+				for (size_t ei = 0; ei < q.size(); ++ei)
+				{
+					Int col = (Int)(ei % MAX_COLS);
+					Int row = (Int)(ei / MAX_COLS);
+					Int ix = panelX + col * (iconSize + iconSpacing);
+					Int iy = startY - row * (iconSize + iconSpacing);
+
+					// Try drawing the button image first
+					if (q[ei].tmpl && q[ei].tmpl->getButtonImage())
 					{
-						if (q[ei].tmpl && q[ei].tmpl->getButtonImage())
-						{
-							const Image* img = q[ei].tmpl->getButtonImage();
-							TheDisplay->drawImage(img, iconX, rowY, iconX + iconSize, rowY + iconSize);
-							// Draw progress bar at bottom of icon
-							Int progW = (Int)(iconSize * q[ei].percentComplete / 100.0f);
-							if (progW > 0)
-								TheWindowManager->winFillRect(
-									TheWindowManager->winMakeColor(0, 200, 0, 180), 1,
-									iconX, rowY + iconSize - 3, iconX + progW, rowY + iconSize);
-						}
-						iconX += iconSize + iconSpacing;
-						if (iconX > startX + 150) break;
+						const Image* img = q[ei].tmpl->getButtonImage();
+						TheDisplay->drawImage(img, ix, iy,
+							ix + iconSize, iy + iconSize);
 					}
-					rowY += iconSize + iconSpacing;
+					else
+					{
+						// Fallback: gray rectangle placeholder
+						TheWindowManager->winFillRect(
+							TheWindowManager->winMakeColor(60, 60, 60, 200), 1,
+							ix, iy,
+							ix + iconSize, iy + iconSize);
+					}
+
+					// Green progress bar at bottom of icon
+					if (q[ei].percentComplete > 0.0f)
+					{
+						Int progW = (Int)(iconSize * q[ei].percentComplete / 100.0f);
+						if (progW < 1) progW = 1;
+						TheWindowManager->winFillRect(
+							TheWindowManager->winMakeColor(0, 200, 0, 200), 1,
+							ix, iy + iconSize - 3,
+							ix + progW, iy + iconSize);
+					}
 				}
 			}
 		}
 
-		void InGameUI::drawPowerCooldowns(Int baseX, Int baseY, Int lineH, Real scale)
+		void InGameUI::drawPowerCooldownsImpl(Int baseX, Int baseY, Int lineH, Real scale)
 		{
 			if (!TheGameLogic || !m_isValid1v1) return;
+
+			overlayLog("DRAW_P: entry valid1v1=%d\n", (Int)m_isValid1v1);
 
 			UnsignedInt currentFrame = TheGameLogic->getFrame();
 			Int ringSize = Int(44 * scale);
@@ -7825,11 +8127,13 @@ void InGameUI::drawPlayerInfoList()
 			}
 		}
 
-		void InGameUI::drawPowerFlashes()
+		void InGameUI::drawPowerFlashesImpl()
 		{
 			// Click-to-navigate: check if mouse clicked on a power icon
 			if (!TheDisplay || !TheMouse || !TheTacticalView || !m_isValid1v1)
 				return;
+
+			overlayLog("DRAW_F: entry valid1v1=%d\n", (Int)m_isValid1v1);
 			if (!TheGameLogic)
 				return;
 
@@ -7896,5 +8200,132 @@ void InGameUI::drawPlayerInfoList()
 			}
 		}
 
-		// @todo notifyGeneralPromotion and notifySpecialPowerUsed are already implemented above
-		// (they are observer notification functions, not overlay data functions).
+		void InGameUI::drawUnitQueueClicksImpl()
+		{
+			// Click-to-navigate: check if mouse clicked on a queue icon
+			if (!TheDisplay || !TheMouse || !TheTacticalView || !m_isValid1v1)
+				return;
+
+			const MouseIO* mouse = TheMouse->getMouseStatus();
+			if (!mouse)
+				return;
+
+			// Only handle on the frame the left button is first pressed down
+			if (mouse->leftState != MBS_Down)
+				return;
+
+			Int mx = mouse->pos.x;
+			Int my = mouse->pos.y;
+
+			Int screenW = TheDisplay->getWidth();
+			Int screenH = TheDisplay->getHeight();
+			Real scale = (Real)screenW / 1920.0f;
+			scale = (scale < 0.7f) ? 0.7f : (scale > 2.0f) ? 2.0f : scale;
+			Int iconSize = Int(24 * scale);
+			Int iconSpacing = Int(3 * scale);
+
+			for (Int ovIdx = 0; ovIdx < 2; ++ovIdx)
+			{
+				Int slot = m_overlayPlayerSlots[ovIdx];
+				if (slot < 0 || slot >= MAX_SLOTS) continue;
+				if (!m_playerOverlayExt[slot].isPresent) continue;
+
+				const std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue;
+				if (q.empty()) continue;
+
+				// Must match drawUnitQueuesImpl layout
+				Int panelX;
+				if (ovIdx == 0)
+					panelX = Int(screenW * 0.17f);
+				else
+					panelX = Int(screenW * 0.75f);
+
+				static const Int MAX_COLS = 3;
+				Int startY = screenH - Int(200 * scale);
+				if (startY < 0) startY = 0;
+
+				for (size_t ei = 0; ei < q.size(); ++ei)
+				{
+					Int col = (Int)(ei % MAX_COLS);
+					Int row = (Int)(ei / MAX_COLS);
+					Int ix = panelX + col * (iconSize + iconSpacing);
+					Int iy = startY - row * (iconSize + iconSpacing);
+
+					if (mx >= ix && mx <= ix + iconSize &&
+						my >= iy && my <= iy + iconSize)
+					{
+						// Clicked on this queue icon — navigate to the production building
+						if (q[ei].buildingPos.x != 0.0f || q[ei].buildingPos.y != 0.0f)
+						{
+							TheTacticalView->lookAt(&q[ei].buildingPos);
+						}
+						return;
+					}
+				}
+			}
+		}
+
+		// TheSuperHackers @feature 15/07/2026 Standalone overlay draw — always safe, never depends on stats font.
+		void InGameUI::drawOverlayExt()
+		{
+			if (!TheDisplay || !TheGameLogic || !ThePlayerList)
+				return;
+
+			Player* localPlayer = ThePlayerList->getLocalPlayer();
+			if (!localPlayer || TheGameLogic->getFrame() <= 1)
+				return;
+
+			// Reset shadow queues on new game/replay start (frame 2 is the first real frame)
+			if (TheGameLogic->getFrame() == 2)
+			{
+				for (Int slot = 0; slot < MAX_SLOTS; ++slot)
+				{
+					m_playerOverlayExt[slot].queue.clear();
+					m_playerOverlayExt[slot].isPresent = false;
+				}
+			}
+
+			if (!localPlayer->isPlayerObserver() && !localPlayer->isPlayerDead())
+				return;
+
+			// Delay 60 frames (1s) to let replay mode fully initialize game state
+			if (TheGameLogic->getFrame() >= 60)
+				safeGatherOverlayExtData(this);
+
+			Int screenW = TheDisplay->getWidth();
+			Int screenH = TheDisplay->getHeight();
+			Real scale = (Real)screenW / 1920.0f;
+			scale = (scale < 0.7f) ? 0.7f : (scale > 2.0f) ? 2.0f : scale;
+
+			Int queueBaseY = screenH - Int(80 * scale);
+			if (queueBaseY < 0) queueBaseY = 0;
+			Int queueLineH = Int(18 * scale);
+			if (queueLineH < 1) queueLineH = 1;
+			safeDrawUnitQueues(this, Int(10 * scale), queueBaseY, queueLineH, scale);
+			safeDrawPowerCooldowns(this, Int(10 * scale), queueBaseY, queueLineH, scale);
+			safeDrawPowerFlashes(this);
+			safeDrawUnitQueueClicks(this);
+		}
+
+		// TheSuperHackers @feature 15/07/2026 Public wrappers — delegate to SEH-safe static helpers.
+		// These keep the existing public API but protect against crashes in the overlay code.
+		void InGameUI::gatherOverlayExtData()
+		{
+			safeGatherOverlayExtData(this);
+		}
+		void InGameUI::drawUnitQueues(Int baseX, Int baseY, Int lineH, Real scale)
+		{
+			safeDrawUnitQueues(this, baseX, baseY, lineH, scale);
+		}
+		void InGameUI::drawPowerCooldowns(Int baseX, Int baseY, Int lineH, Real scale)
+		{
+			safeDrawPowerCooldowns(this, baseX, baseY, lineH, scale);
+		}
+		void InGameUI::drawPowerFlashes()
+		{
+			safeDrawPowerFlashes(this);
+		}
+		void InGameUI::drawUnitQueueClicks()
+		{
+			safeDrawUnitQueueClicks(this);
+		}

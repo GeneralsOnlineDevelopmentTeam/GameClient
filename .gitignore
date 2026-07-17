@@ -63,6 +63,9 @@ cmake-build-*/
 .ninja_log
 build.ninja
 
+## Overlay project documentation (NOT for public repo)
+/overlay-project-status.md
+
 ## Python
 __pycache__/
 *.pyc

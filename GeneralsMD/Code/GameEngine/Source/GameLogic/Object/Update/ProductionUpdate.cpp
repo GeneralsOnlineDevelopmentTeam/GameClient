@@ -202,6 +202,9 @@ ProductionUpdate::ProductionUpdate( Thing *thing, const ModuleData* moduleData )
 //-------------------------------------------------------------------------------------------------
 ProductionUpdate::~ProductionUpdate()
 {
+	// TheSuperHackers @feature 15/07/2026 Notify overlay: building destroyed/sold
+	if (TheInGameUI)
+		TheInGameUI->onBuildingDestroyed(getObject());
 
 	// destroy any queued productions
 	ProductionEntry *production;
@@ -451,6 +454,10 @@ Bool ProductionUpdate::queueCreateUnit( const ThingTemplate *unitType, Productio
 	// tie to the end of the production queue
 	addToProductionQueue( production );
 
+	// TheSuperHackers @feature 15/07/2026 Notify observer overlay of queued unit
+	if (TheInGameUI)
+		TheInGameUI->onUnitQueued(getObject()->getControllingPlayer(), unitType, getObject(), production->getPercentComplete());
+
 	return TRUE;  // unit queued
 
 }
@@ -469,6 +476,13 @@ void ProductionUpdate::cancelUnitCreate( ProductionID productionID )
 		// are we at the one we want get rid of it
 		if( production->m_productionID == productionID )
 		{
+
+			// TheSuperHackers @feature 15/07/2026 Notify overlay BEFORE removing from queue
+			if (TheInGameUI && production->m_objectToProduce)
+			{
+				Player* p = getObject()->getControllingPlayer();
+				TheInGameUI->onUnitCancelled(p, production->m_objectToProduce, getObject());
+			}
 
 			// give the player the cost of the object back
 			Player *player = getObject()->getControllingPlayer();
@@ -675,6 +689,10 @@ UpdateSleepTime ProductionUpdate::update()
 		// remove from queue list
 		removeFromProductionQueue( production );
 
+		// TheSuperHackers @feature 15/07/2026 Notify observer overlay of cancelled unit
+		if (TheInGameUI)
+			TheInGameUI->onUnitCancelled(player, production->m_objectToProduce, getObject());
+
 		// delete the production entry
 		deleteInstance(production);
 
@@ -866,6 +884,10 @@ UpdateSleepTime ProductionUpdate::update()
 				{
 					// remove this production entry so we can go on to the next if we are totally finished
 					removeFromProductionQueue( production );
+
+					// TheSuperHackers @feature 15/07/2026 Notify overlay: unit completed production
+					if (TheInGameUI)
+						TheInGameUI->onUnitCompleted(player, production->m_objectToProduce, us);
 
 					// delete the production entry
 					deleteInstance(production);
@@ -1126,6 +1148,10 @@ UnsignedInt ProductionUpdate::countUnitTypeInQueue( const ThingTemplate *unitTyp
 // ------------------------------------------------------------------------------------------------
 void ProductionUpdate::onDie( const DamageInfo *damageInfo )
 {
+	// TheSuperHackers @feature 15/07/2026 Notify overlay to clear all queued units for this building
+	if (TheInGameUI)
+		TheInGameUI->onBuildingDestroyed(getObject());
+
 	// we need to cancel all of our production on death
 	cancelAndRefundAllProduction();
 }
