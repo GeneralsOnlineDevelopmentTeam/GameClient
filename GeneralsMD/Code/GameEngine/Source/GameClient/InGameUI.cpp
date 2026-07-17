@@ -135,6 +135,10 @@ static ProductionType safeGetProductionType(const ProductionEntry* entry) {
 	__try { return entry->getProductionType(); }
 	__except(EXCEPTION_EXECUTE_HANDLER) { return PRODUCTION_INVALID; }
 }
+static const UpgradeTemplate* safeGetProductionUpgrade(const ProductionEntry* entry) {
+	__try { return entry->getProductionUpgrade(); }
+	__except(EXCEPTION_EXECUTE_HANDLER) { return nullptr; }
+}
 #pragma warning(pop)
 
 // TheSuperHackers @feature 15/07/2026 Debug logging for overlay diagnostics
@@ -7585,6 +7589,20 @@ void InGameUI::drawPlayerInfoList()
 						qe.tmpl ? qe.tmpl->getName().str() : "NULL",
 						qe.percentComplete);
 				}
+				else if (pt == PRODUCTION_UPGRADE)
+				{
+					InGameUI::QueueEntry qe;
+					qe.upgradeTmpl = safeGetProductionUpgrade(entry);
+					qe.percentComplete = safeGetPercentComplete(entry);
+					qe.buildingPos = buildingPos;
+					qe.buildingName = name;
+					ext.queue.push_back(qe);
+
+					overlayLog("Queue: slot=%d building=%s upgrade=%s pct=%.0f%%\n",
+						slot, name.str(),
+						qe.upgradeTmpl ? qe.upgradeTmpl->getUpgradeName().str() : "NULL",
+						qe.percentComplete);
+				}
 				entry = safeNextProduction(prod, entry);
 			}
 		}
@@ -7790,6 +7808,110 @@ void InGameUI::drawPlayerInfoList()
 			}
 		}
 
+		// TheSuperHackers @feature 17/07/2026 Shadow upgrade queue: called from ProductionUpdate::queueUpgrade hook.
+		void InGameUI::onUpgradeQueued(Player* player, const UpgradeTemplate* upgradeType, Object* producer, Real percentComplete)
+		{
+			if (!player || !upgradeType || !producer || !ThePlayerList || !TheNameKeyGenerator)
+				return;
+
+			if (!m_isValid1v1)
+				return;
+
+			Int slot = -1;
+			for (Int s = 0; s < MAX_SLOTS; ++s)
+			{
+				AsciiString nsk;
+				nsk.format("player%d", s);
+				Player* pp = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nsk));
+				if (pp == player) { slot = s; break; }
+			}
+			if (slot < 0 || slot >= MAX_SLOTS) return;
+			if (!m_playerOverlayExt[slot].isPresent) return;
+
+			const Coord3D* pos = producer->getPosition();
+			Coord3D buildingPos = { 0, 0, 0 };
+			if (pos) buildingPos = *pos;
+
+			AsciiString buildingName;
+			const ThingTemplate* btmpl = producer->getTemplate();
+			if (btmpl) buildingName = btmpl->getName();
+
+			QueueEntry qe;
+			qe.upgradeTmpl = upgradeType;
+			qe.percentComplete = percentComplete;
+			qe.buildingPos = buildingPos;
+			qe.buildingName = buildingName;
+			qe.producer = producer;
+			m_playerOverlayExt[slot].queue.push_back(qe);
+
+			overlayLog("QUEUED: slot=%d building=%s upgrade=%s pct=%.0f%%\n",
+				slot, buildingName.str(),
+				upgradeType ? upgradeType->getUpgradeName().str() : "NULL",
+				percentComplete);
+		}
+
+		// TheSuperHackers @feature 17/07/2026 Called from ProductionUpdate::update hook (upgrade completion).
+		void InGameUI::onUpgradeCompleted(Player* player, const UpgradeTemplate* upgradeType, Object* producer)
+		{
+			if (!player || !upgradeType || !producer || !ThePlayerList || !TheNameKeyGenerator)
+				return;
+
+			Int slot = -1;
+			for (Int s = 0; s < MAX_SLOTS; ++s)
+			{
+				AsciiString nsk;
+				nsk.format("player%d", s);
+				Player* pp = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nsk));
+				if (pp == player) { slot = s; break; }
+			}
+			if (slot < 0 || slot >= MAX_SLOTS) return;
+			if (!m_playerOverlayExt[slot].isPresent) return;
+
+			std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue;
+			for (size_t i = 0; i < q.size(); ++i)
+			{
+				if (q[i].upgradeTmpl == upgradeType && q[i].producer == producer)
+				{
+					overlayLog("COMPLETED: slot=%d building=%s upgrade=%s removed\n",
+						slot, q[i].buildingName.str(),
+						upgradeType->getUpgradeName().str());
+					q.erase(q.begin() + i);
+					return;
+				}
+			}
+		}
+
+		// TheSuperHackers @feature 17/07/2026 Called from ProductionUpdate::cancelUpgrade hook.
+		void InGameUI::onUpgradeCancelled(Player* player, const UpgradeTemplate* upgradeType, Object* producer)
+		{
+			if (!player || !upgradeType || !producer || !ThePlayerList || !TheNameKeyGenerator)
+				return;
+
+			Int slot = -1;
+			for (Int s = 0; s < MAX_SLOTS; ++s)
+			{
+				AsciiString nsk;
+				nsk.format("player%d", s);
+				Player* pp = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nsk));
+				if (pp == player) { slot = s; break; }
+			}
+			if (slot < 0 || slot >= MAX_SLOTS) return;
+			if (!m_playerOverlayExt[slot].isPresent) return;
+
+			std::vector<QueueEntry>& q = m_playerOverlayExt[slot].queue;
+			for (size_t i = 0; i < q.size(); ++i)
+			{
+				if (q[i].upgradeTmpl == upgradeType && q[i].producer == producer)
+				{
+					overlayLog("CANCELLED: slot=%d building=%s upgrade=%s removed\n",
+						slot, q[i].buildingName.str(),
+						upgradeType->getUpgradeName().str());
+					q.erase(q.begin() + i);
+					return;
+				}
+			}
+		}
+
 		// TheSuperHackers @feature 15/07/2026 Called from ProductionUpdate::onDie hook.
 		// Removes ALL queued units for a destroyed/sold building (bypasses corrupt linked list in replay).
 		void InGameUI::onBuildingDestroyed(Object* producer)
@@ -7804,9 +7926,10 @@ void InGameUI::drawPlayerInfoList()
 				{
 					if (q[i].producer == producer)
 					{
-						overlayLog("DESTROYED: slot=%d building=%s unit=%s removed\n",
-							slot, q[i].buildingName.str(),
-							q[i].tmpl ? q[i].tmpl->getName().str() : "NULL");
+						const char* nameStr = q[i].tmpl ? q[i].tmpl->getName().str() :
+							(q[i].upgradeTmpl ? q[i].upgradeTmpl->getUpgradeName().str() : "UNKNOWN");
+						overlayLog("DESTROYED: slot=%d building=%s entry=%s removed\n",
+							slot, q[i].buildingName.str(), nameStr);
 						q.erase(q.begin() + i);
 						// don't increment i — erase shifts elements
 					}
@@ -8042,10 +8165,15 @@ void InGameUI::drawPlayerInfoList()
 					overlayLog("LAYOUT: draw ovIdx=%d ei=%zu row=%d col=%d ix=%d iy=%d (botY=%d)\n",
 						ovIdx, ei, row, col, ix, iy, bottomY);
 
-					// Try drawing the button image first
-					if (q[ei].tmpl && q[ei].tmpl->getButtonImage())
+					// Try drawing the button image (unit or upgrade)
+					const Image* img = nullptr;
+					if (q[ei].tmpl)
+						img = q[ei].tmpl->getButtonImage();
+					else if (q[ei].upgradeTmpl)
+						img = q[ei].upgradeTmpl->getButtonImage();
+
+					if (img)
 					{
-						const Image* img = q[ei].tmpl->getButtonImage();
 						TheDisplay->drawImage(img, ix, iy,
 							ix + iconSize, iy + iconSize);
 					}

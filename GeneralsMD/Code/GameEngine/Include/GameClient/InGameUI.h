@@ -58,6 +58,7 @@ class WindowLayout;
 class Anim2DTemplate;
 class Anim2D;
 class Shadow;
+class UpgradeTemplate;
 enum LegalBuildCode CPP_11(: Int);
 enum KindOfType CPP_11(: Int);
 enum ShadowType CPP_11(: Int);
@@ -632,6 +633,9 @@ public:
   void onUnitQueued(Player* player, const ThingTemplate* unitType, Object* producer, Real percentComplete);
   void onUnitCancelled(Player* player, const ThingTemplate* unitType, Object* producer);
   void onUnitCompleted(Player* player, const ThingTemplate* unitType, Object* producer);
+  void onUpgradeQueued(Player* player, const UpgradeTemplate* upgradeType, Object* producer, Real percentComplete);
+  void onUpgradeCancelled(Player* player, const UpgradeTemplate* upgradeType, Object* producer);
+  void onUpgradeCompleted(Player* player, const UpgradeTemplate* upgradeType, Object* producer);
   void onBuildingDestroyed(Object* producer);
   void refreshObserverNotificationResources(void);
   Bool m_observerNotificationsHidden;   // hide/show observer notifications
@@ -1119,11 +1123,12 @@ protected:
 
 	struct QueueEntry
 	{
-		const ThingTemplate* tmpl;
+		const ThingTemplate* tmpl;           // unit template (nullptr for upgrades)
+		const UpgradeTemplate* upgradeTmpl;  // upgrade template (nullptr for units)
 		Real percentComplete;
 		Coord3D buildingPos;       // world position of producing building (for click-to-navigate)
 		AsciiString buildingName;  // template name of producing building (for debug logging)
-		Object* producer;          // specific building instance (for accurate removal)
+		Object* producer;          // producing building instance (for removal on destroy)
 	};
 
 	struct PlayerPowerInfo

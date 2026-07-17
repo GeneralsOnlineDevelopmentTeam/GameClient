@@ -309,10 +309,14 @@ Bool ProductionUpdate::queueUpgrade( const UpgradeTemplate *upgrade )
 	production->m_type = PRODUCTION_UPGRADE;
 	production->m_upgradeToResearch = upgrade;
 	production->m_productionID = PRODUCTIONID_INVALID;  // not needed for upgrades, you can only have one of
-																	 // this type in the queue
+														 // this type in the queue
 
 	// tie to the end of the production queue
 	addToProductionQueue( production );
+
+	// TheSuperHackers @feature 17/07/2026 Notify observer overlay of queued upgrade
+	if (TheInGameUI)
+		TheInGameUI->onUpgradeQueued(getObject()->getControllingPlayer(), upgrade, getObject(), production->getPercentComplete());
 
 	// add this upgrade as in progress in the player
 	player->addUpgrade( upgrade, UPGRADE_STATUS_IN_PRODUCTION );
@@ -361,6 +365,10 @@ void ProductionUpdate::cancelUpgrade( const UpgradeTemplate *upgrade )
 	// refund money back to the player
 	Money *money = player->getMoney();
 	money->deposit( production->m_upgradeToResearch->calcCostToBuild( player ), TRUE, FALSE );
+
+	// TheSuperHackers @feature 17/07/2026 Notify observer overlay of cancelled upgrade
+	if (TheInGameUI)
+		TheInGameUI->onUpgradeCancelled(getObject()->getControllingPlayer(), production->m_upgradeToResearch, getObject());
 
 	// remove this production from the queue
 	removeFromProductionQueue( production );
@@ -988,6 +996,10 @@ UpdateSleepTime ProductionUpdate::update()
 					}
 				}
 			}
+
+			// TheSuperHackers @feature 17/07/2026 Notify overlay: upgrade completed production
+			if (TheInGameUI)
+				TheInGameUI->onUpgradeCompleted(player, upgrade, us);
 
 			// remove this production entry so we can go on to the next
 			removeFromProductionQueue( production );
