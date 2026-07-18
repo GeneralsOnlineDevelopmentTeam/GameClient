@@ -28,6 +28,29 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#include <cstdarg>	// TheSuperHackers @debug 18/07/2026 va_list for traceLog
+#include <cstdio>	// TheSuperHackers @debug 18/07/2026 fopen/vfprintf for traceLog
+
+// TheSuperHackers @debug 18/07/2026 Startup-chain tracing — audio investigation.
+static FILE* g_traceLogFile_gameengine = nullptr;
+static void traceLog(const char* fmt, ...)
+{
+	__try {
+		if (!g_traceLogFile_gameengine) {
+			g_traceLogFile_gameengine = fopen("genovly_debug.log", "a");
+		}
+		if (g_traceLogFile_gameengine) {
+			va_list args;
+			va_start(args, fmt);
+			vfprintf(g_traceLogFile_gameengine, fmt, args);
+			va_end(args);
+			fflush(g_traceLogFile_gameengine);
+		}
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+	}
+}
+
 #include "Common/ActionManager.h"
 #include "Common/AudioAffect.h"
 #include "Common/BuildAssistant.h"
@@ -392,6 +415,7 @@ Bool GameEngine::isGameHalted()
  */
 void GameEngine::init()
 {
+	traceLog("TRACE: GameEngine::init() entry\n");
 	try {
 		//create an INI object to use for loading stuff
 		INI ini;
@@ -575,7 +599,9 @@ void GameEngine::init()
   startTime64 = endTime64;//Reset the clock ////////////////////////////////////////////////////////
 	DEBUG_LOG(("%s", Buf));////////////////////////////////////////////////////////////////////////////
 	#endif/////////////////////////////////////////////////////////////////////////////////////////////
+		traceLog("TRACE: before TheAudio initSubsystem headless=%d\n", TheGlobalData ? (Int)TheGlobalData->m_headless : -1);
 		initSubsystem(TheAudio,"TheAudio", createAudioManager(TheGlobalData->m_headless), nullptr);
+		traceLog("TRACE: after TheAudio initSubsystem TheAudio=%p\n", (void*)TheAudio);
 
 #if RTS_ZEROHOUR && RETAIL_COMPATIBLE_CRC
 		TheNameKeyGenerator->syncNameKeyID();

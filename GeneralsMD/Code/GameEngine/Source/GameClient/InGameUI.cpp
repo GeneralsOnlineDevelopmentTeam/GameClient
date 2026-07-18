@@ -7811,11 +7811,27 @@ void InGameUI::drawPlayerInfoList()
 		// TheSuperHackers @feature 17/07/2026 Shadow upgrade queue: called from ProductionUpdate::queueUpgrade hook.
 		void InGameUI::onUpgradeQueued(Player* player, const UpgradeTemplate* upgradeType, Object* producer, Real percentComplete)
 		{
+
+			// TheSuperHackers @debug 17/07/2026 H2: does the hook fire but get filtered by an early return?
+			overlayLog("UPGRADE_HOOK: onUpgradeQueued entry frame=%d replay=%d isValid1v1=%d player=%p upgrade=%s producer=%p pct=%.0f%%\n",
+				TheGameLogic ? (Int)TheGameLogic->getFrame() : -1,
+				(TheRecorder && TheRecorder->isPlaybackMode()) ? 1 : 0,
+				m_isValid1v1 ? 1 : 0,
+				(void*)player,
+				upgradeType ? upgradeType->getUpgradeName().str() : "NULL",
+				(void*)producer,
+				percentComplete);
 			if (!player || !upgradeType || !producer || !ThePlayerList || !TheNameKeyGenerator)
+			{
+				overlayLog("UPGRADE_HOOK: onUpgradeQueued early-return reason=null_ptr\n");
 				return;
+			}
 
 			if (!m_isValid1v1)
+			{
+				overlayLog("UPGRADE_HOOK: onUpgradeQueued early-return reason=invalid_1v1\n");
 				return;
+			}
 
 			Int slot = -1;
 			for (Int s = 0; s < MAX_SLOTS; ++s)
@@ -7825,8 +7841,16 @@ void InGameUI::drawPlayerInfoList()
 				Player* pp = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(nsk));
 				if (pp == player) { slot = s; break; }
 			}
-			if (slot < 0 || slot >= MAX_SLOTS) return;
-			if (!m_playerOverlayExt[slot].isPresent) return;
+			if (slot < 0 || slot >= MAX_SLOTS)
+			{
+				overlayLog("UPGRADE_HOOK: onUpgradeQueued early-return reason=slot_not_found player=%p\n", (void*)player);
+				return;
+			}
+			if (!m_playerOverlayExt[slot].isPresent)
+			{
+				overlayLog("UPGRADE_HOOK: onUpgradeQueued early-return reason=slot_not_present slot=%d\n", slot);
+				return;
+			}
 
 			const Coord3D* pos = producer->getPosition();
 			Coord3D buildingPos = { 0, 0, 0 };
@@ -7853,6 +7877,14 @@ void InGameUI::drawPlayerInfoList()
 		// TheSuperHackers @feature 17/07/2026 Called from ProductionUpdate::update hook (upgrade completion).
 		void InGameUI::onUpgradeCompleted(Player* player, const UpgradeTemplate* upgradeType, Object* producer)
 		{
+
+			// TheSuperHackers @debug 17/07/2026 H3: does onUpgradeCompleted fire (possibly same frame as queued)?
+			overlayLog("UPGRADE_HOOK: onUpgradeCompleted entry frame=%d replay=%d player=%p upgrade=%s producer=%p\n",
+				TheGameLogic ? (Int)TheGameLogic->getFrame() : -1,
+				(TheRecorder && TheRecorder->isPlaybackMode()) ? 1 : 0,
+				(void*)player,
+				upgradeType ? upgradeType->getUpgradeName().str() : "NULL",
+				(void*)producer);
 			if (!player || !upgradeType || !producer || !ThePlayerList || !TheNameKeyGenerator)
 				return;
 
@@ -7884,6 +7916,14 @@ void InGameUI::drawPlayerInfoList()
 		// TheSuperHackers @feature 17/07/2026 Called from ProductionUpdate::cancelUpgrade hook.
 		void InGameUI::onUpgradeCancelled(Player* player, const UpgradeTemplate* upgradeType, Object* producer)
 		{
+
+			// TheSuperHackers @debug 17/07/2026 H3: does onUpgradeCancelled fire (possibly same frame as queued)?
+			overlayLog("UPGRADE_HOOK: onUpgradeCancelled entry frame=%d replay=%d player=%p upgrade=%s producer=%p\n",
+				TheGameLogic ? (Int)TheGameLogic->getFrame() : -1,
+				(TheRecorder && TheRecorder->isPlaybackMode()) ? 1 : 0,
+				(void*)player,
+				upgradeType ? upgradeType->getUpgradeName().str() : "NULL",
+				(void*)producer);
 			if (!player || !upgradeType || !producer || !ThePlayerList || !TheNameKeyGenerator)
 				return;
 

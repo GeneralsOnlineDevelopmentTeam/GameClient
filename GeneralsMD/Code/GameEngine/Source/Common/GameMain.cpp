@@ -32,6 +32,29 @@
 #include "Common/GameEngine.h"
 #include "Common/ReplaySimulation.h"
 
+#include <cstdarg>	// TheSuperHackers @debug 18/07/2026 va_list for traceLog
+#include <cstdio>	// TheSuperHackers @debug 18/07/2026 fopen/vfprintf for traceLog
+
+// TheSuperHackers @debug 18/07/2026 Startup-chain tracing — audio investigation.
+static FILE* g_traceLogFile_gamemain = nullptr;
+static void traceLog(const char* fmt, ...)
+{
+	__try {
+		if (!g_traceLogFile_gamemain) {
+			g_traceLogFile_gamemain = fopen("genovly_debug.log", "a");
+		}
+		if (g_traceLogFile_gamemain) {
+			va_list args;
+			va_start(args, fmt);
+			vfprintf(g_traceLogFile_gamemain, fmt, args);
+			va_end(args);
+			fflush(g_traceLogFile_gamemain);
+		}
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+	}
+}
+
 
 /**
  * This is the entry point for the game system.
@@ -40,10 +63,14 @@ Int GameMain()
 {
 	int exitcode = 0;
 	// initialize the game engine using factory function
+	traceLog("TRACE: GameMain entry\n");
 	TheFramePacer = new FramePacer();
 	TheFramePacer->enableFramesPerSecondLimit(TRUE);
 	TheGameEngine = CreateGameEngine();
+	traceLog("TRACE: engine created TheGameEngine=%p\n", (void*)TheGameEngine);
+	traceLog("TRACE: calling TheGameEngine->init()\n");
 	TheGameEngine->init();
+	traceLog("TRACE: TheGameEngine->init() returned\n");
 
 	if (TheGlobalData->m_exportStats && (!TheGlobalData->m_headless || TheGlobalData->m_simulateReplays.empty()))
 	{

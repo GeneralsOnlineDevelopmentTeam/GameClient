@@ -41,6 +41,29 @@
 
 // USER INCLUDES //////////////////////////////////////////////////////////////
 #include "WinMain.h"
+
+#include <cstdarg>	// TheSuperHackers @debug 18/07/2026 va_list for traceLog
+#include <cstdio>	// TheSuperHackers @debug 18/07/2026 fopen/vfprintf for traceLog
+
+// TheSuperHackers @debug 18/07/2026 Startup-chain tracing — audio investigation.
+static FILE* g_traceLogFile_winmain = nullptr;
+static void traceLog(const char* fmt, ...)
+{
+	__try {
+		if (!g_traceLogFile_winmain) {
+			g_traceLogFile_winmain = fopen("genovly_debug.log", "a");
+		}
+		if (g_traceLogFile_winmain) {
+			va_list args;
+			va_start(args, fmt);
+			vfprintf(g_traceLogFile_winmain, fmt, args);
+			va_end(args);
+			fflush(g_traceLogFile_winmain);
+		}
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+	}
+}
 #include "Lib/BaseType.h"
 #include "Common/CommandLine.h"
 #include "Common/CriticalSection.h"
@@ -806,6 +829,9 @@ Int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 {
 	Int exitcode = 1;
 
+	// TheSuperHackers @debug 18/07/2026 Build marker — proves which exe actually ran
+	traceLog("TRACE: WINMAIN entry — genovly audio-v2 build 18-07-2026\n");
+
 #ifdef RTS_PROFILE_LEGACY
 	Profile::StartRange("init");
 #endif
@@ -878,6 +904,7 @@ Int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		gLoadScreenBitmap = (HBITMAP)LoadImage(hInstance, "Install_Final.bmp", IMAGE_BITMAP, 0, 0, LR_SHARED | LR_LOADFROMFILE);
 #endif
 
+		traceLog("TRACE: splash gLoadScreenBitmap=%p\n", (void*)gLoadScreenBitmap);
 		CommandLine::parseCommandLineForStartup();
 #ifdef RTS_ENABLE_CRASHDUMP
 		// Initialize minidump facilities - requires TheGlobalData so performed after parseCommandLineForStartup

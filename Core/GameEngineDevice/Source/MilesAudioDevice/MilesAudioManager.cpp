@@ -66,6 +66,31 @@
 
 #include "Common/file.h"
 
+#include <cstdarg>	// TheSuperHackers @debug 18/07/2026 va_list for audioLog
+#include <cstdio>	// TheSuperHackers @debug 18/07/2026 fopen/vfprintf for audioLog
+
+// TheSuperHackers @debug 18/07/2026 Audio init tracing — writes to genovly_debug.log.
+// Investigation: our exe produces no audio even with the original mss32.dll.
+static FILE* g_audioLogFile = nullptr;
+static void audioLog(const char* fmt, ...)
+{
+	__try {
+		if (!g_audioLogFile) {
+			g_audioLogFile = fopen("genovly_debug.log", "a");
+		}
+		if (g_audioLogFile) {
+			va_list args;
+			va_start(args, fmt);
+			vfprintf(g_audioLogFile, fmt, args);
+			va_end(args);
+			fflush(g_audioLogFile);
+		}
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		// Logging itself failed -- silently ignore, never crash the game
+	}
+}
+
 
 enum { INFINITE_LOOP_COUNT = 1000000 };
 
@@ -437,6 +462,7 @@ void MilesAudioManager::audioDebugDisplay(DebugDisplayInterface *dd, void *, FIL
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::init()
 {
+	audioLog("AUDIO: MilesAudioManager::init() entry -- REAL manager (not dummy)\n");
 	AudioManager::init();
 #ifdef INTENSE_DEBUG
 	DEBUG_LOG(("Sound has temporarily been disabled in debug builds only. jkmcd"));
@@ -1450,8 +1476,10 @@ AsciiString MilesAudioManager::getMusicTrackName() const
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::openDevice()
 {
+	audioLog("AUDIO: openDevice entry m_audioOn=%d\n", TheGlobalData ? (Int)TheGlobalData->m_audioOn : -1);
 	if (!TheGlobalData->m_audioOn) {
 		m_digitalHandle = nullptr;
+		audioLog("AUDIO: early-return reason=audio_off\n");
 		return;
 	}
 
@@ -1460,15 +1488,21 @@ void MilesAudioManager::openDevice()
 
 	AIL_set_redist_directory("MSS\\");
 	AIL_startup();
+	audioLog("AUDIO: AIL_startup done\n");
 	Int retval = 0;
 
 	// AIL_quick_startup should be replaced later with a call to actually pick which device to use, etc
 	const AudioSettings *audioSettings = getAudioSettings();
 	m_selectedSpeakerType = TheAudio->translateSpeakerTypeToUnsignedInt(m_prefSpeaker);
+	audioLog("AUDIO: quick_startup args digital=%d midi=%d rate=%d bits=%d ch=%d speakerType=%u\n",
+		(Int)audioSettings->m_useDigital, (Int)audioSettings->m_useMidi, (Int)audioSettings->m_outputRate,
+		(Int)audioSettings->m_outputBits, (Int)audioSettings->m_outputChannels, m_selectedSpeakerType);
 
 	retval = AIL_quick_startup(audioSettings->m_useDigital, audioSettings->m_useMidi, audioSettings->m_outputRate, audioSettings->m_outputBits, audioSettings->m_outputChannels);
+	audioLog("AUDIO: quick_startup retval=%d\n", retval);
 
 	if (!retval) {
+		audioLog("AUDIO: early-return reason=quick_startup_failed\n");
 		// Initialization failed - ensure m_digitalHandle stays nullptr and audio is disabled
 		m_digitalHandle = nullptr;
 		setOn(false, AudioAffect_All);
@@ -1477,26 +1511,33 @@ void MilesAudioManager::openDevice()
 
 	// Only get handles if initialization succeeded
 	AIL_quick_handles(&m_digitalHandle, nullptr, nullptr);
+	audioLog("AUDIO: quick_handles digitalHandle=%p\n", (void*)m_digitalHandle);
 
 	// If we still don't have a valid handle, disable audio
 	if (m_digitalHandle == nullptr) {
+		audioLog("AUDIO: early-return reason=null_handle\n");
 		setOn(false, AudioAffect_All);
 		return;
 	}
 
 	// Device initialized successfully - proceed with setup
 	buildProviderList();
+	audioLog("AUDIO: providerCount=%u pref3DProvider='%s' prefSpeaker='%s'\n",
+		m_providerCount, m_pref3DProvider.str(), m_prefSpeaker.str());
 	selectProvider(TheAudio->getProviderIndex(m_pref3DProvider));
+	audioLog("AUDIO: after selectProvider selectedProvider=%u valid=%d\n", m_selectedProvider, (Int)isValidProvider());
 
 	// Now that we're all done, update the cached variables so that everything is in sync.
 	TheAudio->refreshCachedVariables();
 
 	if (!isValidProvider()) {
+		audioLog("AUDIO: early-return reason=invalid_provider\n");
 		m_digitalHandle = nullptr;  // Mark as invalid if provider check fails
 		return;
 	}
 
 	initDelayFilter();
+	audioLog("AUDIO: openDevice complete OK\n");
 }
 
 //-------------------------------------------------------------------------------------------------

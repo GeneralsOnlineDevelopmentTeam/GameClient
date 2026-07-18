@@ -30,12 +30,16 @@
 // USER INCLUDES //////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#include <cstdarg>	// TheSuperHackers @debug 17/07/2026 va_list for prodOverlayLog
+#include <cstdio>	// TheSuperHackers @debug 17/07/2026 fopen/vfprintf for prodOverlayLog
+
 #include "Common/BitFlagsIO.h"
 #include "Common/BuildAssistant.h"
 #include "Common/CRCDebug.h"
 #include "Common/GameState.h"
 #include "Common/Player.h"
 #include "Common/Radar.h"
+#include "Common/Recorder.h"
 #include "Common/ThingFactory.h"
 #include "Common/ThingTemplate.h"
 #include "Common/Upgrade.h"
@@ -55,6 +59,29 @@
 #include "GameLogic/Object.h"
 #include "GameLogic/ScriptEngine.h"
 
+
+
+// TheSuperHackers @debug 17/07/2026 Debug logging for upgrade-queue replay investigation.
+// Local copy of the overlayLog pattern (static in InGameUI.cpp) so this file logs to the same file.
+static FILE* g_prodOverlayLogFile = nullptr;
+static void prodOverlayLog(const char* fmt, ...)
+{
+	__try {
+		if (!g_prodOverlayLogFile) {
+			g_prodOverlayLogFile = fopen("genovly_debug.log", "a");
+		}
+		if (g_prodOverlayLogFile) {
+			va_list args;
+			va_start(args, fmt);
+			vfprintf(g_prodOverlayLogFile, fmt, args);
+			va_end(args);
+			fflush(g_prodOverlayLogFile);
+		}
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		// Logging itself failed -- silently ignore, never crash the game
+	}
+}
 
 // PUBLIC /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -260,6 +287,13 @@ CanMakeType ProductionUpdate::canQueueCreateUnit( const ThingTemplate *unitType 
 Bool ProductionUpdate::queueUpgrade( const UpgradeTemplate *upgrade )
 {
 
+	// TheSuperHackers @debug 17/07/2026 H1: does queueUpgrade() fire in replay mode?
+	prodOverlayLog("UPGRADE_HOOK: queueUpgrade() entry frame=%d replay=%d upgrade=%s obj=%s\n",
+		TheGameLogic ? (Int)TheGameLogic->getFrame() : -1,
+		(TheRecorder && TheRecorder->isPlaybackMode()) ? 1 : 0,
+		upgrade ? upgrade->getUpgradeName().str() : "NULL",
+		(getObject() && getObject()->getTemplate()) ? getObject()->getTemplate()->getName().str() : "NULL");
+
 	// sanity
 	if( upgrade == nullptr )
 		return FALSE;
@@ -270,19 +304,35 @@ Bool ProductionUpdate::queueUpgrade( const UpgradeTemplate *upgrade )
 	// sanity check to make sure we can build this upgrade
 	if( upgrade->getUpgradeType() == UPGRADE_TYPE_PLAYER &&
 			TheUpgradeCenter->canAffordUpgrade( player, upgrade ) == FALSE )
+	{
+		prodOverlayLog("UPGRADE_HOOK: queueUpgrade() early-return frame=%d reason=cannot_afford upgrade=%s\n",
+			TheGameLogic ? (Int)TheGameLogic->getFrame() : -1, upgrade->getUpgradeName().str());
 		return FALSE;
+	}
 	else if( upgrade->getUpgradeType() == UPGRADE_TYPE_OBJECT &&
 					 (getObject()->hasUpgrade( upgrade ) == TRUE ||
 					  getObject()->affectedByUpgrade( upgrade ) == FALSE) )
+	{
+		prodOverlayLog("UPGRADE_HOOK: queueUpgrade() early-return frame=%d reason=obj_has_or_unaffected upgrade=%s\n",
+			TheGameLogic ? (Int)TheGameLogic->getFrame() : -1, upgrade->getUpgradeName().str());
 		return FALSE;
+	}
 
 	// you cannot queue the production of an upgrade twice in this queue
 	if( isUpgradeInQueue( upgrade ) == TRUE )
+	{
+		prodOverlayLog("UPGRADE_HOOK: queueUpgrade() early-return frame=%d reason=already_in_queue upgrade=%s\n",
+			TheGameLogic ? (Int)TheGameLogic->getFrame() : -1, upgrade->getUpgradeName().str());
 		return FALSE;
+	}
 
 	// STOP cheaters by making sure they can actually build this
 	if( !getObject()->canProduceUpgrade(upgrade) )
+	{
+		prodOverlayLog("UPGRADE_HOOK: queueUpgrade() early-return frame=%d reason=cannot_produce upgrade=%s\n",
+			TheGameLogic ? (Int)TheGameLogic->getFrame() : -1, upgrade->getUpgradeName().str());
 		return FALSE;
+	}
 
 	//
 	// you cannot queue a player upgrade production if you are producing one already somewhere else
@@ -290,10 +340,16 @@ Bool ProductionUpdate::queueUpgrade( const UpgradeTemplate *upgrade )
 	//
 	if( upgrade->getUpgradeType() == UPGRADE_TYPE_PLAYER &&
       (player->hasUpgradeComplete( upgrade ) || player->hasUpgradeInProduction( upgrade )) )
+	{
+		prodOverlayLog("UPGRADE_HOOK: queueUpgrade() early-return frame=%d reason=player_has_or_in_prod upgrade=%s\n",
+			TheGameLogic ? (Int)TheGameLogic->getFrame() : -1, upgrade->getUpgradeName().str());
 		return FALSE;
+	}
 
 	if (m_productionCount >= getProductionUpdateModuleData()->m_maxQueueEntries)
 	{
+		prodOverlayLog("UPGRADE_HOOK: queueUpgrade() early-return frame=%d reason=queue_full upgrade=%s\n",
+			TheGameLogic ? (Int)TheGameLogic->getFrame() : -1, upgrade->getUpgradeName().str());
 		DEBUG_CRASH(("Production Queue is full... how did we get here?"));
 		return FALSE;
 	}
@@ -315,6 +371,8 @@ Bool ProductionUpdate::queueUpgrade( const UpgradeTemplate *upgrade )
 	addToProductionQueue( production );
 
 	// TheSuperHackers @feature 17/07/2026 Notify observer overlay of queued upgrade
+	prodOverlayLog("UPGRADE_HOOK: queueUpgrade() calling onUpgradeQueued frame=%d TheInGameUI=%p upgrade=%s\n",
+		TheGameLogic ? (Int)TheGameLogic->getFrame() : -1, (void*)TheInGameUI, upgrade->getUpgradeName().str());
 	if (TheInGameUI)
 		TheInGameUI->onUpgradeQueued(getObject()->getControllingPlayer(), upgrade, getObject(), production->getPercentComplete());
 

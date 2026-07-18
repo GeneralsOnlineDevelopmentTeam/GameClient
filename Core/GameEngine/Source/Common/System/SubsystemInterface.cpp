@@ -29,6 +29,29 @@
 #include "Common/SubsystemInterface.h"
 #include "Common/Xfer.h"
 
+#include <cstdarg>	// TheSuperHackers @debug 18/07/2026 va_list for traceLog
+#include <cstdio>	// TheSuperHackers @debug 18/07/2026 fopen/vfprintf for traceLog
+
+// TheSuperHackers @debug 18/07/2026 Startup-chain tracing — audio investigation.
+static FILE* g_traceLogFile_subsys = nullptr;
+static void traceLog(const char* fmt, ...)
+{
+	__try {
+		if (!g_traceLogFile_subsys) {
+			g_traceLogFile_subsys = fopen("genovly_debug.log", "a");
+		}
+		if (g_traceLogFile_subsys) {
+			va_list args;
+			va_start(args, fmt);
+			vfprintf(g_traceLogFile_subsys, fmt, args);
+			va_end(args);
+			fflush(g_traceLogFile_subsys);
+		}
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+	}
+}
+
 
 #ifdef DUMP_PERF_STATS
 #include "GameLogic/GameLogic.h"
@@ -156,7 +179,9 @@ void SubsystemInterfaceList::removeSubsystem(SubsystemInterface* sys)
 void SubsystemInterfaceList::initSubsystem(SubsystemInterface* sys, const char* path1, const char* path2, Xfer* pXfer, AsciiString name)
 {
     sys->setName(name);
+	traceLog("TRACE: subsys init '%s'...\n", name.str());
     sys->init();
+	traceLog("TRACE: subsys '%s' init done\n", name.str());
 
     INI ini;
     if (path1)
