@@ -2760,7 +2760,11 @@ void W3DDisplay::drawImage( const Image *image, Int startX, Int startY,
 
 	TextureClass *tex = nullptr;
 	if (BitIsSet(image->getStatus(), IMAGE_STATUS_RAW_TEXTURE))
+	{
 		tex = (TextureClass *)(image->getRawTextureData());
+		if (!tex)
+			return; // raw texture data is null; nothing to render
+	}
 	else
 		tex = WW3DAssetManager::Get_Instance()->Get_Texture(image->getFilename().str(), MIP_LEVELS_1);
 
