@@ -60,6 +60,7 @@ class ThingTemplate;
 class Team;
 class CommandList;
 class GameMessage;
+class GameInfo;
 class LoadScreen;
 class WindowLayout;
 class TerrainLogic;
@@ -172,6 +173,10 @@ public:
 	void startNewGame(Bool loadSaveGame);
 	void loadMapINI(AsciiString mapName);
 
+	/// Resolve all random slots the way a game start would, without starting one, so the observer
+	/// lobby preview can show what the players will get.
+	void rollRandomSlots(GameInfo* game);
+
 	void updateLoadProgress( Int progress );
 	void deleteLoadScreen();
 
@@ -218,6 +223,10 @@ public:
 	Int getHulkMaxLifetimeOverride() const { return m_scriptHulkMaxLifetimeOverride; }
 
 	Bool isIntroMoviePlaying();
+
+	/// TRUE once a start has been requested but not yet run. The real start work happens inside
+	/// update(), so nothing may halt update() until this clears.
+	Bool isStartingNewGame() const { return m_startNewGame; }
 
 	void updateObjectsChangedTriggerAreas() {m_frameObjectsChangedTriggerAreas = m_frame;}
 	UnsignedInt getFrameObjectsChangedTriggerAreas() {return m_frameObjectsChangedTriggerAreas;}

@@ -1179,6 +1179,22 @@ static void populateRandomStartPosition(GameInfo* game)
 }
 
 // ------------------------------------------------------------------------------------------------
+/** Resolve all random slots the way a game start would, without starting a game. Mirrors the
+  * sequence in tryStartNewGame() so the result is what the game will actually roll, which is what
+  * lets the observer lobby preview show the players' real assignment before the match begins. */
+// ------------------------------------------------------------------------------------------------
+void GameLogic::rollRandomSlots(GameInfo* game)
+{
+	if (!game)
+		return;
+
+	checkForDuplicateColors(game);
+	InitRandom(game->getSeed());
+	populateRandomSideAndColor(game);
+	populateRandomStartPosition(game);
+}
+
+// ------------------------------------------------------------------------------------------------
 /** Update the load screen progress */
 // ------------------------------------------------------------------------------------------------
 void GameLogic::updateLoadProgress(Int progress)
@@ -1431,6 +1447,12 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 		}
 	}
 
+	// Seed the game-logic RNG here, where the simulation begins, so the streamer and the observer
+	// start from the same state whatever their pre-game paths consumed. The random slot assignment
+	// below draws from it, and one differing draw diverges the factions and every later AI decision.
+	if (game)
+		InitRandom(game->getSeed());
+
 	populateRandomSideAndColor(game);
 	populateRandomStartPosition(game);
 
@@ -1600,7 +1622,12 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 			d.setInt(TheKey_multiplayerStartIndex, slot->getStartPos());
 			//			d.setBool(TheKey_multiplayerIsLocal, slot->isLocalPlayer());
 			//			d.setBool(TheKey_multiplayerIsLocal, slot->getIP() == game->getLocalIP());
-			d.setBool(TheKey_multiplayerIsLocal, slot->isHuman() && (slot->getName().compare(game->getSlot(game->getLocalSlotNum())->getName().str()) == 0));
+			// An observer occupies no slot, so getLocalSlotNum() returns -1 and getSlot() null.
+			Bool isLocalPlayer = FALSE;
+			const GameSlot* localSlotPtr = game->getSlot(game->getLocalSlotNum());
+			if (localSlotPtr)
+				isLocalPlayer = slot->isHuman() && (slot->getName().compare(localSlotPtr->getName().str()) == 0);
+			d.setBool(TheKey_multiplayerIsLocal, isLocalPlayer);
 
 			/*
 						if (slot->getIP() == game->getLocalIP())
@@ -1814,6 +1841,16 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 
 	Player* localPlayer = ThePlayerList->getLocalPlayer();
 	Player* observerPlayer = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey("ReplayObserver"));
+
+	// Without TheNetwork, PlayerList::newGame() picks the first human side as local, and the
+	// "ReplayObserver" side is always added with multiplayerIsLocal=FALSE - so an observer would
+	// render for a real participant whose map was never revealed, i.e. a black screen.
+	if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER &&
+		observerPlayer && localPlayer != observerPlayer)
+	{
+		ThePlayerList->setLocalPlayer(observerPlayer);
+		localPlayer = observerPlayer;
+	}
 
 	// set the radar as on a new map
 	TheRadar->newMap(TheTerrainLogic);
@@ -2150,6 +2187,10 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 			{
 				const PlayerTemplate* pt = NULL;
 				pt = ThePlayerTemplateStore->getNthPlayerTemplate(slot->getPlayerTemplate());
+				// A live observer takes its slot templates from relay metadata, so the index
+				// is attacker-controlled and may not name a template at all.
+				if (!pt)
+					continue;
 
 				// Prevent from loading the disabled Generals, in case your game peer hacked their GUI.
 				// The game will start, but the cheater will be instantly defeated because he has no troops.
@@ -2780,7 +2821,11 @@ void GameLogic::processCommandList(CommandList* list)
 		logicMessageDispatcher(msg, NULL);
 	}
 
-	if (m_shouldValidateCRCs && !TheNetwork->sawCRCMismatch())
+	// A live observer is not a network peer, so the per-player CRC agreement check below has
+	// nothing to agree with. Its own divergence from the stream is caught by
+	// RecorderClass::handleCRCMessage instead.
+	if (m_shouldValidateCRCs && !TheNetwork->sawCRCMismatch()
+		&& !(TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER))
 	{
 		Bool sawCRCMismatch = FALSE;
 		Int numPlayers = 0;
@@ -3995,14 +4040,17 @@ void GameLogic::update()
 
 	// force CRC calculation, so we can keep a cache of the last N CRCs.  We do this right where the recorder
 	// would be getting the CRC anyway, so replays can get the CRCs from the exact instant in time as the original.
+	// Frame 0 is excluded, as the DEBUG_CRC branch below already does: a replay client is in
+	// GAME_REPLAY at its frame 0 and would emit a CRC the original game never did, skewing every
+	// later comparison by one interval.
 	Bool isMPGameOrReplay = (TheRecorder && TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
 	Bool isSoloGameOrReplay = (TheRecorder && !TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
-	Bool generateForMP = (isMPGameOrReplay && TheGameInfo->getCRCInterval() > 0 && (m_frame % TheGameInfo->getCRCInterval()) == 0);
+	Bool generateForMP = (isMPGameOrReplay && TheGameInfo->getCRCInterval() > 0 && m_frame > 0 && (m_frame % TheGameInfo->getCRCInterval()) == 0);
 #ifdef DEBUG_CRC
 	Bool generateForSolo = isSoloGameOrReplay && ((m_frame && (m_frame % 100 == 0)) ||
 		(getFrame() >= TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && (REPLAY_CRC_INTERVAL > 0 && (m_frame % REPLAY_CRC_INTERVAL) == 0)));
 #else
-	Bool generateForSolo = isSoloGameOrReplay && (REPLAY_CRC_INTERVAL > 0 && (m_frame % REPLAY_CRC_INTERVAL) == 0);
+	Bool generateForSolo = isSoloGameOrReplay && (REPLAY_CRC_INTERVAL > 0 && m_frame > 0 && (m_frame % REPLAY_CRC_INTERVAL) == 0);
 #endif // DEBUG_CRC
 
 	if (generateForSolo || generateForMP)

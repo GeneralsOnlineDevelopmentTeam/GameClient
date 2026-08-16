@@ -65,6 +65,19 @@ public:
 
 	int GetChatLifeSeconds() const { return std::max<int>(m_Chat_LifeSeconds, 10); }
 
+	/// Lead a live observer banks once at join, in milliseconds. Playback always runs at 100%,
+	/// so this is the only cushion against transport jitter; 0 means stall instead.
+	int LiveObserver_GetJitterBufferMs() const
+	{
+		return std::max<int>(0, std::min<int>(m_LiveObserver_JitterBufferMs, LIVE_OBSERVER_JITTER_BUFFER_MS_MAX));
+	}
+
+	void LiveObserver_SetJitterBufferMs(int ms)
+	{
+		m_LiveObserver_JitterBufferMs = std::max<int>(0, std::min<int>(ms, LIVE_OBSERVER_JITTER_BUFFER_MS_MAX));
+		Save();
+	}
+
 	void Initialize()
 	{
 		m_bInitialized = true;
@@ -130,6 +143,12 @@ private:
 	bool m_Render_LimitFramerate = true;
 	int m_Render_FramerateLimit_FPSVal = 60;
 	int m_Chat_LifeSeconds = 30;
+
+	// Kept small on purpose: this only covers ordinary transport jitter, and on a
+	// WebSocket-over-TCP relay the floor is one RTT regardless.
+	static const int LIVE_OBSERVER_JITTER_BUFFER_MS_MAX = 2000;
+	const int m_LiveObserver_JitterBufferMs_default = 250;
+	int m_LiveObserver_JitterBufferMs = m_LiveObserver_JitterBufferMs_default;
 
 	bool m_Social_Notification_FriendComesOnline_Menus = true;
 	bool m_Social_Notification_FriendComesOnline_Gameplay = true;

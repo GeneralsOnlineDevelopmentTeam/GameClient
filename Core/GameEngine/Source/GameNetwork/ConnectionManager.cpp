@@ -757,6 +757,40 @@ void ConnectionManager::processDisconnectChat(NetDisconnectChatCommandMsg *msg)
 	TheDisconnectMenu->showChat(unitext); // <-- need to implement this
 }
 
+#if defined(GENERALS_ONLINE)
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+// A chat is public iff it reaches someone who is neither the sender nor one of the sender's
+// allies - the allies-only and self-only channels reach nobody else by construction. Counting
+// recipients cannot tell those apart: a team holding all but one slot has the same population as
+// an "everyone" mask whose sender muted somebody. The ally test mirrors the sender's own, in
+// InGameChat.cpp, so an allies mask can never satisfy this.
+static Bool isGlobalChatMask(Int playerMask, const Player* sender)
+{
+	if (sender == nullptr)
+		return FALSE;
+
+	for (Int i = 0; i < MAX_SLOTS; ++i)
+	{
+		if ((playerMask & (1 << i)) == 0)
+			continue;
+
+		AsciiString playerName;
+		playerName.format("player%d", i);
+		const Player* p = ThePlayerList->findPlayerWithNameKey(
+			TheNameKeyGenerator->nameToKey(playerName));
+		if (p == nullptr || p == sender)
+			continue;
+
+		const Bool allied = (p->getRelationship(sender->getDefaultTeam()) == ALLIES &&
+			sender->getRelationship(p->getDefaultTeam()) == ALLIES);
+		if (!allied)
+			return TRUE;
+	}
+	return FALSE;
+}
+#endif // GENERALS_ONLINE
+
 void ConnectionManager::processChat(NetChatCommandMsg *msg)
 {
 	UnicodeString unitext;
@@ -802,6 +836,15 @@ void ConnectionManager::processChat(NetChatCommandMsg *msg)
 		// feedback for received chat messages in-game
 		AudioEventRTS audioEvent("GUICommunicatorIncoming");
 		TheAudio->addAudioEvent(&audioEvent);
+
+#if defined(GENERALS_ONLINE)
+		// Forward the chat exactly as displayed, but only when it is addressed to everyone.
+		// The frame is the message's synchronized execution frame, not TheGameLogic->getFrame():
+		// the sender processes chat a frame or two ahead of the receivers, and every source's
+		// payload has to be byte-identical for the relay to dedupe the all-push copies.
+		if (TheRecorder && isGlobalChatMask(msg->getPlayerMask(), player))
+			TheRecorder->onChatMessage(msg->getExecutionFrame(), unitext, player->getPlayerColor());
+#endif
 	}
 }
 

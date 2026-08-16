@@ -76,6 +76,13 @@
 #include "GameClient/InGameUI.h"
 #include "../OnlineServices_Init.h"
 
+#if defined(GENERALS_ONLINE)
+#include "Common/LiveObserver.h"
+#include "Common/Recorder.h"
+#include "GameClient/LiveObserverSession.h"
+#include "GameClient/LiveGamesMenu.h"
+#endif
+
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 
@@ -308,6 +315,16 @@ static void doGameStart()
 	if (TheGameLogic->isInGame())
 		TheGameLogic->clearGameData();
 
+#if defined(GENERALS_ONLINE)
+	// Live playback already sent MSG_NEW_GAME with GAME_REPLAY; a second one would start a
+	// duplicate game.
+	if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER)
+	{
+		isShuttingDown = TRUE;
+		return;
+	}
+#endif
+
 	// send a message to the logic for a new game
 	GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_NEW_GAME );
 	msg->appendIntegerArgument(GAME_SINGLE_PLAYER);
@@ -434,6 +451,17 @@ static void initLabelVersion()
 //-------------------------------------------------------------------------------------------------
 void MainMenuInit( WindowLayout *layout, void *userData )
 {
+#if defined(GENERALS_ONLINE)
+	// A live-observer game just ended. A direct join popped the Watch Live browser when the
+	// session started, so re-arm the browser and push it back on top of this screen.
+	if (LiveObserverConsumeReturnedFromGame())
+	{
+		LiveGamesMenuEnterLiveGamesMode();
+		TheShell->push("Menus/ReplayMenu.wnd", TRUE);
+		return;
+	}
+#endif
+
 	TheWritableGlobalData->m_breakTheMovie = FALSE;
 
 	TheShell->showShellMap(TRUE);
@@ -907,6 +935,13 @@ void MainMenuUpdate( WindowLayout *layout, void *userData )
 
 
 
+
+#if defined(GENERALS_ONLINE)
+	// Reached when the player got back to the main menu before the queued session fired. Joins
+	// the normal start path only so doGameStart's live-observer branch stands this menu down.
+	if (LiveObserverStartPendingSession())
+		startGame = TRUE;
+#endif
 
 	if (startGame && TheShell->isAnimFinished() && TheTransitionHandler->isFinished())
 	{

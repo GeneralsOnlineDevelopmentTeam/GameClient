@@ -1270,6 +1270,10 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 				GameSpyCloseOverlay(GSOVERLAY_BUDDY);
 				GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
 
+				// Quick Match never shows the pre-game lobby screen that normally registers the
+				// stream, so it has to register here or QM matches would never stream.
+				PrepareLiveStreamRegistration();
+
 				*TheNGMPGame = *myGame;
 				TheNGMPGame->startGame(0);
 			});

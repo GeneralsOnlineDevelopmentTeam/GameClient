@@ -5,6 +5,8 @@
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "../OnlineServices_Init.h"
 #include "../HTTP/HTTPManager.h"
+#include "Common/Recorder.h"
+#include "GameClient/LobbyObserverMenu.h"	// slot lookup for colouring an observer's chat
 #include "GameNetwork/GameSpy/PeerDefs.h"
 
 // -----------------------------
@@ -99,6 +101,13 @@ std::vector<GOModuleInfo> GetLoadedModules() {
     return modules;
 }
 
+// A live watch is a replay, so TheNGMPGame is never "in progress" for it; the recorder mode is
+// the only in-game signal in that case.
+static bool isGOWebsocketInGame()
+{
+	return (TheNGMPGame != nullptr && TheNGMPGame->isGameInProgress())
+		|| (TheRecorder != nullptr && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER);
+}
 
 WebSocket::WebSocket()
 {
@@ -567,7 +576,7 @@ void WebSocket::Tick()
 	{
 		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
-		int maxReconnectAttempts = (TheNGMPGame != nullptr && TheNGMPGame->isGameInProgress()) ? maxReconnectAttempts_Ingame : maxReconnectAttempts_Frontend;
+		int maxReconnectAttempts = isGOWebsocketInGame() ? maxReconnectAttempts_Ingame : maxReconnectAttempts_Frontend;
 		if (m_numReconnectAttempts >= maxReconnectAttempts)
 		{
 			// fully disconnect
@@ -583,7 +592,7 @@ void WebSocket::Tick()
 		}
 		else
 		{
-			int timeBetweenReconnectAttempts = (TheNGMPGame != nullptr && TheNGMPGame->isGameInProgress()) ? timeBetweenReconnectAttempts_Ingame : timeBetweenReconnectAttempts_Frontend;
+			int timeBetweenReconnectAttempts = isGOWebsocketInGame() ? timeBetweenReconnectAttempts_Ingame : timeBetweenReconnectAttempts_Frontend;
 
             if (currTime - m_lastReconnectAttempt >= timeBetweenReconnectAttempts)
             {
@@ -654,7 +663,7 @@ void WebSocket::Tick()
                         // reconnecting? give up eventually
                         if (m_bReconnecting)
                         {
-                            int maxReconnectAttempts = (TheNGMPGame != nullptr && TheNGMPGame->isGameInProgress()) ? maxReconnectAttempts_Ingame : maxReconnectAttempts_Frontend;
+                            int maxReconnectAttempts = isGOWebsocketInGame() ? maxReconnectAttempts_Ingame : maxReconnectAttempts_Frontend;
 
                             if (m_numReconnectAttempts >= maxReconnectAttempts || (m->data.result == CURLE_HTTP_RETURNED_ERROR && httpResponseCode == 205)) // 205 = need full teardown
                             {
@@ -1232,6 +1241,14 @@ void WebSocket::Tick()
 													}
 												}
 
+												// A pre-game observer is not a lobby member, so the roster above is
+												// empty and every line would land in the generic colour. The read-only
+												// lobby view knows the slots from its own fetch - ask it instead.
+												if (lobbySlot == -1 && LobbyObserverModeActive())
+												{
+													lobbySlot = LobbyObserverSlotForUserID(chatData.user_id);
+												}
+
 												// no admin chat in lobby
 												Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action, false, false, lobbySlot);
 
@@ -1419,6 +1436,43 @@ void WebSocket::Tick()
                                         j["resp"] = vecResp;
                                         std::string strBody = j.dump();
                                         Send(strBody.c_str());
+									}
+									break;
+
+									case EWebSocketMessageID::LOBBY_OBSERVER_LOBBY_CHANGED:
+									case EWebSocketMessageID::LOBBY_OBSERVER_GAME_STARTING:
+									case EWebSocketMessageID::LOBBY_OBSERVER_STREAM_LIVE:
+									case EWebSocketMessageID::LOBBY_OBSERVER_GAME_STARTED:
+									{
+										// Push to the read-only lobby observer screen. Four
+										// events, one payload shape: { msg_id, lobby_id }.
+										int64_t observerLobbyID = -1;
+										if (jsonObject.contains("lobby_id"))
+										{
+											jsonObject["lobby_id"].get_to(observerLobbyID);
+										}
+
+										NGMP_OnlineServices_LobbyInterface* pObserverLobbyInterface =
+											NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+										if (pObserverLobbyInterface != nullptr && pObserverLobbyInterface->m_callbackLobbyObserverEvent != nullptr)
+										{
+											NGMP_OnlineServices_LobbyInterface::ELobbyObserverEventType eventType =
+												NGMP_OnlineServices_LobbyInterface::ELobbyObserverEventType::LOBBY_CHANGED;
+											if (msgID == EWebSocketMessageID::LOBBY_OBSERVER_GAME_STARTING)
+											{
+												eventType = NGMP_OnlineServices_LobbyInterface::ELobbyObserverEventType::GAME_STARTING;
+											}
+											else if (msgID == EWebSocketMessageID::LOBBY_OBSERVER_STREAM_LIVE)
+											{
+												eventType = NGMP_OnlineServices_LobbyInterface::ELobbyObserverEventType::STREAM_LIVE;
+											}
+											else if (msgID == EWebSocketMessageID::LOBBY_OBSERVER_GAME_STARTED)
+											{
+												eventType = NGMP_OnlineServices_LobbyInterface::ELobbyObserverEventType::GAME_STARTED;
+											}
+
+											pObserverLobbyInterface->m_callbackLobbyObserverEvent(eventType, observerLobbyID);
+										}
 									}
 									break;
 

@@ -26,6 +26,9 @@
 #define SETTINGS_KEY_SOCIAL_NOTIFICATIONS_PLAYER_SENDS_REQUEST_MENUS "notification_player_sends_request_menus"
 #define SETTINGS_KEY_SOCIAL_NOTIFICATIONS_PLAYER_SENDS_REQUEST_GAMEPLAY "notification_player_sends_request_gameplay"
 
+#define SETTINGS_KEY_LIVE_OBSERVER "live_observer"
+#define SETTINGS_KEY_LIVE_OBSERVER_JITTER_BUFFER_MS "jitter_buffer_ms"
+
 #define SETTINGS_KEY_DEBUG "debug"
 #define SETTINGS_KEY_DEBUG_VERBOSE_LOGGING "verbose_logging"
 
@@ -207,6 +210,16 @@ void GenOnlineSettings::Load(void)
 				}
 			}
 
+			if (jsonSettings.contains(SETTINGS_KEY_LIVE_OBSERVER))
+			{
+				auto liveObserverSettings = jsonSettings[SETTINGS_KEY_LIVE_OBSERVER];
+
+				if (liveObserverSettings.contains(SETTINGS_KEY_LIVE_OBSERVER_JITTER_BUFFER_MS))
+				{
+					m_LiveObserver_JitterBufferMs = liveObserverSettings[SETTINGS_KEY_LIVE_OBSERVER_JITTER_BUFFER_MS];
+				}
+			}
+
             if (jsonSettings.contains(SETTINGS_KEY_SOCIAL))
             {
                 auto socialSettings = jsonSettings[SETTINGS_KEY_SOCIAL];
@@ -287,6 +300,7 @@ void GenOnlineSettings::Load(void)
 		m_Render_FramerateLimit_FPSVal = 60;
 		m_Render_DrawStatsOverlay = true;
 		m_Chat_LifeSeconds = 30;
+		m_LiveObserver_JitterBufferMs = m_LiveObserver_JitterBufferMs_default;
 
         m_Social_Notification_FriendComesOnline_Menus = true;
         m_Social_Notification_FriendComesOnline_Gameplay = true;
@@ -336,6 +350,13 @@ void GenOnlineSettings::Save()
 			SETTINGS_KEY_CHAT,
 				{
 					{SETTINGS_KEY_CHAT_LIFE_SECONDS, m_Chat_LifeSeconds}
+				}
+		},
+
+		{
+			SETTINGS_KEY_LIVE_OBSERVER,
+				{
+					{SETTINGS_KEY_LIVE_OBSERVER_JITTER_BUFFER_MS, m_LiveObserver_JitterBufferMs}
 				}
 		},
 

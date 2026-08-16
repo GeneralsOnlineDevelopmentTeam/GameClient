@@ -639,6 +639,9 @@ GlobalData::GlobalData()
 	m_chipSetType = 0;
 	m_headless = FALSE;
 	m_exportStats = FALSE;
+	m_liveStreamEnabled = TRUE;
+	m_liveStreamCanStream = TRUE;
+	m_liveStreamDelaySeconds = LIVE_DELAY_SECONDS_DEFAULT;
 	m_windowed = 0;
 	m_xResolution = 800;
 	m_yResolution = 600;
@@ -1281,6 +1284,11 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	TheWritableGlobalData->m_observerNotificationSpecialPowerUsage = optionPref.getObserverNotificationSpecialPowerUsage();
 	TheWritableGlobalData->m_observerNotificationSpecialPowerPurchase = optionPref.getObserverNotificationSpecialPowerPurchase();
 	TheWritableGlobalData->m_observerNotificationMilestone = optionPref.getObserverNotificationMilestone();
+
+	TheWritableGlobalData->m_liveStreamEnabled = optionPref.getLiveStreamEnabled();
+	TheWritableGlobalData->m_liveStreamCanStream = optionPref.getLiveStreamCanStream();
+	TheWritableGlobalData->m_liveStreamDelaySeconds = optionPref.getLiveStreamDelaySeconds();
+
 	TheWritableGlobalData->m_antiAliasLevel = optionPref.getAntiAliasing();
 
 #if !defined(GENERALS_ONLINE_DISABLE_TEXTURE_FILTERING_AND_AA)

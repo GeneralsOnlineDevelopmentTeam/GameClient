@@ -270,6 +270,11 @@ public:
 
 	// --------------------------------------------------------------------------
 	// new methods for setting images
+	/// Adopt another window's whole visual state, so a gadget created in code can look like one
+	/// defined in a .wnd instead of the placeholder gogoGadget*(..., defaultVisual=TRUE) leaves.
+	/// Source and destination must be the same gadget type for the draw-data slots to line up.
+	void winCopyVisualsFrom(GameWindow* src);
+
 	Int winSetEnabledImage(Int index, const Image* image);
 	Int winSetEnabledColor(Int index, Color color);
 	Int winSetEnabledBorderColor(Int index, Color color);

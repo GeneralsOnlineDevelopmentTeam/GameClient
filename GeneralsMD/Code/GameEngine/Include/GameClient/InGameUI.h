@@ -612,6 +612,10 @@ private:
 	void drawSystemTime(Int& x, Int& y);
 	void drawGameTime();
 	void drawPlayerInfoList();
+	void drawLiveStatus();								///< live streaming / live-observer status banner
+	/// Draw one live-status banner line with the shared cached string. setText runs only when the
+	/// label changed, so an unchanged banner costs a single draw().
+	void drawLiveStatusBanner(const AsciiString& label, UnsignedInt colour, Int y);
 	void drawObserverStats(Int &x, Int &y);
 	Bool m_observerStatsHidden = false;   // hide/show observer overlay
 
@@ -647,6 +651,12 @@ protected:
 	virtual void crc(Xfer* xfer) override;
 	virtual void xfer(Xfer* xfer) override;
 	virtual void loadPostProcess() override;
+
+public:
+	// Defaults hidden every session (see reset()): the LIVE -> LIVE - ENDED transition reveals
+	// that the real game finished ~15s before the observer's own delayed view gets there.
+	void toggleLiveObserverStatusVisible() { m_liveObserverStatusVisible = !m_liveObserverStatusVisible; }
+	Bool isLiveObserverStatusVisible() const { return m_liveObserverStatusVisible; }
 
 protected:
 
@@ -829,6 +839,19 @@ protected:
 	Color												m_networkLatencyColor;
 	Color												m_networkLatencyDropColor;
 	UnsignedInt									m_lastNetworkLatencyFrames;
+
+	// Live-observer latency counter: the streamer's last drawn ping and logic rate. Kept apart
+	// from m_lastNetworkLatencyFrames because both values appear in the string, so the counter
+	// has to refresh when either moves, not only when the derived frame count does.
+	UnsignedInt									m_lastObserverPingMs;
+	UnsignedInt									m_lastObserverLogicFps;
+	UnsignedInt									m_lastObserverPaceFps;
+
+	// The match's logic rate is drawn as its own string so it can carry its own colour: red when
+	// rate-matching is off, because then what you are watching is faster than the match actually
+	// ran and the number no longer describes the picture in front of you. Split for the same
+	// reason m_renderFpsString and m_renderFpsLimitString are.
+	DisplayString*								m_observerLogicFpsString;
 
 	// Render FPS Counter
 	DisplayString* m_renderFpsString;
@@ -1087,6 +1110,16 @@ protected:
 	int m_currentFPS = -1;
 	int64_t lastFPSUpdate = -1;
 #endif
+
+	Bool m_liveObserverStatusVisible;
+
+	// Reused by drawLiveStatus() every frame. Allocated on first draw, freed by
+	// freeCustomUiResources(); m_liveStatusFontSize / m_liveStatusLabel track the last applied
+	// values so an unchanged banner costs a single draw(). The streamer and observer banners are
+	// mutually exclusive, so one cached string serves both.
+	DisplayString* m_liveStatusString;
+	Int m_liveStatusFontSize;
+	AsciiString m_liveStatusLabel;
 
 	// ----------------------------------------------------------------------------------------------
 	// STATIC Protected Data -------------------------------------------------------------------------------

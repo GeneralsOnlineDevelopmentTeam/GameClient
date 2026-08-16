@@ -69,6 +69,11 @@
 #include "GameNetwork/WOLBrowser/WebBrowser.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
+#if defined(GENERALS_ONLINE)
+#include "GameClient/LiveGamesMenu.h"
+#include "GameClient/LiveObserverSession.h"
+#endif
+
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 static Bool isShuttingDown = FALSE;
 static Bool buttonPushed = FALSE;
@@ -85,6 +90,11 @@ static NameKeyType buttonMyInfoID = NAMEKEY_INVALID;
 
 static NameKeyType listboxInfoID = NAMEKEY_INVALID;
 static NameKeyType buttonOptionsID = NAMEKEY_INVALID;
+#if defined(GENERALS_ONLINE)
+// The Watch Live entry point lives behind the login rather than on the main menu, because GO
+// gates /Livestreams behind a signed-in session.
+static NameKeyType buttonWatchLiveID = NAMEKEY_INVALID;
+#endif
 // Window Pointers ------------------------------------------------------------------------
 static GameWindow *parentWOLWelcome = nullptr;
 static GameWindow *buttonBack = nullptr;
@@ -94,6 +104,9 @@ static GameWindow *buttonBuddies = nullptr;
 static GameWindow *buttonLadder = nullptr;
 static GameWindow *buttonMyInfo = nullptr;
 static GameWindow *buttonbuttonOptions = nullptr;
+#if defined(GENERALS_ONLINE)
+static GameWindow *buttonWatchLive = nullptr;
+#endif
 static WindowLayout *welcomeLayout = nullptr;
 static GameWindow *listboxInfo = nullptr;
 
@@ -181,6 +194,78 @@ static void enableControls( Bool state )
 	if (buttonLobby)
 		buttonLobby->winEnable(state);
 }
+
+#if defined(GENERALS_ONLINE)
+//-------------------------------------------------------------------------------------------------
+/** Find a window with the given id among this parent's descendants only. Not
+ * winGetWindowFromId(), which also walks the passed window's siblings and so can hand back a
+ * still-pending-destruction screen's button. */
+//-------------------------------------------------------------------------------------------------
+static GameWindow* findDescendantById( GameWindow *parent, Int id )
+{
+	if( parent == nullptr )
+		return nullptr;
+
+	for( GameWindow *child = parent->winGetChild(); child != nullptr; child = child->winGetNext() )
+	{
+		if( child->winGetWindowId() == id )
+			return child;
+
+		GameWindow *nested = findDescendantById( child, id );
+		if( nested != nullptr )
+			return nested;
+	}
+
+	return nullptr;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Build the Watch Live button in code: WOLWelcomeMenu.wnd has no such control and the layout
+ * lives inside an archive that cannot be edited. */
+//-------------------------------------------------------------------------------------------------
+static void createWatchLiveButton( void )
+{
+	buttonWatchLiveID = TheNameKeyGenerator->nameToKey( "WOLWelcomeMenu.wnd:ButtonWatchLive" );
+	buttonWatchLive = findDescendantById( parentWOLWelcome, (Int)buttonWatchLiveID );
+	if (buttonWatchLive != nullptr)
+		return;
+
+	// Position and size in the layout's 800x600 design space, scaled from the parent's runtime
+	// size the same way the .wnd parser scales SCREENRECTs.
+	Int pw = 800, ph = 600;
+	parentWOLWelcome->winGetSize(&pw, &ph);
+	const Real xScale = (Real)pw / 800.0f;
+	const Real yScale = (Real)ph / 600.0f;
+
+	Int liveX = (Int)(63 * xScale), liveY = (Int)(520 * yScale);
+	Int liveW = (Int)(176 * xScale), liveH = (Int)(36 * yScale);
+	GameWindow *anchor = (buttonbuttonOptions != nullptr) ? buttonbuttonOptions
+		: (buttonLobby != nullptr) ? buttonLobby : buttonQuickMatch;
+	if (anchor == nullptr)
+		return;		// no anchor means no idea where to put it; better absent than misplaced
+
+	WinInstanceData instData;
+	instData.init();
+	BitSet(instData.m_style, GWS_PUSH_BUTTON | GWS_MOUSE_TRACK);
+	instData.m_textLabelString = "Watch Live";
+	instData.setTooltipText(L"Watch a game that is being streamed live");
+
+	buttonWatchLive = TheWindowManager->gogoGadgetPushButton( parentWOLWelcome,
+		WIN_STATUS_ENABLED | WIN_STATUS_IMAGE,
+		liveX, liveY, liveW, liveH,
+		&instData, nullptr, TRUE );
+
+	if (buttonWatchLive != nullptr)
+	{
+		// gogoGadget* leaves a code-created gadget with no id, so without this the lookup above
+		// could never find it and the button would be rebuilt on every init.
+		buttonWatchLive->winSetWindowId((Int)buttonWatchLiveID);
+
+		// Adopt the real menu's look instead of the placeholder defaultVisual leaves behind.
+		buttonWatchLive->winCopyVisualsFrom(anchor);
+	}
+}
+#endif
 
 //-------------------------------------------------------------------------------------------------
 /** This is called when a shutdown is complete for this menu */
@@ -591,6 +676,12 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	buttonLadderID = TheNameKeyGenerator->nameToKey( "WOLWelcomeMenu.wnd:ButtonLadder" );
 	buttonLadder = TheWindowManager->winGetWindowFromId( parentWOLWelcome, buttonLadderID );
 
+#if defined(GENERALS_ONLINE)
+	// Offered unconditionally: GO's live-games list answers whether there is anything to watch
+	// and hands out a fully-formed relay URL per stream, so no local relay address is needed.
+	createWatchLiveButton();
+#endif
+
 #if !defined(GENERALS_ONLINE)
 	if (TheFirewallHelper == nullptr) {
 		TheFirewallHelper = createFirewallHelper();
@@ -698,6 +789,13 @@ void WOLWelcomeMenuShutdown( WindowLayout *layout, void *userData )
 {
 	listboxInfo = nullptr;
 
+#if defined(GENERALS_ONLINE)
+	// Drop the reference only; the layout owns this window and destroys it with its other
+	// children. Init cannot rely on this nulling - the layout sometimes survives shutdown and
+	// keeps its button, so init looks the button up by id on the parent instead.
+	buttonWatchLive = nullptr;
+#endif
+
 	delete TheFirewallHelper;
 	TheFirewallHelper = nullptr;
 
@@ -726,6 +824,16 @@ void WOLWelcomeMenuShutdown( WindowLayout *layout, void *userData )
 //-------------------------------------------------------------------------------------------------
 void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 {
+#if defined(GENERALS_ONLINE)
+	// Sessions queued from the Watch Live browser start here, since the browser pops back to this
+	// screen. A TRUE return means playback already sent MSG_NEW_GAME; only stand this screen down.
+	if (LiveObserverStartPendingSession())
+	{
+		buttonPushed = TRUE;
+		isShuttingDown = TRUE;
+	}
+#endif
+
 	// We'll only be successful if we've requested to
 	if(isShuttingDown && TheShell->isAnimFinished() && TheTransitionHandler->isFinished())
 		shutdownComplete(layout);
@@ -1048,6 +1156,17 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 				{
 					TheShell->push("Menus/WOLLadderScreen.wnd");
 				}
+#if defined(GENERALS_ONLINE)
+				else if (buttonWatchLive != nullptr && controlID == (Int)buttonWatchLiveID)
+				{
+					// Pop this layout and let shutdownComplete push the browser, as the other
+					// pages here do - otherwise this instance lingers under the browser.
+					buttonPushed = TRUE;
+					LiveGamesMenuEnterLiveGamesMode();
+					nextScreen = "Menus/ReplayMenu.wnd";
+					TheShell->pop();
+				}
+#endif
 				break;
 			}
 

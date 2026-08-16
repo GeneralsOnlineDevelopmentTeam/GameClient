@@ -65,6 +65,7 @@
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/PlayerTemplate.h"
+#include "Common/Recorder.h"
 #include "GameClient/CampaignManager.h"
 #include "GameClient/Display.h"
 #include "GameClient/GadgetProgressBar.h"
@@ -1390,7 +1391,19 @@ void MultiPlayerLoadScreen::init( GameInfo *game )
         const PlayerTemplate* pt = ThePlayerTemplateStore->getNthPlayerTemplate(slot->getPlayerTemplate());
         GadgetStaticTextSetText(m_playerSide[netSlot], pt ? pt->getDisplayName() : slot->getApparentPlayerTemplateDisplayName());
 #else
-        GadgetStaticTextSetText(m_playerSide[netSlot], slot->getApparentPlayerTemplateDisplayName());
+#if defined(GENERALS_ONLINE)
+        // A live observer is nobody's ally, so the apparent-name masking would print "Random"
+        // for every random-picked side on the board. They watch the whole game anyway.
+        if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER)
+        {
+            const PlayerTemplate* pt = ThePlayerTemplateStore->getNthPlayerTemplate(slot->getPlayerTemplate());
+            GadgetStaticTextSetText(m_playerSide[netSlot], pt ? pt->getDisplayName() : slot->getApparentPlayerTemplateDisplayName());
+        }
+        else
+#endif
+        {
+            GadgetStaticTextSetText(m_playerSide[netSlot], slot->getApparentPlayerTemplateDisplayName());
+        }
 #endif
 		
 		m_playerSide[netSlot]->winSetEnabledTextColors(houseColor, m_playerSide[netSlot]->winGetEnabledTextBorderColor());

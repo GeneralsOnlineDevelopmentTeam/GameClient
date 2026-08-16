@@ -25,6 +25,7 @@
 #pragma once
 
 #include "Common/MessageStream.h"
+#include "Common/ReplayStreamSink.h"
 #include "GameNetwork/GameInfo.h"
 
 class File;
@@ -50,6 +51,7 @@ enum RecorderModeType CPP_11(: Int) {
 	RECORDERMODETYPE_RECORD,
 	RECORDERMODETYPE_PLAYBACK,
 	RECORDERMODETYPE_SIMULATION_PLAYBACK, // Play back replay without any graphics
+	RECORDERMODETYPE_LIVE_OBSERVER, // Live observer mode - receiving frames from relay server
 	RECORDERMODETYPE_NONE // this is a valid state to be in on the shell map, or in saved games
 };
 
@@ -104,7 +106,10 @@ public:
 	AsciiString getCurrentReplayFilename();			///< valid during playback only
 	UnsignedInt getPlaybackFrameCount() const { return m_playbackFrameCount; }			///< valid during playback only
 	void stopPlayback();															///< Stops playback.  Its fine to call this even if not playing back a file.
+	/// Teardown for a live-observer session; see the definition for what it deliberately keeps.
+	void endLivePlayback();
 	Bool simulateReplay(AsciiString filename);
+	Bool startLiveObserverPlayback(AsciiString filename);
 #if defined(RTS_DEBUG)
 	Bool analyzeReplay( AsciiString filename );
 #endif
@@ -136,8 +141,8 @@ public:
 	};
 	Bool readReplayHeader( ReplayHeader& header );
 
-	RecorderModeType getMode();												///< Returns the current operating mode.
-	Bool isPlaybackMode() const { return m_mode == RECORDERMODETYPE_PLAYBACK || m_mode == RECORDERMODETYPE_SIMULATION_PLAYBACK; }
+	RecorderModeType getMode();														///< Returns the current operating mode.
+	Bool isPlaybackMode() const { return m_mode == RECORDERMODETYPE_PLAYBACK || m_mode == RECORDERMODETYPE_SIMULATION_PLAYBACK || m_mode == RECORDERMODETYPE_LIVE_OBSERVER; }
 	void initControls();															///< Show or Hide the Replay controls
 
 	static AsciiString getReplayDir();								///< Returns the directory that holds the replay files.
@@ -158,6 +163,18 @@ public:
 
 	void setArchiveEnabled(Bool enable) { m_archiveReplays = enable; } ///< Enable or disable replay archiving.
 	void stopRecording();															///< Stop recording and close m_file.
+
+	IReplayStreamSink* getStreamSink() { return m_streamSink; }
+
+	/// Forward a displayed in-game chat line to the live stream sink. The sink is attached only
+	/// for live-streamed games, so its absence is the whole gate: plain games no-op here.
+	/// ConnectionManager calls this for global chat lines, exactly as displayed.
+	void onChatMessage(UnsignedInt frame, const UnicodeString& text, UnsignedInt colorArgb)
+	{
+		if (m_streamSink)
+			m_streamSink->onChat(frame, text, colorArgb);
+	}
+
 protected:
 	void startRecording(GameDifficulty diff, Int originalGameMode, Int rankPoints, Int maxFPS);					///< Start recording to m_file.
 	void writeToFile(GameMessage *msg);								///< Write this GameMessage to m_file.
@@ -168,8 +185,19 @@ protected:
 
 	AsciiString readAsciiString();										///< Read the next string from m_file using ascii characters.
 	UnicodeString readUnicodeString();								///< Read the next string from m_file using unicode characters.
-	void readNextFrame();															///< Read the next frame number to execute a command on.
+	/// Outcome of trying to read the next record's frame number in a live stream.
+	enum ReadFrameResult CPP_11(: Int)
+	{
+		READFRAME_OK,				///< m_nextFrame updated (or a future frame was peeked and rewound)
+		READFRAME_EOF_WAITING,		///< no complete record available yet; m_nextFrame untouched
+		READFRAME_STREAM_STOPPED	///< the stream really ended; playback has been stopped
+	};
+
+	ReadFrameResult readNextFrame();									///< Read the next frame number to execute a command on.
 	void appendNextCommand();													///< Read the next GameMessage and append it to TheCommandList.
+
+	/// TRUE when nothing more can arrive on the live file. Fails closed: no observer, no session.
+	Bool liveStreamEnded() const;
 	void writeArgument(GameMessageArgumentDataType type, const GameMessageArgumentType arg);
 	void readArgument(GameMessageArgumentDataType type, GameMessage *msg);
 
@@ -198,6 +226,14 @@ protected:
 	Int m_originalGameMode; // valid in replays
 
 	UnsignedInt m_nextFrame;												///< The Frame that the next message is to be executed on.  This can be -1.
+
+	IReplayStreamSink* m_streamSink;
+
+	/// How often updateRecord() publishes a frame heartbeat. Bounds how stale an observer's view
+	/// of the live edge can be; at 60 logic fps, ~6 ticks/s. Trades uplink against that staleness.
+	enum { LIVE_TICK_INTERVAL_FRAMES = 10 };
+
+	UnsignedInt m_lastStreamTickFrame;							///< Frame of the last onTick(), for the interval above.
 };
 
 extern RecorderClass *TheRecorder;

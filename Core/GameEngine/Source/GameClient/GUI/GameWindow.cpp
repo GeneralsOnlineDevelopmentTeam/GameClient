@@ -1590,6 +1590,40 @@ void GameWinDefaultDraw( GameWindow *window, WinInstanceData *instData )
 
 }
 
+// GameWindow::winCopyVisualsFrom =============================================
+/** Adopt another window's complete visual state. See the header for why. */
+//=============================================================================
+void GameWindow::winCopyVisualsFrom( GameWindow *src )
+{
+	if( src == NULL )
+		return;
+
+	for( Int i = 0; i < MAX_DRAW_DATA; ++i )
+	{
+		winSetEnabledImage( i, src->winGetEnabledImage( i ) );
+		winSetEnabledColor( i, src->winGetEnabledColor( i ) );
+		winSetEnabledBorderColor( i, src->winGetEnabledBorderColor( i ) );
+
+		winSetDisabledImage( i, src->winGetDisabledImage( i ) );
+		winSetDisabledColor( i, src->winGetDisabledColor( i ) );
+		winSetDisabledBorderColor( i, src->winGetDisabledBorderColor( i ) );
+
+		winSetHiliteImage( i, src->winGetHiliteImage( i ) );
+		winSetHiliteColor( i, src->winGetHiliteColor( i ) );
+		winSetHiliteBorderColor( i, src->winGetHiliteBorderColor( i ) );
+	}
+
+	WinInstanceData *srcData = src->winGetInstanceData();
+	if( srcData != NULL )
+	{
+		winSetEnabledTextColors( srcData->m_enabledText.color, srcData->m_enabledText.borderColor );
+		winSetDisabledTextColors( srcData->m_disabledText.color, srcData->m_disabledText.borderColor );
+		winSetHiliteTextColors( srcData->m_hiliteText.color, srcData->m_hiliteText.borderColor );
+		if( srcData->getFont() != NULL )
+			winSetFont( srcData->getFont() );
+	}
+}
+
 // GameWindow::winSetEnabledImage =============================================
 /** Set an enabled image into the draw data for the enabled state */
 //=============================================================================

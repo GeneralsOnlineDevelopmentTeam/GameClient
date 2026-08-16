@@ -42,9 +42,18 @@
 #include "GameClient/GUICallbacks.h"
 #include "GameClient/InGameUI.h"
 #include "GameClient/LanguageFilter.h"
+#include "Common/Recorder.h"
+#include "Common/LiveObserver.h"
 #include "GameLogic/GameLogic.h"
 #include "GameNetwork/GameInfo.h"
 #include "GameNetwork/NetworkInterface.h"
+
+// A live-observer session is a replay game as far as GameLogic is concerned, but its chat window
+// is live: the checks below must let it through, and Enter routes to the spectator channel.
+static Bool IsLiveObserverSession()
+{
+	return TheRecorder != nullptr && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER;
+}
 
 static GameWindow *chatWindow = nullptr;
 static GameWindow *chatTextEntry = nullptr;
@@ -59,7 +68,7 @@ extern NGMPGame* TheNGMPGame;
 // ------------------------------------------------------------------------------------------------
 void ShowInGameChat( Bool immediate )
 {
-	if (TheGameLogic->isInReplayGame())
+	if (TheGameLogic->isInReplayGame() && !IsLiveObserverSession())
 		return;
 
 	if (TheInGameUI->isQuitMenuVisible())
@@ -199,13 +208,13 @@ void ToggleInGameChat( Bool immediate )
 		return;
 	}
 
-	if (TheGameLogic->isInReplayGame())
+	if (TheGameLogic->isInReplayGame() && !IsLiveObserverSession())
 		return;
 
 #if defined(GENERALS_ONLINE)
-	if (TheNGMPGame == nullptr)
+	if (TheNGMPGame == nullptr && !IsLiveObserverSession())
 #else
-	if (!TheGameInfo->isMultiPlayer() && TheGlobalData->m_netMinPlayers)
+	if (!TheGameInfo->isMultiPlayer() && TheGlobalData->m_netMinPlayers && !IsLiveObserverSession())
 #endif
 		return;
 
@@ -252,7 +261,17 @@ void ToggleInGameChat( Bool immediate )
 						}
 					}
 					TheLanguageFilter->filterLine(msg);
-					TheNetwork->sendChat(msg, playerMask);
+					if (IsLiveObserverSession())
+					{
+						// Never the mesh: an observer is not a network peer. The relay fans
+						// this out to the other watchers.
+						if (TheLiveObserver)
+							TheLiveObserver->sendSpectatorChat(msg);
+					}
+					else
+					{
+						TheNetwork->sendChat(msg, playerMask);
+					}
 				}
 				GadgetTextEntrySetText( chatTextEntry, UnicodeString::TheEmptyString );
 				HideInGameChat( immediate );
