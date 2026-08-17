@@ -1933,7 +1933,7 @@ void DX8Wrapper::Set_Vertex_Buffer(const DynamicVBAccessClass& vba_)
 	render_state.vba_offset = vba.VertexBufferOffset;
 	render_state.vba_count = vba.Get_Vertex_Count();
 	REF_PTR_SET(render_state.vertex_buffers[0], vba.VertexBuffer);
-	render_state.vertex_buffers[0]->Add_Engine_Ref();
+	if (render_state.vertex_buffers[0]) render_state.vertex_buffers[0]->Add_Engine_Ref();
 	render_state_changed |= VERTEX_BUFFER_CHANGED;
 	render_state_changed |= INDEX_BUFFER_CHANGED;		// vba_offset changes so index buffer needs to be reset as well.
 }
@@ -1953,7 +1953,7 @@ void DX8Wrapper::Set_Index_Buffer(const DynamicIBAccessClass& iba_, unsigned sho
 	render_state.index_buffer_type = iba.Get_Type();
 	render_state.iba_offset = iba.IndexBufferOffset;
 	REF_PTR_SET(render_state.index_buffer, iba.IndexBuffer);
-	render_state.index_buffer->Add_Engine_Ref();
+	if (render_state.index_buffer) render_state.index_buffer->Add_Engine_Ref();
 	render_state_changed |= INDEX_BUFFER_CHANGED;
 }
 
