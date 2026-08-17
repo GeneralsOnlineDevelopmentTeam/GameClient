@@ -36,6 +36,7 @@
 #include "GameClient/MapUtil.h"
 #include "Common/MultiplayerSettings.h"
 #include "Common/PlayerTemplate.h"
+#include "Common/Recorder.h"
 #include "Common/Xfer.h"
 #include "GameNetwork/FileTransfer.h"
 #include "GameNetwork/GameInfo.h"
@@ -101,6 +102,19 @@ static Int getSlotIndex(const GameSlot *slot)
 
 static Bool isSlotLocalAlly(const GameSlot *slot)
 {
+#if defined(GENERALS_ONLINE)
+	// A live observer is not in the slot list at all, so every check below resolves against
+	// TheGameInfo's local slot - which for a replayed stream is the *streamer's*. That masks
+	// everything outside the streamer's own team, and masks it to the pre-roll value: a random side
+	// reads "Random", and a random start position reads m_origStartPos, which is -1. Callers treat
+	// that -1 as a real position.
+	//
+	// The rule below already says an observer sees all; it simply cannot recognise one that holds no
+	// slot. Say so here, once, rather than at each getApparent* call site.
+	if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER)
+		return TRUE;
+#endif
+
 	Int slotIndex = getSlotIndex(slot);
 	Int localIndex = TheGameInfo->getLocalSlotNum();
 	const GameSlot *localSlot = TheGameInfo->getConstSlot(localIndex);

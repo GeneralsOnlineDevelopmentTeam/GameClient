@@ -41,6 +41,7 @@
 #include "Common/GameUtility.h"
 #include "Common/INI.h"
 #include "Common/LatchRestore.h"
+#include "Common/LiveObserver.h"
 #include "Common/MapObject.h"
 #include "Common/MultiplayerSettings.h"
 #include "Common/OSDisplay.h"
@@ -728,6 +729,19 @@ LoadScreen* GameLogic::getLoadScreen(Bool loadingSaveGame)
 		return NEW MultiPlayerLoadScreen;
 		break;
 	case GAME_REPLAY:
+#if defined(GENERALS_ONLINE)
+		// A live observer joins as the match starts and loads alongside the players, so this load
+		// window is several seconds of real waiting rather than the instant of opening a saved file.
+		// Show what is being waited for - map, players, factions, colours, start positions - all of
+		// which the stream's header already carries in TheGameInfo.
+		//
+		// MultiPlayerLoadScreen, not GameSpyLoadScreen: the latter's update() drives
+		// TheNetwork->updateLoadProgress/liteupdate, and there is no network during playback.
+		// MultiPlayerLoadScreen already has the null-network branch that skirmish uses.
+		if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER)
+			return NEW MultiPlayerLoadScreen;
+#endif
+		// An ordinary replay opens a finished file and needs none of that.
 		return NEW ShellGameLoadScreen;
 		break;
 	case GAME_INTERNET:
@@ -1176,22 +1190,6 @@ static void populateRandomStartPosition(GameInfo* game)
 		DEBUG_LOG(("Setting observer start position %d to %d", i, posIdx));
 		slot->setStartPos(posIdx);
 	}
-}
-
-// ------------------------------------------------------------------------------------------------
-/** Resolve all random slots the way a game start would, without starting a game. Mirrors the
-  * sequence in tryStartNewGame() so the result is what the game will actually roll, which is what
-  * lets the observer lobby preview show the players' real assignment before the match begins. */
-// ------------------------------------------------------------------------------------------------
-void GameLogic::rollRandomSlots(GameInfo* game)
-{
-	if (!game)
-		return;
-
-	checkForDuplicateColors(game);
-	InitRandom(game->getSeed());
-	populateRandomSideAndColor(game);
-	populateRandomStartPosition(game);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -2411,6 +2409,54 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 		testTimeOut();
 		Sleep(100);
 	}
+
+#if defined(GENERALS_ONLINE)
+	// A live observer's load begins on the stream's HEADER, which the streamer queues one logic frame
+	// before loading its own map - so the observer can finish loading before the match has produced
+	// frame 1. Handing the screen over at that point shows a black one for as long as the difference
+	// lasts (~500 ms in practice): the buffering gate correctly refuses to simulate frames whose
+	// records have not arrived, but a game held at frame 0 has composed no scene, so there is
+	// nothing to draw over.
+	//
+	// So finish the load only once there is a game to load into - the same principle as the network
+	// game's isProgressComplete() wait above, which is why this sits beside it rather than in the
+	// gate. The load screen stays up and drawn with its bars full, and the first frame the observer
+	// is shown is a real one. getLiveEdge() advances on LiveObserver's own network thread, so
+	// blocking the main loop here does not starve the very data being waited for.
+	//
+	// This is cosmetic - correctness is the gate's, and it holds regardless of what happens here -
+	// hence no wait at all without a load screen to hold up, and a cap rather than a promise.
+	if (m_loadScreen && TheLiveObserver
+		&& TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER)
+	{
+		// Past the cap the gate takes over and the worst case is the black screen this loop exists
+		// to avoid - never a client wedged on a load screen by a stream that went quiet.
+		const UnsignedInt observerWaitStartMs = timeGetTime();
+		const UnsignedInt observerWaitDeadlineMs = observerWaitStartMs + 60000;
+		// TheLiveObserver is re-tested every pass, not hoisted: updateLoadProgress() pumps the
+		// Windows message queue and the window manager, so the session can in principle be torn
+		// down from under this loop.
+		while (TheLiveObserver != nullptr
+			&& TheLiveObserver->getLiveEdge() == 0
+			&& !TheLiveObserver->isStreamEnded()
+			&& timeGetTime() < observerWaitDeadlineMs)
+		{
+			// >100 so the bars hold at full instead of restarting. Polled far finer than the loop
+			// above: this wait is normally a few hundred milliseconds, and every 100 ms spent past
+			// the first record's arrival is 100 ms of lead handed away for nothing.
+			updateLoadProgress(101);
+			Sleep(10);
+		}
+
+		if (TheLiveObserver != nullptr)
+		{
+			liveObserverLog("tryStartNewGame: load complete, live edge %u after waiting %ums%s\n",
+				TheLiveObserver->getLiveEdge(),
+				timeGetTime() - observerWaitStartMs,
+				TheLiveObserver->isStreamEnded() ? " (stream ended)" : "");
+		}
+	}
+#endif
 
 	// if we're in a load game, don't fade yet
 	if (loadingSaveGame == FALSE && TheTransitionHandler != NULL && m_loadScreen)

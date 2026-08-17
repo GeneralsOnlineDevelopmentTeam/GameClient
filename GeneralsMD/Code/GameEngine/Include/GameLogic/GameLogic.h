@@ -173,10 +173,6 @@ public:
 	void startNewGame(Bool loadSaveGame);
 	void loadMapINI(AsciiString mapName);
 
-	/// Resolve all random slots the way a game start would, without starting one, so the observer
-	/// lobby preview can show what the players will get.
-	void rollRandomSlots(GameInfo* game);
-
 	void updateLoadProgress( Int progress );
 	void deleteLoadScreen();
 

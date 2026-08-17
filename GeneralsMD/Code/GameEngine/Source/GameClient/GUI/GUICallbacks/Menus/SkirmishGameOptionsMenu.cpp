@@ -822,7 +822,26 @@ void updateMapStartSpots( GameInfo *myGame, GameWindow *buttonMapStartPositions[
 		GameSlot *gs =myGame->getSlot(i);
 		if(onLoadScreen)
 		{
-			Int startPos = gs->getApparentStartPos();
+			// Mirror the guards the non-load-screen branch below has always applied. Without them:
+			//
+			// - An empty slot, or one whose position is unresolved, reports -1, and indexing the
+			//   button array with that is no harmless out-of-bounds read. m_buttonMapStartPosition
+			//   is preceded by m_mapPreview in both load screens, so [-1] yields a live, non-NULL
+			//   window that the NULL check below waves through - stamping the player number onto
+			//   the map preview instead of onto a start spot.
+			//
+			// - An observer slot gets painted at a position it does not hold. Observers are given a
+			//   start spot by populateRandomStartPosition(), deliberately one that is already taken,
+			//   because that is where their camera opens - so drawing it puts the observer's number
+			//   on some player's real spot. setPlayerTemplate() forcing m_startPos back to -1 for an
+			//   observer is upstream saying the same thing: an observer holds no position.
+			if (!gs || !gs->isOccupied() || gs->getPlayerTemplate() <= PLAYERTEMPLATE_MIN)
+				continue;
+
+			const Int startPos = gs->getApparentStartPos();
+			if (startPos < 0 || startPos >= MAX_SLOTS || startPos >= mmd.m_numPlayers)
+				continue;
+
 			GameWindow* btn = buttonMapStartPositions[startPos];
 			if (!btn)
 				continue;

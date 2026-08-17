@@ -54,8 +54,7 @@
 #include "GameNetwork/GeneralsOnline/OnlineServices_LobbyInterface.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "GameNetwork/GUIUtil.h"	// GetTeamUiColor
-#include "GameNetwork/GameInfo.h"	// GameInfo / GameSlot / SlotState (roll prediction)
-#include "GameLogic/GameLogic.h"	// TheGameLogic->rollRandomSlots (roll prediction)
+#include "GameNetwork/GameInfo.h"	// PLAYERTEMPLATE_RANDOM / PLAYERTEMPLATE_MIN
 
 #include <atomic>
 #include <cstdlib>
@@ -168,9 +167,6 @@ static Int s_slotSides[MAX_OBSERVER_SLOTS];		// player template ids, -1 = none
 static Int s_slotColors[MAX_OBSERVER_SLOTS];		// color ids, -1 = none
 static Int s_slotTeams[MAX_OBSERVER_SLOTS];		// team numbers, -1 = none
 static Int s_slotStartPos[MAX_OBSERVER_SLOTS];	// start positions, -1 = none
-static Int s_rolledSides[MAX_OBSERVER_SLOTS];	// predicted template ids, -1 = none
-static Int s_rolledStartPos[MAX_OBSERVER_SLOTS];	// predicted start positions, -1 = none
-static Bool s_rollPredicted = FALSE;			// the last fetch could compute a roll prediction
 static Int s_startingCash = -1;
 static Bool s_trackStats = FALSE;
 static Bool s_vanillaTeams = FALSE;
@@ -557,10 +553,15 @@ static void renderLobby(void)
 	if (s_mapWindow != nullptr && !s_mapPathLocal.isEmpty())
 		positionStartSpots(s_mapPathLocal, s_startButtons, s_mapWindow);
 
-	// Paint the start buttons the way the real lobby's updateMapStartSpots does: each occupied
-	// slot shows its player number (1..8) at its resolved start position, in the player's team
-	// color. With a roll prediction the position comes from it (that is what the load screen will
-	// show); without one, fall back to the slot index and leave random slots blank.
+	// Paint the start buttons the way the real lobby's updateMapStartSpots does on its non-load-screen
+	// branch: each occupied slot with an *assigned* position shows its player number (1..8) there, in
+	// the player's team color. A slot set to random shows nothing.
+	//
+	// Deliberately only what the lobby itself has decided. This screen used to resolve the random
+	// roll here and show the outcome, which handed observers the factions and start positions before
+	// the players who are about to play them - and before the broadcast delay means anything, since
+	// the pre-game lobby has no delay. The roll belongs on the load screen, where the players see it
+	// too.
 	for (Int i = 0; i < MAX_OBSERVER_SLOTS; ++i)
 	{
 		if (s_startButtons[i] == nullptr)
@@ -569,18 +570,12 @@ static void renderLobby(void)
 		if (!s_slotOccupied[i])
 			continue;
 
-		Int posIdx = i;
-		if (s_rollPredicted)
-		{
-			if (s_rolledStartPos[i] < 0)
-				continue;
-			posIdx = s_rolledStartPos[i];
-		}
-		else if (s_slotSides[i] < 0)
-		{
+		// An observer in the lobby holds no start position, whatever the JSON carries for it -
+		// same rule the load screen applies.
+		if (s_slotSides[i] <= PLAYERTEMPLATE_MIN)
 			continue;
-		}
 
+		const Int posIdx = s_slotStartPos[i];
 		if (posIdx < 0 || posIdx >= MAX_OBSERVER_SLOTS || s_startButtons[posIdx] == nullptr)
 			continue;
 
@@ -618,10 +613,9 @@ static void renderLobby(void)
 			continue;
 		}
 
-		// A random side shows the predicted roll (what the load screen will display);
-		// concrete sides show themselves.
-		const Int displaySide = (s_slotSides[i] < 0 && s_rollPredicted) ? s_rolledSides[i] : s_slotSides[i];
-		populateTemplateComboReadOnly(s_templateCombos[i], displaySide);
+		// Whatever the lobby says, and nothing more: a slot set to random reads "Random" here, exactly
+		// as it does for the players sitting in it. What it rolls into is load-screen news.
+		populateTemplateComboReadOnly(s_templateCombos[i], s_slotSides[i]);
 		populateColorComboReadOnly(s_colorCombos[i], s_slotColors[i]);
 		populateTeamComboReadOnly(s_teamCombos[i], s_slotTeams[i]);
 	}
@@ -679,73 +673,6 @@ static void renderLobby(void)
 		text.format(L"Broadcast delay: %ds - joining automatically when it ends", s_delayRemaining);
 		observerChat(text, GameMakeColor(255, 194, 15, 255));
 	}
-}
-
-// ============================================================================
-// Roll prediction
-// ============================================================================
-
-// The game start resolves random slots deterministically from the lobby's RNG seed plus the
-// member list. The stream header cannot help: it arrives only once the stream is live, and even
-// then carries the pre-roll slot list. So replay the same resolution from the lobby JSON, which
-// gives exactly what the players will see on the load screen.
-static void predictLobbyRoll(const nlohmann::json& response)
-{
-	s_rollPredicted = FALSE;
-	for (Int i = 0; i < MAX_OBSERVER_SLOTS; ++i)
-	{
-		s_rolledSides[i] = -1;
-		s_rolledStartPos[i] = -1;
-	}
-
-	if (TheGameLogic == nullptr || s_mapPathLocal.isEmpty())
-		return;
-
-	// The position part needs the map's waypoints, exactly like the game start.
-	AsciiString lowerMap = s_mapPathLocal;
-	lowerMap.toLower();
-	if (TheMapCache->findMap(lowerMap) == nullptr)
-		return;
-
-	// The seed the game start will re-seed from (the lobby's RNGSeed).
-	int seed = 0;
-	if (!jsonGetIntFlexible(response, "RNGSeed", "rngSeed", seed))
-		return;
-
-	GameInfo scratch;
-	GameSlot scratchSlots[MAX_SLOTS];
-	for (Int i = 0; i < MAX_SLOTS; ++i)
-		scratch.setSlotPointer(i, &scratchSlots[i]);
-	scratch.setSeed(seed);
-	scratch.setMap(lowerMap);
-
-	for (Int i = 0; i < MAX_OBSERVER_SLOTS; ++i)
-	{
-		if (!s_slotOccupied[i])
-			continue;
-
-		GameSlot slot;
-		slot.setState((SlotState)s_slotStates[i], s_slotNames[i], i);
-		slot.setPlayerTemplate(s_slotSides[i] < 0 ? PLAYERTEMPLATE_RANDOM : s_slotSides[i]);
-		slot.setColor(s_slotColors[i]);
-		slot.setTeamNumber(s_slotTeams[i]);
-		slot.setStartPos(s_slotStartPos[i]);
-		scratch.setSlot(i, slot);
-	}
-
-	TheGameLogic->rollRandomSlots(&scratch);
-
-	for (Int i = 0; i < MAX_OBSERVER_SLOTS; ++i)
-	{
-		if (!s_slotOccupied[i])
-			continue;
-		const GameSlot* slot = scratch.getConstSlot(i);
-		if (slot == nullptr)
-			continue;
-		s_rolledSides[i] = slot->getPlayerTemplate();
-		s_rolledStartPos[i] = slot->getStartPos();
-	}
-	s_rollPredicted = TRUE;
 }
 
 static void applyLobbyFetch(Bool success, Int statusCode, const AsciiString& body)
@@ -956,10 +883,6 @@ static void applyLobbyFetch(Bool success, Int statusCode, const AsciiString& bod
 				s_phase = LobbyObserverPhase::kWaiting;
 			}
 		}
-
-		// The assignment the game start will produce (factions + start positions), computed
-		// from the same seed and member list the game will use.
-		predictLobbyRoll(response);
 
 		renderLobby();
 	}
@@ -1307,7 +1230,6 @@ void LobbyObserverShutdown(WindowLayout* layout, void* userData)
 	s_firstLobbyFetchDone = FALSE;
 	s_delayRemaining = 0;
 	s_delayHoldShown = FALSE;
-	s_rollPredicted = FALSE;
 	s_refetchRequested.store(false);
 	s_gameStartSignal.store(false);
 	s_streamLiveSignal.store(false);
@@ -1340,8 +1262,6 @@ void LobbyObserverShutdown(WindowLayout* layout, void* userData)
 		s_slotStates[i] = -1;
 		s_slotStartPos[i] = -1;
 		s_slotUserIds[i] = -1;
-		s_rolledSides[i] = -1;
-		s_rolledStartPos[i] = -1;
 	}
 
 	// Complete the shell's pop/shutdown. The stock setup menu finishes this from its own update

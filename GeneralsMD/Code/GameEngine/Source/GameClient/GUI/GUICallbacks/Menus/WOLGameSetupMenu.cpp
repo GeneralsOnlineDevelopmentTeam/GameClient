@@ -236,8 +236,6 @@ static GameWindow *comboBoxStartingCash = NULL;
 static GameWindow *checkBoxLimitArmies = NULL;
 
 #if defined(GENERALS_ONLINE)
-// The live-stream controls (Enable Stream checkbox, Delay field, "N observers waiting" label)
-// were code-created widgets; they are commands now: /stream, /delay, /observers.
 
 /// Validate and store a broadcast delay. Rejects rather than clamps: silently turning "6000"
 /// into 600 would leave the streamer believing they had a 100-minute buffer. The server copy
@@ -1598,12 +1596,6 @@ void InitWOLGameGadgets()
 #endif
   checkBoxLimitArmies = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, checkBoxLimitArmiesID );
   DEBUG_ASSERTCRASH(windowMap, ("Could not find the GameSpyGameOptionsMenu.wnd:CheckBoxLimitArmies" ));
-
-#if defined(GENERALS_ONLINE)
-  // The live-stream controls used to be code-created widgets here (Enable Stream checkbox,
-  // Delay field, "N observers waiting" label). They are slash commands now: /stream, /delay,
-  // /observers - see handleGameSetupSlashCommands.
-#endif
 
   // Limit Armies can ONLY be set in the Host Game window (PopupHostGame.wnd)
   checkBoxLimitArmies->winEnable( false );

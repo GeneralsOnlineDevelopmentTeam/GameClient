@@ -7547,6 +7547,14 @@ void InGameUI::drawLiveStatus()
 		AsciiString label;
 		UnsignedInt colour = 0;
 
+		// Nothing has come off the wire yet. Since playback now starts on the header alone, this is
+		// no longer only a pre-playback state: an observer that loads the map faster than the
+		// streamer sits here briefly with playback running and an empty live edge. The gate holds
+		// through it (see LiveObserver::updatePlaybackGate), so it is a wait, not a stall, and must
+		// not be reported as one. Excludes an ended stream, which has its own label.
+		const Bool nothingReceivedYet =
+			(TheLiveObserver->getLiveEdge() == 0 && !TheLiveObserver->isStreamEnded());
+
 		if (TheLiveObserver->isDesynced())
 		{
 			// Not gated: a diverged simulation is a fact about this client, not the match, and
@@ -7561,7 +7569,8 @@ void InGameUI::drawLiveStatus()
 			label = "LIVE - CONNECTING...";
 			colour = 0xFFFFFF00; // yellow
 		}
-		else if (!TheLiveObserver->hasPlaybackStarted() && !LobbyObserverModeActive())
+		else if ((!TheLiveObserver->hasPlaybackStarted() || nothingReceivedYet)
+			&& !LobbyObserverModeActive())
 		{
 			// Countdown while the join waits in the shell for header + enough body to cover the
 			// delay. Observer-local, so shown regardless of F6. Must be tested before the hold

@@ -634,16 +634,25 @@ void LiveObserver::advanceParseCursor(Int chunkOffset, const unsigned char* data
 
 void LiveObserver::updatePlaybackGate(UnsignedInt curFrame)
 {
-	// Never hold the game before it has started, and not for the first few ticks after either.
-	// The map load and object creation run inside GameLogic::update(), which the pause stops from
-	// being called at all - so pausing this early means the game never starts while TheGameClient
-	// keeps updating above the halt. Likewise the scene is not composed until logic has run for a
-	// few ticks, so a hold at frame 1 renders nothing: not the map, and not the buffering
-	// countdown meant to explain the wait. Frames barely advance in this window, so nothing is
-	// lost by waiting it out.
+	// Never hold the game before it has started. The map load and object creation run inside
+	// GameLogic::update(), which the pause stops from being called at all - so pausing this early
+	// means the game never starts while TheGameClient keeps updating above the halt.
+	//
+	// The warmup exemption below is separate, and conditional: the scene is not composed until logic
+	// has run for a few ticks, so a hold at frame 1 renders nothing - not the map, and not the
+	// buffering countdown meant to explain the wait. Skipping the gate for those ticks is worth it
+	// only while there is data to play. Since playback now starts on the header alone, an observer
+	// that loads faster than the streamer arrives here with getLiveEdge() == 0, and exempting it
+	// would simulate up to LIVE_PREROLL_WARMUP_FRAMES frames whose records do not exist yet. That
+	// breaks the one invariant this class exists to keep, and it breaks it silently: the same shape
+	// of bug as the pre-start gate fix, where consuming the stream's opening records early produced
+	// a false DESYNC and real divergence. So an empty edge holds regardless of warmup, and pays for
+	// it with a brief unrendered window in the one case where the observer wins the load race.
+	const Bool nothingToPlay = (getLiveEdge() == 0);
+
 	if (TheGameLogic == nullptr || !TheGameLogic->isInGame() || TheGameLogic->isInShellGame()
 		|| TheGameLogic->isStartingNewGame()
-		|| curFrame < (UnsignedInt)LIVE_PREROLL_WARMUP_FRAMES)
+		|| (curFrame < (UnsignedInt)LIVE_PREROLL_WARMUP_FRAMES && !nothingToPlay))
 	{
 		if (TheGameLogic != nullptr && m_autoPaused && TheGameLogic->isGamePaused())
 		{
@@ -981,13 +990,21 @@ Bool LiveObserver::isPlaybackReady() const
 	if (m_streamEnded.load())
 		return true;
 
-	// Playback may only start once the file is safe to read: the header plus at least the
-	// first body record, and enough complete records to cover the whole broadcast delay.
-	// The delay boundary proves the buffer is built because records arrive in order - and
-	// it also guarantees the first record is present, which the Recorder's seeding read
-	// depends on. A zero delay still needs that first record, hence the offset check.
-	if (m_safeReadOffset.load() <= m_bodyStartOffset)
-		return false;
+	// The header alone is enough to start, and starting there is the point: the header is queued a
+	// logic frame before the streamer loads its own map, so an observer that begins here loads
+	// alongside the players instead of after them - about four seconds that used to be made up by
+	// fast-forwarding.
+	//
+	// There is deliberately no "at least one body record" condition. It existed only to satisfy the
+	// Recorder's seeding read in playbackFile(), which a live start now skips outright, and it is
+	// exactly what forced the observer to wait for the streamer's load to finish.
+	//
+	// What remains is the delay-coverage check, which is the real gate: a client-side delay may not
+	// be undercut by starting early. It is trivially true at delay 0 (a server-held session, where
+	// the relay's data edge *is* the delay), so it costs the fast path nothing.
+	//
+	// Playback starting before any record has arrived is safe because updatePlaybackGate() holds the
+	// simulation while getLiveEdge() is 0 - a frame is still never simulated ahead of its records.
 	return getMaxCompleteFrame() >= getEffectiveDelaySeconds() * LOGICFRAMES_PER_SECOND;
 }
 

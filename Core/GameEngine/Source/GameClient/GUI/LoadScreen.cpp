@@ -1269,7 +1269,10 @@ void MultiPlayerLoadScreen::init( GameInfo *game )
 	m_mapPreview = TheWindowManager->winGetWindowFromId( m_loadScreen,TheNameKeyGenerator->nameToKey( "MultiplayerLoadScreen.wnd:WinMapPreview"));
 	GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 	const PlayerTemplate* pt;
-	if (lSlot->getPlayerTemplate() >= 0)
+	// A live observer is not in the slot list, so getLocalSlotNum() can legitimately find nobody and
+	// hand back -1, which getSlot() answers with NULL. FactionObserver is the right general to show
+	// for exactly that case, and it is already the fallback below.
+	if (lSlot && lSlot->getPlayerTemplate() >= 0)
 		pt = ThePlayerTemplateStore->getNthPlayerTemplate(lSlot->getPlayerTemplate());
 	else
 		pt = ThePlayerTemplateStore->findPlayerTemplate( TheNameKeyGenerator->nameToKey("FactionObserver") );
@@ -1391,19 +1394,10 @@ void MultiPlayerLoadScreen::init( GameInfo *game )
         const PlayerTemplate* pt = ThePlayerTemplateStore->getNthPlayerTemplate(slot->getPlayerTemplate());
         GadgetStaticTextSetText(m_playerSide[netSlot], pt ? pt->getDisplayName() : slot->getApparentPlayerTemplateDisplayName());
 #else
-#if defined(GENERALS_ONLINE)
-        // A live observer is nobody's ally, so the apparent-name masking would print "Random"
-        // for every random-picked side on the board. They watch the whole game anyway.
-        if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER)
-        {
-            const PlayerTemplate* pt = ThePlayerTemplateStore->getNthPlayerTemplate(slot->getPlayerTemplate());
-            GadgetStaticTextSetText(m_playerSide[netSlot], pt ? pt->getDisplayName() : slot->getApparentPlayerTemplateDisplayName());
-        }
-        else
-#endif
-        {
-            GadgetStaticTextSetText(m_playerSide[netSlot], slot->getApparentPlayerTemplateDisplayName());
-        }
+        // A live observer needs no special case here: isSlotLocalAlly() now recognises one, so the
+        // apparent-* accessors already hand back the real side, colour and start position instead of
+        // masking the whole board to "Random".
+        GadgetStaticTextSetText(m_playerSide[netSlot], slot->getApparentPlayerTemplateDisplayName());
 #endif
 		
 		m_playerSide[netSlot]->winSetEnabledTextColors(houseColor, m_playerSide[netSlot]->winGetEnabledTextBorderColor());
@@ -1475,10 +1469,29 @@ void MultiPlayerLoadScreen::update( Int percent )
 			TheNetwork->updateLoadProgress( percent );
 		TheNetwork->liteupdate();
 	}
-	else
+	else if (percent <= 100)
 	{
-		if (percent <= 100)
+#if defined(GENERALS_ONLINE)
+		// A live observer loads alone: there is no network to carry anyone else's progress, and it
+		// is not in the slot list to have a bar of its own, so every bar would sit at zero for the
+		// whole load. Our own percentage is the only figure there is, so show it for each player -
+		// the bars then read as "the load is this far along", which is what they are here for.
+		const Bool liveObserver = (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER);
+#else
+		const Bool liveObserver = FALSE;
+#endif
+		if (liveObserver)
+		{
+			for (Int slot = 0; slot < MAX_SLOTS; ++slot)
+			{
+				if (m_playerLookup[slot] != -1)
+					TheGameLogic->processProgress( slot, percent );
+			}
+		}
+		else
+		{
 			TheGameLogic->processProgress( TheGameInfo->getLocalSlotNum(), percent );
+		}
 	}
 
 	//GadgetProgressBarSetProgress(m_progressBars[TheNetwork->getLocalPlayerID()], percent );

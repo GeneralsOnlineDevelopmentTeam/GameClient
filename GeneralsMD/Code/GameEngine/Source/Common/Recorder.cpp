@@ -1163,9 +1163,10 @@ Bool RecorderClass::startLiveObserverPlayback(AsciiString filename)
 	m_mode = RECORDERMODETYPE_LIVE_OBSERVER;
 	m_nextFrame = 0;
 
-	// playbackFile()'s seeding read left the cursor on the first record's type field. The live
-	// loop reads the frame itself before appending, so the cursor has to go back to the frame
-	// field or every record from the first one on is misparsed.
+	// playbackFile() leaves the cursor wherever reading the header ended, which is the start of the
+	// body only as long as the header is the whole file. Seek explicitly: the live loop reads each
+	// record's frame field itself before appending, so a cursor even one field off misparses every
+	// record from the first one on.
 	if (m_file != nullptr && TheLiveObserver != nullptr)
 		m_file->seek(TheLiveObserver->getBodyStartOffset(), File::START);
 
@@ -1417,11 +1418,15 @@ Bool RecorderClass::playbackFile(AsciiString filename)
     Int maxFPS = 0;
     m_file->read(&maxFPS, sizeof(maxFPS));
 
+    // This call is opening the file for a live-observer session rather than replaying one from
+    // disk. Latched once here because two decisions below turn on it.
+    const Bool liveObserverStart = (TheLiveObserver != nullptr && !TheLiveObserver->hasPlaybackStarted());
+
     Bool isMultiplayer = (m_originalGameMode == GAME_INTERNET || m_originalGameMode == GAME_LAN);
     // The network-game skip of the first received CRC exists because that value "doesn't make
     // it through the network". An observer generates its CRCs locally, so nothing is lost and
     // skipping one skews every later comparison by a full interval.
-    if (TheLiveObserver != nullptr && !TheLiveObserver->hasPlaybackStarted())
+    if (liveObserverStart)
         isMultiplayer = FALSE;
     m_crcInfo = CRCInfo(header.localPlayerIndex, isMultiplayer);
     DEBUG_LOG(("Player index is %d, replay CRC interval is %d, isMultiplayer is %d", m_crcInfo.getLocalPlayer(), REPLAY_CRC_INTERVAL, isMultiplayer));
@@ -1433,11 +1438,19 @@ Bool RecorderClass::playbackFile(AsciiString filename)
     // Otherwise a crc message remains and messes up the crc calculation on the restarted replay.
     TheCommandList->reset();
 
-	readNextFrame();
-	// readNextFrame() closes m_file via stopPlayback() if the first frame cannot be read.
-	if(m_file == nullptr)
+	// A live-observer start deliberately does not seed the cursor. It begins on the header alone -
+	// before the streamer's own map load has produced a single body record - so there is nothing to
+	// read yet, and the seeding read would fail and close the file. Nothing is lost: the result is
+	// discarded regardless, because startLiveObserverPlayback() seeks back to getBodyStartOffset()
+	// and resets m_nextFrame to 0.
+	if (!liveObserverStart)
 	{
-		return FALSE;
+		readNextFrame();
+		// readNextFrame() closes m_file via stopPlayback() if the first frame cannot be read.
+		if(m_file == nullptr)
+		{
+			return FALSE;
+		}
 	}
 
 	TheWritableGlobalData->m_pendingFile = m_gameInfo.getMap();
