@@ -30,6 +30,7 @@
 #include "Common/AudioEventRTS.h"
 
 #include "GameClient/GadgetListBox.h"
+#include "GameClient/GadgetPushButton.h"
 #include "GameClient/GameText.h"
 #include "GameClient/MessageBox.h"
 #include "GameClient/ShellHooks.h"
@@ -123,6 +124,33 @@ void GSMessageBoxOkCancel(UnicodeString title, UnicodeString message, GameWinMsg
 	messageBoxWindow = MessageBoxOkCancel(title, message, messageBoxOK, messageBoxCancel);
 	okFunc = newOkFunc;
 	cancelFunc = newCancelFunc;
+}
+
+void GSMessageBoxOkCancelWithLabels(
+	UnicodeString title,
+	UnicodeString message,
+	UnicodeString okLabel,
+	UnicodeString cancelLabel,
+	GameWinMsgBoxFunc newOkFunc,
+	GameWinMsgBoxFunc newCancelFunc)
+{
+	GSMessageBoxOkCancel(title, message, newOkFunc, newCancelFunc);
+	if (messageBoxWindow == nullptr)
+	{
+		return;
+	}
+
+	GameWindow* buttonOk = TheWindowManager->winGetWindowFromId(messageBoxWindow, TheNameKeyGenerator->nameToKey("MessageBox.wnd:ButtonOk"));
+	GameWindow* buttonCancel = TheWindowManager->winGetWindowFromId(messageBoxWindow, TheNameKeyGenerator->nameToKey("MessageBox.wnd:ButtonCancel"));
+	if (buttonOk != nullptr)
+	{
+		GadgetButtonSetText(buttonOk, okLabel);
+	}
+
+	if (buttonCancel != nullptr)
+	{
+		GadgetButtonSetText(buttonCancel, cancelLabel);
+	}
 }
 
 /**

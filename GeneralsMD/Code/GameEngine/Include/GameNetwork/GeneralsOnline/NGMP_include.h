@@ -27,6 +27,7 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...);
 
 std::string to_utf8(const std::wstring& wstr);
 std::wstring from_utf8(const std::string& utf8_str);
+std::wstring NormalizeSingleLineText(const std::wstring& text);
 
 int RoundUpLatencyToFrameInterval(int latency, int frameInterval);
 int ConvertMSLatencyToFrames(int ms);

@@ -2,6 +2,7 @@
 
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h"
+#include "GameNetwork/GeneralsOnline/OnlineServices_Moderation.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include <shellapi.h>
 #include <algorithm>
@@ -43,6 +44,24 @@ struct AuthResponse
 	// NOTE: _WITH_DEFAULT so endpoints that only return a subset of these fields (e.g. refresh, which doesn't resend profile data) don't throw during parsing
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(AuthResponse, result, session_token, refresh_token, user_id, display_name, ws_uri)
 };
+
+namespace
+{
+	std::string GetBanReason(const std::string& responseBody)
+	{
+		nlohmann::json jsonObject = nlohmann::json::parse(responseBody, nullptr, false, true);
+		if (jsonObject.is_object())
+		{
+			const auto banReason = jsonObject.find("ban_reason");
+			if (banReason != jsonObject.end() && banReason->is_string())
+			{
+				return banReason->get_ref<const std::string&>();
+			}
+		}
+
+		return std::string();
+	}
+}
 
 struct MOTDResponse
 {
@@ -219,6 +238,16 @@ void NGMP_OnlineServices_AuthInterface::RefreshToken()
             {
                 if (statusCode >= 400 && statusCode < 500)
                 {
+					if (statusCode == 423)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[AUTH]: Account ban detected during token refresh, tearing down");
+						m_tokenCreationTime = -1;
+						m_nextRefreshRetryTime = -1;
+						m_currentRefreshAttempt = 0;
+						HandleModerationDisconnect(EOnlineModerationAction::BAN, GetBanReason(strBody));
+						return;
+					}
+
 					OnRefreshTokenFailed(std::format("HTTP {}", statusCode).c_str(), strBody);
                 }
                 else
@@ -352,11 +381,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 				{
 					if (statusCode == 423)
 					{
-						ClearGSMessageBoxes();
-						GSMessageBoxOk(UnicodeString(L"Account Banned"), UnicodeString(L"You are banned. You can file an appeal in Discord."), []()
-							{
-								TheShell->pop();
-							});
+						ShowLoginBanDialog(GetBanReason(strBody));
 						return;
 					}
 					else
@@ -530,11 +555,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						if (statusCode == 423)
 						{
 							m_bWaitingLogin = false;
-							ClearGSMessageBoxes();
-							GSMessageBoxOk(UnicodeString(L"Account Banned"), UnicodeString(L"You are banned. You can file an appeal in Discord."), []()
-								{
-									TheShell->pop();
-								});
+							ShowLoginBanDialog(GetBanReason(strBody));
 							return;
 						}
 

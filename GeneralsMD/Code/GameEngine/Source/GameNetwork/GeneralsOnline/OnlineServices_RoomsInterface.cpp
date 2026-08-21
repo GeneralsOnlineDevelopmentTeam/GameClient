@@ -2,6 +2,7 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "GameNetwork/GeneralsOnline/NetworkPacket.h"
 #include "GameNetwork/GeneralsOnline/NetworkBitstream.h"
+#include "GameNetwork/GeneralsOnline/OnlineServices_Moderation.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "../OnlineServices_Init.h"
 #include "../HTTP/HTTPManager.h"
@@ -350,6 +351,15 @@ public:
 	EWebSocketMessageID msg_id;
 
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessageBase, msg_id)
+};
+
+class WebSocketMessage_ModerationAction : public WebSocketMessageBase
+{
+public:
+	std::string action_type;
+	std::string reason;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_ModerationAction, msg_id, action_type, reason)
 };
 
 class WebSocketMessage_NetworkStartSignalling : public WebSocketMessageBase
@@ -832,6 +842,26 @@ void WebSocket::Tick()
 
 									switch (msgID)
 									{
+									case EWebSocketMessageID::MODERATION_ACTION:
+									{
+										WebSocketMessage_ModerationAction moderationAction;
+										if (JSONGetAsObject(jsonObject, &moderationAction))
+										{
+											if (moderationAction.action_type == "ban")
+											{
+												HandleModerationDisconnect(EOnlineModerationAction::BAN, moderationAction.reason);
+											}
+											else if (moderationAction.action_type == "kick")
+											{
+												HandleModerationDisconnect(EOnlineModerationAction::KICK, moderationAction.reason);
+											}
+											else
+											{
+												NetworkLog(ELogVerbosity::LOG_RELEASE, "Unknown moderation action: %s", moderationAction.action_type.c_str());
+											}
+										}
+									}
+									break;
 
 									case EWebSocketMessageID::PONG:
 									{

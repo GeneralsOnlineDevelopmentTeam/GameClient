@@ -1,5 +1,6 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include <chrono>
+#include <cwctype>
 #include <ctime>
 #include <mutex>
 #include <string>
@@ -23,6 +24,31 @@ std::wstring from_utf8(const std::string& utf8_str)
 {
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
 	return converter.from_bytes(utf8_str);
+}
+
+std::wstring NormalizeSingleLineText(const std::wstring& text)
+{
+	std::wstring normalizedText;
+	normalizedText.reserve(text.size());
+	bool pendingSpace = false;
+
+	for (wchar_t character : text)
+	{
+		if (std::iswspace(character) || std::iswcntrl(character))
+		{
+			pendingSpace = !normalizedText.empty();
+			continue;
+		}
+
+		if (pendingSpace)
+		{
+			normalizedText += L' ';
+			pendingSpace = false;
+		}
+		normalizedText += character;
+	}
+
+	return normalizedText;
 }
 
 void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)

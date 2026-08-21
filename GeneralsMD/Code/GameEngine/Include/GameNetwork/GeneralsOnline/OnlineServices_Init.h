@@ -94,7 +94,8 @@ enum EWebSocketMessageID
     AC_REGISTER_PLAYER = 40,
     AC_DEREGISTER_PLAYER = 41,
     WS_KEEPALIVE = 42,
-    WS_KEEPALIVE_CLIENT = 43
+    WS_KEEPALIVE_CLIENT = 43,
+    MODERATION_ACTION = 46
 };
 
 enum class EQoSRegions
@@ -124,8 +125,15 @@ enum class EGOTearDownReason
 	LOST_CONNECTION = 0,
 	USER_LOGOUT = 1,
 	USER_REQUESTED_SILENT = 2,
-	AUTH_FAILED = 3
+	AUTH_FAILED = 3,
+	MODERATION_BAN = 4,
+	MODERATION_KICK = 5
 };
+
+constexpr bool IsModerationTeardownReason(EGOTearDownReason reason) noexcept
+{
+	return reason == EGOTearDownReason::MODERATION_BAN || reason == EGOTearDownReason::MODERATION_KICK;
+}
 
 class WebSocket
 {
@@ -500,7 +508,16 @@ public:
 
 	std::string& GetMOTD() { return m_strMOTD; }
 
-	void SetPendingFullTeardown(EGOTearDownReason reason) { m_bPendingFullTeardown = true; m_teardownReason = reason; }
+	void SetPendingFullTeardown(EGOTearDownReason reason)
+	{
+		if (IsModerationTeardownReason(m_teardownReason) && !IsModerationTeardownReason(reason))
+		{
+			return;
+		}
+
+		m_bPendingFullTeardown = true;
+		m_teardownReason = reason;
+	}
 	bool IsPendingFullTeardown() const { return m_bPendingFullTeardown; }
 	EGOTearDownReason GetTeardownReason() const { return m_teardownReason; }
 	void ConsumePendingFullTeardown() { m_bPendingFullTeardown = false; }
