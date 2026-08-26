@@ -78,7 +78,28 @@ struct LobbyEntry
 
 	std::string region;
 	int latency = 0;
+
+	// Host-chosen live-stream broadcast delay in seconds; -1 when GO has not been told one.
+	int stream_delay_seconds = -1;
+
+	// Host decision at lobby creation: may this game be watched live at all?
+	bool allow_streamers = true;
+
+	// Host decision: may pre-game observers send chat into this lobby? Mirrors the server's
+	// default-on; old GO omits the field entirely (see UpdateCurrentLobby_AllowObserverChat).
+	bool allow_observer_chat = true;
+
+	// Read-only observers parked in this lobby's pre-game view
+	int pending_observer_count = 0;
+
+	// Latched by GO when a priority player created or joined the lobby.
+	bool priority = false;
 };
+
+/// Build the relay registration from the current lobby and leave it pending for the Recorder to
+/// send on MSG_NEW_GAME. Idempotent; call it as late as possible before starting a match so the
+/// roster and map are the ones actually played. No-op when streaming is off or not in a lobby.
+void PrepareLiveStreamRegistration();
 
 enum class EJoinLobbyResult
 {
@@ -172,6 +193,14 @@ public:
 	void UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers);
 	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons);
 	void UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue);
+	/// Host-only: the broadcast delay is a lobby property, not a per-client option - GO stores it
+	/// and broadcasts it, so every member sees the same read-only value.
+	void UpdateCurrentLobby_StreamDelay(Int streamDelaySeconds);
+
+	/// Host-only: the kill switch for pre-game observer chat. Deliberately does NOT reset the
+	/// auto-ready countdown - that preamble exists because gameplay settings reset ready flags,
+	/// and dropping the whole lobby's ready state to mute a chatty observer would be hostile.
+	void UpdateCurrentLobby_AllowObserverChat(bool bAllowObserverChat);
 
 	void UpdateCurrentLobby_HasMap();
 
@@ -213,7 +242,7 @@ public:
 	UnicodeString m_PendingCreation_LobbyName;
 	UnicodeString m_PendingCreation_InitialMapDisplayName;
 	AsciiString m_PendingCreation_InitialMapPath;
-	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers);
+	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers, bool bAllowStreamers);
 
 	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(bool)> fnCallback);
 
@@ -223,6 +252,8 @@ public:
 
 	void SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode, bool bIsAction);
 	void SendAnnouncementMessageToCurrentLobby(UnicodeString& strAnnouncementMsgUnicode, bool bShowToHost);
+	void SendObserverChatMessage(int64_t lobbyId, UnicodeString& strChatMsgUnicode);
+	void SendObserverListRequest(int64_t lobbyId);
 
 	void InvokeCreateLobbyCallback(bool bSuccess)
 	{
@@ -274,6 +305,29 @@ public:
 	{
 		m_callbackStartGamePacket = nullptr;
 	}
+
+	// Read-only lobby-observer events pushed by GO.
+	enum class ELobbyObserverEventType
+	{
+		LOBBY_CHANGED = 0,	// lobby state changed - refetch GET /Lobby/{id}
+		GAME_STARTING = 1,	// match is starting - run the countdown
+		STREAM_LIVE = 2,	// stream is live - fetch a watch ticket and join
+		GAME_STARTED = 3,	// match started - queue the join; the delay gate times the ticket
+	};
+	std::function<void(ELobbyObserverEventType, int64_t)> m_callbackLobbyObserverEvent = nullptr;
+	void RegisterForLobbyObserverEvent(std::function<void(ELobbyObserverEventType, int64_t)> cb)
+	{
+		m_callbackLobbyObserverEvent = cb;
+	}
+
+	void DeregisterForLobbyObserverEvent()
+	{
+		m_callbackLobbyObserverEvent = nullptr;
+	}
+
+	// Join/leave the read-only pre-game observer queue for a lobby.
+	void SubscribeToLobbyObserver(int64_t lobbyID);
+	void UnsubscribeFromLobbyObserver(int64_t lobbyID);
 
 	// periodically force refresh the lobby for data accuracy
 	int64_t m_lastForceRefresh = 0;

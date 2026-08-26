@@ -41,6 +41,7 @@
 #include "Common/GameUtility.h"
 #include "Common/INI.h"
 #include "Common/LatchRestore.h"
+#include "Common/LiveObserver.h"
 #include "Common/MapObject.h"
 #include "Common/MultiplayerSettings.h"
 #include "Common/OSDisplay.h"
@@ -728,6 +729,19 @@ LoadScreen* GameLogic::getLoadScreen(Bool loadingSaveGame)
 		return NEW MultiPlayerLoadScreen;
 		break;
 	case GAME_REPLAY:
+#if defined(GENERALS_ONLINE)
+		// A live observer joins as the match starts and loads alongside the players, so this load
+		// window is several seconds of real waiting rather than the instant of opening a saved file.
+		// Show what is being waited for - map, players, factions, colours, start positions - all of
+		// which the stream's header already carries in TheGameInfo.
+		//
+		// MultiPlayerLoadScreen, not GameSpyLoadScreen: the latter's update() drives
+		// TheNetwork->updateLoadProgress/liteupdate, and there is no network during playback.
+		// MultiPlayerLoadScreen already has the null-network branch that skirmish uses.
+		if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER)
+			return NEW MultiPlayerLoadScreen;
+#endif
+		// An ordinary replay opens a finished file and needs none of that.
 		return NEW ShellGameLoadScreen;
 		break;
 	case GAME_INTERNET:
@@ -1431,6 +1445,12 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 		}
 	}
 
+	// Seed the game-logic RNG here, where the simulation begins, so the streamer and the observer
+	// start from the same state whatever their pre-game paths consumed. The random slot assignment
+	// below draws from it, and one differing draw diverges the factions and every later AI decision.
+	if (game)
+		InitRandom(game->getSeed());
+
 	populateRandomSideAndColor(game);
 	populateRandomStartPosition(game);
 
@@ -1600,7 +1620,12 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 			d.setInt(TheKey_multiplayerStartIndex, slot->getStartPos());
 			//			d.setBool(TheKey_multiplayerIsLocal, slot->isLocalPlayer());
 			//			d.setBool(TheKey_multiplayerIsLocal, slot->getIP() == game->getLocalIP());
-			d.setBool(TheKey_multiplayerIsLocal, slot->isHuman() && (slot->getName().compare(game->getSlot(game->getLocalSlotNum())->getName().str()) == 0));
+			// An observer occupies no slot, so getLocalSlotNum() returns -1 and getSlot() null.
+			Bool isLocalPlayer = FALSE;
+			const GameSlot* localSlotPtr = game->getSlot(game->getLocalSlotNum());
+			if (localSlotPtr)
+				isLocalPlayer = slot->isHuman() && (slot->getName().compare(localSlotPtr->getName().str()) == 0);
+			d.setBool(TheKey_multiplayerIsLocal, isLocalPlayer);
 
 			/*
 						if (slot->getIP() == game->getLocalIP())
@@ -1814,6 +1839,16 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 
 	Player* localPlayer = ThePlayerList->getLocalPlayer();
 	Player* observerPlayer = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey("ReplayObserver"));
+
+	// Without TheNetwork, PlayerList::newGame() picks the first human side as local, and the
+	// "ReplayObserver" side is always added with multiplayerIsLocal=FALSE - so an observer would
+	// render for a real participant whose map was never revealed, i.e. a black screen.
+	if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER &&
+		observerPlayer && localPlayer != observerPlayer)
+	{
+		ThePlayerList->setLocalPlayer(observerPlayer);
+		localPlayer = observerPlayer;
+	}
 
 	// set the radar as on a new map
 	TheRadar->newMap(TheTerrainLogic);
@@ -2150,6 +2185,10 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 			{
 				const PlayerTemplate* pt = NULL;
 				pt = ThePlayerTemplateStore->getNthPlayerTemplate(slot->getPlayerTemplate());
+				// A live observer takes its slot templates from relay metadata, so the index
+				// is attacker-controlled and may not name a template at all.
+				if (!pt)
+					continue;
 
 				// Prevent from loading the disabled Generals, in case your game peer hacked their GUI.
 				// The game will start, but the cheater will be instantly defeated because he has no troops.
@@ -2370,6 +2409,54 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 		testTimeOut();
 		Sleep(100);
 	}
+
+#if defined(GENERALS_ONLINE)
+	// A live observer's load begins on the stream's HEADER, which the streamer queues one logic frame
+	// before loading its own map - so the observer can finish loading before the match has produced
+	// frame 1. Handing the screen over at that point shows a black one for as long as the difference
+	// lasts (~500 ms in practice): the buffering gate correctly refuses to simulate frames whose
+	// records have not arrived, but a game held at frame 0 has composed no scene, so there is
+	// nothing to draw over.
+	//
+	// So finish the load only once there is a game to load into - the same principle as the network
+	// game's isProgressComplete() wait above, which is why this sits beside it rather than in the
+	// gate. The load screen stays up and drawn with its bars full, and the first frame the observer
+	// is shown is a real one. getLiveEdge() advances on LiveObserver's own network thread, so
+	// blocking the main loop here does not starve the very data being waited for.
+	//
+	// This is cosmetic - correctness is the gate's, and it holds regardless of what happens here -
+	// hence no wait at all without a load screen to hold up, and a cap rather than a promise.
+	if (m_loadScreen && TheLiveObserver
+		&& TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER)
+	{
+		// Past the cap the gate takes over and the worst case is the black screen this loop exists
+		// to avoid - never a client wedged on a load screen by a stream that went quiet.
+		const UnsignedInt observerWaitStartMs = timeGetTime();
+		const UnsignedInt observerWaitDeadlineMs = observerWaitStartMs + 60000;
+		// TheLiveObserver is re-tested every pass, not hoisted: updateLoadProgress() pumps the
+		// Windows message queue and the window manager, so the session can in principle be torn
+		// down from under this loop.
+		while (TheLiveObserver != nullptr
+			&& TheLiveObserver->getLiveEdge() == 0
+			&& !TheLiveObserver->isStreamEnded()
+			&& timeGetTime() < observerWaitDeadlineMs)
+		{
+			// >100 so the bars hold at full instead of restarting. Polled far finer than the loop
+			// above: this wait is normally a few hundred milliseconds, and every 100 ms spent past
+			// the first record's arrival is 100 ms of lead handed away for nothing.
+			updateLoadProgress(101);
+			Sleep(10);
+		}
+
+		if (TheLiveObserver != nullptr)
+		{
+			liveObserverLog("tryStartNewGame: load complete, live edge %u after waiting %ums%s\n",
+				TheLiveObserver->getLiveEdge(),
+				timeGetTime() - observerWaitStartMs,
+				TheLiveObserver->isStreamEnded() ? " (stream ended)" : "");
+		}
+	}
+#endif
 
 	// if we're in a load game, don't fade yet
 	if (loadingSaveGame == FALSE && TheTransitionHandler != NULL && m_loadScreen)
@@ -2780,7 +2867,11 @@ void GameLogic::processCommandList(CommandList* list)
 		logicMessageDispatcher(msg, NULL);
 	}
 
-	if (m_shouldValidateCRCs && !TheNetwork->sawCRCMismatch())
+	// A live observer is not a network peer, so the per-player CRC agreement check below has
+	// nothing to agree with. Its own divergence from the stream is caught by
+	// RecorderClass::handleCRCMessage instead.
+	if (m_shouldValidateCRCs && !TheNetwork->sawCRCMismatch()
+		&& !(TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER))
 	{
 		Bool sawCRCMismatch = FALSE;
 		Int numPlayers = 0;
@@ -3995,14 +4086,17 @@ void GameLogic::update()
 
 	// force CRC calculation, so we can keep a cache of the last N CRCs.  We do this right where the recorder
 	// would be getting the CRC anyway, so replays can get the CRCs from the exact instant in time as the original.
+	// Frame 0 is excluded, as the DEBUG_CRC branch below already does: a replay client is in
+	// GAME_REPLAY at its frame 0 and would emit a CRC the original game never did, skewing every
+	// later comparison by one interval.
 	Bool isMPGameOrReplay = (TheRecorder && TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
 	Bool isSoloGameOrReplay = (TheRecorder && !TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
-	Bool generateForMP = (isMPGameOrReplay && TheGameInfo->getCRCInterval() > 0 && (m_frame % TheGameInfo->getCRCInterval()) == 0);
+	Bool generateForMP = (isMPGameOrReplay && TheGameInfo->getCRCInterval() > 0 && m_frame > 0 && (m_frame % TheGameInfo->getCRCInterval()) == 0);
 #ifdef DEBUG_CRC
 	Bool generateForSolo = isSoloGameOrReplay && ((m_frame && (m_frame % 100 == 0)) ||
 		(getFrame() >= TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && (REPLAY_CRC_INTERVAL > 0 && (m_frame % REPLAY_CRC_INTERVAL) == 0)));
 #else
-	Bool generateForSolo = isSoloGameOrReplay && (REPLAY_CRC_INTERVAL > 0 && (m_frame % REPLAY_CRC_INTERVAL) == 0);
+	Bool generateForSolo = isSoloGameOrReplay && (REPLAY_CRC_INTERVAL > 0 && m_frame > 0 && (m_frame % REPLAY_CRC_INTERVAL) == 0);
 #endif // DEBUG_CRC
 
 	if (generateForSolo || generateForMP)

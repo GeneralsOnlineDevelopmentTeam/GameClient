@@ -47,6 +47,9 @@
 #include "Common/ThingTemplate.h"
 #include "Common/BuildAssistant.h"
 #include "Common/Recorder.h"
+#include "Common/LiveStreamer.h"
+#include "Common/LiveObserver.h"
+#include "GameClient/LobbyObserverMenu.h"
 #include "Common/SpecialPower.h"
 
 #include "GameClient/Anim2D.h"
@@ -1166,6 +1169,10 @@ InGameUI::InGameUI()
 
 	// TheSuperHackers @info the default font, size and positions of the various counters were chosen based on GenTools implementation
 	m_networkLatencyString = nullptr;
+	m_observerLogicFpsString = nullptr;
+	m_lastObserverPingMs = 0;
+	m_lastObserverLogicFps = 0;
+	m_lastObserverPaceFps = 0;
 	m_networkLatencyFont = "Tahoma";
 	m_networkLatencyPointSize = TheGlobalData->m_networkLatencyFontSize;
 	m_networkLatencyBold = TRUE;
@@ -1282,20 +1289,25 @@ InGameUI::InGameUI()
 	m_moveRMBScrollAnchor = FALSE;
 	m_displayedMaxWarning = FALSE;
 
-	m_idleWorkerWin = nullptr;
-	m_currentIdleWorkerDisplay = -1;
+		m_idleWorkerWin = nullptr;
+		m_currentIdleWorkerDisplay = -1;
 
-	m_waypointMode = false;
-	m_forceAttackMode = false;
-	m_forceMoveToMode = false;
-	m_attackMoveToMode = false;
-	m_preferSelection = false;
+		m_waypointMode = false;
+		m_forceAttackMode = false;
+		m_forceMoveToMode = false;
+		m_attackMoveToMode = false;
+		m_preferSelection = false;
 
-	m_curRcType = RADIUSCURSOR_NONE;
+		m_curRcType = RADIUSCURSOR_NONE;
 
-	m_soloNexusSelectedDrawableID = INVALID_DRAWABLE_ID;
+		m_soloNexusSelectedDrawableID = INVALID_DRAWABLE_ID;
 
-}
+		m_liveObserverStatusVisible = FALSE;
+
+		m_liveStatusString = nullptr;
+		m_liveStatusFontSize = 0;
+		m_liveStatusLabel.clear();
+	}
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
@@ -2214,6 +2226,8 @@ void InGameUI::reset()
 {
 	m_isQuitMenuVisible = FALSE;
 	m_inputEnabled = true;
+	// Not persisted: every live-observer session starts with the status bar hidden (F6 shows it).
+	m_liveObserverStatusVisible = FALSE;
 	// reset the command bar
 	TheControlBar->reset();
 
@@ -2341,6 +2355,8 @@ void InGameUI::freeCustomUiResources()
 {
 	TheDisplayStringManager->freeDisplayString(m_networkLatencyString);
 	m_networkLatencyString = nullptr;
+	TheDisplayStringManager->freeDisplayString(m_observerLogicFpsString);
+	m_observerLogicFpsString = nullptr;
 	TheDisplayStringManager->freeDisplayString(m_renderFpsString);
 	m_renderFpsString = nullptr;
 	TheDisplayStringManager->freeDisplayString(m_renderFpsLimitString);
@@ -2356,6 +2372,11 @@ void InGameUI::freeCustomUiResources()
 
 	TheDisplayStringManager->freeDisplayString(m_observerStatsString);
 	m_observerStatsString = nullptr;
+
+	TheDisplayStringManager->freeDisplayString(m_liveStatusString);
+	m_liveStatusString = nullptr;
+	m_liveStatusFontSize = 0;
+	m_liveStatusLabel.clear();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -3847,7 +3868,21 @@ void InGameUI::postWindowDraw()
 	Int hudOffsetX = 0;
 	Int hudOffsetY = 0;
 
-	if (m_networkLatencyPointSize > 0 && TheGameLogic->isInMultiplayerGame())
+	Bool drawLatencyCounter = TheGameLogic->isInMultiplayerGame();
+#if defined(GENERALS_ONLINE)
+	// A live-observer session is replay playback, not a multiplayer game, so this counter would
+	// never draw for a viewer - but the *match being watched* is a multiplayer game, and its
+	// latency and logic rate are exactly the numbers the viewer wants. drawNetworkLatency has an
+	// observer branch that fills them from the streamer's MSG_STATS instead of from TheNetwork,
+	// which is null here.
+	if (!drawLatencyCounter && TheLiveObserver != NULL && TheLiveObserver->isConnected()
+		&& TheLiveObserver->hasPlaybackStarted())
+	{
+		drawLatencyCounter = TRUE;
+	}
+#endif
+
+	if (m_networkLatencyPointSize > 0 && drawLatencyCounter)
 	{
 		drawNetworkLatency(hudOffsetX, hudOffsetY);
 	}
@@ -3874,6 +3909,8 @@ void InGameUI::postWindowDraw()
 
 	hudOffsetX = 0;
 	hudOffsetY += 250;
+
+	drawLiveStatus();
 
 	if (m_observerStatsPointSize > 0)
 		drawObserverStats(hudOffsetX, hudOffsetY);
@@ -6525,11 +6562,11 @@ void InGameUI::drawObserverStats(Int & x, Int & y)
 	if (!localPlayer || (TheGameLogic && TheGameLogic->getFrame() <= 1))
 		return;
 
-	if (!localPlayer->isPlayerObserver() && !localPlayer->isPlayerDead())
-		return;
+		if (!localPlayer->isPlayerObserver() && !localPlayer->isPlayerDead())
+			return;
 
-	if (!isAtHudAnchorPos(m_observerStatsPosition) || m_observerStatsHidden)
-		return;
+		if (!isAtHudAnchorPos(m_observerStatsPosition) || m_observerStatsHidden)
+			return;
 
 	// couldn't allocate memory, early out
 	if (m_observerStatsString == nullptr)
@@ -6753,7 +6790,7 @@ void InGameUI::drawObserverStats(Int & x, Int & y)
     Int lineHeight = (m_observerStatsLineStep > 0) ? m_observerStatsLineStep : Int(16 * scale);
     Int rowSpacing = Int(2 * scale);
 
-    totalHeight = (lineHeight + rowSpacing) * (1 + Int(actualNumPlayers));
+	totalHeight = (lineHeight + rowSpacing) * (1 + Int(actualNumPlayers));
 
 	if (actualNumPlayers == 0)
 		return;
@@ -6870,10 +6907,17 @@ void InGameUI::refreshNetworkLatencyResources()
 		m_lastNetworkLatencyFrames = ~0u;
 	}
 
+	if (!m_observerLogicFpsString)
+	{
+		m_observerLogicFpsString = TheDisplayStringManager->newDisplayString();
+		m_lastObserverLogicFps = ~0u;
+	}
+
 	m_networkLatencyPointSize = TheGlobalData->m_networkLatencyFontSize;
 	Int adjustedNetworkLatencyFontSize = TheGlobalLanguageData->adjustFontSize(m_networkLatencyPointSize);
 	GameFont* latencyFont = TheWindowManager->winFindFont(m_networkLatencyFont, adjustedNetworkLatencyFontSize, m_networkLatencyBold);
 	m_networkLatencyString->setFont(latencyFont);
+	m_observerLogicFpsString->setFont(latencyFont);
 }
 
 void InGameUI::refreshRenderFpsResources()
@@ -7012,6 +7056,76 @@ void InGameUI::updateRenderFpsString()
 void InGameUI::drawNetworkLatency(Int& x, Int& y)
 {
 #if defined(GENERALS_ONLINE)
+	// Observer: report the match being watched. TheNetwork is null in replay playback, so every
+	// term here comes from the streamer's own reading (MSG_STATS) rather than from a local mesh -
+	// same counter, same format, the streamer's numbers. Values stay 0 until the first stats frame
+	// arrives (an older streamer never sends one; a held observer gets nothing until its delay has
+	// elapsed), and a 0 ping reads as "no measurement", so the counter waits rather than showing a
+	// fabricated zero.
+	if (TheLiveObserver != NULL && TheLiveObserver->isConnected()
+		&& TheLiveObserver->hasPlaybackStarted())
+	{
+		const UnsignedInt streamerPingMs = TheLiveObserver->getStreamerPingMs();
+		const UnsignedInt streamerLogicFps = TheLiveObserver->getStreamerLogicFps();
+
+		if (streamerPingMs == 0 && streamerLogicFps == 0)
+			return;
+
+		// The observer's own playback rate. Shown next to the match's rate because the pair is the
+		// whole story: equal means playback is tracking the match, and a P far above L is the
+		// observer outrunning the source and about to stall - which is otherwise invisible, since
+		// the render FPS counter beside this one reports frames drawn, not frames simulated.
+		const UnsignedInt paceFps = TheLiveObserver->getPaceFps();
+
+		if (streamerPingMs != m_lastObserverPingMs || streamerLogicFps != m_lastObserverLogicFps
+			|| paceFps != m_lastObserverPaceFps)
+		{
+			// One layout, not the live counter's two. The alternate ("GenTool frames") form is
+			// only chosen when both conversions agree, which on a 60 fps build means only when
+			// the latency is zero - so mirroring both branches would add a case nobody sees, at
+			// the cost of moving the logic rate to the far end of the string where it cannot
+			// carry its own colour.
+			const UnsignedInt actualFrames = ConvertMSLatencyToFrames((int)streamerPingMs);
+
+			// Labelled, unlike the live counter's bare leading [60]. That counter is read by a
+			// player who knows the first bracket is their own frame rate; an observer is reading
+			// two rates side by side - the match's and their own playback's - and an unlabelled
+			// one next to a labelled [P: n] just invites the question "which is which".
+			UnicodeString logicStr;
+			logicStr.format(L"[L: %u]", streamerLogicFps);
+			m_observerLogicFpsString->setText(logicStr);
+
+			UnicodeString latencyStr;
+			latencyStr.format(L" - [%ums - %u] [P: %u]", streamerPingMs, actualFrames, paceFps);
+			m_networkLatencyString->setText(latencyStr);
+
+			m_lastObserverPingMs = streamerPingMs;
+			m_lastObserverLogicFps = streamerLogicFps;
+			m_lastObserverPaceFps = paceFps;
+		}
+
+		// Red while rate-matching is off: the match ran at this rate, but the picture in front of
+		// you is running faster and eating the backlog, so the number no longer describes what is
+		// on screen. Green-through-normal when matching is on and the two agree.
+		const Color logicColor = TheLiveObserver->isPaceMatchingEnabled()
+			? m_networkLatencyColor : 0xFFFF4040;
+
+		if (isAtHudAnchorPos(m_networkLatencyPosition))
+		{
+			m_observerLogicFpsString->draw(kHudAnchorX + x, kHudAnchorY + y, logicColor, m_networkLatencyDropColor);
+			x += m_observerLogicFpsString->getWidth();
+			m_networkLatencyString->draw(kHudAnchorX + x, kHudAnchorY + y, m_networkLatencyColor, m_networkLatencyDropColor);
+			x += m_networkLatencyString->getWidth() + kHudGapPx;
+		}
+		else
+		{
+			m_observerLogicFpsString->draw(m_networkLatencyPosition.x, m_networkLatencyPosition.y, logicColor, m_networkLatencyDropColor);
+			m_networkLatencyString->draw(m_networkLatencyPosition.x + m_observerLogicFpsString->getWidth(),
+				m_networkLatencyPosition.y, m_networkLatencyColor, m_networkLatencyDropColor);
+		}
+		return;
+	}
+
 	const UnsignedInt actualLatencyInMS = TheNetwork->getRunAhead() * (1000 / GENERALS_ONLINE_HIGH_FPS_LIMIT);
 	const UnsignedInt actualFrames = ConvertMSLatencyToFrames(actualLatencyInMS);
 	const UnsignedInt gentoolFrames = ConvertMSLatencyToGenToolFrames(actualLatencyInMS);
@@ -7375,6 +7489,141 @@ void InGameUI::drawPlayerInfoList()
 
 		m_playerInfoList.values[PlayerInfoList::ValueType_Name][row]->draw(labelX, drawY, rowColors[row], m_playerInfoListDropColor);
 
-		drawY += lineH;
+				drawY += lineH;
+			}
+		}
+
+//-------------------------------------------------------------------------------------------------
+// Live streaming / live-observer status banner, top-centre. Called from postWindowDraw() so it
+// covers every session type: the streamer, who is a normal player, as well as an observer.
+//-------------------------------------------------------------------------------------------------
+void InGameUI::drawLiveStatus()
+{
+#if defined(GENERALS_ONLINE)
+	if (TheDisplay == NULL || TheGameLogic == NULL || TheGameLogic->getFrame() <= 1)
+		return;
+
+	if (TheDisplayStringManager == NULL || TheFontLibrary == NULL)
+		return;
+
+	Real baseScale = (Real)TheDisplay->getWidth() / 1920.0f;
+	baseScale = (baseScale < 0.7f) ? 0.7f : (baseScale > 2.0f) ? 2.0f : baseScale;
+	const Int statusY = Int(10 * baseScale);
+
+	// One banner string reused across frames. The streamer and observer banners never draw in the
+	// same frame - a client either broadcasts its own game or watches someone else's - and both
+	// land at the same spot, so a single cached DisplayString serves them. Allocating and freeing
+	// per frame churned the display-string list; the string is freed by freeCustomUiResources().
+	if (m_liveStatusString == NULL)
+		m_liveStatusString = TheDisplayStringManager->newDisplayString();
+	if (m_liveStatusString == NULL)
+		return;
+
+	// The font depends only on baseScale, which changes on window resize, so it is applied only
+	// when the pixel size actually changed.
+	const Int fontPx = Int(14 * baseScale);
+	if (fontPx != m_liveStatusFontSize)
+	{
+		m_liveStatusString->setFont(TheFontLibrary->getFont("ArialFont", fontPx, false));
+		m_liveStatusFontSize = fontPx;
 	}
+
+	// Streamer side: are we the source of a relayed game? Behind F6 like the observer labels -
+	// "STREAMING"/"BACKUP" tells the player nothing and must not be clutter in every match.
+	if (TheLiveStreamer && (TheLiveStreamer->isStreaming() || TheLiveStreamer->isBackup())
+		&& m_liveObserverStatusVisible)
+	{
+		drawLiveStatusBanner(AsciiString(TheLiveStreamer->isStreaming() ? "STREAMING" : "BACKUP"), 0xFF00FF00, statusY);
+	}
+
+	// Observer side: connection and playback state of the relayed game we are watching.
+	if (TheLiveObserver && TheLiveObserver->isConnected())
+	{
+		// Split by what each state leaks. Observer-local state (connected? buffering?) says
+		// nothing about the live game and stays visible; anything derived from the live game -
+		// above all LIVE - ENDED - is a spoiler ~15s early, so it hides behind F6.
+		const Bool showLiveState = m_liveObserverStatusVisible;
+
+		AsciiString label;
+		UnsignedInt colour = 0;
+
+		// Nothing has come off the wire yet. Since playback now starts on the header alone, this is
+		// no longer only a pre-playback state: an observer that loads the map faster than the
+		// streamer sits here briefly with playback running and an empty live edge. The gate holds
+		// through it (see LiveObserver::updatePlaybackGate), so it is a wait, not a stall, and must
+		// not be reported as one. Excludes an ended stream, which has its own label.
+		const Bool nothingReceivedYet =
+			(TheLiveObserver->getLiveEdge() == 0 && !TheLiveObserver->isStreamEnded());
+
+		if (TheLiveObserver->isDesynced())
+		{
+			// Not gated: a diverged simulation is a fact about this client, not the match, and
+			// the observer must be told regardless of the spoiler setting.
+			label.format("DESYNCED AT FRAME %d - NO LONGER THE REAL GAME", TheLiveObserver->getDesyncFrame());
+			colour = 0xFFFF4040; // red
+		}
+		else if (!TheLiveObserver->isReady() && !LobbyObserverModeActive())
+		{
+			// Only when the read-only lobby view is down: that screen reports the same states
+			// itself, so a banner would overlap it. Direct Watch Live joins keep the banner.
+			label = "LIVE - CONNECTING...";
+			colour = 0xFFFFFF00; // yellow
+		}
+		else if ((!TheLiveObserver->hasPlaybackStarted() || nothingReceivedYet)
+			&& !LobbyObserverModeActive())
+		{
+			// Countdown while the join waits in the shell for header + enough body to cover the
+			// delay. Observer-local, so shown regardless of F6. Must be tested before the hold
+			// state, which is true throughout pre-roll and would mask it.
+			if (TheLiveObserver->getMaxCompleteFrame() == 0)
+			{
+				// No complete frames yet: players are still loading, so the delay is not
+				// elapsing and a countdown would sit frozen at its full value.
+				label = "LOADING GAME...";
+				colour = 0xFFFFFF00; // yellow
+			}
+			else
+			{
+				label.format("LIVE GAME - STARTS IN %ds", TheLiveObserver->getSecondsUntilPlaybackReady());
+				colour = 0xFFFFFF00; // yellow
+			}
+		}
+		else if (TheLiveObserver->isStreamEnded())
+		{
+			if (showLiveState) { label = "LIVE - ENDED"; colour = 0xFF00FF00; } // green
+		}
+		else if (TheLiveObserver->isStalled())
+		{
+			// isStalled(), not shouldHoldPlayback(): the latter toggles constantly while the
+			// delay is held at the boundary, which is healthy playback, not a problem.
+			if (showLiveState) { label = "WAITING FOR FRAMES"; colour = 0xFF00FFFF; } // cyan
+		}
+		else
+		{
+			if (showLiveState) { label = "LIVE"; colour = 0xFF00FF00; } // green
+		}
+
+		if (!label.isEmpty())
+			drawLiveStatusBanner(label, colour, statusY);
+	}
+#endif
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Draw one live-status banner line with the shared cached string. */
+//-------------------------------------------------------------------------------------------------
+void InGameUI::drawLiveStatusBanner(const AsciiString& label, UnsignedInt colour, Int y)
+{
+#if defined(GENERALS_ONLINE)
+	if (label != m_liveStatusLabel)
+	{
+		UnicodeString text;
+		text.translate(label);
+		m_liveStatusString->setText(text);
+		m_liveStatusLabel = label;
+	}
+
+	const Int x = (TheDisplay->getWidth() - m_liveStatusString->getWidth()) / 2;
+	m_liveStatusString->draw(x, y, colour, 0);
+#endif
 }

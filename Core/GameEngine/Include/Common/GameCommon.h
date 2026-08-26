@@ -69,6 +69,14 @@ enum
 	LOGICFRAMES_PER_SECOND = WWSyncPerSecond,
 	MSEC_PER_SECOND = 1000
 };
+// Live-observer broadcast delay. In seconds, not frames, so it survives a change of logic tick
+// rate; lives here rather than Recorder.h so OptionPreferences (Core) can share it.
+enum
+{
+	LIVE_DELAY_SECONDS_DEFAULT = 15,	// used when the streamer or relay supplies nothing
+	LIVE_DELAY_SECONDS_MAX = 600
+};
+
 const Real LOGICFRAMES_PER_MSEC_REAL = (((Real)LOGICFRAMES_PER_SECOND) / ((Real)MSEC_PER_SECOND));
 const Real MSEC_PER_LOGICFRAME_REAL = (((Real)MSEC_PER_SECOND) / ((Real)LOGICFRAMES_PER_SECOND));
 const Real LOGICFRAMES_PER_SECONDS_REAL = (Real)LOGICFRAMES_PER_SECOND;

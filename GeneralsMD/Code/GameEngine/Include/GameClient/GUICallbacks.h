@@ -289,6 +289,16 @@ extern WindowMsgHandledType InGamePopupMessageInput( GameWindow *window, Unsigne
 extern void PopupJoinGameInit( WindowLayout *layout, void *userData );
 extern WindowMsgHandledType PopupJoinGameSystem( GameWindow *window, UnsignedInt msg, WindowMsgData mData1, WindowMsgData mData2 );
 extern WindowMsgHandledType PopupJoinGameInput( GameWindow *window, UnsignedInt msg, WindowMsgData mData1, WindowMsgData mData2 );
+#if defined(GENERALS_ONLINE)
+// PopupJoinGame doubles as the password gate for a password-protected livestream. On submit the
+// observer session is queued with the entered password; bPopShellOnSubmit also pops the shell so
+// the screen below takes over the pending-session pump.
+extern void liveWatchOpenPasswordPopup( const AsciiString& lobbyId, const AsciiString& displayName,
+	Bool bPopShellOnSubmit );
+
+// Same popup for a pre-game lobby: on submit the read-only lobby view opens carrying the password.
+extern void liveWatchOpenObservePasswordPopup( const AsciiString& lobbyId, const AsciiString& displayName );
+#endif
 
 //  Network Direct ConnectWindow ---------------------------------------------------------------------------------
 extern void NetworkDirectConnectInit( WindowLayout *layout, void *userData );

@@ -786,9 +786,15 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	{
 		gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
 	}
+	// Priority-player matches render gold, exactly like the Watch Live browser (LiveGamesMenu).
+	// Ranked below the CRC check on purpose: a lobby you cannot join is not worth highlighting.
+	else if (lobbyInfo.priority)
+	{
+		gameColor = GameMakeColor(255, 215, 0, 255);
+	}
 #if defined(GENERALS_ONLINE)
-	// Buddy lobby highlight:
-	if (theBuddyGames && theBuddyGames->count(lobbyInfo.lobbyID))
+	// Buddy lobby highlight (kept off priority rows - gold already marks those):
+	if (theBuddyGames && !lobbyInfo.priority && theBuddyGames->count(lobbyInfo.lobbyID))
 	{
 		const bool nonJoinable =
 				(gameColor == GameSpyColor[GSCOLOR_GAME_CRCMISMATCH]);

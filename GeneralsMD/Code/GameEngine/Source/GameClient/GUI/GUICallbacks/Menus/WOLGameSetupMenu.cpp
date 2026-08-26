@@ -31,7 +31,9 @@
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
 #include "Common/GameEngine.h"
+#include "Common/GameCommon.h"		// LIVE_DELAY_SECONDS_DEFAULT / _MAX
 #include "Common/GameState.h"
+#include "Common/GlobalData.h"
 #include "Common/MultiplayerSettings.h"
 #include "Common/OptionPreferences.h"
 #include "GameClient/GameText.h"
@@ -55,6 +57,12 @@
 #include "GameClient/EstablishConnectionsMenu.h"
 #include "GameClient/GameWindowTransitions.h"
 #include "GameNetwork/GameSpy/LobbyUtils.h"
+
+#if defined(GENERALS_ONLINE)
+#include "Common/LiveObserver.h"
+#include "GameClient/LobbyObserverMenu.h"
+#include "GameClient/LiveGamesMenu.h"
+#endif
 
 #include "GameNetwork/GameSpy/BuddyDefs.h"
 #include "GameNetwork/GameSpy/PeerDefs.h"
@@ -226,6 +234,53 @@ static GameWindow *checkBoxUseStats = NULL;
 static GameWindow *checkBoxLimitSuperweapons = NULL;
 static GameWindow *comboBoxStartingCash = NULL;
 static GameWindow *checkBoxLimitArmies = NULL;
+
+#if defined(GENERALS_ONLINE)
+
+/// Validate and store a broadcast delay. Rejects rather than clamps: silently turning "6000"
+/// into 600 would leave the streamer believing they had a 100-minute buffer. The server copy
+/// is host-only (UpdateCurrentLobby_StreamDelay checks the role on its own).
+static void applyLiveStreamDelay(Int seconds)
+{
+	if (seconds < 0 || seconds > (Int)LIVE_DELAY_SECONDS_MAX)
+	{
+		if (TheInGameUI)
+		{
+			UnicodeString msg;
+			msg.format(L"Delay must be between 0 and %d seconds", (Int)LIVE_DELAY_SECONDS_MAX);
+			TheInGameUI->messageNoFormat(msg);
+		}
+		return;
+	}
+
+	TheWritableGlobalData->m_liveStreamDelaySeconds = seconds;
+
+	OptionPreferences optionPref;
+	optionPref.setLiveStreamDelaySeconds(seconds);
+	optionPref.write();
+
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface =
+		NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface != nullptr && pLobbyInterface->IsInLobby() && pLobbyInterface->IsHost())
+	{
+		pLobbyInterface->UpdateCurrentLobby_StreamDelay(seconds);
+	}
+}
+
+/// Each player's own "will this client broadcast" switch, shared with the Recorder at match
+/// start via TheGlobalData (same field the old checkbox wrote). Any player flips their own.
+static void applyLiveStreamEnabled(Bool enabled)
+{
+	if (TheWritableGlobalData)
+	{
+		TheWritableGlobalData->m_liveStreamEnabled = enabled;
+
+		OptionPreferences optionPref;
+		optionPref.setLiveStreamEnabled(enabled);
+		optionPref.write();
+	}
+}
+#endif
 
 static GameWindow *comboBoxPlayer[MAX_SLOTS] = {NULL,NULL,NULL,NULL,
 																									 NULL,NULL,NULL,NULL };
@@ -1358,6 +1413,7 @@ void WOLDisplayGameOptions()
   }
 
   DEBUG_ASSERTCRASH( index < itemCount, ("Could not find new starting cash amount %d in list", theGame->getStartingCash().countMoney() ) );
+
 }
 
 
@@ -1734,7 +1790,7 @@ void DeinitWOLGameGadgets()
 		windowMap->winSetUserData(NULL);
 		windowMap = NULL;
 	}
-	checkBoxUseStats = NULL;
+  checkBoxUseStats = NULL;
   checkBoxLimitSuperweapons = NULL;
   comboBoxStartingCash = NULL;
 
@@ -1762,6 +1818,26 @@ Bool initialAcceptEnable = FALSE;
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 {
+#if defined(GENERALS_ONLINE)
+	// Returning from a live-observer game whose waiting room was this layout. It must not come
+	// back as a real lobby - the observer is not a member of one, and the in-progress check
+	// below cannot catch this because the observer never set the NGMP game in progress.
+	if (LiveObserverConsumeReturnedFromGame())
+	{
+		LiveGamesMenuEnterLiveGamesMode();
+		TheShell->popImmediate();
+		return;
+	}
+
+	// Read-only pre-game lobby view: same layout, different screen. Must run before any
+	// lobby/mesh/NGMP setup below - an observer never joins a lobby and must not touch it.
+	if (LobbyObserverModeActive())
+	{
+		LobbyObserverInit(layout, userData);
+		return;
+	}
+#endif
+
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface == nullptr)
 	{
@@ -1907,6 +1983,10 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 				buttonBuddy->winEnable(FALSE);
 			GameSpyCloseOverlay(GSOVERLAY_BUDDY);
 			GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
+
+			// Last moment the full LobbyEntry (name, map, region, members) exists; the Recorder
+			// that actually registers the stream runs long after this screen is gone.
+			PrepareLiveStreamRegistration();
 
 			*TheNGMPGame = *myGame;
 			TheNGMPGame->startGame(0);
@@ -2274,6 +2354,14 @@ static void shutdownComplete( WindowLayout *layout )
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuShutdown( WindowLayout *layout, void *userData )
 {
+#if defined(GENERALS_ONLINE)
+	if (LobbyObserverModeActive())
+	{
+		LobbyObserverShutdown(layout, userData);
+		return;
+	}
+#endif
+
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 
 	if (pLobbyInterface != nullptr)
@@ -2344,6 +2432,14 @@ static void fillPlayerInfo(const PeerResponse *resp, PlayerInfo *info)
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 {
+#if defined(GENERALS_ONLINE)
+	if (LobbyObserverModeActive())
+	{
+		LobbyObserverUpdate(layout, userData);
+		return;
+	}
+#endif
+
 	// Refresh only the fast-changing connection indicators each frame.
 	WOLRefreshConnectionIndicators();
 
@@ -2717,6 +2813,9 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 					if (buttonBuddy)
 						buttonBuddy->winEnable(FALSE);
 					GameSpyCloseOverlay(GSOVERLAY_BUDDY);
+
+					// See the game-start packet handler above - same reason, other entry point.
+					PrepareLiveStreamRegistration();
 
 					*TheNGMPGame = *myGame;
 					TheNGMPGame->startGame(0);
@@ -3416,6 +3515,13 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 WindowMsgHandledType WOLGameSetupMenuInput( GameWindow *window, UnsignedInt msg,
 																			 WindowMsgData mData1, WindowMsgData mData2 )
 {
+#if defined(GENERALS_ONLINE)
+	if (LobbyObserverModeActive())
+	{
+		return LobbyObserverInput(window, msg, mData1, mData2);
+	}
+#endif
+
 	/*
 	switch( msg )
 	{
@@ -3513,6 +3619,10 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	{
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"The following commands are available:"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/maxcameraheight <value> - Sets the maximum camera zoom out level - Example: /maxcameraheight 650"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/observerchat <on|off> - Lets pre-game observers send chat into this lobby"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/delay <seconds> - Sets how far behind live observers are held (host only)"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/observers - Announces who is watching this lobby (host only)"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/stream <on|off> - Broadcast this game so others can watch it live"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/friendsonly - Sets the lobby to only be joinable by friends"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/public - Sets the lobby to be joinable by anyone"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
 		return TRUE; // was a slash command
@@ -3623,6 +3733,167 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 					}
 				}
 			}
+		}
+
+		return TRUE; // was a slash command
+	}
+	else if (token == "observerchat" && uText.getLength() > 14)
+	{
+		NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+		if (pOnlineServicesMgr != nullptr)
+		{
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+			if (pLobbyInterface != nullptr)
+			{
+				if (pLobbyInterface->IsInLobby())
+				{
+					if (pLobbyInterface->IsHost())
+					{
+						UnicodeString val = UnicodeString(uText.str() + 14); // skip the command
+
+						AsciiString asciiVal;
+						asciiVal.translate(val);
+						asciiVal.trim();
+						asciiVal.toLower();
+
+						if (asciiVal == "on")
+						{
+							pLobbyInterface->UpdateCurrentLobby_AllowObserverChat(true);
+						}
+						else if (asciiVal == "off")
+						{
+							pLobbyInterface->UpdateCurrentLobby_AllowObserverChat(false);
+						}
+						else
+						{
+							GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Usage: /observerchat <on|off>"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+						}
+					}
+					else
+					{
+						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"You must be the lobby host to toggle observer chat."), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+						return TRUE; // was a slash command
+					}
+				}
+			}
+		}
+
+		return TRUE; // was a slash command
+	}
+	else if (token == "delay" && uText.getLength() > 6)
+	{
+		NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+		if (pOnlineServicesMgr != nullptr)
+		{
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+			if (pLobbyInterface != nullptr)
+			{
+				if (pLobbyInterface->IsInLobby())
+				{
+					if (pLobbyInterface->IsHost())
+					{
+						UnicodeString val = UnicodeString(uText.str() + 7); // skip the command
+
+						AsciiString asciiVal;
+						asciiVal.translate(val);
+						asciiVal.trim();
+
+						bool bIsNumber = !asciiVal.isEmpty();
+						for (int i = 0; i < asciiVal.getLength(); ++i)
+						{
+							char thisChar = asciiVal.getCharAt(i);
+							if (!std::isdigit((unsigned char)thisChar))
+							{
+								bIsNumber = false;
+								break;
+							}
+						}
+
+						if (bIsNumber)
+						{
+							Int seconds = atoi(asciiVal.str());
+							if (seconds >= 0 && seconds <= (Int)LIVE_DELAY_SECONDS_MAX)
+							{
+								applyLiveStreamDelay(seconds);
+								UnicodeString msg;
+								msg.format(L"Broadcast delay set to %ds", seconds);
+								GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+							}
+							else
+							{
+								UnicodeString msg;
+								msg.format(L"Delay must be between 0 and %d seconds", (Int)LIVE_DELAY_SECONDS_MAX);
+								GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+							}
+						}
+						else
+						{
+							GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Usage: /delay <seconds>"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+						}
+					}
+					else
+					{
+						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"You must be the lobby host to set the broadcast delay."), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+					}
+				}
+			}
+		}
+
+		return TRUE; // was a slash command
+	}
+	else if (token == "observers")
+	{
+		NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+		if (pOnlineServicesMgr != nullptr)
+		{
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+			if (pLobbyInterface != nullptr)
+			{
+				if (pLobbyInterface->IsInLobby())
+				{
+					if (pLobbyInterface->IsHost())
+					{
+						// GO announces the observer roster into the lobby chat; every player
+						// sees it, the host included.
+						pLobbyInterface->SendObserverListRequest(pLobbyInterface->GetCurrentLobby().lobbyID);
+					}
+					else
+					{
+						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"You must be the lobby host to list observers."), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+					}
+				}
+			}
+		}
+
+		return TRUE; // was a slash command
+	}
+	else if (token == "stream" && uText.getLength() > 7)
+	{
+		// Any player, for themselves: this client's own "will I broadcast" switch, the same
+		// field the old Enable Stream checkbox wrote.
+		UnicodeString val = UnicodeString(uText.str() + 8); // skip the command
+
+		AsciiString asciiVal;
+		asciiVal.translate(val);
+		asciiVal.trim();
+		asciiVal.toLower();
+
+		if (asciiVal == "on")
+		{
+			applyLiveStreamEnabled(true);
+			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Streaming enabled - you will connect to the relay as a streamer"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		}
+		else if (asciiVal == "off")
+		{
+			applyLiveStreamEnabled(false);
+			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Streaming disabled - you will not connect to the relay as a streamer"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		}
+		else
+		{
+			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Usage: /stream <on|off>"), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
 		}
 
 		return TRUE; // was a slash command
@@ -3798,6 +4069,17 @@ static Int getFirstSelectablePlayer(const GameInfo *game)
 WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg,
 														 WindowMsgData mData1, WindowMsgData mData2 )
 {
+#if defined(GENERALS_ONLINE)
+	// Button clicks arrive here as GBM_SELECTED, not in the Input callback. The stock back
+	// button could not match anyway (buttonBackID stays invalid because the observer branch
+	// skips the rest of Init), and its PopBackToLobby is wrong for a non-member watcher.
+	// GEM_EDIT_DONE too, so the observer screen receives its own chat-entry Enter.
+	if (LobbyObserverModeActive() && (msg == GBM_SELECTED || msg == GEM_EDIT_DONE))
+	{
+		return LobbyObserverInput(window, msg, mData1, mData2);
+	}
+#endif
+
 	UnicodeString txtInput;
 
 	static int buttonCommunicatorID = NAMEKEY_INVALID;

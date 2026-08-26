@@ -4,6 +4,8 @@
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
 #include "GameClient/MapUtil.h"
 #include "GameLogic/GameLogic.h"
+#include "Common/GlobalData.h"
+#include "Common/LiveStreamer.h"
 
 extern void OnKickedFromLobby();
 
@@ -46,6 +48,126 @@ struct JoinLobbyResponse
 
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(JoinLobbyResponse, success, turn_username, turn_token)
 };
+
+/**
+ * Undo the local prefix SearchForLobbies()/UpdateRoomDataCache() prepend to a lobby's map path,
+ * putting it back into the relative form GO reports. The custom-map prefix is the user's maps
+ * directory under their Windows profile, which must not be published to viewers.
+ */
+static std::string LiveStreamRelativeMapPath(const std::string& mapPath)
+{
+	AsciiString lowerPath = mapPath.c_str();
+	lowerPath.toLower();
+
+	std::string prefixes[2];
+	if (TheMapCache != nullptr)
+	{
+		AsciiString userMapDir = TheMapCache->getUserMapDir(true);
+		userMapDir.toLower();
+		prefixes[0] = std::string(userMapDir.str()) + "\\";
+	}
+	prefixes[1] = "maps\\";
+
+	for (int i = 0; i < 2; ++i)
+	{
+		const size_t prefixLen = prefixes[i].length();
+		if (prefixLen > 1 && mapPath.length() >= prefixLen &&
+			strncmp(lowerPath.str(), prefixes[i].c_str(), prefixLen) == 0)
+		{
+			return mapPath.substr(prefixLen);
+		}
+	}
+
+	return mapPath;
+}
+
+/**
+ * Build the "lobby" block of the relay REGISTER payload. Keys mirror GO's own /lobby JSON so a
+ * client parses the same shape whichever source served the live-game list. Carries only what a
+ * third-party viewer needs - never the password, the per-member ports or the anticheat id.
+ * Empty member slots (userid -1) are kept, since GO reports them too and filtering is display work.
+ */
+static std::string BuildLiveStreamLobbyJson(const LobbyEntry& lobby)
+{
+	char scratch[128];
+	std::string json = "{";
+
+	// No lobbyid here: it is the session key and already travels at the top level of REGISTER,
+	// as a string. Repeating it as a number would give one field two types.
+	snprintf(scratch, sizeof(scratch), "\"lobbytype\":%d,", (int)lobby.lobby_type);
+	json += scratch;
+	snprintf(scratch, sizeof(scratch), "\"rngseed\":%d,", lobby.rng_seed);
+	json += scratch;
+	snprintf(scratch, sizeof(scratch), "\"owner\":%lld,", (long long)lobby.owner);
+	json += scratch;
+
+	json += "\"region\":\"" + liveStreamJsonEscape(lobby.region.c_str()) + "\",";
+	json += "\"name\":\"" + liveStreamJsonEscape(lobby.name.c_str()) + "\",";
+	json += "\"mapname\":\"" + liveStreamJsonEscape(lobby.map_name.c_str()) + "\",";
+	json += "\"mappath\":\""
+		+ liveStreamJsonEscape(LiveStreamRelativeMapPath(lobby.map_path).c_str()) + "\",";
+
+	json += "\"members\":[";
+	for (size_t i = 0; i < lobby.members.size(); ++i)
+	{
+		const LobbyMemberEntry& member = lobby.members[i];
+		if (i > 0)
+			json += ",";
+
+		snprintf(scratch, sizeof(scratch), "{\"userid\":%lld,\"displayname\":\"",
+			(long long)member.user_id);
+		json += scratch;
+		json += liveStreamJsonEscape(member.display_name.c_str());
+		json += "\"}";
+	}
+	json += "]}";
+
+	return json;
+}
+
+void PrepareLiveStreamRegistration()
+{
+	if (TheGlobalData == nullptr || !TheGlobalData->m_liveStreamEnabled)
+		return;
+
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface =
+		NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr || !pLobbyInterface->IsInLobby())
+	{
+		// Clear, or the next recording would open a relay session under a stale lobby id.
+		liveStreamClearPendingRegistration();
+		return;
+	}
+
+	const LobbyEntry& lobby = pLobbyInterface->GetCurrentLobby();
+
+	LiveStreamRegistration registration;
+	// LobbyID as plain decimal is the relay's session key: every peer in the lobby gets the same
+	// text from the service, so relay session and GO lobby line up without conversion.
+	registration.lobbyId.format("%lld", (long long)lobby.lobbyID);
+	registration.canStream = TheGlobalData->m_liveStreamCanStream;
+	registration.isHost = pLobbyInterface->IsHost();
+
+	// Every player registers - each is a potential source of replay bytes - but only the host
+	// describes the game, so no two clients can race over what the relay publishes.
+	if (registration.isHost)
+	{
+		registration.lobbyJson = BuildLiveStreamLobbyJson(lobby);
+		// Fall back to the local preference only when GO has never been told a lobby delay.
+		registration.delaySeconds = (lobby.stream_delay_seconds >= 0)
+			? lobby.stream_delay_seconds
+			: TheGlobalData->m_liveStreamDelaySeconds;
+	}
+
+	NGMP_OnlineServices_AuthInterface* pAuthInterface =
+		NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (pAuthInterface != nullptr)
+	{
+		registration.playerName = pAuthInterface->GetDisplayName().c_str();
+	}
+
+	liveStreamSetPendingRegistration(registration);
+}
 
 UnicodeString NGMP_OnlineServices_LobbyInterface::GetCurrentLobbyDisplayName()
 {
@@ -103,7 +225,9 @@ enum class ELobbyUpdateField
 	AI_TEAM = 15,
 	AI_START_POS = 16,
 	MAX_CAMERA_HEIGHT = 17,
-	JOINABILITY = 18
+	JOINABILITY = 18,
+	LOBBY_STREAM_DELAY = 20,
+	LOBBY_ALLOW_OBSERVER_CHAT = 21
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -188,6 +312,95 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
 
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StreamDelay(Int streamDelaySeconds)
+{
+	// reset autostart if host changes anything (because ready flag will reset too)
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
+	ClearAutoReadyCountdown();
+#endif
+
+	if (TheNGMPGame && TheNGMPGame->IsCountdownStarted())
+		TheNGMPGame->StopCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::LOBBY_STREAM_DELAY;
+	j["delay_seconds"] = streamDelaySeconds;
+	std::string strPostData = j.dump();
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			// A GO that does not know this field still answers 200, with success:false. Only
+			// the flag says the value was stored, and the local cache must not claim otherwise.
+			bool bStored = false;
+			if (bSuccess && statusCode == 200 && !strBody.empty())
+			{
+				try
+				{
+					bStored = nlohmann::json::parse(strBody).value("success", false);
+				}
+				catch (...)
+				{
+				}
+			}
+
+			if (bStored)
+			{
+				m_CurrentLobby.stream_delay_seconds = streamDelaySeconds;
+
+				// The lobby property change resets every ready flag; the host is always ready.
+				ApplyLocalUserPropertiesToCurrentNetworkRoom();
+			}
+			else
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[LOBBY_STREAM_DELAY] GO did not confirm delay %d (HTTP %d): treating lobby value as unset", streamDelaySeconds, statusCode);
+			}
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AllowObserverChat(bool bAllowObserverChat)
+{
+	// No ClearAutoReadyCountdown / StopCountdown preamble here on purpose: those exist because
+	// gameplay-setting changes reset every ready flag, and dropping the lobby's ready state to
+	// mute a chatty observer would be a hostile side effect.
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::LOBBY_ALLOW_OBSERVER_CHAT;
+	j["allow_observer_chat"] = bAllowObserverChat;
+	std::string strPostData = j.dump();
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			// A GO that does not know this field still answers 200, with success:false. Only
+			// the flag says the value was stored, and the local cache must not claim otherwise.
+			bool bStored = false;
+			if (bSuccess && statusCode == 200 && !strBody.empty())
+			{
+				try
+				{
+					bStored = nlohmann::json::parse(strBody).value("success", false);
+				}
+				catch (...)
+				{
+				}
+			}
+
+			if (bStored)
+			{
+				m_CurrentLobby.allow_observer_chat = bAllowObserverChat;
+			}
+			else
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[LOBBY_ALLOW_OBSERVER_CHAT] GO did not confirm observer chat %d (HTTP %d): treating lobby value as unset", bAllowObserverChat ? 1 : 0, statusCode);
+			}
 		});
 }
 
@@ -531,6 +744,29 @@ void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeSt
 	}
 }
 
+// A pre-game observer sending chat into a lobby it watches but is not a member of. The server
+// re-broadcasts it as an ordinary LOBBY_CHAT_FROM_SERVER with its own [Name] formatting, so no
+// local echo and no receive-side work anywhere.
+void NGMP_OnlineServices_LobbyInterface::SendObserverChatMessage(int64_t lobbyId, UnicodeString& strChatMsgUnicode)
+{
+	std::shared_ptr<WebSocket> pWS = NGMP_OnlineServicesManager::GetWebSocket();
+	if (pWS != nullptr)
+	{
+		pWS->SendData_LobbyObserverChat(lobbyId, strChatMsgUnicode);
+	}
+}
+
+// Host-only: GO announces the pre-game observer roster into the lobby chat. The host's own
+// client sees the announcement arrive like any other member's.
+void NGMP_OnlineServices_LobbyInterface::SendObserverListRequest(int64_t lobbyId)
+{
+	std::shared_ptr<WebSocket> pWS = NGMP_OnlineServicesManager::GetWebSocket();
+	if (pWS != nullptr)
+	{
+		pWS->SendData_LobbyObserverListRequest(lobbyId);
+	}
+}
+
 // TODO_NGMP: Just send a separate packet for each announce, more efficient and less hacky
 void NGMP_OnlineServices_LobbyInterface::SendAnnouncementMessageToCurrentLobby(UnicodeString& strAnnouncementMsgUnicode, bool bShowToHost)
 {
@@ -538,6 +774,24 @@ void NGMP_OnlineServices_LobbyInterface::SendAnnouncementMessageToCurrentLobby(U
 	if (pWS != nullptr)
 	{
 		pWS->SendData_LobbyChatMessage(strAnnouncementMsgUnicode, false, true, bShowToHost);
+	}
+}
+
+void NGMP_OnlineServices_LobbyInterface::SubscribeToLobbyObserver(int64_t lobbyID)
+{
+	std::shared_ptr<WebSocket> pWS = NGMP_OnlineServicesManager::GetWebSocket();
+	if (pWS != nullptr)
+	{
+		pWS->SendData_LobbyObserverSubscribe(lobbyID);
+	}
+}
+
+void NGMP_OnlineServices_LobbyInterface::UnsubscribeFromLobbyObserver(int64_t lobbyID)
+{
+	std::shared_ptr<WebSocket> pWS = NGMP_OnlineServicesManager::GetWebSocket();
+	if (pWS != nullptr)
+	{
+		pWS->SendData_LobbyObserverUnsubscribe(lobbyID);
 	}
 }
 
@@ -619,9 +873,26 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				lobbyEntryIter["MaximumCameraHeight"].get_to(lobbyEntry.max_cam_height);
 				lobbyEntryIter["ExeCRC"].get_to(lobbyEntry.exe_crc);
 				lobbyEntryIter["IniCRC"].get_to(lobbyEntry.ini_crc);
+				lobbyEntryIter["RNGSeed"].get_to(lobbyEntry.rng_seed);
 				lobbyEntryIter["MatchID"].get_to(lobbyEntry.match_id);
 				lobbyEntryIter["LobbyType"].get_to(lobbyEntry.lobby_type);
 				lobbyEntryIter["Region"].get_to(lobbyEntry.region);
+				// StreamDelaySeconds is null until the host has chosen a broadcast delay.
+				if (lobbyEntryIter.contains("StreamDelaySeconds") &&
+					lobbyEntryIter["StreamDelaySeconds"].is_number())
+				{
+					lobbyEntryIter["StreamDelaySeconds"].get_to(lobbyEntry.stream_delay_seconds);
+				}
+
+				// /Lobbies spells this "IsPriority", /Livestreams spells it "priority".
+				if (lobbyEntryIter.contains("IsPriority") && lobbyEntryIter["IsPriority"].is_boolean())
+				{
+					lobbyEntryIter["IsPriority"].get_to(lobbyEntry.priority);
+				}
+				else if (lobbyEntryIter.contains("priority") && lobbyEntryIter["priority"].is_boolean())
+				{
+					lobbyEntryIter["priority"].get_to(lobbyEntry.priority);
+				}
 
 				// attach latency
 				if (latencyIndex < vecLatencies.size())
@@ -891,6 +1162,29 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryIter["MatchID"].get_to(lobbyEntry.match_id);
 						lobbyEntryIter["LobbyType"].get_to(lobbyEntry.lobby_type);
 						lobbyEntryIter["Region"].get_to(lobbyEntry.region);
+						// The three stream fields are absent on an older GO, and StreamDelaySeconds
+						// is null until the host has chosen a delay - keep the defaults in both cases.
+						if (lobbyEntryIter.contains("StreamDelaySeconds") &&
+							lobbyEntryIter["StreamDelaySeconds"].is_number())
+						{
+							lobbyEntryIter["StreamDelaySeconds"].get_to(lobbyEntry.stream_delay_seconds);
+						}
+						if (lobbyEntryIter.contains("AllowStreamers") &&
+							lobbyEntryIter["AllowStreamers"].is_boolean())
+						{
+							lobbyEntryIter["AllowStreamers"].get_to(lobbyEntry.allow_streamers);
+						}
+						if (lobbyEntryIter.contains("PendingObserverCount") &&
+							lobbyEntryIter["PendingObserverCount"].is_number())
+						{
+							lobbyEntryIter["PendingObserverCount"].get_to(lobbyEntry.pending_observer_count);
+						}
+						// Absent on an older GO - keep the default (matches the server's default-on).
+						if (lobbyEntryIter.contains("AllowObserverChat") &&
+							lobbyEntryIter["AllowObserverChat"].is_boolean())
+						{
+							lobbyEntryIter["AllowObserverChat"].get_to(lobbyEntry.allow_observer_chat);
+						}
 
 						if (lobbyEntry.lobby_type == ELobbyType::QuickMatch)
 						{
@@ -1298,6 +1592,10 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 
 	// reset local data
 	ResetCachedRoomData();
+
+	// Drop the pre-game registration, so a later recording cannot open a relay session under a
+	// lobby id this player is no longer in.
+	liveStreamClearPendingRegistration();
 }
 
 
@@ -1333,7 +1631,7 @@ struct CreateLobbyResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateLobbyResponse, result, lobby_id, turn_username, turn_token)
 };
 
-void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers)
+void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers, bool bAllowStreamers)
 {
 	AnticheatPlugInterface::EndSession();
 
@@ -1371,6 +1669,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 			j["passworded"] = bPassworded;
 			j["password"] = strPassword;
 			j["allow_observers"] = bAllowObservers;
+			j["allow_streamers"] = bAllowStreamers;
 			j["exe_crc"] = TheGlobalData->m_exeCRC;
 			j["ini_crc"] = TheGlobalData->m_iniCRC;
 			j["max_cam_height"] = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight_WhenLobbyHost();
@@ -1462,6 +1761,14 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 									// Set our properties
 									pLobbyInterface->ApplyLocalUserPropertiesToCurrentNetworkRoom();
+
+									// Seed the new lobby's delay from the host's saved preference,
+									// so joiners see the host's value and not their own fallback.
+									if (TheGlobalData != nullptr &&
+										pLobbyInterface->GetCurrentLobby().stream_delay_seconds < 0)
+									{
+										pLobbyInterface->UpdateCurrentLobby_StreamDelay(TheGlobalData->m_liveStreamDelaySeconds);
+									}
 								});
 						}
 						else

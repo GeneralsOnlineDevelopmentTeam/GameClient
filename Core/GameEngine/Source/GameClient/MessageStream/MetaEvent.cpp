@@ -32,6 +32,9 @@
 
 #include "Common/GameUtility.h"
 #include "Common/INI.h"
+#if defined(GENERALS_ONLINE)
+#include "Common/LiveObserver.h"
+#endif
 #include "Common/MessageStream.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
@@ -636,6 +639,19 @@ void MetaEventTranslator::onKeyPressed(GameMessageDisposition &disp, Int systemK
 				if( TheGlobalData && TheGameLogic->isInReplayGame())
 			#endif
 					{
+#if defined(GENERALS_ONLINE)
+						// Same broadcast-delay rule as CommandXlat's MSG_META_TOGGLE_FAST_FORWARD_REPLAY;
+						// this path exists because the translator is disabled during cinematics.
+						if (TheLiveObserver && TheLiveObserver->isWithinBroadcastDelay(TheGameLogic->getFrame()))
+						{
+							if (TheInGameUI)
+								TheInGameUI->messageNoFormat(
+									TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_DISABLED_LIVE", L"Fast Forward is disabled in live mode"));
+							disp = KEEP_MESSAGE;
+							break;
+						}
+#endif
+
 						if ( TheWritableGlobalData )
 							TheWritableGlobalData->m_TiVOFastMode = 1 - TheGlobalData->m_TiVOFastMode;
 

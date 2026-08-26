@@ -1223,6 +1223,54 @@ void WebSocket::SendData_LobbyChatMessage(UnicodeString& msg, bool bIsAction, bo
 	Send(strBody.c_str());
 }
 
+// A client watching a lobby it is not a member of subscribes for the same pushes a member
+// gets, so the read-only lobby view stays current and can queue its watch at match start.
+void WebSocket::SendData_LobbyObserverSubscribe(int64_t lobbyID)
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::LOBBY_OBSERVER_SUBSCRIBE;
+	j["lobby_id"] = lobbyID;
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+}
+
+void WebSocket::SendData_LobbyObserverUnsubscribe(int64_t lobbyID)
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::LOBBY_OBSERVER_UNSUBSCRIBE;
+	j["lobby_id"] = lobbyID;
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+}
+
+// A pre-game observer sending chat into a lobby it watches. Own lane from
+// SendData_LobbyChatMessage because that path is gated on being a lobby member; the server
+// re-broadcasts this as an ordinary LOBBY_CHAT_FROM_SERVER with its own formatting.
+void WebSocket::SendData_LobbyObserverChat(int64_t lobbyID, UnicodeString& msg)
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::LOBBY_OBSERVER_CHAT_FROM_CLIENT;
+	j["lobby_id"] = lobbyID;
+	j["message"] = to_utf8(msg.str());
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+}
+
+// Host-only: ask GO to announce the current pre-game observer roster into the lobby chat.
+// GO formats and broadcasts it; this client just renders the announcement like any other.
+void WebSocket::SendData_LobbyObserverListRequest(int64_t lobbyID)
+{
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::LOBBY_OBSERVER_LIST_REQUEST;
+	j["lobby_id"] = lobbyID;
+	std::string strBody = j.dump();
+
+	Send(strBody.c_str());
+}
+
 void WebSocket::SendData_LeaveNetworkRoom()
 {
 	SendData_JoinNetworkRoom(-1);

@@ -25,6 +25,9 @@
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
 #include "Common/Recorder.h"
+#include "Common/ReplayStreamSink.h"
+#include "Common/LiveStreamer.h"
+#include "Common/LiveObserver.h"
 #include "Common/file.h"
 #include "Common/FileSystem.h"
 #include "Common/PlayerList.h"
@@ -86,6 +89,16 @@ static void writeAtOffset(File* file, Int offset, const void* data, Int dataSize
 	MAYBE_UNUSED Int res = file->seek(fileSize, File::seekMode::START);
 	(void)res;
 	DEBUG_ASSERTCRASH(res == fileSize, ("Could not seek to end of file!"));
+
+	if (TheRecorder && TheRecorder->getStreamSink())
+		TheRecorder->getStreamSink()->onHeaderPatch(offset, data, dataSize);
+}
+
+static void writeBodyBytes(File* file, const void* data, Int size)
+{
+	file->write(data, size);
+	if (TheRecorder && TheRecorder->getStreamSink())
+		TheRecorder->getStreamSink()->onBodyBytes(data, size);
 }
 
 #if defined(RTS_DEBUG)
@@ -350,6 +363,8 @@ RecorderClass::RecorderClass()
 	m_archiveReplays = FALSE;
 	m_nextFrame = 0;
 	m_wasDesync = FALSE;
+	m_streamSink = nullptr;
+	m_lastStreamTickFrame = 0;
 	init(); // just for the heck of it.
 }
 
@@ -382,6 +397,8 @@ void RecorderClass::init() {
 	m_wasDesync = FALSE;
 	m_doingAnalysis = FALSE;
 	m_playbackFrameCount = 0;
+	m_streamSink = nullptr;
+	m_lastStreamTickFrame = 0;
 
 	OptionPreferences optionPref;
 	m_archiveReplays = optionPref.getArchiveReplaysEnabled();
@@ -407,6 +424,11 @@ void RecorderClass::reset() {
 void RecorderClass::update() {
 	if (m_mode == RECORDERMODETYPE_RECORD || m_mode == RECORDERMODETYPE_NONE) {
 		updateRecord();
+		// Drain spectator chat received from the relay into the HUD log.
+#if defined(GENERALS_ONLINE)
+		if (TheLiveStreamer)
+			TheLiveStreamer->pumpSpectatorChat();
+#endif
 	}
 	else if (isPlaybackMode()) {
 		updatePlayback();
@@ -437,11 +459,71 @@ void RecorderClass::updatePlayback() {
 	if (m_doingAnalysis)
 		curFrame = m_nextFrame;
 
-	// While there are commands to be queued up for this frame, do it.
-	while (m_nextFrame == curFrame) {
-		appendNextCommand();	// append the next command to TheCommandQueue
-		readNextFrame();	// Read the next command's frame number for playback.
+	const Bool isLive = (m_mode == RECORDERMODETYPE_LIVE_OBSERVER);
+
+	// A live observer's clock starts at connect, which can be well before the game does. Records
+	// consumed in that window are dispatched into the shell world and the cursor moves past them,
+	// so the game would begin already missing the stream's opening records and their CRCs.
+	if (isLive && TheGameLogic && !TheGameLogic->isInInteractiveGame())
+	{
+		// The gate still needs its tick: it already decides not to hold before the game starts.
+		if (TheLiveObserver)
+			TheLiveObserver->updatePlaybackGate(curFrame);
+		// Chat still drains: player chat is held until its frame, spectator chat hits the
+		// spoiler gate.
+		if (TheLiveObserver)
+			TheLiveObserver->pollChatMessages(curFrame);
+		return;
 	}
+
+	// While there are commands to be queued up for this frame or a past frame (live observer may be behind), process them.
+	while (m_nextFrame != (UnsignedInt)-1 && m_nextFrame <= curFrame) {
+		if (isLive) {
+			// In live mode: consume the frame number first. May rewind if the frame is in
+			// the future, or report that no complete record is available yet.
+			ReadFrameResult r = readNextFrame();
+			if (r == READFRAME_EOF_WAITING) {
+				// Breaking here is what bounds the loop: forcing m_nextFrame to curFrame instead
+				// satisfied no exit condition and re-read EOF forever.
+				break;
+			}
+			if (r == READFRAME_STREAM_STOPPED)
+				break;
+		}
+		if (m_nextFrame > curFrame)
+			break;				// readNextFrame saw a future frame - wait for game to catch up
+		appendNextCommand();	// append the next command to TheCommandQueue
+		if (!isLive)
+			readNextFrame();	// Read the next command's frame number for playback.
+	}
+
+	// Whether the observer may keep running is LiveObserver's call. m_mode is re-tested rather
+	// than reusing isLive because readNextFrame() above can end the session, and gating a torn-down
+	// session would resurrect its pause.
+	if (m_mode == RECORDERMODETYPE_LIVE_OBSERVER && TheLiveObserver)
+	{
+		TheLiveObserver->pollChatMessages(curFrame);
+		TheLiveObserver->updatePlaybackGate(curFrame);
+	}
+}
+
+Bool RecorderClass::liveStreamEnded() const {
+	return TheLiveObserver ? TheLiveObserver->isStreamEnded() : TRUE;
+}
+
+/**
+ * Teardown for a live-observer session that keeps the recorder looking like a finished replay.
+ */
+void RecorderClass::endLivePlayback()
+{
+	if (m_file != nullptr)
+	{
+		m_file->close();
+		m_file = nullptr;
+	}
+	m_fileName.clear();
+	m_currentReplayFilename.clear();
+	m_nextFrame = (UnsignedInt)-1;
 }
 
 /**
@@ -449,11 +531,19 @@ void RecorderClass::updatePlayback() {
  * reaching the end of the playback file.
  */
 void RecorderClass::stopPlayback() {
+	Bool wasLiveObserver = (m_mode == RECORDERMODETYPE_LIVE_OBSERVER);
 	if (m_file != nullptr) {
 		m_file->close();
 		m_file = nullptr;
 	}
 	m_fileName.clear();
+
+	if (wasLiveObserver)
+	{
+		// The one way a live session ends. liveObserverEndSession() also restores the shell map,
+		// so every exit path loads the shell, not just this one.
+		liveObserverEndSession();
+	}
 
 	if (!m_doingAnalysis)
 	{
@@ -517,6 +607,21 @@ void RecorderClass::updateRecord()
 		DEBUG_ASSERTCRASH(m_file != nullptr, ("RecorderClass::updateRecord() - unexpected call to fflush(m_file)"));
 		m_file->flush();
 	}
+
+	if (m_streamSink)
+	{
+		m_streamSink->onBodyFlush();
+
+		// Deliberately after the flush: everything this frame produced is already on its way, so
+		// a receiver may read the tick as "all records up to here have been sent".
+		const UnsignedInt curFrame = TheGameLogic ? TheGameLogic->getFrame() : 0;
+		if (TheGameLogic != nullptr
+			&& curFrame - m_lastStreamTickFrame >= (UnsignedInt)LIVE_TICK_INTERVAL_FRAMES)
+		{
+			m_lastStreamTickFrame = curFrame;
+			m_streamSink->onTick(curFrame);
+		}
+	}
 }
 
 /**
@@ -538,7 +643,7 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
 	m_fileName = getLastReplayFileName();
 	m_fileName.concat(getReplayExtention());
 	filepath.concat(m_fileName);
-	m_file = TheFileSystem->openFile(filepath.str(), File::WRITE | File::BINARY);
+	m_file = TheFileSystem->openFile(filepath.str(), File::READWRITE | File::BINARY | File::CREATE);
 	if (m_file == nullptr) {
 		DEBUG_ASSERTCRASH(m_file != nullptr, ("Failed to create replay file"));
 		return;
@@ -695,6 +800,57 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
 	*/
 
 	/// @todo Need to write game options when there are some to be written.
+
+#if defined(GENERALS_ONLINE)
+	// Live streaming - initialize and register with relay server
+	try
+	{
+		// The pre-game lobby assembled the registration; it is the only place that can see a
+		// GeneralsOnline lobby in full, which is what keeps this file free of GO includes.
+		LiveStreamer* streamer = liveStreamStartPendingSession();
+		if (streamer)
+		{
+			// From now on the streamer receives raw header/body/patch bytes.
+			m_streamSink = streamer;
+			DEBUG_LOG(("RecorderClass::startRecording() - Live stream registered, lobbyId=%s",
+				streamer->getLobbyId().str()));
+		}
+	}
+	catch (...)
+	{
+		// Live streamer init failed - game continues without streaming
+		DEBUG_LOG(("RecorderClass::startRecording() - Live streamer init failed, continuing without streaming"));
+		liveStreamLog("RecorderClass::startRecording() - Live streamer init EXCEPTION, continuing without streaming\n");
+	}
+#endif
+
+	// Snapshot the finished header as one byte-for-byte blob an observer can write to disk.
+	if (m_streamSink)
+	{
+		m_file->flush();
+		UnsignedInt headerSize = m_file->size();
+		if (headerSize > 0)
+		{
+			char* headerBuf = new char[headerSize];
+			Int seekRes = m_file->seek(0, File::seekMode::START);
+			Int bytesRead = (seekRes == 0) ? m_file->read(headerBuf, headerSize) : 0;
+			if (bytesRead == (Int)headerSize)
+			{
+				m_streamSink->onHeaderBytes(headerBuf, headerSize);
+			}
+			else
+			{
+				// No header means no observer can ever open the file, and every later body chunk
+				// is dropped silently - so say so here rather than let the session die quietly.
+				DEBUG_LOG(("RecorderClass::startRecording() - Header snapshot failed (seek=%d, read %d of %d), stream will have no header",
+					seekRes, bytesRead, headerSize));
+				liveStreamLog("RecorderClass::startRecording() - Header snapshot FAILED, stream will have no header\n");
+			}
+			m_file->seek(headerSize, File::seekMode::START);
+			delete[] headerBuf;
+		}
+		m_streamSink->onHeaderComplete();
+	}
 }
 
 /**
@@ -703,6 +859,10 @@ void RecorderClass::startRecording(GameDifficulty diff, Int originalGameMode, In
  */
 void RecorderClass::stopRecording() {
 	logGameEnd();
+
+	if (m_streamSink)
+		m_streamSink->onRecordingEnded();
+
 	if (TheNetwork)
 	{
 		//if (TheLAN)
@@ -734,6 +894,17 @@ void RecorderClass::stopRecording() {
 #endif
 	}
 	m_fileName.clear();
+
+#if defined(GENERALS_ONLINE)
+	// Live streaming - shut down the streamer when recording stops
+	if (TheLiveStreamer)
+	{
+		TheLiveStreamer->close();
+		delete TheLiveStreamer;
+		TheLiveStreamer = nullptr;
+		m_streamSink = nullptr;
+	}
+#endif
 }
 
 /**
@@ -771,15 +942,15 @@ void RecorderClass::archiveReplay(AsciiString fileName)
 void RecorderClass::writeToFile(GameMessage* msg) {
 	// Write the frame number for this command.
 	UnsignedInt frame = TheGameLogic->getFrame();
-	m_file->write(&frame, sizeof(frame));
+	writeBodyBytes(m_file, &frame, sizeof(frame));
 
 	// Write the command type
 	GameMessage::Type type = msg->getType();
-	m_file->write(&type, sizeof(type));
+	writeBodyBytes(m_file, &type, sizeof(type));
 
 	// Write the player index
 	Int playerIndex = msg->getPlayerIndex();
-	m_file->write(&playerIndex, sizeof(playerIndex));
+	writeBodyBytes(m_file, &playerIndex, sizeof(playerIndex));
 
 #ifdef DEBUG_LOGGING
 	AsciiString commandName = msg->getCommandAsString();
@@ -800,15 +971,15 @@ void RecorderClass::writeToFile(GameMessage* msg) {
 
 	GameMessageParser* parser = newInstance(GameMessageParser)(msg);
 	UnsignedByte numTypes = parser->getNumTypes();
-	m_file->write(&numTypes, sizeof(numTypes));
+	writeBodyBytes(m_file, &numTypes, sizeof(numTypes));
 
 	GameMessageParserArgumentType* argType = parser->getFirstArgumentType();
 	while (argType != nullptr) {
 		UnsignedByte type = (UnsignedByte)(argType->getType());
-		m_file->write(&type, sizeof(type));
+		writeBodyBytes(m_file, &type, sizeof(type));
 
 		UnsignedByte argTypeCount = (UnsignedByte)(argType->getArgCount());
-		m_file->write(&argTypeCount, sizeof(argTypeCount));
+		writeBodyBytes(m_file, &argTypeCount, sizeof(argTypeCount));
 
 		argType = argType->getNext();
 	}
@@ -831,37 +1002,37 @@ void RecorderClass::writeArgument(GameMessageArgumentDataType type, const GameMe
 	switch (type) {
 
 	case ARGUMENTDATATYPE_INTEGER:
-		m_file->write(&(arg.integer), sizeof(arg.integer));
+		writeBodyBytes(m_file, &(arg.integer), sizeof(arg.integer));
 		break;
 	case ARGUMENTDATATYPE_REAL:
-		m_file->write(&(arg.real), sizeof(arg.real));
+		writeBodyBytes(m_file, &(arg.real), sizeof(arg.real));
 		break;
 	case ARGUMENTDATATYPE_BOOLEAN:
-		m_file->write(&(arg.boolean), sizeof(arg.boolean));
+		writeBodyBytes(m_file, &(arg.boolean), sizeof(arg.boolean));
 		break;
 	case ARGUMENTDATATYPE_OBJECTID:
-		m_file->write(&(arg.objectID), sizeof(arg.objectID));
+		writeBodyBytes(m_file, &(arg.objectID), sizeof(arg.objectID));
 		break;
 	case ARGUMENTDATATYPE_DRAWABLEID:
-		m_file->write(&(arg.drawableID), sizeof(arg.drawableID));
+		writeBodyBytes(m_file, &(arg.drawableID), sizeof(arg.drawableID));
 		break;
 	case ARGUMENTDATATYPE_TEAMID:
-		m_file->write(&(arg.teamID), sizeof(arg.teamID));
+		writeBodyBytes(m_file, &(arg.teamID), sizeof(arg.teamID));
 		break;
 	case ARGUMENTDATATYPE_LOCATION:
-		m_file->write(&(arg.location), sizeof(arg.location));
+		writeBodyBytes(m_file, &(arg.location), sizeof(arg.location));
 		break;
 	case ARGUMENTDATATYPE_PIXEL:
-		m_file->write(&(arg.pixel), sizeof(arg.pixel));
+		writeBodyBytes(m_file, &(arg.pixel), sizeof(arg.pixel));
 		break;
 	case ARGUMENTDATATYPE_PIXELREGION:
-		m_file->write(&(arg.pixelRegion), sizeof(arg.pixelRegion));
+		writeBodyBytes(m_file, &(arg.pixelRegion), sizeof(arg.pixelRegion));
 		break;
 	case ARGUMENTDATATYPE_TIMESTAMP:
-		m_file->write(&(arg.timestamp), sizeof(arg.timestamp));
+		writeBodyBytes(m_file, &(arg.timestamp), sizeof(arg.timestamp));
 		break;
 	case ARGUMENTDATATYPE_WIDECHAR:
-		m_file->write(&(arg.wChar), sizeof(arg.wChar));
+		writeBodyBytes(m_file, &(arg.wChar), sizeof(arg.wChar));
 		break;
 	default:
 		DEBUG_LOG(("Unknown GameMessageArgumentDataType in RecorderClass::writeArgument"));
@@ -977,6 +1148,38 @@ Bool RecorderClass::simulateReplay(AsciiString filename)
 	return success;
 }
 
+Bool RecorderClass::startLiveObserverPlayback(AsciiString filename)
+{
+	Bool success = playbackFile(filename);
+	if (!success)
+	{
+		m_mode = RECORDERMODETYPE_NONE;
+		liveObserverLog("startLiveObserverPlayback: FAILED for %s\n", filename.str());
+		return FALSE;
+	}
+
+	// playbackFile() clears the shell map on its way, which resets this class - so claim the mode
+	// afterwards, not before.
+	m_mode = RECORDERMODETYPE_LIVE_OBSERVER;
+	m_nextFrame = 0;
+
+	// playbackFile() leaves the cursor wherever reading the header ended, which is the start of the
+	// body only as long as the header is the whole file. Seek explicitly: the live loop reads each
+	// record's frame field itself before appending, so a cursor even one field off misparses every
+	// record from the first one on.
+	if (m_file != nullptr && TheLiveObserver != nullptr)
+		m_file->seek(TheLiveObserver->getBodyStartOffset(), File::START);
+
+	// From here on, clearing game data means the game ended rather than that this session is
+	// still being set up. See liveObserverOnGameCleared().
+	if (TheLiveObserver)
+		TheLiveObserver->notePlaybackStarted();
+
+	liveObserverLog("startLiveObserverPlayback: OK for %s, observer=%p\n",
+		filename.str(), (void*)TheLiveObserver);
+	return TRUE;
+}
+
 #if defined(RTS_DEBUG)
 Bool RecorderClass::analyzeReplay(AsciiString filename)
 {
@@ -1025,47 +1228,67 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 		samePlayer = TRUE;
 	if (samePlayer || (localPlayerIndex < 0))
 	{
-		UnsignedInt playbackCRC = m_crcInfo.readCRC();
-		//DEBUG_LOG(("RecorderClass::handleCRCMessage() - Comparing CRCs of InGame:%8.8X Replay:%8.8X Frame:%d from Player %d",
-		//	playbackCRC, newCRC, TheGameLogic->getFrame()-m_crcInfo.GetQueueSize()-1, playerIndex));
-		if (TheGameLogic->getFrame() > 0 && newCRC != playbackCRC && !m_crcInfo.sawCRCMismatch())
+		// A live observer queues its own CRCs through the fromPlayback path above, and the recorded
+		// CRC from the stream pops them. An empty queue means the own CRC has not been processed
+		// yet, and reading it would return 0 and report a DESYNC on a healthy session.
+		if (m_crcInfo.GetQueueSize() > 0)
 		{
-			//Kris: Patch 1.01 November 10, 2003 (integrated changes from Matt Campbell)
-			// Since we don't seem to have any *visible* desyncs when replaying games, but get this warning
-			// virtually every replay, the assumption is our CRC checking is faulty.  Since we're at the
-			// tail end of patch season, let's just disable the message, and hope the users believe the
-			// problem is fixed. -MDC 3/20/2003
-			//
-			// TheSuperHackers @tweak helmutbuhler 03/04/2025
-			// More than 20 years later, but finally fixed and re-enabled!
-			TheInGameUI->message("GUI:CRCMismatch");
-
-			// TheSuperHackers @info helmutbuhler 03/04/2025
-			// Note: We subtract the queue size from the frame number. This way we calculate the correct frame
-			// the mismatch first happened in case the NetCRCInterval is set to 1 during the game.
-			const UnsignedInt mismatchFrame = TheGameLogic->getFrame() - m_crcInfo.GetQueueSize() - 1;
-
-			// Now also prints a UI message for it.
-			const UnicodeString mismatchDetailsStr = TheGameText->FETCH_OR_SUBSTITUTE("GUI:CRCMismatchDetails", L"InGame:%8.8X Replay:%8.8X Frame:%d");
-			TheInGameUI->message(mismatchDetailsStr, playbackCRC, newCRC, mismatchFrame);
-
-			DEBUG_LOG(("Replay has gone out of sync!\nInGame:%8.8X Replay:%8.8X\nFrame:%d",
-				playbackCRC, newCRC, mismatchFrame));
-
-			// Print Mismatch in case we are simulating replays from console.
-			printf("CRC Mismatch in Frame %d\n", mismatchFrame);
-
-			// TheSuperHackers @tweak Pause the game on mismatch.
-			// But not when a window with focus is opened, because that can make resuming difficult.
-			if (TheWindowManager->winGetFocus() == nullptr)
+			UnsignedInt playbackCRC = m_crcInfo.readCRC();
+			//DEBUG_LOG(("RecorderClass::handleCRCMessage() - Comparing CRCs of InGame:%8.8X Replay:%8.8X Frame:%d from Player %d",
+			//	playbackCRC, newCRC, TheGameLogic->getFrame()-m_crcInfo.GetQueueSize()-1, playerIndex));
+			if (TheGameLogic->getFrame() > 0 && newCRC != playbackCRC && !m_crcInfo.sawCRCMismatch())
 			{
-				Bool pause = TRUE;
-				Bool pauseMusic = FALSE;
-				Bool pauseInput = FALSE;
-				TheGameLogic->setGamePaused(pause, pauseMusic, pauseInput);
+				//Kris: Patch 1.01 November 10, 2003 (integrated changes from Matt Campbell)
+				// Since we don't seem to have any *visible* desyncs when replaying games, but get this warning
+				// virtually every replay, the assumption is our CRC checking is faulty.  Since we're at the
+				// tail end of patch season, let's just disable the message, and hope the users believe the
+				// problem is fixed. -MDC 3/20/2003
+				//
+				// TheSuperHackers @tweak helmutbuhler 03/04/2025
+				// More than 20 years later, but finally fixed and re-enabled!
+				TheInGameUI->message("GUI:CRCMismatch");
 
-				// Mark this mismatch as seen when we had the chance to pause once.
-				m_crcInfo.setSawCRCMismatch();
+				// TheSuperHackers @info helmutbuhler 03/04/2025
+				// Note: We subtract the queue size from the frame number. This way we calculate the correct frame
+				// the mismatch first happened in case the NetCRCInterval is set to 1 during the game.
+				const UnsignedInt mismatchFrame = TheGameLogic->getFrame() - m_crcInfo.GetQueueSize() - 1;
+
+				// Now also prints a UI message for it.
+				const UnicodeString mismatchDetailsStr = TheGameText->FETCH_OR_SUBSTITUTE("GUI:CRCMismatchDetails", L"InGame:%8.8X Replay:%8.8X Frame:%d");
+				TheInGameUI->message(mismatchDetailsStr, playbackCRC, newCRC, mismatchFrame);
+
+				DEBUG_LOG(("Replay has gone out of sync!\nInGame:%8.8X Replay:%8.8X\nFrame:%d",
+					playbackCRC, newCRC, mismatchFrame));
+
+				// Print Mismatch in case we are simulating replays from console.
+				printf("CRC Mismatch in Frame %d\n", mismatchFrame);
+
+				// The stream keeps arriving and playback keeps running, so without this the observer
+				// has no way of knowing its view stopped being the real game.
+				if (m_mode == RECORDERMODETYPE_LIVE_OBSERVER && TheLiveObserver)
+				{
+					liveObserverLog("CRC mismatch - own=%08X recorded=%08X frame=%d\n",
+						newCRC, playbackCRC, mismatchFrame);
+					TheLiveObserver->noteDesync(mismatchFrame);
+
+					// Report once, then stop comparing - a desynced simulation diverges further every
+					// frame, so everything after the first mismatch is noise.
+					m_crcInfo.setSawCRCMismatch();
+					return;
+				}
+
+				// TheSuperHackers @tweak Pause the game on mismatch.
+				// But not when a window with focus is opened, because that can make resuming difficult.
+				if (TheWindowManager->winGetFocus() == nullptr)
+				{
+					Bool pause = TRUE;
+					Bool pauseMusic = FALSE;
+					Bool pauseInput = FALSE;
+					TheGameLogic->setGamePaused(pause, pauseMusic, pauseInput);
+
+					// Mark this mismatch as seen when we had the chance to pause once.
+					m_crcInfo.setSawCRCMismatch();
+				}
 			}
 		}
 		return;
@@ -1195,7 +1418,16 @@ Bool RecorderClass::playbackFile(AsciiString filename)
     Int maxFPS = 0;
     m_file->read(&maxFPS, sizeof(maxFPS));
 
+    // This call is opening the file for a live-observer session rather than replaying one from
+    // disk. Latched once here because two decisions below turn on it.
+    const Bool liveObserverStart = (TheLiveObserver != nullptr && !TheLiveObserver->hasPlaybackStarted());
+
     Bool isMultiplayer = (m_originalGameMode == GAME_INTERNET || m_originalGameMode == GAME_LAN);
+    // The network-game skip of the first received CRC exists because that value "doesn't make
+    // it through the network". An observer generates its CRCs locally, so nothing is lost and
+    // skipping one skews every later comparison by a full interval.
+    if (liveObserverStart)
+        isMultiplayer = FALSE;
     m_crcInfo = CRCInfo(header.localPlayerIndex, isMultiplayer);
     DEBUG_LOG(("Player index is %d, replay CRC interval is %d, isMultiplayer is %d", m_crcInfo.getLocalPlayer(), REPLAY_CRC_INTERVAL, isMultiplayer));
 
@@ -1206,11 +1438,19 @@ Bool RecorderClass::playbackFile(AsciiString filename)
     // Otherwise a crc message remains and messes up the crc calculation on the restarted replay.
     TheCommandList->reset();
 
-	readNextFrame();
-	// readNextFrame() closes m_file via stopPlayback() if the first frame cannot be read.
-	if(m_file == nullptr)
+	// A live-observer start deliberately does not seed the cursor. It begins on the header alone -
+	// before the streamer's own map load has produced a single body record - so there is nothing to
+	// read yet, and the seeding read would fail and close the file. Nothing is lost: the result is
+	// discarded regardless, because startLiveObserverPlayback() seeks back to getBodyStartOffset()
+	// and resets m_nextFrame to 0.
+	if (!liveObserverStart)
 	{
-		return FALSE;
+		readNextFrame();
+		// readNextFrame() closes m_file via stopPlayback() if the first frame cannot be read.
+		if(m_file == nullptr)
+		{
+			return FALSE;
+		}
 	}
 
 	TheWritableGlobalData->m_pendingFile = m_gameInfo.getMap();
@@ -1302,18 +1542,76 @@ AsciiString RecorderClass::readAsciiString() {
  * Read the frame number for the next command in the playback file. If the end of the file is reached, the playback
  * is stopped and the next frame is said to be -1.
  */
-void RecorderClass::readNextFrame() {
+RecorderClass::ReadFrameResult RecorderClass::readNextFrame() {
+	if (m_mode == RECORDERMODETYPE_LIVE_OBSERVER) {
+		// No observer means the session is already torn down; nothing more can arrive.
+		if (TheLiveObserver == nullptr) {
+			liveObserverLog("readNextFrame: live stream with no observer - stopping playback\n");
+			m_nextFrame = -1;
+			stopPlayback();
+			return READFRAME_STREAM_STOPPED;
+		}
+
+		const Int savedPos = m_file->seek(0, File::CURRENT);
+		const Int safeOffset = TheLiveObserver->getSafeReadOffset();
+
+		// Never read past the last complete record: the network thread appends at arbitrary byte
+		// offsets, so a read at the growing tail can return a partial record, yielding a garbage
+		// frame number and stranding the file position mid-record. This is also what lets
+		// appendNextCommand() read a whole record without bounds checks of its own.
+		//
+		// This is also what lets appendNextCommand() read a whole record without any bounds
+		// checks of its own: savedPos and safeOffset are both record boundaries, so passing
+		// this test means at least one complete record is already on disk.
+		if (savedPos + (Int)sizeof(m_nextFrame) > safeOffset) {
+			if (!liveStreamEnded())
+				return READFRAME_EOF_WAITING;
+
+			// Stream ended and every complete record has been consumed. Do not fall through to
+			// the read: whatever sits at this offset is not part of this session.
+			liveObserverLog("readNextFrame: end of stream at offset %d (safe=%d) - stopping playback\n",
+				savedPos, safeOffset);
+			m_nextFrame = -1;
+			stopPlayback();
+			return READFRAME_STREAM_STOPPED;
+		}
+
+		// The bound above says these bytes are on disk, so a short read means the file and the
+		// watermark disagree - carrying on from a mid-record cursor misparses the rest.
+		if (m_file->read(&m_nextFrame, sizeof(m_nextFrame)) != sizeof(m_nextFrame)) {
+			liveObserverLog("readNextFrame: short read at %d below the safe offset %d - stopping playback\n",
+				savedPos, safeOffset);
+			m_nextFrame = -1;
+			stopPlayback();
+			return READFRAME_STREAM_STOPPED;
+		}
+
+		if (m_nextFrame > TheGameLogic->getFrame()) {
+			// Future frame - rewind so appendNextCommand() does not see the data yet.
+			m_file->seek(savedPos, File::START);
+		}
+		return READFRAME_OK;
+	}
+
 	Int bytesRead = m_file->read(&m_nextFrame, sizeof(m_nextFrame));
 	if (bytesRead != sizeof(m_nextFrame)) {
 		DEBUG_LOG(("RecorderClass::readNextFrame - read failed on frame %d", TheGameLogic->getFrame()));
 		m_nextFrame = -1;
 		stopPlayback();
+		return READFRAME_STREAM_STOPPED;
 	}
+	return READFRAME_OK;
 }
 
 /**
  * This reads the next command from the replay file and appends it to TheCommandList.
  */
+// The record layout this reads is mirrored by scanReplayRecord() in LiveObserver.cpp, which
+// scans arriving bytes to publish the live-edge and safe-read watermarks. Change one, change
+// the other.
+//
+// It needs no bounds checks of its own, live or not: readNextFrame() only lets playback reach a
+// record that is complete on disk (see the safe-offset test there).
 void RecorderClass::appendNextCommand() {
 	GameMessage::Type type;
 	Int bytesRead = m_file->read(&type, sizeof(type));
@@ -1382,6 +1680,9 @@ void RecorderClass::appendNextCommand() {
 		if (argsLeftForType == 0) {
 			DEBUG_ASSERTCRASH(parserArgType != nullptr, ("parserArgType was null when it shouldn't have been."));
 			if (parserArgType == nullptr) {
+				// This early return owns both allocations.
+				deleteInstance(parser);
+				deleteInstance(msg);
 				return;
 			}
 
@@ -1565,6 +1866,14 @@ RecorderClass::CullBadCommandsResult RecorderClass::cullBadCommands() {
 		if ((msg->getType() > GameMessage::MSG_BEGIN_NETWORK_MESSAGES) &&
 				(msg->getType() < GameMessage::MSG_END_NETWORK_MESSAGES) &&
 				(msg->getType() != GameMessage::MSG_LOGIC_CRC)) {
+
+			deleteInstance(msg);
+		}
+		// These sit outside the network-message range, so the filter above let them through, and
+		// they are the only surviving messages that write GameLogic statics. A local keypress must
+		// not reach simulation state during playback.
+		else if (msg->getType() == GameMessage::MSG_META_BEGIN_PATH_BUILD ||
+				msg->getType() == GameMessage::MSG_META_END_PATH_BUILD) {
 
 			deleteInstance(msg);
 		}

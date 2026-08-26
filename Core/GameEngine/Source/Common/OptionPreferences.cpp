@@ -33,6 +33,7 @@
 
 #include "Common/AudioSettings.h"
 #include "Common/GameAudio.h"
+#include "Common/GameCommon.h"				// LIVE_DELAY_SECONDS_DEFAULT / _MAX
 #include "Common/GameLOD.h"
 #include "Common/GlobalData.h"
 #include "Common/OptionPreferences.h"
@@ -163,6 +164,70 @@ Bool OptionPreferences::getObserverNotificationMilestone(void)
 	OptionPreferences::const_iterator it = find("ObserverNotificationMilestone");
 	if (it == end())
 		return TheGlobalData->m_observerNotificationMilestone;
+	if (stricmp(it->second.str(), "yes") == 0)
+	{
+		return TRUE;
+	}
+	return FALSE;
+}
+
+Bool OptionPreferences::getLiveStreamEnabled() const
+{
+	OptionPreferences::const_iterator it = find("LiveStreamEnabled");
+	if (it == end())
+		return TRUE;
+	if (stricmp(it->second.str(), "yes") == 0)
+	{
+		return TRUE;
+	}
+	return FALSE;
+}
+
+void OptionPreferences::setLiveStreamEnabled(Bool enabled)
+{
+	(*this)["LiveStreamEnabled"] = enabled ? "yes" : "no";
+}
+
+Int OptionPreferences::getLiveStreamDelaySeconds() const
+{
+	OptionPreferences::const_iterator it = find("LiveObserverDelaySeconds");
+	if (it == end())
+		return LIVE_DELAY_SECONDS_DEFAULT;
+
+	// atoi returns 0 for junk, which is indistinguishable from a deliberate 0 - and silently
+	// streaming with no delay would defeat the spoiler window entirely.
+	const char* str = it->second.str();
+	if (str == nullptr || *str == '\0')
+		return LIVE_DELAY_SECONDS_DEFAULT;
+	for (const char* c = str; *c != '\0'; ++c)
+	{
+		if (*c < '0' || *c > '9')
+			return LIVE_DELAY_SECONDS_DEFAULT;
+	}
+
+	Int seconds = atoi(str);
+	if (seconds > LIVE_DELAY_SECONDS_MAX)
+		return LIVE_DELAY_SECONDS_MAX;
+	return seconds;
+}
+
+void OptionPreferences::setLiveStreamDelaySeconds(Int seconds)
+{
+	if (seconds < 0)
+		seconds = 0;
+	if (seconds > LIVE_DELAY_SECONDS_MAX)
+		seconds = LIVE_DELAY_SECONDS_MAX;
+
+	AsciiString value;
+	value.format("%d", seconds);
+	(*this)["LiveObserverDelaySeconds"] = value;
+}
+
+Bool OptionPreferences::getLiveStreamCanStream() const
+{
+	OptionPreferences::const_iterator it = find("LiveStreamCanStream");
+	if (it == end())
+		return TRUE;
 	if (stricmp(it->second.str(), "yes") == 0)
 	{
 		return TRUE;

@@ -47,6 +47,9 @@
 #include "Common/PlayerTemplate.h"
 #include "Common/Radar.h"
 #include "Common/Recorder.h"
+#if defined(GENERALS_ONLINE)
+#include "Common/LiveObserver.h"
+#endif
 #include "Common/SpecialPower.h"
 #include "Common/StatsCollector.h"
 #include "Common/ThingTemplate.h"
@@ -92,6 +95,22 @@
 
 #include "WW3D2/ww3d.h"
 #include "../OnlineServices_Init.h"
+
+// A live-observer session runs as a replay game, but its chat window is meaningful: Enter
+// sends to the spectator channel instead of the mesh. Constant FALSE outside GeneralsOnline
+// so the call sites below need no guards of their own - this file is shared with Generals,
+// which has neither LiveObserver nor the recorder mode.
+//
+// Constant FALSE outside GeneralsOnline so the call sites below need no guards of their own:
+// this file is shared with Generals, which has neither LiveObserver nor the recorder mode.
+static Bool IsLiveObserverSession()
+{
+#if defined(GENERALS_ONLINE)
+	return TheRecorder != nullptr && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER;
+#else
+	return FALSE;
+#endif
+}
 
 #if defined(RTS_DEBUG)
 /*non-static*/ Real TheSkateDistOverride = 0.0f;
@@ -3255,6 +3274,8 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 
 		//-----------------------------------------------------------------------------------------
 		case GameMessage::MSG_META_CHAT_ALLIES:
+			// Deliberately not opened for a live observer: they have no allies, and every send
+			// from that window goes to the spectator channel regardless of the type shown.
 			if (TheGameLogic->isInMultiplayerGame() && !TheGameLogic->isInReplayGame())
 			{
 				Player *localPlayer = ThePlayerList->getLocalPlayer();
@@ -3269,7 +3290,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 
 		//-----------------------------------------------------------------------------------------
 		case GameMessage::MSG_META_CHAT_EVERYONE:
-			if (TheGameLogic->isInMultiplayerGame() && !TheGameLogic->isInReplayGame())
+			if ((TheGameLogic->isInMultiplayerGame() && !TheGameLogic->isInReplayGame()) || IsLiveObserverSession())
 			{
 				Player *localPlayer = ThePlayerList->getLocalPlayer();
 				// TheSuperHackers @tweak skyaero 19/07/2025 Observers can now chat
@@ -3563,6 +3584,17 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		{
 			if( TheGlobalData )
 			{
+#if defined(GENERALS_ONLINE)
+				// Fast forward is disabled once within the broadcast delay of live, so it can only
+				// ever close a backlog, never catch up to the real game and spoil it.
+				if (TheLiveObserver && TheLiveObserver->isWithinBroadcastDelay(TheGameLogic->getFrame()))
+				{
+					TheInGameUI->messageNoFormat(
+						TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_DISABLED_LIVE", L"Fast Forward is disabled in live mode"));
+					disp = DESTROY_MESSAGE;
+					break;
+				}
+#endif
 #if !defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)//may be defined in GameCommon.h
 				if (TheGameLogic->isInReplayGame())
 #endif
@@ -3582,6 +3614,17 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 		case GameMessage::MSG_META_TOGGLE_PAUSE:
 		case GameMessage::MSG_META_TOGGLE_PAUSE_ALT:
 		{
+#if defined(GENERALS_ONLINE)
+			// P toggles the user's intent only; the observer recomputes the actual pause as
+			// (userPaused || waitingForData) on its next poll. Calling setGamePaused() here would
+			// let the buffering gate re-pause on the next tick and discard the user's intent.
+			if (IsLiveObserverSession() && TheLiveObserver)
+			{
+				TheLiveObserver->toggleUserPause();
+				disp = DESTROY_MESSAGE;
+				break;
+			}
+#endif
 			if (!TheGameLogic->isInMultiplayerGame())
 			{
 				if (TheGameLogic->isGamePaused())
@@ -3931,6 +3974,51 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
                     GameSpyOpenOverlay(GSOVERLAY_BUDDY);
                 }
 
+                disp = DESTROY_MESSAGE;
+            }
+            else if (key == KEY_F6)
+            {
+                if (TheInGameUI)
+                {
+                    TheInGameUI->toggleLiveObserverStatusVisible();
+                    if (TheControlBar && TheControlBar->isObserverControlBarOn())
+                        TheInGameUI->messageNoFormat(TheInGameUI->isLiveObserverStatusVisible()
+                            ? TheGameText->FETCH_OR_SUBSTITUTE("GUI:LiveStatusOn", L"Live status bar ON (F6)")
+                            : TheGameText->FETCH_OR_SUBSTITUTE("GUI:LiveStatusOff", L"Live status bar OFF (F6)"));
+                }
+                disp = DESTROY_MESSAGE;
+            }
+            // Cycles auto (spoiler-gated) -> forced ON -> off.
+            else if (key == KEY_F7)
+            {
+                if (IsLiveObserverSession() && TheLiveObserver)
+                {
+                    const LiveObserver::SpectatorChatMode mode = TheLiveObserver->toggleSpectatorChatMode();
+                    UnicodeString label;
+                    if (mode == LiveObserver::SPECTATOR_CHAT_AUTO)
+                        label = TheGameText->FETCH_OR_SUBSTITUTE("GUI:SpecChatAuto", L"Spectator chat: auto (F7)");
+                    else if (mode == LiveObserver::SPECTATOR_CHAT_FORCED_ON)
+                        label = TheGameText->FETCH_OR_SUBSTITUTE("GUI:SpecChatOn", L"Spectator chat: forced ON (F7)");
+                    else
+                        label = TheGameText->FETCH_OR_SUBSTITUTE("GUI:SpecChatOff", L"Spectator chat: OFF (F7)");
+                    if (TheInGameUI)
+                        TheInGameUI->messageNoFormat(label);
+                }
+                disp = DESTROY_MESSAGE;
+            }
+            // Rate-matched playback on/off. Following an 11 fps match means watching it at 11 fps
+            // and staying as far behind as you already are; full speed spends the backlog instead
+            // and closes the gap, at the price of stalling once there is no backlog left.
+            else if (key == KEY_F8)
+            {
+                if (IsLiveObserverSession() && TheLiveObserver)
+                {
+                    const Bool matching = TheLiveObserver->togglePaceMatching();
+                    if (TheInGameUI)
+                        TheInGameUI->messageNoFormat(matching
+                            ? TheGameText->FETCH_OR_SUBSTITUTE("GUI:PaceMatchOn", L"Playback: match the game's speed (F8)")
+                            : TheGameText->FETCH_OR_SUBSTITUTE("GUI:PaceMatchOff", L"Playback: full speed (F8)"));
+                }
                 disp = DESTROY_MESSAGE;
             }
 

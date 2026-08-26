@@ -49,6 +49,9 @@
 #include "Common/Upgrade.h"
 #include "Common/StatsCollector.h"
 #include "Common/Radar.h"
+#if defined(GENERALS_ONLINE)
+#include "Common/LiveObserver.h"
+#endif
 
 #include "GameLogic/AIPathfind.h"
 #include "GameLogic/GameLogic.h"
@@ -258,6 +261,13 @@ void GameLogic::clearGameData( Bool showScoreScreen )
 	}
 
 	setClearingGameData( TRUE );
+
+#if defined(GENERALS_ONLINE)
+	// Every game-end path converges here, so this is where a live session is told. Whether it
+	// actually ends is LiveObserver's call: clearing game data is also how a session starts,
+	// since playbackFile() clears the shell map first.
+	liveObserverOnGameCleared();
+#endif
 
 //	m_background = TheWindowManager->winCreateLayout("Menus/BlankWindow.wnd");
 //	DEBUG_ASSERTCRASH(m_background,("We Couldn't Load Menus/BlankWindow.wnd"));
@@ -859,10 +869,12 @@ bool GameLogic::onNewGame(MAYBE_UNUSED GameMessage *msg)
 	// TheSuperHackers @fix stephanmeesters 11/03/2026
 	// Make sure we're ready to start a new game. This prevents an issue where an infinite disconnect screen
 	// can be force-triggered in an online match by using cheats.
-	if ( isInGame() || isClearingGameData() || isLoadingMap() )
+	// isInGame() is true for the shell too, which dropped the legitimate MSG_NEW_GAME a
+	// live-observer join sends from the main menu. An active match is still blocked.
+	if ( isInInteractiveGame() || isClearingGameData() || isLoadingMap() )
 	{
 		DEBUG_CRASH( ("Called MSG_NEW_GAME while game is not ready (inGame=%d, clearingData=%d, loadingMap=%d)",
-			isInGame(), isClearingGameData(), isLoadingMap()) );
+			isInInteractiveGame(), isClearingGameData(), isLoadingMap()) );
 
 		return false;
 	}

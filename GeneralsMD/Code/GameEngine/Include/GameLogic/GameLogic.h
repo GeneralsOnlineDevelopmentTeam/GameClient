@@ -60,6 +60,7 @@ class ThingTemplate;
 class Team;
 class CommandList;
 class GameMessage;
+class GameInfo;
 class LoadScreen;
 class WindowLayout;
 class TerrainLogic;
@@ -218,6 +219,10 @@ public:
 	Int getHulkMaxLifetimeOverride() const { return m_scriptHulkMaxLifetimeOverride; }
 
 	Bool isIntroMoviePlaying();
+
+	/// TRUE once a start has been requested but not yet run. The real start work happens inside
+	/// update(), so nothing may halt update() until this clears.
+	Bool isStartingNewGame() const { return m_startNewGame; }
 
 	void updateObjectsChangedTriggerAreas() {m_frameObjectsChangedTriggerAreas = m_frame;}
 	UnsignedInt getFrameObjectsChangedTriggerAreas() {return m_frameObjectsChangedTriggerAreas;}

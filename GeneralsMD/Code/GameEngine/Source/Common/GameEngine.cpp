@@ -61,6 +61,7 @@
 #include "Common/DamageFX.h"
 #include "Common/MultiplayerSettings.h"
 #include "Common/Recorder.h"
+#include "Common/LiveObserver.h"
 #include "Common/SpecialPower.h"
 #include "Common/TerrainTypes.h"
 #include "Common/Upgrade.h"
@@ -1017,6 +1018,14 @@ void GameEngine::update()
 					NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>());
 			}
 		}
+
+#if defined(GENERALS_ONLINE)
+		// Polled outside the halted path on purpose: the buffering pause halts GameLogic::UPDATE(),
+		// and updatePlayback() - the only other caller - runs from inside that halt.
+		if (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_LIVE_OBSERVER
+			&& TheLiveObserver && TheGameLogic)
+			TheLiveObserver->updatePlaybackGate(TheGameLogic->getFrame());
+#endif
 
 		// TheSuperHackers @info Ignores frozen time because the script engine needs updating in the logic update regardless.
 		if (canUpdateGameLogic(FramePacer::IgnoreFrozenTime))
