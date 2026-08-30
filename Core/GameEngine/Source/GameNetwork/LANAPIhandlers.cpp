@@ -118,6 +118,8 @@ void LANAPI::handleGameAnnounce( LANMessage *msg, UnsignedInt senderIP )
 				game->setName(UnicodeString(msg->GameInfo.gameName));
 				addGame(game);
 			}
+			// Ensure options buffer is null-terminated to prevent buffer overrun in AsciiString constructor
+			msg->GameInfo.options[m_lanMaxOptionsLength] = '\0';
 			Bool success = ParseGameOptionsString(game,AsciiString(msg->GameInfo.options));
 			game->setGameInProgress(msg->GameInfo.inProgress);
 			game->setIsDirectConnect(msg->GameInfo.isDirectConnect);
@@ -141,6 +143,8 @@ void LANAPI::handleGameAnnounce( LANMessage *msg, UnsignedInt senderIP )
 			game->setName(UnicodeString(msg->GameInfo.gameName));
 			addGame(game);
 		}
+		// Ensure options buffer is null-terminated to prevent buffer overrun in AsciiString constructor
+		msg->GameInfo.options[m_lanMaxOptionsLength] = '\0';
 		Bool success = ParseGameOptionsString(game,AsciiString(msg->GameInfo.options));
 		game->setGameInProgress(msg->GameInfo.inProgress);
 		game->setIsDirectConnect(msg->GameInfo.isDirectConnect);
@@ -676,6 +680,8 @@ void LANAPI::handleGameOptions( LANMessage *msg, UnsignedInt senderIP )
 		{
 			if (m_currentGame->getIP(player) == senderIP)
 			{
+				// Ensure options buffer is null-terminated to prevent buffer overrun in AsciiString constructor
+				msg->GameOptions.options[m_lanMaxOptionsLength] = '\0';
 				OnGameOptions(senderIP, player, AsciiString(msg->GameOptions.options));
 				break;
 			}
