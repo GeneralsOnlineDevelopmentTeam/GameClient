@@ -674,12 +674,26 @@ NetworkMesh::NetworkMesh()
 	//strUsername = "g04024f26713bae6e055295b6887b7007533f6c236534b725734b37e26ec15cd";
 	//strToken = "9ea6a5e60216c09a1fa7512987b2ce0514e3204f863f04f70fa870a100db740f";
 
-	m_strTurnUsernameString = std::format("{},{}", m_strTurnUsername.c_str(), m_strTurnUsername.c_str());
-	m_strTurnTokenString = std::format("{},{}", m_strTurnToken.c_str(), m_strTurnToken.c_str());
+	// Validate TURN credentials before using them
+	// Empty credentials would cause malformed configuration strings (e.g., ",") 
+	// which can lead to division by zero in OpenSSL/QUIC transport parameter parsing
+	if (!m_strTurnUsername.empty() && !m_strTurnToken.empty())
+	{
+		m_strTurnUsernameString = std::format("{},{}", m_strTurnUsername.c_str(), m_strTurnUsername.c_str());
+		m_strTurnTokenString = std::format("{},{}", m_strTurnToken.c_str(), m_strTurnToken.c_str());
 
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_ServerList, turnList);
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, m_strTurnUsernameString.c_str());
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, m_strTurnTokenString.c_str());
+		SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_ServerList, turnList);
+		SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, m_strTurnUsernameString.c_str());
+		SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, m_strTurnTokenString.c_str());
+
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "TURN credentials configured successfully");
+	}
+	else
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "TURN credentials are empty - skipping TURN configuration. Username empty: %d, Token empty: %d",
+			m_strTurnUsername.empty(), m_strTurnToken.empty());
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "P2P connections will work via STUN/direct connection only, relay functionality unavailable");
+	}
 
 	ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
 
