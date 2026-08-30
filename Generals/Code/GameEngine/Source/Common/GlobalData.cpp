@@ -1070,6 +1070,43 @@ GlobalData::~GlobalData()
 		TheWritableGlobalData = nullptr;
 	}
 
+	// TheSuperHackers @fix Explicitly clear all AsciiString members and vectors before the automatic member
+	// destructors run. This ensures AsciiString::releaseBuffer() is called while the memory infrastructure
+	// (TheDynamicMemoryAllocator, TheAsciiStringCriticalSection) is still valid, avoiding use-after-free
+	// crashes that can occur when GlobalData override instances are destroyed during gameplay or shutdown.
+	m_simulateReplays.clear();
+	m_standardPublicBones.clear();
+	m_mapName.clear();
+	m_moveHintName.clear();
+	for (Int i = 0; i < MAX_WATER_GRID_SETTINGS; ++i)
+		m_vertexWaterAvailableMaps[i].clear();
+	m_levelGainAnimationName.clear();
+	m_getHealedAnimationName.clear();
+	m_autoFireParticleSmallPrefix.clear();
+	m_autoFireParticleSmallSystem.clear();
+	m_autoFireParticleMediumPrefix.clear();
+	m_autoFireParticleMediumSystem.clear();
+	m_autoFireParticleLargePrefix.clear();
+	m_autoFireParticleLargeSystem.clear();
+	m_autoSmokeParticleSmallPrefix.clear();
+	m_autoSmokeParticleSmallSystem.clear();
+	m_autoSmokeParticleMediumPrefix.clear();
+	m_autoSmokeParticleMediumSystem.clear();
+	m_autoSmokeParticleLargePrefix.clear();
+	m_autoSmokeParticleLargeSystem.clear();
+	m_autoAflameParticlePrefix.clear();
+	m_autoAflameParticleSystem.clear();
+	m_shellMapName.clear();
+	m_initialFile.clear();
+	m_pendingFile.clear();
+	m_specialPowerViewObjectName.clear();
+	m_modDir.clear();
+	m_modBIG.clear();
+#if defined(RTS_DEBUG)
+	m_baseStatsDir.clear();
+	m_MOTDPath.clear();
+#endif
+
 }
 
 //-------------------------------------------------------------------------------------------------
