@@ -1637,13 +1637,18 @@ ObjectShroudStatus PartitionData::getShroudedStatus(Int playerIndex)
 #endif
 		Int shroudedCells = 0;
 		Int foggedCells = 0;
-		CellAndObjectIntersection* coi = m_coiArray;
-		for (Int i = m_coiInUseCount; i; --i, ++coi)
+		
+		// Check if m_coiArray is valid before iterating
+		if (m_coiArray != NULL)
 		{
-			if( coi->getCell()->getShroudStatusForPlayer(playerIndex) == CELLSHROUD_SHROUDED )
-				++shroudedCells;
-			else if( coi->getCell()->getShroudStatusForPlayer(playerIndex) == CELLSHROUD_FOGGED )
-				++foggedCells;
+			CellAndObjectIntersection* coi = m_coiArray;
+			for (Int i = m_coiInUseCount; i; --i, ++coi)
+			{
+				if( coi->getCell()->getShroudStatusForPlayer(playerIndex) == CELLSHROUD_SHROUDED )
+					++shroudedCells;
+				else if( coi->getCell()->getShroudStatusForPlayer(playerIndex) == CELLSHROUD_FOGGED )
+					++foggedCells;
+			}
 		}
 
 		if( m_coiInUseCount == 0 )
