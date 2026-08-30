@@ -1249,6 +1249,12 @@ void OpenContain::monitorConditionChanges()
 void OpenContain::redeployOccupants()
 {
 
+	// TheSuperHackers @fix xezon 09/06/2025 Prevent repositioning objects during game shutdown.
+	// During shutdown, objects may be in the process of being destroyed, which can lead to
+	// use-after-free crashes if we attempt to reposition them.
+	if( TheGameLogic == nullptr || !TheGameLogic->isInGame() )
+		return;
+
 	//
 	// because the state has changed, we will must give the deploy logic the opportunity
 	// to look for a new set of bones in the art ... so if we had them flagged as not
@@ -1277,6 +1283,12 @@ void OpenContain::redeployOccupants()
 //-------------------------------------------------------------------------------------------------
 void OpenContain::putObjAtNextFirePoint( Object *obj )
 {
+
+	// TheSuperHackers @fix xezon 09/06/2025 Prevent repositioning objects during game shutdown.
+	// During shutdown, objects may be in the process of being destroyed, which can lead to
+	// use-after-free crashes if we attempt to reposition them.
+	if( TheGameLogic == nullptr || !TheGameLogic->isInGame() )
+		return;
 
 	//
 	// first, if we need to load the 3D point data from the art do so, if we've already
