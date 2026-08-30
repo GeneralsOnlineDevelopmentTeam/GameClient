@@ -3293,7 +3293,7 @@ Bool Player::hasRadar() const
 static void doPowerDisable( Object *obj, void *userData )
 {
 	Bool disabling = *((Bool*)userData);
-	if( obj && obj->isKindOf(KINDOF_POWERED) )
+	if( obj && obj->areModulesReady() && obj->isKindOf(KINDOF_POWERED) )
 	{
 		if( disabling )
 			obj->setDisabled( DISABLED_UNDERPOWERED ); //set disabled has a pauseAllSpecialPowers that prevents double pausing
