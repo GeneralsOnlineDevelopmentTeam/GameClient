@@ -5256,6 +5256,9 @@ StateReturnType AIAttackFireWeaponState::update()
     // If the concept of linked turrets is further developed then God help you, and put more code right here
     // that lookl like the //LINKED TURRETS// block, below
 
+		// Re-validate victim immediately before firing; it may have been destroyed since the earlier check.
+		if (!victim || victim->isEffectivelyDead())
+			return STATE_FAILURE;
 
 		obj->fireCurrentWeapon(victim);
 
