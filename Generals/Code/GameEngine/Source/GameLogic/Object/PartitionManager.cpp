@@ -5428,12 +5428,10 @@ PartitionFilterPossibleToAttack::PartitionFilterPossibleToAttack(AbleToAttackTyp
 //-----------------------------------------------------------------------------
 Bool PartitionFilterPossibleToAttack::allow(Object *objOther)
 {
-	// objOther is guaranteed to be non-null, so we don't need to check (srj)
-
-// don't do this here... done in getAbleToAttackSpecificObject (srj)
-//	// cannot attack dead things
-//	if (objOther->isEffectivelyDead())
-//		return false;
+	// Check if object is null or effectively dead to prevent use-after-free crashes
+	// Objects can be deleted between partition iteration and filter evaluation
+	if (objOther == NULL || objOther->isEffectivelyDead())
+		return FALSE;
 
 // don't do this here... done in getAbleToAttackSpecificObject, with more/better checking for Disguise (srj)
 //  // stealthed items can't ever be attacked.

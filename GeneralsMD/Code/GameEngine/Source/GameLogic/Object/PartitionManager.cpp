@@ -5438,7 +5438,10 @@ PartitionFilterPossibleToAttack::PartitionFilterPossibleToAttack(AbleToAttackTyp
 //-----------------------------------------------------------------------------
 Bool PartitionFilterPossibleToAttack::allow(Object *objOther)
 {
-	// objOther is guaranteed to be non-null, so we don't need to check (srj)
+	// Check if object is null or effectively dead to prevent use-after-free crashes
+	// Objects can be deleted between partition iteration and filter evaluation
+	if (objOther == NULL || objOther->isEffectivelyDead())
+		return FALSE;
 
 	// we should have already filtered out isAbleToAttack!
 	DEBUG_ASSERTCRASH(m_obj->isAbleToAttack(), ("if the object is unable to attack at all, you should filter that out ahead of time!"));
