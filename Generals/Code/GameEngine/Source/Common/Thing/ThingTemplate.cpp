@@ -536,6 +536,13 @@ void ThingTemplate::parseModuleName(INI* ini, void *instance, void* store, const
 
 	ModuleData* data = TheModuleFactory->newModuleDataFromINI(ini, tokenStr, type, moduleTagStr);
 
+	if (data == NULL)
+	{
+		DEBUG_CRASH(("[LINE: %d - FILE: '%s'] Module '%s' not found or failed to create for thing template '%s'. This module is not registered in the ModuleFactory. Please check that the module name is spelled correctly and that the module type is appropriate.",
+			ini->getLineNum(), ini->getFilename().str(), tokenStr.str(), self->getName().str()));
+		throw INI_INVALID_DATA;
+	}
+
 	if (data->isAiModuleData())
 	{
 		Bool replaced = mi->clearAiModuleInfo();
