@@ -561,11 +561,17 @@ void ParticleEmitterClass::Create_New_Particles(const Quaternion & curr_quat, co
 	if (frametime > 100 * EmitRate) {	// If the loop will run over 100 times
 		unsigned int buf_size = Buffer->Get_Buffer_Size();
 		unsigned int gcd = Greatest_Common_Divisor(buf_size, BurstSize);
-		unsigned int bursts = buf_size / gcd;
-		unsigned int cycle_time = EmitRate * bursts;
-		if (cycle_time > 1) {
-			frametime = frametime % cycle_time;
+		// Prevent division by zero - if gcd is 0, the buffer/burst parameters are degenerate
+		if (gcd > 0) {
+			unsigned int bursts = buf_size / gcd;
+			unsigned int cycle_time = EmitRate * bursts;
+			if (cycle_time > 1) {
+				frametime = frametime % cycle_time;
+			} else {
+				frametime = 1;
+			}
 		} else {
+			// Degenerate case: buffer size and burst size are both 0
 			frametime = 1;
 		}
 	}
