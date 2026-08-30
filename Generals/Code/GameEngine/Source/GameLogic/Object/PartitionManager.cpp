@@ -3365,6 +3365,9 @@ Object *PartitionManager::getClosestObjects(
 			for (CellAndObjectIntersection *thisCoi = thisCell->getFirstCoiInCell(); thisCoi; thisCoi = thisCoi->getNextCoi())
 			{
 				PartitionData *thisMod = thisCoi->getModule();
+				if (thisMod == nullptr)
+					continue;
+				
 				Object *thisObj = thisMod->getObject();
 
 				// never compare against ourself.
