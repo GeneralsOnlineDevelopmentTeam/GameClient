@@ -468,7 +468,12 @@ void SpecialPowerModule::createViewObject( const Coord3D *location )
 	if( viewObjectTemplate == nullptr )
 		return;
 
-	Object *viewObject = TheThingFactory->newObject( viewObjectTemplate, getObject()->getControllingPlayer()->getDefaultTeam() );
+	// Get the team to use for the view object - use controlling player's default team if available,
+	// otherwise fall back to the object's team
+	Player *controllingPlayer = getObject()->getControllingPlayer();
+	Team *team = controllingPlayer ? controllingPlayer->getDefaultTeam() : getObject()->getTeam();
+
+	Object *viewObject = TheThingFactory->newObject( viewObjectTemplate, team );
 
 	if( viewObject == nullptr )
 		return;
@@ -496,9 +501,14 @@ void SpecialPowerModule::markSpecialPowerTriggered( const Coord3D *location )
 //-------------------------------------------------------------------------------------------------
 void SpecialPowerModule::aboutToDoSpecialPower( const Coord3D *location )
 {
+	// Check if controlling player is null - if so, we can't proceed with some operations
+	Player *controllingPlayer = getObject()->getControllingPlayer();
+	if (!controllingPlayer)
+		return;
+
 	// Tell the scripting engine!
 	TheScriptEngine->notifyOfTriggeredSpecialPower(
-		getObject()->getControllingPlayer()->getPlayerIndex(),
+		controllingPlayer->getPlayerIndex(),
 		getSpecialPowerModuleData()->m_specialPowerTemplate->getName(),
 		getObject()->getID());
 
@@ -532,7 +542,7 @@ void SpecialPowerModule::aboutToDoSpecialPower( const Coord3D *location )
 
 		AudioEventRTS soundAtLocation = *modData->m_specialPowerTemplate->getInitiateAtTargetSound();
 		soundAtLocation.setPosition( location );
-		soundAtLocation.setPlayerIndex(getObject()->getControllingPlayer()->getPlayerIndex());
+		soundAtLocation.setPlayerIndex(controllingPlayer->getPlayerIndex());
 		TheAudio->addAudioEvent( &soundAtLocation );
 
 	}
