@@ -651,13 +651,53 @@ NetworkMesh::NetworkMesh()
 		return;
 	}
 
+	// WORKAROUND: Set IP_AllowWithoutAuth to bypass problematic X.509 certificate processing
+	// This works around an OpenSSL bug in i2d_X509_CERT_AUX that causes division by zero
+	// when processing certificates with empty or malformed auxiliary data
+	SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_IP_AllowWithoutAuth, 2);
+
 	// initialize Steam Sockets
 	SteamDatagramErrMsg errMsg;
-	if (!GameNetworkingSockets_Init(&identityLocal, errMsg))
+	bool bInitSuccess = false;
+
+	// Use Structured Exception Handling to catch division by zero in OpenSSL
+	__try
 	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "GameNetworkingSockets_Init failed.  %s", errMsg);
+		bInitSuccess = GameNetworkingSockets_Init(&identityLocal, errMsg);
+	}
+	__except (GetExceptionCode() == EXCEPTION_INT_DIVIDE_BY_ZERO ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "GameNetworkingSockets_Init caught EXCEPTION_INT_DIVIDE_BY_ZERO in OpenSSL certificate processing. Attempting fallback with unencrypted mode.");
+		bInitSuccess = false;
+		strcpy_s(errMsg, "Division by zero in OpenSSL certificate processing");
+	}
+
+	// If initialization failed, try fallback with unencrypted mode
+	if (!bInitSuccess)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "GameNetworkingSockets_Init failed with error: %s. Attempting fallback initialization with unencrypted mode.", errMsg);
+		
+		// Enable unencrypted mode to completely bypass certificate processing
+		SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_Unencrypted, 3); // 3 = Required (fail if peer requires encryption)
+		
+		__try
+		{
+			bInitSuccess = GameNetworkingSockets_Init(&identityLocal, errMsg);
+		}
+		__except (GetExceptionCode() == EXCEPTION_INT_DIVIDE_BY_ZERO ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "GameNetworkingSockets_Init fallback also caught EXCEPTION_INT_DIVIDE_BY_ZERO. Unable to initialize networking.");
+			bInitSuccess = false;
+		}
+	}
+
+	if (!bInitSuccess)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "GameNetworkingSockets_Init failed after all attempts. Error: %s", errMsg);
 		return;
 	}
+
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "GameNetworkingSockets_Init succeeded");
 
 	// TODO_STEAM: Dont hardcode, get everything from service
 	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_STUN_ServerList, "stun:stun.playgenerals.online:53,stun:stun.playgenerals.online:3478,stun.l.google.com:19302,stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302");
