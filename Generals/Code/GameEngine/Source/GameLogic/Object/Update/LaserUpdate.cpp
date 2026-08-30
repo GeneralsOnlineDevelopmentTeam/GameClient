@@ -285,6 +285,11 @@ void LaserUpdate::initLaser( const Object *parent, const Coord3D *startPos, cons
 		{
 			system->setPosition( &m_startPos );
 		}
+		else
+		{
+			// Particle system no longer exists; clear the stale ID to prevent future access violations.
+			m_particleSystemID = INVALID_PARTICLE_SYSTEM_ID;
+		}
 	}
 	if( m_targetParticleSystemID )
 	{
@@ -292,6 +297,11 @@ void LaserUpdate::initLaser( const Object *parent, const Coord3D *startPos, cons
 		if( system )
 		{
 			system->setPosition( &m_endPos );
+		}
+		else
+		{
+			// Particle system no longer exists; clear the stale ID to prevent future access violations.
+			m_targetParticleSystemID = INVALID_PARTICLE_SYSTEM_ID;
 		}
 	}
 
