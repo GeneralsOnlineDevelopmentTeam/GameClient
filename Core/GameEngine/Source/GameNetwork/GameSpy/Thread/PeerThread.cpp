@@ -590,7 +590,7 @@ void GameSpyPeerMessageQueue::addRequest( const PeerRequest& req )
 //PeerRequest GameSpyPeerMessageQueue::getRequest()
 Bool GameSpyPeerMessageQueue::getRequest( PeerRequest& req )
 {
-	MutexClass::LockClass m(m_requestMutex, 0);
+	MutexClass::LockClass m(m_requestMutex, 100);
 	if (m.Failed())
 		return false;
 
@@ -616,7 +616,7 @@ void GameSpyPeerMessageQueue::addResponse( const PeerResponse& resp )
 //PeerResponse GameSpyPeerMessageQueue::getResponse()
 Bool GameSpyPeerMessageQueue::getResponse( PeerResponse& resp )
 {
-	MutexClass::LockClass m(m_responseMutex, 0);
+	MutexClass::LockClass m(m_responseMutex, 100);
 	if (m.Failed())
 		return false;
 
