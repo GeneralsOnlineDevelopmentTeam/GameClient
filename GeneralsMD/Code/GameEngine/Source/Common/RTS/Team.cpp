@@ -1519,6 +1519,9 @@ Object *Team::getTeamTargetObject()
 		return nullptr;
 	}
 	Object *target = TheGameLogic->findObjectByID(m_commonAttackTarget);
+	if (target && target->isDestroyed()) {
+		target = nullptr;
+	}
 	if (target) {
 		//If the enemy unit is stealthed and not detected, then we can't attack it!
 	if( target->testStatus( OBJECT_STATUS_STEALTHED ) &&
