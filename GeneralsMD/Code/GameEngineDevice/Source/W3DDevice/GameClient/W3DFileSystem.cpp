@@ -489,9 +489,13 @@ void W3DFileSystem::reprioritizeTexturesBySize()
 // 
 // Catered to specific game archives only. This ensures that user created archives are not included
 // for the re-prioritization of textures.
+// 
+// TheSuperHackers @bugfix 02/02/2025 Adds mutex locking to protect multimap access from race conditions
+// during concurrent file existence checks and texture reprioritization.
 //-------------------------------------------------------------------------------------------------
 void W3DFileSystem::reprioritizeTexturesBySize(ArchivedDirectoryInfo& dirInfo)
 {
+	// Note: This function is called with m_archiveDirectoryMutex already locked by friend_getArchivedDirectoryInfo
 	const char* const superiorArchive = "Textures.big";
 	const char* const inferiorArchive = "TexturesZH.big";
 
