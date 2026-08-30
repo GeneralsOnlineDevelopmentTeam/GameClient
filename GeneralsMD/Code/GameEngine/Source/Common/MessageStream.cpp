@@ -54,7 +54,18 @@ CommandList *TheCommandList = nullptr;
  */
 GameMessage::GameMessage( GameMessage::Type type )
 {
-	m_playerIndex = ThePlayerList->getLocalPlayer()->getPlayerIndex();
+	// Defensive programming: Check if ThePlayerList is initialized before dereferencing
+	// This prevents crashes during early initialization or shutdown when Windows messages
+	// can arrive before the game state is fully ready
+	if (ThePlayerList != NULL && ThePlayerList->getLocalPlayer() != NULL)
+	{
+		m_playerIndex = ThePlayerList->getLocalPlayer()->getPlayerIndex();
+	}
+	else
+	{
+		// Use neutral player index (0) as a safe default when ThePlayerList is not yet initialized
+		m_playerIndex = 0;
+	}
 	m_type = type;
 	m_list = nullptr;
 }
