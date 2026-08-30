@@ -2890,11 +2890,12 @@ void AIGroup::groupDoCommandButton( const CommandButton *commandButton, CommandS
 	std::list<Object *>::iterator i;
 	Object *source;
 
-	for( i = m_memberList.begin(); i != m_memberList.end(); ++i )
+	for( i = m_memberList.begin(); i != m_memberList.end(); /* empty */ )
 	{
 
 		// get object
 		source = *i;
+		++i;  // Advance iterator before the call that might destroy the object
 
 		source->doCommandButton( commandButton, cmdSource );
 	}
@@ -2910,11 +2911,12 @@ void AIGroup::groupDoCommandButtonAtPosition( const CommandButton *commandButton
 	std::list<Object *>::iterator i;
 	Object *source;
 
-	for( i = m_memberList.begin(); i != m_memberList.end(); ++i )
+	for( i = m_memberList.begin(); i != m_memberList.end(); /* empty */ )
 	{
 
 		// get object
 		source = *i;
+		++i;  // Advance iterator before the call that might destroy the object
 
 		source->doCommandButtonAtPosition( commandButton, pos, cmdSource );
 	}
@@ -2929,11 +2931,12 @@ void AIGroup::groupDoCommandButtonAtObject( const CommandButton *commandButton, 
 	std::list<Object *>::iterator i;
 	Object *source;
 
-	for( i = m_memberList.begin(); i != m_memberList.end(); ++i )
+	for( i = m_memberList.begin(); i != m_memberList.end(); /* empty */ )
 	{
 
 		// get object
 		source = *i;
+		++i;  // Advance iterator before the call that might destroy the object
 
 		source->doCommandButtonAtObject( commandButton, obj, cmdSource );
 	}
