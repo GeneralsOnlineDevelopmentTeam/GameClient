@@ -642,7 +642,7 @@ void HTreeClass::Anim_Update_Without_Interpolation(const Matrix3D & root,HRawAni
 	endpivot=pivot+(NumPivots-1);
 	lastAnimPivot = &Pivot[num_anim_pivots];
 
-	for (int piv_idx=1; pivot < endpivot; pivot++,nodeMotion++) {
+	for (int piv_idx=1; pivot < endpivot; pivot++) {
 
 		// base pose
 		assert(pivot->Parent != nullptr);
@@ -682,6 +682,9 @@ void HTreeClass::Anim_Update_Without_Interpolation(const Matrix3D & root,HRawAni
 				pivot->IsVisible=(nodeMotion->Vis->Get_Bit(iframe) == 1);
 			else
 				pivot->IsVisible=1;
+
+			// Only increment nodeMotion pointer when within valid bounds
+			nodeMotion++;
 		}
 
 		if (pivot->Is_Captured())
