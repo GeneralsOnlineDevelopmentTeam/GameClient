@@ -19,6 +19,8 @@
 // This file contains WCHAR and related macros for compatibility with non-windows platforms.
 #pragma once
 
+#include <cstring>
+
 // WCHAR
 typedef wchar_t WCHAR;
 typedef const WCHAR* LPCWSTR;
@@ -27,8 +29,31 @@ typedef WCHAR* LPWSTR;
 #define _wcsicmp wcscasecmp
 #define wcsicmp wcscasecmp
 
+// Safe wrapper for wcstombs that handles null pointers
+inline size_t safe_wcstombs(char* mbstr, const wchar_t* wcstr, size_t count)
+{
+    // If source is null, return 0 and optionally set destination to empty string
+    if (wcstr == nullptr)
+    {
+        if (mbstr != nullptr && count > 0)
+        {
+            mbstr[0] = '\0';
+        }
+        return 0;
+    }
+    
+    // If destination is null but we're just querying size, that's valid
+    if (mbstr == nullptr)
+    {
+        return 0;
+    }
+    
+    // Perform the actual conversion
+    return wcstombs(mbstr, wcstr, count);
+}
+
 // MultiByteToWideChar
 #define CP_ACP 0
 #define MultiByteToWideChar(cp, flags, mbstr, cb, wcstr, cch) mbstowcs(wcstr, mbstr, cch)
-#define WideCharToMultiByte(cp, flags, wcstr, cch, mbstr, cb, defchar, used) wcstombs(mbstr, wcstr, cb)
+#define WideCharToMultiByte(cp, flags, wcstr, cch, mbstr, cb, defchar, used) safe_wcstombs(mbstr, wcstr, cb)
 
