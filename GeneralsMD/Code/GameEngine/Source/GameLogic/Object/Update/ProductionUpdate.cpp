@@ -55,8 +55,40 @@
 #include "GameLogic/Object.h"
 #include "GameLogic/ScriptEngine.h"
 
+#include "GameNetwork/GeneralsOnline/Plugins/PluginManager.h"
+
 
 // PUBLIC /////////////////////////////////////////////////////////////////////////////////////////
+
+// C-ABI event payloads for the GOPluginManager::Dispatch* calls below.
+static GOUnitEvent buildUnitEvent(Player* player, const ThingTemplate* unitType, Object* producer, Real percentComplete, ProductionID productionID)
+{
+	GOUnitEvent ev = {};
+	ev.playerIndex = (player != nullptr) ? (uint32_t)player->getPlayerIndex() : 0;
+	ev.templateName = (unitType != nullptr) ? unitType->getName().str() : "";
+	ev.producerObjectId = (producer != nullptr) ? (uint32_t)producer->getID() : 0;
+	ev.percentComplete = (float)percentComplete;
+	ev.productionID = (int32_t)productionID;
+	const Coord3D* pos = (producer != nullptr) ? producer->getPosition() : nullptr;
+	ev.producerPositionX = (pos != nullptr) ? pos->x : 0.0f;
+	ev.producerPositionY = (pos != nullptr) ? pos->y : 0.0f;
+	ev.producerPositionZ = (pos != nullptr) ? pos->z : 0.0f;
+	return ev;
+}
+
+static GOUpgradeEvent buildUpgradeEvent(Player* player, const UpgradeTemplate* upgrade, Object* producer, Real percentComplete)
+{
+	GOUpgradeEvent ev = {};
+	ev.playerIndex = (player != nullptr) ? (uint32_t)player->getPlayerIndex() : 0;
+	ev.templateName = (upgrade != nullptr) ? upgrade->getUpgradeName().str() : "";
+	ev.producerObjectId = (producer != nullptr) ? (uint32_t)producer->getID() : 0;
+	ev.percentComplete = (float)percentComplete;
+	const Coord3D* pos = (producer != nullptr) ? producer->getPosition() : nullptr;
+	ev.producerPositionX = (pos != nullptr) ? pos->x : 0.0f;
+	ev.producerPositionY = (pos != nullptr) ? pos->y : 0.0f;
+	ev.producerPositionZ = (pos != nullptr) ? pos->z : 0.0f;
+	return ev;
+}
 
 static const ModelConditionFlagType theOpeningFlags[DOOR_COUNT_MAX] =
 {
@@ -311,6 +343,12 @@ Bool ProductionUpdate::queueUpgrade( const UpgradeTemplate *upgrade )
 	// tie to the end of the production queue
 	addToProductionQueue( production );
 
+	if (GOPluginManager::HasGameplayEventHooks())
+	{
+		GOUpgradeEvent ev = buildUpgradeEvent(player, upgrade, getObject(), production->getPercentComplete());
+		GOPluginManager::DispatchUpgradeQueued(ev);
+	}
+
 	// add this upgrade as in progress in the player
 	player->addUpgrade( upgrade, UPGRADE_STATUS_IN_PRODUCTION );
 
@@ -358,6 +396,12 @@ void ProductionUpdate::cancelUpgrade( const UpgradeTemplate *upgrade )
 	// refund money back to the player
 	Money *money = player->getMoney();
 	money->deposit( production->m_upgradeToResearch->calcCostToBuild( player ), TRUE, FALSE );
+
+	if (GOPluginManager::HasGameplayEventHooks())
+	{
+		GOUpgradeEvent ev = buildUpgradeEvent(player, production->m_upgradeToResearch, getObject(), production->getPercentComplete());
+		GOPluginManager::DispatchUpgradeCancelled(ev);
+	}
 
 	// remove this production from the queue
 	removeFromProductionQueue( production );
@@ -451,6 +495,12 @@ Bool ProductionUpdate::queueCreateUnit( const ThingTemplate *unitType, Productio
 	// tie to the end of the production queue
 	addToProductionQueue( production );
 
+	if (GOPluginManager::HasGameplayEventHooks())
+	{
+		GOUnitEvent ev = buildUnitEvent(player, unitType, getObject(), production->getPercentComplete(), productionID);
+		GOPluginManager::DispatchUnitQueued(ev);
+	}
+
 	return TRUE;  // unit queued
 
 }
@@ -474,6 +524,12 @@ void ProductionUpdate::cancelUnitCreate( ProductionID productionID )
 			Player *player = getObject()->getControllingPlayer();
 			Money *money = player->getMoney();
 			money->deposit( production->m_objectToProduce->calcCostToBuild( player ), TRUE, FALSE );
+
+			if (GOPluginManager::HasGameplayEventHooks())
+			{
+				GOUnitEvent ev = buildUnitEvent(player, production->m_objectToProduce, getObject(), production->getPercentComplete(), production->getProductionID());
+				GOPluginManager::DispatchUnitCancelled(ev);
+			}
 
 			// remove from queue list
 			removeFromProductionQueue( production );
@@ -852,6 +908,12 @@ UpdateSleepTime ProductionUpdate::update()
 
 							creationBuilding->getControllingPlayer()->getAcademyStats()->recordProduction( newObj, creationBuilding );
 
+							if (GOPluginManager::HasGameplayEventHooks())
+							{
+								GOUnitEvent ev = buildUnitEvent(creationBuilding->getControllingPlayer(), production->m_objectToProduce, creationBuilding, 100.0f, production->getProductionID());
+								GOPluginManager::DispatchUnitCompleted(ev);
+							}
+
 							//We created one guy, but we may want to do more so we should stay in this node of production.
 							// This is last so the voice check can easily check for "first" guy
 							production->oneProductionSuccessful();
@@ -965,6 +1027,12 @@ UpdateSleepTime ProductionUpdate::update()
 						break;
 					}
 				}
+			}
+
+			if (GOPluginManager::HasGameplayEventHooks())
+			{
+				GOUpgradeEvent ev = buildUpgradeEvent(player, upgrade, us, 100.0f);
+				GOPluginManager::DispatchUpgradeCompleted(ev);
 			}
 
 			// remove this production entry so we can go on to the next
@@ -1126,6 +1194,20 @@ UnsignedInt ProductionUpdate::countUnitTypeInQueue( const ThingTemplate *unitTyp
 // ------------------------------------------------------------------------------------------------
 void ProductionUpdate::onDie( const DamageInfo *damageInfo )
 {
+	if (GOPluginManager::HasGameplayEventHooks())
+	{
+		Object* us = getObject();
+		GOBuildingEvent ev = {};
+		ev.objectId = (us != nullptr) ? (uint32_t)us->getID() : 0;
+		Player* player = (us != nullptr) ? us->getControllingPlayer() : nullptr;
+		ev.playerIndex = (player != nullptr) ? (uint32_t)player->getPlayerIndex() : 0;
+		const Coord3D* pos = (us != nullptr) ? us->getPosition() : nullptr;
+		ev.positionX = (pos != nullptr) ? pos->x : 0.0f;
+		ev.positionY = (pos != nullptr) ? pos->y : 0.0f;
+		ev.positionZ = (pos != nullptr) ? pos->z : 0.0f;
+		GOPluginManager::DispatchBuildingDestroyed(ev);
+	}
+
 	// we need to cancel all of our production on death
 	cancelAndRefundAllProduction();
 }

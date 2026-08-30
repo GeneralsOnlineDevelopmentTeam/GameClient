@@ -55,6 +55,10 @@
 #include "GameClient/WindowXlat.h"
 #include "GameClient/Shell.h"
 #include "GameClient/Display.h"
+#include "GameClient/Keyboard.h"
+#if defined(GENERALS_ONLINE)
+#include "GameNetwork/GeneralsOnline/Plugins/PluginManager.h"
+#endif
 
 
 // DEFINES ////////////////////////////////////////////////////////////////////
@@ -171,6 +175,72 @@ GameMessageDisposition WindowTranslator::translateGameMessage(const GameMessage 
 	GameMessageDisposition disp = KEEP_MESSAGE;
 	Bool forceKeepMessage = FALSE;
 	WinInputReturnCode returnCode = WIN_INPUT_NOT_USED;
+
+#if defined(GENERALS_ONLINE)
+	// Deliberately ahead of the mouse-lock early return below.
+	if (GOPluginManager::HasRenderHooks())
+	{
+		// buttonIndex stays -1 for anything that is not a click.
+		Int buttonIndex = -1;
+		Bool buttonDown = FALSE;
+		Bool isMouseMove = FALSE;
+		switch (msg->getType())
+		{
+			case GameMessage::MSG_RAW_MOUSE_POSITION:
+				isMouseMove = TRUE;
+				break;
+			case GameMessage::MSG_RAW_MOUSE_LEFT_BUTTON_DOWN:
+			case GameMessage::MSG_RAW_MOUSE_LEFT_DOUBLE_CLICK:
+				buttonIndex = 0; buttonDown = TRUE;
+				break;
+			case GameMessage::MSG_RAW_MOUSE_LEFT_BUTTON_UP:
+				buttonIndex = 0;
+				break;
+			case GameMessage::MSG_RAW_MOUSE_MIDDLE_BUTTON_DOWN:
+			case GameMessage::MSG_RAW_MOUSE_MIDDLE_DOUBLE_CLICK:
+				buttonIndex = 1; buttonDown = TRUE;
+				break;
+			case GameMessage::MSG_RAW_MOUSE_MIDDLE_BUTTON_UP:
+				buttonIndex = 1;
+				break;
+			case GameMessage::MSG_RAW_MOUSE_RIGHT_BUTTON_DOWN:
+			case GameMessage::MSG_RAW_MOUSE_RIGHT_DOUBLE_CLICK:
+				buttonIndex = 2; buttonDown = TRUE;
+				break;
+			case GameMessage::MSG_RAW_MOUSE_RIGHT_BUTTON_UP:
+				buttonIndex = 2;
+				break;
+			default:
+				break;
+		}
+
+		// Only the messages above carry a cursor position in argument 0.
+		if (isMouseMove || buttonIndex >= 0)
+		{
+			const ICoord2D& pos = msg->getArgument(0)->pixel;
+			if (isMouseMove)
+			{
+				GOPluginManager::DispatchMouseMove((int32_t)pos.x, (int32_t)pos.y);
+			}
+			else
+			{
+				// Bit order as documented by GORenderCallbacks.
+				uint32_t modifierFlags = 0;
+				if (TheKeyboard != nullptr)
+				{
+					if (TheKeyboard->isCtrl())  modifierFlags |= 1;
+					if (TheKeyboard->isShift()) modifierFlags |= 2;
+					if (TheKeyboard->isAlt())   modifierFlags |= 4;
+				}
+
+				if (buttonDown)
+					GOPluginManager::DispatchMouseButtonDown((uint8_t)buttonIndex, (int32_t)pos.x, (int32_t)pos.y, modifierFlags);
+				else
+					GOPluginManager::DispatchMouseButtonUp((uint8_t)buttonIndex, (int32_t)pos.x, (int32_t)pos.y, modifierFlags);
+			}
+		}
+	}
+#endif
 
 	if (TheTacticalView && TheTacticalView->isMouseLocked())
 	{
