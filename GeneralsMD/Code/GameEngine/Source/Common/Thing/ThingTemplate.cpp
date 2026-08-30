@@ -526,7 +526,6 @@ Bool ModuleInfo::clearAiModuleInfo()
 void ThingTemplate::parseModuleName(INI* ini, void *instance, void* store, const void* userData)
 {
 	ThingTemplate* self = (ThingTemplate*)instance;
-	ModuleInfo* mi = (ModuleInfo*)store;
 	ModuleType type = (ModuleType)(UnsignedInt)userData;
 	const char* token = ini->getNextToken();
 	AsciiString tokenStr = token;
@@ -569,6 +568,25 @@ void ThingTemplate::parseModuleName(INI* ini, void *instance, void* store, const
 			DEBUG_CRASH(("No Body allowed here"));
 			throw INI_INVALID_DATA;
 		}
+	}
+
+	// Determine which ModuleInfo to use based on the module type
+	// This fixes the null pointer dereference when store parameter is invalid
+	ModuleInfo* mi = nullptr;
+	switch (type)
+	{
+		case MODULETYPE_BEHAVIOR:
+			mi = &self->m_behaviorModuleInfo;
+			break;
+		case MODULETYPE_DRAW:
+			mi = &self->m_drawModuleInfo;
+			break;
+		case MODULETYPE_CLIENT_UPDATE:
+			mi = &self->m_clientUpdateModuleInfo;
+			break;
+		default:
+			DEBUG_CRASH(("Unknown module type %d", type));
+			throw INI_INVALID_DATA;
 	}
 
 	// if we're overriding, we can totally skip over this block
