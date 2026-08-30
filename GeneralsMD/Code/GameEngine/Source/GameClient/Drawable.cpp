@@ -5371,9 +5371,19 @@ void Drawable::xfer(Xfer* xfer)
 			{
 				if (!customizedToSilence)
 				{
-					AsciiString baseInfoName = m_customSoundAmbientInfo->getOriginalName();
-					xfer->xferAsciiString(&baseInfoName);
-					m_customSoundAmbientInfo->xferNoName(xfer);
+					// Guard against dangling or invalid pointer before dereferencing
+					if (m_customSoundAmbientInfo != NULL)
+					{
+						AsciiString baseInfoName = m_customSoundAmbientInfo->getOriginalName();
+						xfer->xferAsciiString(&baseInfoName);
+						m_customSoundAmbientInfo->xferNoName(xfer);
+					}
+					else
+					{
+						DEBUG_CRASH(("Drawable::xfer - m_customSoundAmbientInfo is NULL during save but customized flag is set; skipping custom ambient sound save"));
+						AsciiString emptyName;
+						xfer->xferAsciiString(&emptyName);
+					}
 				}
 			}
 		}
