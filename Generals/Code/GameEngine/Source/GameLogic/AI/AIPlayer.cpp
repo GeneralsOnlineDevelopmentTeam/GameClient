@@ -1275,6 +1275,9 @@ Int AIPlayer::getPlayerSuperweaponValue(Coord3D *center, Int playerNdx, Real rad
 // ------------------------------------------------------------------------------------------------
 Bool AIPlayer::startTraining( WorkOrder *order, Bool busyOK, AsciiString teamName)
 {
+	if( order->m_thing == nullptr )
+		return FALSE;
+
 	Object *factory = findFactory(order->m_thing, busyOK);
 	if( factory )
 	{
@@ -1303,6 +1306,9 @@ Bool AIPlayer::startTraining( WorkOrder *order, Bool busyOK, AsciiString teamNam
 // ------------------------------------------------------------------------------------------------
 Object *AIPlayer::findFactory(const ThingTemplate *thing, Bool busyOK)
 {
+	if( thing == nullptr )
+		return nullptr;
+
 	Object *busyFactory = nullptr; // We prefer a factory that isn't busy.
 	for( BuildListInfo *info = m_player->getBuildList(); info; info = info->getNext() )
 	{
