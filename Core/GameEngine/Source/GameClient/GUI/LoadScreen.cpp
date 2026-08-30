@@ -927,15 +927,44 @@ void ChallengeLoadScreen::activatePiecesMinSpec(const GeneralPersona *generalPla
 
 void ChallengeLoadScreen::init( GameInfo *game )
 {
-	const Campaign *campaign = TheCampaignManager->getCurrentCampaign();
-	const Mission *mission = TheCampaignManager->getCurrentMission();
+	const Campaign *campaign = TheCampaignManager ? TheCampaignManager->getCurrentCampaign() : NULL;
+	const Mission *mission = TheCampaignManager ? TheCampaignManager->getCurrentMission() : NULL;
+
+	// Guard against null campaign/mission. In release builds DEBUG_ASSERTCRASH is
+	// compiled out, so without these checks the AsciiString copy constructor below
+	// would dereference a null pointer and crash (see Sentry CLIENT-33Q).
+	if (campaign == NULL || mission == NULL)
+	{
+		DEBUG_CRASH(("ChallengeLoadScreen::init invoked with null campaign (%p) or mission (%p); aborting load.",
+			campaign, mission));
+		return;
+	}
+
+	if (mission->m_generalName.isEmpty())
+	{
+		DEBUG_CRASH(("ChallengeLoadScreen::init: mission has empty m_generalName, check Campaign.ini; aborting load."));
+		return;
+	}
+
+	if (TheChallengeGenerals == NULL)
+	{
+		DEBUG_CRASH(("ChallengeLoadScreen::init: TheChallengeGenerals is null; aborting load."));
+		return;
+	}
 
 	// the player general is tied to the campaign
 	const GeneralPersona* generalPlayer = TheChallengeGenerals->getPlayerGeneralByCampaignName( campaign->m_name );
 
 	// the opponent general is tied to the mission
-	DEBUG_ASSERTCRASH(mission->m_generalName.isNotEmpty(), ("No GeneralName associated with this mission, check Campaign.ini"));
 	const GeneralPersona* generalOpponent = TheChallengeGenerals->getGeneralByGeneralName( mission->m_generalName );
+
+	if (generalPlayer == NULL || generalOpponent == NULL)
+	{
+		DEBUG_CRASH(("ChallengeLoadScreen::init: failed to resolve generals (player=%p, opponent=%p) for campaign '%s' / mission general '%s'; aborting load.",
+			generalPlayer, generalOpponent,
+			campaign->m_name.str(), mission->m_generalName.str()));
+		return;
+	}
 
 	// create the layout of the load screen
 	m_loadScreen = TheWindowManager->winCreateFromScript( "Menus/ChallengeLoadScreen.wnd" );
@@ -951,7 +980,7 @@ void ChallengeLoadScreen::init( GameInfo *game )
 	m_ambientLoop.setEventName("LoadScreenAmbient");
 
 	// create the new background video stream
-	m_videoStream = TheVideoPlayer->open( TheCampaignManager->getCurrentMission()->m_movieLabel );
+	m_videoStream = TheVideoPlayer->open( mission->m_movieLabel );
 
 	// Create the new buffer
 	m_videoBuffer = TheDisplay->createVideoBuffer();
