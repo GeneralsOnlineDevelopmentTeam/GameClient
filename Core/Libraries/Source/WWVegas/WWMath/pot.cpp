@@ -52,6 +52,11 @@
  *========================================================================*/
 int Find_POT(int val)
 {
+	// Guard against zero or negative values to prevent division by zero
+	if (val <= 0) {
+		return 0;
+	}
+
 	// clear out the recorded position and the recorded count
 	int recpos = 0;
 	int reccnt = 0;
@@ -91,6 +96,11 @@ int Find_POT(int val)
  *========================================================================*/
 unsigned int Find_POT_Log2(unsigned int val)
 {
+	// Guard against zero value to prevent issues
+	if (val == 0) {
+		return 0;
+	}
+
 	// clear out the recorded position and the recorded count
 	int recpos = 0;
 	int reccnt = 0;
