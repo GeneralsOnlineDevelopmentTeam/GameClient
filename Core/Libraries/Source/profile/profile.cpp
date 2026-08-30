@@ -296,7 +296,7 @@ void Profile::StopRange(const char *range)
       m_frameNames[k].lastGlobalIndex=m_rec;
       m_recNames=(char **)ProfileReAllocMemory(m_recNames,(m_rec+1)*sizeof(char *));
       m_recNames[m_rec]=(char *)ProfileAllocMemory(strlen(range)+1+6);
-      wsprintf(m_recNames[m_rec++],"%s:%i",range,++m_frameNames[k].frames);
+      sprintf(m_recNames[m_rec++],"%s:%i",range,++m_frameNames[k].frames);
     }
     else
       atIndex=m_frameNames[k].lastGlobalIndex;
