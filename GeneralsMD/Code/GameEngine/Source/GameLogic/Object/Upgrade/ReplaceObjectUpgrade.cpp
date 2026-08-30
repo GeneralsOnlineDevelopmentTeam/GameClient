@@ -41,6 +41,38 @@
 #include "GameClient/InGameUI.h"
 
 // ------------------------------------------------------------------------------------------------
+// Recursion guard to prevent infinite loops in ReplaceObjectUpgrade chains
+// ------------------------------------------------------------------------------------------------
+namespace
+{
+	// Static counter to track recursion depth for ReplaceObjectUpgrade
+	static int s_replaceObjectRecursionDepth = 0;
+	
+	// Maximum allowed recursion depth before we abort to prevent stack overflow
+	static const int MAX_REPLACE_OBJECT_RECURSION_DEPTH = 10;
+	
+	// RAII helper class to automatically manage recursion depth
+	class RecursionGuard
+	{
+	public:
+		RecursionGuard() 
+		{ 
+			++s_replaceObjectRecursionDepth; 
+		}
+		
+		~RecursionGuard() 
+		{ 
+			--s_replaceObjectRecursionDepth; 
+		}
+		
+		bool isDepthExceeded() const 
+		{ 
+			return s_replaceObjectRecursionDepth > MAX_REPLACE_OBJECT_RECURSION_DEPTH; 
+		}
+	};
+}
+
+// ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
 void ReplaceObjectUpgradeModuleData::buildFieldParse(MultiIniFieldParse& p)
 {
@@ -70,6 +102,26 @@ ReplaceObjectUpgrade::~ReplaceObjectUpgrade()
 //-------------------------------------------------------------------------------------------------
 void ReplaceObjectUpgrade::upgradeImplementation()
 {
+	// Guard against infinite recursion in ReplaceObjectUpgrade chains
+	RecursionGuard guard;
+	
+	if (guard.isDepthExceeded())
+	{
+		// We've exceeded the maximum recursion depth - this indicates a configuration error
+		// where ReplaceObjectUpgrade modules are creating an infinite chain of replacements
+		Object* me = getObject();
+		const ReplaceObjectUpgradeModuleData* data = getReplaceObjectUpgradeModuleData();
+		
+		DEBUG_ASSERTCRASH(false, ("ReplaceObjectUpgrade recursion depth exceeded (max %d) for object '%s' trying to replace with '%s'. "
+			"This indicates a circular or infinite chain in your ReplaceObjectUpgrade configuration. "
+			"Check your INI files for ReplaceObject upgrade chains.",
+			MAX_REPLACE_OBJECT_RECURSION_DEPTH,
+			me->getTemplate()->getName().str(),
+			data->m_replaceObjectName.str()));
+		
+		return;
+	}
+	
 	const ReplaceObjectUpgradeModuleData* data = getReplaceObjectUpgradeModuleData();
 	const ThingTemplate* replacementTemplate = TheThingFactory->findTemplate(data->m_replaceObjectName);
 
