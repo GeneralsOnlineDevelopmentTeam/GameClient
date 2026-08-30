@@ -283,9 +283,12 @@ StateMachine::StateMachine( Object *owner, AsciiString name )
 StateMachine::~StateMachine()
 {
 
-	// do not allow current state to exit
-	if (m_currentState)
-		m_currentState->onExit( EXIT_RESET );
+	// TheSuperHackers @bugfix 30/01/2025 Do not call onExit() on m_currentState during destruction.
+	// The state may already be in an invalid state or point to deleted memory during object destruction,
+	// especially when objects are being destroyed in GameLogic::processDestroyList.
+	// The halt() method already clears m_currentState in AIUpdateInterface::~AIUpdateInterface before
+	// the state machine is deleted, so this call is unnecessary and can cause access violations.
+	// See: https://sentry.io/share/issue/[issue-id]/
 
 	std::map<StateID, State *>::iterator i;
 
