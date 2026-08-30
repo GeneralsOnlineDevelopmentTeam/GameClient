@@ -4491,12 +4491,41 @@ Int PartitionManager::iterateCellsBreadthFirst(const Coord3D *pos, CellBreadthFi
 	// Call proc on each cell, and if it returns non-zero, then return the cell index
 	// -1 means error, but we should add a define later for this.
 
+	// Validate input parameters to prevent access violations
+	if (!pos) {
+		DEBUG_CRASH(("PartitionManager::iterateCellsBreadthFirst: pos parameter is null"));
+		return -1;
+	}
+
+	if (!m_cells) {
+		DEBUG_CRASH(("PartitionManager::iterateCellsBreadthFirst: m_cells array is null"));
+		return -1;
+	}
+
+	if (!proc) {
+		DEBUG_CRASH(("PartitionManager::iterateCellsBreadthFirst: proc parameter is null"));
+		return -1;
+	}
+
 	Int cellX, cellY;
 	worldToCell(pos->x, pos->y, &cellX, &cellY);
+
+	// Validate that the starting cell coordinates are within bounds
+	if (cellX < 0 || cellX >= m_cellCountX || cellY < 0 || cellY >= m_cellCountY) {
+		DEBUG_CRASH(("PartitionManager::iterateCellsBreadthFirst: starting cell (%d, %d) is out of bounds (max: %d, %d)", cellX, cellY, m_cellCountX, m_cellCountY));
+		return -1;
+	}
 
 	// Note, bool. not Bool, cause bool will cause this to be a bitfield.
 	std::vector<bool> bitField;
 	Int cellCount = m_cellCountX * m_cellCountY;
+	
+	// Validate cellCount is valid
+	if (cellCount <= 0) {
+		DEBUG_CRASH(("PartitionManager::iterateCellsBreadthFirst: invalid cell count %d", cellCount));
+		return -1;
+	}
+
 	bitField.resize(cellCount);
 	// 0 means not done, 1 means done.
 
@@ -4507,8 +4536,14 @@ Int PartitionManager::iterateCellsBreadthFirst(const Coord3D *pos, CellBreadthFi
 	std::queue<PartitionCell *> cellQ;
 
 	// mark the starting cell done
-	bitField[cellY * m_cellCountX + cellX] = true;
-	cellQ.push(&m_cells[cellY * m_cellCountX + cellX]);
+	Int startIndex = cellY * m_cellCountX + cellX;
+	if (startIndex >= 0 && startIndex < cellCount) {
+		bitField[startIndex] = true;
+		cellQ.push(&m_cells[startIndex]);
+	} else {
+		DEBUG_CRASH(("PartitionManager::iterateCellsBreadthFirst: starting index %d is out of bounds", startIndex));
+		return -1;
+	}
 
 	Int curX = cellX;
 	Int curY = cellY;
@@ -4516,39 +4551,49 @@ Int PartitionManager::iterateCellsBreadthFirst(const Coord3D *pos, CellBreadthFi
 		// first, add the neighbors
 		// left
 		if (curX - 1 >= 0) {
-			if (!bitField[curY * m_cellCountX + curX - 1]) {
-				bitField[curY * m_cellCountX + curX - 1] = true;
-				cellQ.push(&m_cells[curY * m_cellCountX + curX - 1]);
+			Int leftIndex = curY * m_cellCountX + curX - 1;
+			if (leftIndex >= 0 && leftIndex < cellCount && !bitField[leftIndex]) {
+				bitField[leftIndex] = true;
+				cellQ.push(&m_cells[leftIndex]);
 			}
 		}
 
 		// top
 		if (curY - 1 >= 0) {
-			if (!bitField[(curY - 1) * m_cellCountX + curX]) {
-				bitField[(curY - 1) * m_cellCountX + curX] = true;
-				cellQ.push(&m_cells[(curY - 1) * m_cellCountX + curX]);
+			Int topIndex = (curY - 1) * m_cellCountX + curX;
+			if (topIndex >= 0 && topIndex < cellCount && !bitField[topIndex]) {
+				bitField[topIndex] = true;
+				cellQ.push(&m_cells[topIndex]);
 			}
 		}
 
 		// right
 		if (curX + 1 < m_cellCountX) {
-			if (!bitField[curY * m_cellCountX + curX + 1]) {
-				bitField[curY * m_cellCountX + curX + 1] = true;
-				cellQ.push(&m_cells[curY * m_cellCountX + curX + 1]);
+			Int rightIndex = curY * m_cellCountX + curX + 1;
+			if (rightIndex >= 0 && rightIndex < cellCount && !bitField[rightIndex]) {
+				bitField[rightIndex] = true;
+				cellQ.push(&m_cells[rightIndex]);
 			}
 		}
 
 		// bottom
-		if (curY + 1 > 0) {
-			if (!bitField[(curY + 1) * m_cellCountX + curX]) {
-				bitField[(curY + 1) * m_cellCountX + curX] = true;
-				cellQ.push(&m_cells[(curY + 1) * m_cellCountX + curX]);
+		if (curY + 1 < m_cellCountY) {
+			Int bottomIndex = (curY + 1) * m_cellCountX + curX;
+			if (bottomIndex >= 0 && bottomIndex < cellCount && !bitField[bottomIndex]) {
+				bitField[bottomIndex] = true;
+				cellQ.push(&m_cells[bottomIndex]);
 			}
 		}
 
 		// now process the current top.
 		PartitionCell *curCell = cellQ.front();
 		cellQ.pop();
+		
+		if (!curCell) {
+			DEBUG_CRASH(("PartitionManager::iterateCellsBreadthFirst: curCell is null"));
+			continue;
+		}
+
 		curX = curCell->getCellX();
 		curY = curCell->getCellY();
 
@@ -4870,6 +4915,12 @@ void PartitionManager::getNearestGroupWithValue( Int playerIndex, UnsignedInt wh
 	if (!(sourceLocation && outLocation))
 		return;
 
+	// Additional validation to prevent crashes
+	if (!m_cells) {
+		DEBUG_CRASH(("PartitionManager::getNearestGroupWithValue: m_cells array is null"));
+		return;
+	}
+
 	PlayerMaskType playerMask = ThePlayerList->getPlayersWithRelationship(playerIndex, whichPlayerTypes);
 	if (playerMask == 0)
 		return;
@@ -4896,7 +4947,7 @@ void PartitionManager::getNearestGroupWithValue( Int playerIndex, UnsignedInt wh
 		parms.allPlayersMask[i] = allPlayerMasks[i];
 
 	Int nearestGreat = iterateCellsBreadthFirst(sourceLocation, cellValueProc, &parms);
-	if (nearestGreat != -1) {
+	if (nearestGreat != -1 && nearestGreat >= 0 && nearestGreat < m_totalCellCount) {
 		(*outLocation).x = m_cells[nearestGreat].getCellX() * TheGlobalData->m_partitionCellSize;
 		(*outLocation).y = m_cells[nearestGreat].getCellY() * TheGlobalData->m_partitionCellSize;
 		(*outLocation).z = 0;
