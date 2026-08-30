@@ -469,7 +469,15 @@ Object::Object( const ThingTemplate *tt, const ObjectStatusMaskType &objectStatu
 
 	// If a valid team has been assigned me, then I have a Player I can ask about my starting level
 	const Player* controller = getControllingPlayer();
-	m_experienceTracker->setVeterancyLevel( controller->getProductionVeterancyLevel( getTemplate()->getName() ) );
+	if (controller)
+	{
+		m_experienceTracker->setVeterancyLevel( controller->getProductionVeterancyLevel( getTemplate()->getName() ) );
+	}
+	else
+	{
+		// No valid controller, set to default veterancy level
+		m_experienceTracker->setVeterancyLevel( VETERANCY_REGULAR );
+	}
 
 	/// allow for inter-Module resolution
 	for (BehaviorModule** b = m_behaviors; *b; ++b)
