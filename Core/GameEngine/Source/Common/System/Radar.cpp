@@ -325,6 +325,12 @@ void Radar::newMap( TerrainLogic *terrain )
 	m_xSample = m_mapExtent.width() / RADAR_CELL_WIDTH;
 	m_ySample = m_mapExtent.height() / RADAR_CELL_HEIGHT;
 
+	// prevent division by zero if map has invalid dimensions
+	if( m_xSample <= 0.0f )
+		m_xSample = 1.0f;
+	if( m_ySample <= 0.0f )
+		m_ySample = 1.0f;
+
 	// find the "middle" height for the terrain (most used value) and water table
 	Int x, y;
 	Int terrainSamples = 0, waterSamples = 0;
@@ -499,6 +505,10 @@ Bool Radar::radarToWorld2D( const ICoord2D *radar, Coord3D *world )
 	if( radar == nullptr || world == nullptr )
 		return FALSE;
 
+	// prevent invalid calculations with zero sample rates
+	if( m_xSample <= 0.0f || m_ySample <= 0.0f )
+		return FALSE;
+
 	// get the coords
 	x = radar->x;
 	y = radar->y;
@@ -547,6 +557,10 @@ Bool Radar::worldToRadar( const Coord3D *world, ICoord2D *radar )
 
 	// sanity
 	if( world == nullptr || radar == nullptr )
+		return FALSE;
+
+	// prevent division by zero
+	if( m_xSample <= 0.0f || m_ySample <= 0.0f )
 		return FALSE;
 
 	// sanity check the world position
