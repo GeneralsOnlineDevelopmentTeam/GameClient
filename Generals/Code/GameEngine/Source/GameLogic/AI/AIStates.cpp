@@ -5025,6 +5025,8 @@ StateReturnType AIAttackFireWeaponState::onEnter()
 
 	Object *obj = getMachineOwner();
 	AIUpdateInterface *ai = obj->getAI();
+	if (!ai)
+		return STATE_FAILURE;
 
 	// Passive stuff will approach but not attack, so we check here (after approach is complete)
 	UnsignedInt adjust = ai->getMoodMatrixActionAdjustment(MM_Action_Attack);
@@ -5314,6 +5316,8 @@ StateReturnType AIAttackState::onEnter()
 	//CRCDEBUG_LOG(("AIAttackState::onEnter() - start for object %d", getMachineOwner()->getID()));
 	Object* source = getMachineOwner();
 	AIUpdateInterface *ai = source->getAI();
+	if (!ai)
+		return STATE_FAILURE;
 	// if we are in sleep mode, we will not attack
 	if ((ai->getMoodMatrixActionAdjustment(MM_Action_Attack) & MAA_Action_Ok) == 0)
 		return STATE_SUCCESS;
