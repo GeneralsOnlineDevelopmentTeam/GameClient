@@ -745,6 +745,12 @@ void CameraClass::Apply()
 	vp.Height = (DWORD)((Viewport.Max.Y - Viewport.Min.Y) * (float)height);
 	vp.MinZ = ZBufferMin;
 	vp.MaxZ = ZBufferMax;
+	
+	// Ensure viewport dimensions are valid to prevent D3D crash
+	WWASSERT_PRINT(vp.Width > 0 && vp.Height > 0, "Invalid viewport dimensions detected!");
+	if (vp.Width == 0) vp.Width = 1;
+	if (vp.Height == 0) vp.Height = 1;
+	
 	DX8Wrapper::Set_Viewport(&vp);
 
 	Matrix4x4 d3dprojection;
