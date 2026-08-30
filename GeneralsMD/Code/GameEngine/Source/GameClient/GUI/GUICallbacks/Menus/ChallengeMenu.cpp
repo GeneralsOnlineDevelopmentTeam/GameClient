@@ -186,6 +186,11 @@ void setGeneralCampaign( Int buttonIndex )
 	// set up the skirmish games single player slot
 	GameSlot slot;
 	const PlayerTemplate *playerTemplate = ThePlayerTemplateStore->getNthPlayerTemplate(templateNum);
+	if (!playerTemplate)
+	{
+		DEBUG_CRASH(("Player template not found for general's template name"));
+		return;
+	}
 	slot.setState(SLOT_PLAYER, playerTemplate->getDisplayName());
 	slot.setPlayerTemplate(templateNum);
 	TheChallengeGameInfo->setSlot(0, slot);
