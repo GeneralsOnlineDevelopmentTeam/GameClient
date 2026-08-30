@@ -1610,6 +1610,10 @@ void Player::onStructureCreated( Object *builder, Object *structure )
 //-------------------------------------------------------------------------------------------------
 void Player::onStructureConstructionComplete( Object *builder, Object *structure, Bool isRebuild )
 {
+	// Safety check for null structure pointer
+	if( !structure )
+		return;
+
 	// When a a structure is completed, it becomes "real" as far as scripting is
 	// concerned. jba.
 	TheScriptEngine->notifyOfObjectCreationOrDestruction();
