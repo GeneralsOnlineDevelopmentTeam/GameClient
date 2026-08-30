@@ -1,6 +1,7 @@
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "../NGMP_include.h"
 #include "../OnlineServices_Init.h"
+#include "GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h"
 
 HTTPManager::HTTPManager() noexcept
 {
@@ -154,6 +155,9 @@ void HTTPManager::Shutdown()
         curl_global_cleanup();
 	}
 
+	// Cleanup libcurl globally
+	curl_global_cleanup();
+
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTPManager] Shutdown complete");
 }
 
@@ -216,6 +220,9 @@ HTTPManager::~HTTPManager()
 void HTTPManager::Initialize()
 {
 	CHECK_MAIN_THREAD;
+
+	// Initialize libcurl globally - must be called before any curl operations
+	curl_global_init(CURL_GLOBAL_ALL);
 
 	m_pCurl = curl_multi_init();
 	m_bProxyEnabled = DeterminePlatformProxySettings();
