@@ -438,7 +438,10 @@ Object *WorkerAIUpdate::construct( const ThingTemplate *what,
 
 	// newly constructed objects start at one hit point
 	BodyModuleInterface *body = obj->getBodyModule();
-	body->internalChangeHealth( -body->getHealth() + 1.0f );
+	if( body )
+	{
+		body->internalChangeHealth( -body->getHealth() + 1.0f );
+	}
 
 	// set the model action state to awaiting construction
 	obj->clearAndSetModelConditionFlags(
