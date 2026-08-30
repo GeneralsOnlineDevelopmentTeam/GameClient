@@ -1852,7 +1852,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 	}
 
 	// player doesnt have map events
-	pLobbyInterface->RegisterForPlayerDoesntHaveMapCallback([](LobbyMemberEntry lobbyMember)
+	pLobbyInterface->RegisterForPlayerDoesntHaveMapCallback([](const LobbyMemberEntry& lobbyMember)
 		{
 			// tell the host the user doesn't have the map
 			UnicodeString mapDisplayName;
