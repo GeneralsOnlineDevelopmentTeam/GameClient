@@ -65,6 +65,14 @@ public:
 
 	std::string GetURI() { return m_strURI; }
 
+
+	// Clear callbacks to prevent accessing destroyed objects during shutdown
+	void ClearCallbacks()
+	{
+		m_completionCallback = nullptr;
+		m_progressCallback = nullptr;
+	}
+
 private:
 	void PlatformStartRequest();
 
