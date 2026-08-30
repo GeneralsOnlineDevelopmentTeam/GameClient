@@ -72,6 +72,10 @@ void MissileLauncherBuildingUpdate::switchToState(DoorStateType dst)
 		return;
 
 	const MissileLauncherBuildingUpdateModuleData* d = getMissileLauncherBuildingUpdateModuleData();
+	
+	// Safety check: if the module data has been cleared during destruction, don't proceed
+	if (!d)
+		return;
 	ModelConditionFlags clr, set;
 	UnsignedInt now = TheGameLogic->getFrame();
 	switch (dst)
@@ -229,6 +233,10 @@ UpdateSleepTime MissileLauncherBuildingUpdate::update()
 		return UPDATE_SLEEP_NONE;
 
 	const MissileLauncherBuildingUpdateModuleData* d = getMissileLauncherBuildingUpdateModuleData();
+	
+	// Safety check: if the module data has been cleared during destruction, don't proceed
+	if (!d)
+		return UPDATE_SLEEP_NONE;
 
 	UnsignedInt now = TheGameLogic->getFrame();
 
@@ -275,6 +283,11 @@ UpdateSleepTime MissileLauncherBuildingUpdate::update()
 SpecialPowerTemplate* MissileLauncherBuildingUpdate::getTemplate() const
 {
 	const MissileLauncherBuildingUpdateModuleData* data = getMissileLauncherBuildingUpdateModuleData();
+	
+	// Safety check: if the module data has been cleared during destruction, return NULL
+	if (!data)
+		return NULL;
+	
 	return data->m_specialPowerTemplate;
 }
 
