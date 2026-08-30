@@ -40,6 +40,7 @@
 
 #include "always.h"
 #include "mempool.h"
+#include "mutex.h"
 #include <assert.h>
 
 class MultiListNodeClass;
@@ -136,6 +137,7 @@ protected:
 private:
 
 	MultiListNodeClass		Head;
+	mutable FastCriticalSectionClass	ListMutex;
 	friend class				GenericMultiListIterator;
 	friend class				MultiListObjectClass;
 };

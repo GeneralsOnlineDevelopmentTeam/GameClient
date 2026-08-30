@@ -54,7 +54,35 @@ DEFINE_AUTO_POOL(MultiListNodeClass, 256);
 MultiListObjectClass::~MultiListObjectClass()
 {
 	while (ListNode) {
-		ListNode->List->Internal_Remove(this);
+		GenericMultiListClass* list = ListNode->List;
+		FastCriticalSectionClass::LockClass lock(list->ListMutex);
+		
+		// find the list node in this object that belongs to this list
+		MultiListNodeClass * lnode = ListNode;
+		MultiListNodeClass * prevlnode = 0;
+
+		while ((lnode) && (lnode->List != list)) {
+			prevlnode = lnode;
+			lnode = lnode->NextList;
+		}
+
+		if (lnode != 0) {
+			// now we've found the node which corresponds to this list,
+			// unlink from the list of objects
+			lnode->Prev->Next = lnode->Next;
+			lnode->Next->Prev = lnode->Prev;
+
+			// unlink from the list of list nodes
+			if (prevlnode) {
+				prevlnode->NextList = lnode->NextList;
+			} else {
+				assert(ListNode == lnode);	// must be first list obj is in...
+				ListNode = lnode->NextList;
+			}
+
+			// delete the link
+			delete lnode;
+		}
 	}
 }
 
@@ -75,6 +103,8 @@ GenericMultiListClass::~GenericMultiListClass()
 bool GenericMultiListClass::Contains(MultiListObjectClass * obj)
 {
 	assert(obj);
+
+	FastCriticalSectionClass::LockClass lock(ListMutex);
 
 	MultiListNodeClass* lnode = obj->Get_List_Node();
 	while (lnode) {
@@ -98,6 +128,8 @@ bool GenericMultiListClass::Internal_Add(MultiListObjectClass *obj, bool onlyonc
 {
 	WWMEMLOG(MEM_GAMEDATA);
 	assert(obj);
+
+	FastCriticalSectionClass::LockClass lock(ListMutex);
 
 	if (onlyonce && Is_In_List(obj)) {
 		return false;
@@ -128,6 +160,8 @@ bool GenericMultiListClass::Internal_Add_Tail(MultiListObjectClass * obj,bool on
 	WWMEMLOG(MEM_GAMEDATA);
 	assert(obj);
 
+	FastCriticalSectionClass::LockClass lock(ListMutex);
+
 	if (onlyonce && Is_In_List(obj)) {
 		return false;
 	}
@@ -157,6 +191,8 @@ bool GenericMultiListClass::Internal_Add_After(MultiListObjectClass * obj,const 
 	WWMEMLOG(MEM_GAMEDATA);
 	assert(obj);
 	assert(existing_list_member);
+
+	FastCriticalSectionClass::LockClass lock(ListMutex);
 
 	if (onlyonce && Is_In_List(obj)) {
 		return false;
@@ -192,6 +228,8 @@ bool GenericMultiListClass::Internal_Add_After(MultiListObjectClass * obj,const 
 
 bool GenericMultiListClass::Internal_Remove(MultiListObjectClass *obj)
 {
+	FastCriticalSectionClass::LockClass lock(ListMutex);
+	
 	// find the list node in this object that belongs to this list
 	MultiListNodeClass * lnode = obj->Get_List_Node();
 	MultiListNodeClass * prevlnode = nullptr;
@@ -226,6 +264,8 @@ bool GenericMultiListClass::Internal_Remove(MultiListObjectClass *obj)
 
 MultiListObjectClass * GenericMultiListClass::Internal_Remove_List_Head()
 {
+	FastCriticalSectionClass::LockClass lock(ListMutex);
+	
 	if (Head.Next == &Head) {
 		return nullptr;					// no more objects
 	}
@@ -233,8 +273,34 @@ MultiListObjectClass * GenericMultiListClass::Internal_Remove_List_Head()
 	MultiListNodeClass * node = Head.Next;
 	MultiListObjectClass * obj = node->Object;
 
-	// remove the object from our list
-	Internal_Remove(obj);
+	// find the list node in this object that belongs to this list
+	MultiListNodeClass * lnode = obj->Get_List_Node();
+	MultiListNodeClass * prevlnode = 0;
+
+	while ((lnode) && (lnode->List != this)) {
+		prevlnode = lnode;
+		lnode = lnode->NextList;
+	}
+
+	if (lnode == 0) {
+		return 0;
+	}
+
+	// now we've found the node which corresponds to this list,
+	// unlink from the list of objects
+	lnode->Prev->Next = lnode->Next;
+	lnode->Next->Prev = lnode->Prev;
+
+	// unlink from the list of list nodes
+	if (prevlnode) {
+		prevlnode->NextList = lnode->NextList;
+	} else {
+		assert(obj->Get_List_Node() == lnode);	// must be first list obj is in...
+		obj->Set_List_Node(lnode->NextList);
+	}
+
+	// delete the link
+	delete lnode;
 
 	// here you go.
 	return obj;
