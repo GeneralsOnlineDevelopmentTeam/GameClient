@@ -54,7 +54,18 @@ DEFINE_AUTO_POOL(MultiListNodeClass, 256);
 MultiListObjectClass::~MultiListObjectClass()
 {
 	while (ListNode) {
+		// Capture the next node before calling Internal_Remove, because
+		// Internal_Remove updates ListNode (via Set_List_Node) and then
+		// deletes the current node.  Capturing next here guards against
+		// any side-effect that could corrupt the walk.
+		MultiListNodeClass *next = ListNode->NextList;
 		ListNode->List->Internal_Remove(this);
+		// If Internal_Remove did not update ListNode (e.g. it returned
+		// false because the node was already gone), avoid an infinite loop
+		// by advancing manually.
+		if (ListNode == next) {
+			break;
+		}
 	}
 }
 
@@ -69,7 +80,15 @@ MultiListObjectClass::~MultiListObjectClass()
 
 GenericMultiListClass::~GenericMultiListClass()
 {
-	assert(Is_Empty());
+	// Safely detach every remaining node from both this list and from the
+	// owning object's node-chain.  This handles the shutdown scenario where
+	// a list is destroyed while objects are still in it: by the time the
+	// list is gone, no object's ListNode chain will contain a pointer back
+	// to this (now-dead) list, so MultiListObjectClass::~MultiListObjectClass
+	// cannot follow a dangling List pointer and crash.
+	while (!Is_Empty()) {
+		Internal_Remove(Head.Next->Object);
+	}
 }
 
 bool GenericMultiListClass::Contains(MultiListObjectClass * obj)
