@@ -595,6 +595,11 @@ void LANAPI::handleHasMap( LANMessage *msg, UnsignedInt senderIP )
 {
 	if (!m_inLobby && m_currentGame)
 	{
+		if (!TheGameState)
+		{
+			return;
+		}
+
 		CRC mapNameCRC;
 //	mapNameCRC.computeCRC(m_currentGame->getMap().str(), m_currentGame->getMap().getLength());
 		AsciiString portableMapName = TheGameState->realMapPathToPortableMapPath(m_currentGame->getMap());
