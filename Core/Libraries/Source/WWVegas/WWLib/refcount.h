@@ -60,7 +60,7 @@ struct ActiveRefStruct
 ** you want to point it at some object.  You must release whatever it currently points at,
 ** point it at the new object, and add-ref the new object (if its not null...)
 */
-#define REF_PTR_SET(dst,src)	{ if (src) (src)->Add_Ref(); if (dst) (dst)->Release_Ref(); (dst) = (src); }
+#define REF_PTR_SET(dst,src)	{ auto _ref_tmp = (dst); (dst) = (src); if (src) (src)->Add_Ref(); if (_ref_tmp) (_ref_tmp)->Release_Ref(); }
 #define REF_PTR_RELEASE(x)		{ if (x) x->Release_Ref(); x = nullptr; }
 
 
