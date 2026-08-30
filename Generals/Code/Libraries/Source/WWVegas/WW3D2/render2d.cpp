@@ -529,6 +529,19 @@ void Render2DClass::Render()
 		return;
 	}
 
+	// Validate that all vertex data arrays have consistent sizes to prevent buffer overflow
+	int vertex_count = Vertices.Count();
+	int uv_count = UVCoordinates.Count();
+	int color_count = Colors.Count();
+	
+	if (vertex_count != uv_count || vertex_count != color_count) {
+		// Arrays are out of sync - this is a critical error condition
+		// Reset to prevent rendering corrupted data
+		WWASSERT(0 && "Render2DClass vertex data arrays are out of sync");
+		Reset();
+		return;
+	}
+
 	// save the view and projection matrices since we're nuking them
 	Matrix4x4 view,proj;
 	Matrix4x4 identity(true);
@@ -559,14 +572,14 @@ void Render2DClass::Render()
 	DX8Wrapper::Set_View_Identity();
 	DX8Wrapper::Set_Transform(D3DTS_PROJECTION,identity);
 
-	DynamicVBAccessClass vb(BUFFER_TYPE_DYNAMIC_DX8,dynamic_fvf_type,Vertices.Count());
+	DynamicVBAccessClass vb(BUFFER_TYPE_DYNAMIC_DX8,dynamic_fvf_type,vertex_count);
 	{
 		DynamicVBAccessClass::WriteLockClass Lock(&vb);
 		const FVFInfoClass &fi=vb.FVF_Info();
 		unsigned char *vb=(unsigned char*)Lock.Get_Formatted_Vertex_Array();
 		int i;
 
-		for (i=0; i<Vertices.Count(); i++)
+		for (i=0; i<vertex_count; i++)
 		{
 			Vector3 temp(Vertices[i].X,Vertices[i].Y,ZValue);
 			*(Vector3*)(vb+fi.Get_Location_Offset())=temp;
@@ -617,7 +630,7 @@ void Render2DClass::Render()
 	else
 		DX8Wrapper::Set_Shader(Shader);
 
-	DX8Wrapper::Draw_Triangles(0,Indices.Count()/3,0,Vertices.Count());
+	DX8Wrapper::Draw_Triangles(0,Indices.Count()/3,0,vertex_count);
 //	SphereClass sphere(Vector3(0.0f,0.0f,0.0f),0.0f);
 //	SortingRendererClass::Insert_Triangles(sphere,0,Indices.Count()/3,0,Vertices.Count());
 
