@@ -313,3 +313,19 @@ void DisconnectMenu::updateVotes(Int slot, Int votes) {
 		GadgetStaticTextSetText(control, unistr);
 	}
 }
+
+#if defined(GENERALS_ONLINE)
+// Wait 10 seconds after the disconnect screen comes up before allowing the vote buttons to be enabled in 2 player situations
+void DisconnectMenu::updateTwoPlayerVoteButtonState(ConnectionManager* conMgr) {
+	if (m_disconnectManager == nullptr || conMgr->getNumPlayers() != 2)
+		return;
+
+	Bool allowed = (timeGetTime() - m_disconnectManager->getTimeOfDisconnectScreenOn()) >= 10000;
+	for (Int i = 0; m_playerVoteButtonControlNames[i] != nullptr; ++i) {
+		NameKeyType id = TheNameKeyGenerator->nameToKey(m_playerVoteButtonControlNames[i]);
+		GameWindow* control = TheWindowManager->winGetWindowFromId(nullptr, id);
+		if (control != nullptr && control->winIsHidden() == FALSE)
+			control->winEnable(allowed);
+	}
+}
+#endif
