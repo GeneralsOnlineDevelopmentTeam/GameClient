@@ -674,12 +674,24 @@ NetworkMesh::NetworkMesh()
 	//strUsername = "g04024f26713bae6e055295b6887b7007533f6c236534b725734b37e26ec15cd";
 	//strToken = "9ea6a5e60216c09a1fa7512987b2ce0514e3204f863f04f70fa870a100db740f";
 
-	m_strTurnUsernameString = std::format("{},{}", m_strTurnUsername.c_str(), m_strTurnUsername.c_str());
-	m_strTurnTokenString = std::format("{},{}", m_strTurnToken.c_str(), m_strTurnToken.c_str());
-
 	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_ServerList, turnList);
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, m_strTurnUsernameString.c_str());
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, m_strTurnTokenString.c_str());
+
+	// Only set TURN credentials if both username and token are non-empty to avoid malformed credentials
+	// that could cause OpenSSL division by zero errors in i2d_RSA_PSS_PARAMS
+	if (!m_strTurnUsername.empty() && !m_strTurnToken.empty())
+	{
+		m_strTurnUsernameString = std::format("{},{}", m_strTurnUsername.c_str(), m_strTurnUsername.c_str());
+		m_strTurnTokenString = std::format("{},{}", m_strTurnToken.c_str(), m_strTurnToken.c_str());
+
+		SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, m_strTurnUsernameString.c_str());
+		SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, m_strTurnTokenString.c_str());
+
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[TURN] TURN credentials configured successfully");
+	}
+	else
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[TURN] TURN credentials not available, skipping TURN configuration");
+	}
 
 	ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
 
