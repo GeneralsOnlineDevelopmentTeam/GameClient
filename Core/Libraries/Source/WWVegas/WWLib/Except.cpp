@@ -155,6 +155,31 @@ static CRITICAL_SECTION* GetThreadListCS()
 }
 
 /*
+** Set to non-zero once CRT shutdown has begun (via atexit callback).
+** After this point the global ThreadList may have been destroyed, so
+** Register_Thread_ID and Unregister_Thread_ID must not touch it.
+** Written only once (during atexit), read-only after that.
+*/
+static volatile LONG s_crt_shutting_down = 0;
+
+static void Mark_CRT_Shutdown()
+{
+	InterlockedExchange(&s_crt_shutting_down, 1);
+}
+
+/*
+** Ensures the shutdown sentinel is registered exactly once.
+** Called alongside GetThreadListCS() initialization.
+*/
+static void Ensure_Shutdown_Guard_Registered()
+{
+	static volatile LONG s_registered = 0;
+	if (InterlockedCompareExchange(&s_registered, 1, 0) == 0) {
+		atexit(Mark_CRT_Shutdown);
+	}
+}
+
+/*
 ** RAII lock guard for the raw ThreadList CRITICAL_SECTION.
 ** Replaces CriticalSectionClass::LockClass for the thread-list lock so that
 ** the CriticalSectionClass wrapper (and its _aligned_malloc-based handle) is
@@ -956,6 +981,10 @@ int Exception_Handler(int exception_code, EXCEPTION_POINTERS *e_info)
 void Register_Thread_ID(unsigned long thread_id, char *thread_name, bool main_thread)
 {
 	WWMEMLOG(MEM_GAMEDATA);
+	Ensure_Shutdown_Guard_Registered();
+	if (s_crt_shutting_down) {
+		return;
+	}
 	if (thread_name) {
 		ScopedThreadListLock lock(GetThreadListCS());
 
@@ -1068,6 +1097,9 @@ HANDLE Get_Thread_Handle(int thread_index)
  *=============================================================================================*/
 void Unregister_Thread_ID(unsigned long thread_id, char *thread_name)
 {
+	if (s_crt_shutting_down) {
+		return;
+	}
 	ScopedThreadListLock lock(GetThreadListCS());
 	
 	for (int i=0 ; i<ThreadList.Count() ; i++) {
