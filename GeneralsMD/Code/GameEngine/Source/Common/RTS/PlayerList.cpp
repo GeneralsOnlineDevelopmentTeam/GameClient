@@ -139,6 +139,12 @@ void PlayerList::newGame()
 		if (pname.isEmpty())
 			continue;	// it's neutral, which we've already done, so skip it.
 
+		if (m_playerCount >= MAX_PLAYER_COUNT)
+		{
+			DEBUG_ASSERTCRASH(false, ("Map has more player sides than MAX_PLAYER_COUNT (%d); skipping side '%s'", MAX_PLAYER_COUNT, pname.str()));
+			continue;
+		}
+
 		/// @todo The Player class should have a reset() method, instead of directly calling initFromDict() (MSB)
 		Player* p = m_players[m_playerCount++];
 		p->initFromDict(d);
@@ -187,6 +193,9 @@ void PlayerList::newGame()
 	{
 		Dict *d = TheSidesList->getSideInfo(i)->getDict();
 		Player* p = findPlayerWithNameKey(NAMEKEY(d->getAsciiString(TheKey_playerName)));
+
+		if (!p)
+			continue;	// player was skipped (e.g. side count exceeded MAX_PLAYER_COUNT) or is neutral with no name key.
 
 		AsciiString tok;
 
