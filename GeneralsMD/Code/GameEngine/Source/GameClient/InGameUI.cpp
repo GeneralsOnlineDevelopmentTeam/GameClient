@@ -90,6 +90,7 @@
 
 #include "GameNetwork/GameInfo.h"
 #include "GameNetwork/NetworkInterface.h"
+#include "GameNetwork/GeneralsOnline/Plugins/PluginManager.h"
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
 
@@ -3880,6 +3881,69 @@ void InGameUI::postWindowDraw()
 
 	if (m_observerNotificationPointSize > 0)
 		drawObserverNotifications(hudOffsetX, hudOffsetY);
+
+	// Last, so plugins share the screen-space 2D context the draw* calls above set up.
+	if (GOPluginManager::HasRenderHooks())
+		GOPluginManager::DispatchDrawOverlay();
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Backs GOPluginHostAPI::drawText2D, in the same font as InGameUI's own messages. */
+//-------------------------------------------------------------------------------------------------
+void InGameUI::drawPluginText2D(Int x, Int y, const char* asciiText, Color color)
+{
+	if (asciiText == nullptr || asciiText[0] == '\0' || TheDisplayStringManager == nullptr || TheFontLibrary == nullptr)
+		return;
+
+	DisplayString* displayString = TheDisplayStringManager->newDisplayString();
+	if (displayString == nullptr)
+		return;
+
+	displayString->setFont(TheFontLibrary->getFont(m_messageFont,
+		TheGlobalLanguageData ? TheGlobalLanguageData->adjustFontSize(m_messagePointSize) : m_messagePointSize, m_messageBold));
+
+	UnicodeString text;
+	text.translate(AsciiString(asciiText));
+	displayString->setText(text);
+
+	displayString->draw(x, y, color, GameMakeColor(0, 0, 0, 255));
+
+	TheDisplayStringManager->freeDisplayString(displayString);
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Backs GOPluginHostAPI::drawText2DScaled: as above, at a scaled point size. */
+//-------------------------------------------------------------------------------------------------
+void InGameUI::drawPluginText2DScaled(Int x, Int y, const char* asciiText, Color color, Real sizeScale, Bool bold)
+{
+	if (asciiText == nullptr || asciiText[0] == '\0' || TheDisplayStringManager == nullptr || TheFontLibrary == nullptr)
+		return;
+
+	// FontLibrary::getFont returns null outside this range, so clamp before asking.
+	const Int minPointSize = 1;
+	const Int maxPointSize = 100;
+	const Int baseSize = TheGlobalLanguageData ? TheGlobalLanguageData->adjustFontSize(m_messagePointSize) : m_messagePointSize;
+	Int effectiveSize = (Int)((Real)baseSize * sizeScale + 0.5f);
+	if (effectiveSize < minPointSize) effectiveSize = minPointSize;
+	if (effectiveSize > maxPointSize) effectiveSize = maxPointSize;
+
+	GameFont* font = TheFontLibrary->getFont(m_messageFont, effectiveSize, bold);
+	if (font == nullptr)
+		return;
+
+	DisplayString* displayString = TheDisplayStringManager->newDisplayString();
+	if (displayString == nullptr)
+		return;
+
+	displayString->setFont(font);
+
+	UnicodeString text;
+	text.translate(AsciiString(asciiText));
+	displayString->setText(text);
+
+	displayString->draw(x, y, color, GameMakeColor(0, 0, 0, 255));
+
+	TheDisplayStringManager->freeDisplayString(displayString);
 }
 
 //-------------------------------------------------------------------------------------------------

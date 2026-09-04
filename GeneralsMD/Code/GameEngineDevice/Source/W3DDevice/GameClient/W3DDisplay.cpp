@@ -111,8 +111,22 @@ static void drawFramerateBar();
 
 #include "WinMain.h"
 
+#include "WW3D2/dx8wrapper.h"
+#include "GameNetwork/GeneralsOnline/Plugins/PluginManager.h"
+
 
 // DEFINE AND ENUMS ///////////////////////////////////////////////////////////
+
+// GameEngine must not include WW3D2 or WinMain.h, so the plugin framework is handed these instead.
+static void* GetD3DDevice8ForPlugins()
+{
+	return (void*)DX8Wrapper::_Get_D3D_Device8();
+}
+
+static void* GetGameWindowForPlugins()
+{
+	return (void*)ApplicationHWnd;
+}
 
 #define no_SAMPLE_DYNAMIC_LIGHT	1
 #ifdef SAMPLE_DYNAMIC_LIGHT
@@ -636,6 +650,19 @@ void W3DDisplay::setup2DRenderState(TextureClass *tex, DrawImageMode mode, Bool 
 {
 	if (m_isBatching)
 	{
+		// Render2DClass fills two dynamic buffers whose counts are unsigned short, so one batch may
+		// hold at most 65535 of either. Flush before the next primitive can cross that, which costs
+		// one extra draw call and loses nothing. Must precede the same-state early-out below, since
+		// an overflow is reached by exactly the run of same-state draws that early-out serves.
+		const int MAX_BATCH_ELEMENTS = 65535;
+		const int WORST_CASE_ELEMENTS_PER_DRAW = 64;	// drawOpenRect is 4 lines: 16 verts, 24 indices
+		if (!m_batchNeedsInit && m_2DRender &&
+				(m_2DRender->Get_Index_Count() > MAX_BATCH_ELEMENTS - WORST_CASE_ELEMENTS_PER_DRAW ||
+				 m_2DRender->Get_Vertex_Count() > MAX_BATCH_ELEMENTS - WORST_CASE_ELEMENTS_PER_DRAW))
+		{
+			onFlush();
+		}
+
 		if (!m_batchNeedsInit && m_batchTexture == tex && m_batchMode == mode && m_batchGrayscale == grayscale)
 		{
 			return;
@@ -971,6 +998,8 @@ void W3DDisplay::init()
 
 		DX8WebBrowser::Initialize();
 	}
+
+	GOPluginManager::SetNativeHandleProviders(GetD3DDevice8ForPlugins, GetGameWindowForPlugins);
 
 	// we're now online
 	m_initialized = true;

@@ -54,6 +54,8 @@
 #include "GameClient/InGameUI.h"
 #include "GameClient/ControlBar.h"
 
+#include "GameNetwork/GeneralsOnline/Plugins/PluginManager.h"
+
 
 
 //-------------------------------------------------------------------------------------------------
@@ -542,6 +544,20 @@ void SpecialPowerModule::markSpecialPowerTriggered( const Coord3D *location )
 //-------------------------------------------------------------------------------------------------
 void SpecialPowerModule::aboutToDoSpecialPower( const Coord3D *location )
 {
+	if (GOPluginManager::HasGameplayEventHooks())
+	{
+		Player* player = getObject()->getControllingPlayer();
+		GOSpecialPowerEvent ev = {};
+		ev.playerIndex = (player != nullptr) ? (uint32_t)player->getPlayerIndex() : 0;
+		ev.powerTemplateName = getSpecialPowerModuleData()->m_specialPowerTemplate->getName().str();
+		ev.locationX = (location != nullptr) ? location->x : getObject()->getPosition()->x;
+		ev.locationY = (location != nullptr) ? location->y : getObject()->getPosition()->y;
+		ev.locationZ = (location != nullptr) ? location->z : getObject()->getPosition()->z;
+		UnsignedInt reloadFrames = getSpecialPowerModuleData()->m_specialPowerTemplate->getReloadTime();
+		ev.rechargeTimeSeconds = (reloadFrames > 0) ? ((float)reloadFrames / (float)LOGICFRAMES_PER_SECOND) : 0.0f;
+		GOPluginManager::DispatchSpecialPowerTriggered(ev);
+	}
+
 	// Tell the scripting engine!
 	TheScriptEngine->notifyOfTriggeredSpecialPower(
 		getObject()->getControllingPlayer()->getPlayerIndex(),

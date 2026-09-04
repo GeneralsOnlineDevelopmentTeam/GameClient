@@ -1160,6 +1160,8 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h
     Include/GameNetwork/GeneralsOnline/NextGenTransport.h
     Include/GameNetwork/GeneralsOnline/PluginInterfaces.h
+    Include/GameNetwork/GeneralsOnline/Plugins/PluginABI.h
+    Include/GameNetwork/GeneralsOnline/Plugins/PluginManager.h
     Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingmessages.h
     Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingsockets.h
     Include/GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingutils.h
@@ -1202,6 +1204,7 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/GeneralsOnline/NextGenTransport.cpp
     Source/GameNetwork/GeneralsOnline/NetworkBitstream.cpp
     Source/GameNetwork/GeneralsOnline/PluginInterfaces.cpp
+    Source/GameNetwork/GeneralsOnline/Plugins/PluginManager.cpp
 )
 
 if(RTS_GAMEMEMORY_ENABLE)
