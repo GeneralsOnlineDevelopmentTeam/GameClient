@@ -192,7 +192,6 @@ CameraShakeSystemClass::~CameraShakeSystemClass()
 	*/
 	while (!CameraShakerList.Is_Empty()) {
 		CameraShakerClass * obj = CameraShakerList.Remove_Head();
-		CameraShakerList.Remove(obj);
 		delete obj;
 	}
 }
