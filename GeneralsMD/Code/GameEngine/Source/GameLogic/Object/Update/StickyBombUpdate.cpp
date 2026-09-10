@@ -215,6 +215,13 @@ UpdateSleepTime StickyBombUpdate::update()
 //-------------------------------------------------------------------------------------------------
 Object* StickyBombUpdate::getTargetObject() const
 {
+	// Validate the target ID before attempting to find the object
+	// This prevents crashes when the target has been destroyed but m_targetID still holds the old ID
+	if( m_targetID == INVALID_ID )
+	{
+		return NULL;
+	}
+	
 	return TheGameLogic->findObjectByID( m_targetID );
 }
 
