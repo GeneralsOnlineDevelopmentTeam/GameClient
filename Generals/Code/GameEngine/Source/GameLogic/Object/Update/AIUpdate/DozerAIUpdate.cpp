@@ -540,7 +540,10 @@ StateReturnType DozerActionDoActionState::update()
 				// here and going straight for the change of the health
 				//
 				BodyModuleInterface *body = goalObject->getBodyModule();
-				body->internalChangeHealth( body->getMaxHealth() / INT_TO_REAL( framesToBuild ) );
+				if( body )
+				{
+					body->internalChangeHealth( body->getMaxHealth() / INT_TO_REAL( framesToBuild ) );
+				}
 
 				//
 				// since we've just actually contributed a "piece" to this building, we'll say that
@@ -1738,7 +1741,10 @@ Object *DozerAIUpdate::construct( const ThingTemplate *what,
 
 	// newly constructed objects start at one hit point
 	BodyModuleInterface *body = obj->getBodyModule();
-	body->internalChangeHealth( -body->getHealth() + 1.0f );
+	if( body )
+	{
+		body->internalChangeHealth( -body->getHealth() + 1.0f );
+	}
 
 	// set the model action state to awaiting construction
 	obj->clearAndSetModelConditionFlags(
