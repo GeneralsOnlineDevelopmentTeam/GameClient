@@ -332,6 +332,9 @@ static void playerTooltip(GameWindow *window,
 													WinInstanceData *instData,
 													UnsignedInt mouse)
 {
+	if (!TheLAN)
+		return;
+
 	Int x, y, row, col;
 	x = LOLONGTOSHORT(mouse);
 	y = HILONGTOSHORT(mouse);
