@@ -579,7 +579,7 @@ StateReturnType DozerActionDoActionState::update()
 
 					// this object now has energy influence in the player
 					Player *player = goalObject->getControllingPlayer();
-					if( player )
+					if( player && goalObject )
 					{
 
 						// notification for build completion
