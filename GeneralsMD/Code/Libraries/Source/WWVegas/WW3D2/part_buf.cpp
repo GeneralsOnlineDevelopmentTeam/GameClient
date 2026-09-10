@@ -271,7 +271,10 @@ ParticleBufferClass::ParticleBufferClass
 		{
 			LineGroup=W3DNEW LineGroupClass();
 			LineGroup->Set_Flag(LineGroupClass::TRANSFORM, true);
-			LineGroup->Set_Texture(tex);
+			// Only set texture if it's not NULL to prevent access violation
+			if (tex) {
+				LineGroup->Set_Texture(tex);
+			}
 			LineGroup->Set_Shader(shader);
 			LineGroup->Set_Line_Mode(LineGroupClass::TETRAHEDRON);
 			TailPosition = NEW_REF( ShareBufferClass<Vector3> , (MaxNum, "ParticleBufferClass::TailPosition" ) );
@@ -284,7 +287,10 @@ ParticleBufferClass::ParticleBufferClass
 		{
 			LineGroup=W3DNEW LineGroupClass();
 			LineGroup->Set_Flag(LineGroupClass::TRANSFORM, true);
-			LineGroup->Set_Texture(tex);
+			// Only set texture if it's not NULL to prevent access violation
+			if (tex) {
+				LineGroup->Set_Texture(tex);
+			}
 			LineGroup->Set_Shader(shader);
 			LineGroup->Set_Line_Mode(LineGroupClass::PRISM);
 			TailPosition = NEW_REF( ShareBufferClass<Vector3> , (MaxNum, "ParticleBufferClass::TailPosition" ) );
@@ -663,7 +669,11 @@ ParticleBufferClass::ParticleBufferClass(const ParticleBufferClass & src) :
 			WWASSERT(src.LineGroup);
 			LineGroup = W3DNEW LineGroupClass();
 			LineGroup->Set_Flag(LineGroupClass::TRANSFORM, true);
-			LineGroup->Set_Texture(src.LineGroup->Peek_Texture());
+			// Only set texture if it's not NULL to prevent access violation
+			TextureClass* srcTexture = src.LineGroup->Peek_Texture();
+			if (srcTexture) {
+				LineGroup->Set_Texture(srcTexture);
+			}
 			LineGroup->Set_Shader(src.LineGroup->Get_Shader());
 			LineGroup->Set_Line_Mode(LineGroupClass::TETRAHEDRON);
 			TailPosition = NEW_REF( ShareBufferClass<Vector3> , (MaxNum, "ParticleBufferClass::TailPosition") );
@@ -677,7 +687,11 @@ ParticleBufferClass::ParticleBufferClass(const ParticleBufferClass & src) :
 			WWASSERT(src.LineGroup);
 			LineGroup = W3DNEW LineGroupClass();
 			LineGroup->Set_Flag(LineGroupClass::TRANSFORM, true);
-			LineGroup->Set_Texture(src.LineGroup->Peek_Texture());
+			// Only set texture if it's not NULL to prevent access violation
+			TextureClass* srcTexture = src.LineGroup->Peek_Texture();
+			if (srcTexture) {
+				LineGroup->Set_Texture(srcTexture);
+			}
 			LineGroup->Set_Shader(src.LineGroup->Get_Shader());
 			LineGroup->Set_Line_Mode(LineGroupClass::PRISM);
 			TailPosition = NEW_REF( ShareBufferClass<Vector3> , (MaxNum, "ParticleBufferClass::TailPosition") );
