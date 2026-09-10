@@ -1308,11 +1308,12 @@ void Debug::StartOutput(DebugIOInterface::StringType type, const char *fmt, ...)
   __ASSERT(curType==DebugIOInterface::StringType::MAX);
   curType=type;
 
-  // potentially dangerous (fixed string buffer...)
+  // use safe version with truncation to prevent buffer overflow
   va_list va;
   va_start(va,fmt);
-  wvsprintf(curSource,fmt,va);
+  _vsnprintf_s(curSource, sizeof(curSource), _TRUNCATE, fmt, va);
   va_end(va);
+  // _vsnprintf_s with _TRUNCATE always null-terminates
   __ASSERT(curSource[sizeof(curSource)-1]==0);
 }
 
