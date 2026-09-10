@@ -351,6 +351,10 @@ StateReturnType DozerActionMoveToActionPosState::update()
 			// that we might possibly be here multiple times for a single object being built
 			// but the setting of the same model condition doesn't have any adverse effects
 			//
+			// Re-check if goalObject is still valid (could have been destroyed)
+			if( goalObject == NULL )
+				return STATE_FAILURE;
+			
 			goalObject->clearAndSetModelConditionFlags(
 				MAKE_MODELCONDITION_MASK(MODELCONDITION_AWAITING_CONSTRUCTION),
 				MAKE_MODELCONDITION_MASK2(MODELCONDITION_PARTIALLY_CONSTRUCTED, MODELCONDITION_ACTIVELY_BEING_CONSTRUCTED));
@@ -493,6 +497,10 @@ StateReturnType DozerActionDoActionState::update()
 		case DOZER_TASK_BUILD:
 		{
 			//GS Moved this inside Build, since you are allowed to Repair things that are not your player (canRepairObject handles it)
+			// Re-check if goalObject is still valid (could have been destroyed)
+			if( goalObject == NULL )
+				return STATE_FAILURE;
+			
 			if (dozer->getControllingPlayer() != goalObject->getControllingPlayer())//Yipes, SOmehow I have changed sides in mid build!
 				return STATE_FAILURE;
 
@@ -516,6 +524,10 @@ StateReturnType DozerActionDoActionState::update()
 					dozerAI->setBuildSubTask( DOZER_DO_BUILD_AT_DOCK );
 					// Get the audio sound and start playing the construction sound (get the sound
 					// from the building itself)
+					// Re-check if goalObject is still valid (could have been destroyed)
+					if( goalObject == NULL )
+						return STATE_FAILURE;
+					
 					dozerAI->startBuildingSound( goalObject->getTemplate()->getPerUnitSound( "UnderConstruction" ), goalObject->getID() );
 				}
 			}
@@ -527,6 +539,9 @@ StateReturnType DozerActionDoActionState::update()
 				// the builder is now actively constructing something
 				dozer->setModelConditionState( MODELCONDITION_ACTIVELY_CONSTRUCTING );
 
+				// Re-check if goalObject is still valid (could have been destroyed)
+				if( goalObject == NULL )
+					return STATE_FAILURE;
 
 				// increase the construction percent of the goal object
 				Int framesToBuild = goalObject->getTemplate()->calcTimeToBuild( dozer->getControllingPlayer() );
@@ -559,6 +574,10 @@ StateReturnType DozerActionDoActionState::update()
 
 					// stop playing the construction sound!
 					dozerAI->finishBuildingSound();
+
+					// Re-check if goalObject is still valid (could have been destroyed)
+					if( goalObject == NULL )
+						return STATE_FAILURE;
 
 					// object will now be idle instead of in one of the construction actions
 					goalObject->clearModelConditionFlags(
@@ -662,6 +681,10 @@ StateReturnType DozerActionDoActionState::update()
 		//---------------------------------------------------------------------------------------------
 		case DOZER_TASK_REPAIR:
 		{
+			// Re-check if goalObject is still valid (could have been destroyed)
+			if( goalObject == NULL )
+				return STATE_FAILURE;
+			
 			BodyModuleInterface *body = goalObject->getBodyModule();
 
 			// check for fully "repaired"
@@ -711,6 +734,10 @@ StateReturnType DozerActionDoActionState::update()
 					// figure out how much health we will restore this frame
 					Real health = body->getMaxHealth() * dozerAI->getRepairHealthPerSecond() /
 												LOGICFRAMES_PER_SECOND;
+
+					// Re-check if goalObject is still valid (could have been destroyed)
+					if( goalObject == NULL )
+						return STATE_FAILURE;
 
 					// try to give it a little bit-o-health
 					if ( ! goalObject->attemptHealingFromSoleBenefactor(health, dozer, 2) )//this frame and the next
