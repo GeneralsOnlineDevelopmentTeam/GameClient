@@ -164,7 +164,7 @@ bool GenericMultiListClass::Internal_Add_After(MultiListObjectClass * obj,const 
 
 	// find the node hanging off 'existing_list_member' that corresponds to this list (O(numlists))
 	MultiListNodeClass * existing_node = existing_list_member->Get_List_Node();
-	while ((existing_node->List != this) && (existing_node)) {
+	while ((existing_node) && (existing_node->List != this)) {
 		existing_node = existing_node->NextList;
 	}
 
