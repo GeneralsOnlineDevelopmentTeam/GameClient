@@ -2942,6 +2942,9 @@ void Drawable::drawBombed(const IRegion2D* healthBarRegion)
 
 	const Object *obj = getObject();
 
+	// Check if object is valid before accessing it
+	if (!obj)
+		return;
 
 	UnsignedInt now = TheGameLogic->getFrame();
 
