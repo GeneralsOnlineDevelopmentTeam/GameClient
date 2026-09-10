@@ -128,6 +128,10 @@ GameClient::GameClient()
 //-------------------------------------------------------------------------------------------------
 GameClient::~GameClient()
 {
+	// clear any drawable TOC we might have - do this FIRST to ensure AsciiStrings
+	// are destroyed while the memory allocator is still in a valid state
+	m_drawableTOC.clear();
+
 #ifdef PERF_TIMERS
 	delete TheGraphDraw;
 	TheGraphDraw = nullptr;
@@ -135,9 +139,6 @@ GameClient::~GameClient()
 
 	delete TheDrawGroupInfo;
 	TheDrawGroupInfo = nullptr;
-
-	// clear any drawable TOC we might have
-	m_drawableTOC.clear();
 
 	//DEBUG_LOG(("Preloaded texture files ------------------------------------------"));
 	//for (Int oog=0; oog<preloadTextureNamesGlobalHack2.size(); ++oog)
