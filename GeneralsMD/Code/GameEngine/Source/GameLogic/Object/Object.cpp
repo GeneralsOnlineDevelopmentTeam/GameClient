@@ -2494,6 +2494,15 @@ void Object::onCollide( Object *other, const Coord3D *loc, const Coord3D *normal
 #endif
 			break;
 		}
+
+		// If this object or the other object has been destroyed by a previous
+		// collide module handler, stop processing further modules to avoid
+		// accessing freed/invalid memory (null pointer dereference).
+		if( isDestroyed() )
+			break;
+		if( other != nullptr && other->isDestroyed() )
+			break;
+
 #ifdef DEBUG_CRC
 		//DEBUG_LOG(("Object::onCollide() - calling collide module"));
 #endif
