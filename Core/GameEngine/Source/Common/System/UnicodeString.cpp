@@ -49,7 +49,12 @@
 
 // -----------------------------------------------------
 
-/*static*/ const UnicodeString UnicodeString::TheEmptyString;
+// TheSuperHackers: Fix for static destruction order issue with ICU library during app exit.
+// By using an intentionally leaked static instance (never destroyed), we avoid crashes
+// during the CRT atexit phase when ICU's static objects may be destroyed before/after
+// our string objects, causing access violations in ICU's GMT offset field cleanup.
+// This is a standard pattern for avoiding static initialization/destruction order problems.
+/*static*/ const UnicodeString& UnicodeString::TheEmptyString = *new UnicodeString();
 
 // -----------------------------------------------------
 #ifdef RTS_DEBUG
