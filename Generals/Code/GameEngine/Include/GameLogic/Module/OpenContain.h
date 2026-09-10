@@ -264,5 +264,6 @@ private:
 	Coord3D							m_rallyPoint;												///< Where units should move to after they have reached the "natural" rally point
 	Bool								m_rallyPointExists;										///< Only move to the rally point if this is true
 	Bool								m_loadSoundsEnabled;								///< Don't serialize -- used for disabling sounds during payload creation.
+	Bool								m_isRedeployingOccupants;						///< Guard flag to prevent reentrancy during redeployOccupants
 
 };

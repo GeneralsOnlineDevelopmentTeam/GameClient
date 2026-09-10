@@ -285,4 +285,5 @@ private:
 	Bool								m_rallyPointExists;										///< Only move to the rally point if this is true
 	Bool								m_loadSoundsEnabled;								///< Don't serialize -- used for disabling sounds during payload creation.
   Bool                m_passengerAllowedToFire;      ///< Newly promoted from the template data to the module for upgrade overriding access
+	Bool								m_isRedeployingOccupants;						///< Guard flag to prevent reentrancy during redeployOccupants
 };
