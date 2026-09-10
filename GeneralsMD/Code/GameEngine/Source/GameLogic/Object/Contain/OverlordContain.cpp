@@ -328,15 +328,13 @@ void OverlordContain::removeAllContained( Bool exposeStealthUnits )
 		return;
 	}
 
-	const ContainedItemsList *fullList = getRedirectedContain()->getContainedItemsList();
-
-	Object *obj;
-	ContainedItemsList::const_iterator it;
-	it = (*fullList).begin();
-	while( it != (*fullList).end() )
+	// Use a safe iterator pattern to avoid iterator invalidation.
+	// Always get a fresh iterator from the beginning after each removal,
+	// similar to OpenContain::removeAllContained()
+	const ContainedItemsList *fullList;
+	while( (fullList = getRedirectedContain()->getContainedItemsList()) != NULL && !fullList->empty() )
 	{
-		obj = *it;
-		it++;
+		Object *obj = fullList->front();
 		removeFromContain( obj, exposeStealthUnits );
 	}
 }
