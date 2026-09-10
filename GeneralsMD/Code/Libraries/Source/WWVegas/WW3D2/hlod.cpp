@@ -2132,9 +2132,16 @@ void HLodClass::Render(RenderInfoClass & rinfo)
 
 	Animatable3DObjClass::Render(rinfo);
 
-	for (i = 0; i < Lod[CurLod].Count(); i++) {
-		if (Lod[CurLod][i].Model->Class_ID() != CLASSID_OBBOX)	///We have no use for these - MW
-			Lod[CurLod][i].Model->Render(rinfo);
+	int lod_count = LodCount;
+	int lod_index = CurLod;
+	if (lod_index >= lod_count || lod_index < 0) {
+		lod_index = lod_count - 1;
+	}
+	if (lod_index >= 0 && lod_index < lod_count) {
+		for (i = 0; i < Lod[lod_index].Count(); i++) {
+			if (Lod[lod_index][i].Model->Class_ID() != CLASSID_OBBOX)	///We have no use for these - MW
+				Lod[lod_index][i].Model->Render(rinfo);
+		}
 	}
 
 	if (Is_Sub_Objects_Match_LOD_Enabled()) {
@@ -2171,13 +2178,19 @@ void HLodClass::Special_Render(SpecialRenderInfoClass & rinfo)
 
 	Animatable3DObjClass::Special_Render(rinfo);
 
+	int lod_count = LodCount;
 	int lod_index = CurLod;
 	if (rinfo.RenderType == SpecialRenderInfoClass::RENDER_SHADOW) {			// (gth) HACK HACK! yikes
-		lod_index = LodCount-1;
+		lod_index = lod_count - 1;
+	}
+	if (lod_index >= lod_count || lod_index < 0) {
+		lod_index = lod_count - 1;
 	}
 
-	for (i = 0; i < Lod[lod_index].Count(); i++) {
-		Lod[lod_index][i].Model->Special_Render(rinfo);
+	if (lod_index >= 0 && lod_index < lod_count) {
+		for (i = 0; i < Lod[lod_index].Count(); i++) {
+			Lod[lod_index][i].Model->Special_Render(rinfo);
+		}
 	}
 
 	for (i = 0; i < AdditionalModels.Count(); i++) {
