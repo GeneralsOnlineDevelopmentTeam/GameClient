@@ -663,14 +663,15 @@ void SpecialPowerModule::pauseCountdown( Bool pause )
 //-------------------------------------------------------------------------------------------------
 UnsignedInt SpecialPowerModule::getReadyFrame() const
 {
-	if ( getSpecialPowerTemplate()->isSharedNSync() )
+	const SpecialPowerTemplate* powerTemplate = getSpecialPowerTemplate();
+	if ( powerTemplate && powerTemplate->isSharedNSync() )
 	{
 		const Object* obj = getObject();
 		if ( obj )
 		{
 			Player *player = getObject()->getControllingPlayer();
 			if ( player )
-				return player->getOrStartSpecialPowerReadyFrame( getSpecialPowerTemplate() );
+				return player->getOrStartSpecialPowerReadyFrame( powerTemplate );
 		}
 	}
 
