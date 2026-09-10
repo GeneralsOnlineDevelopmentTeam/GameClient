@@ -1115,6 +1115,9 @@ void Animatable3DObjClass::Set_HTree(HTreeClass * new_htree)
 	// just assign it...
 	delete HTree;
 	HTree = W3DNEW HTreeClass(*new_htree);
+	
+	// Mark hierarchy as invalid to force transform recalculation
+	Set_Hierarchy_Valid(false);
 }
 
 
