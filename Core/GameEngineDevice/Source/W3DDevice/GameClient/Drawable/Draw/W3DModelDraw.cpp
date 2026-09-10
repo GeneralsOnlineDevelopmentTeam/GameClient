@@ -3215,12 +3215,19 @@ void W3DModelDraw::replaceIndicatorColor(Color color)
 		{
 			m_hexColor = newColor;
 
-			// set these to nullptr to force a regen of everything in setModelState.
-			const ModelConditionInfo* tmp = m_curState;
-			m_curState = nullptr;
-			m_nextState = nullptr;
-			m_nextStateAnimLoopDuration = NO_NEXT_DURATION;
-			setModelState(tmp);
+			// TheSuperHackers @bugfix Do not call setModelState with a null state pointer, as this
+			// can happen when replaceIndicatorColor is called before the draw module has been fully
+			// initialized (e.g. during object creation in friend_bindToObject). In such cases, the
+			// updated m_hexColor will be picked up on the next proper setModelState call.
+			if (m_curState != nullptr)
+			{
+				// set these to nullptr to force a regen of everything in setModelState.
+				const ModelConditionInfo* tmp = m_curState;
+				m_curState = nullptr;
+				m_nextState = nullptr;
+				m_nextStateAnimLoopDuration = NO_NEXT_DURATION;
+				setModelState(tmp);
+			}
 		}
 	}
 }
