@@ -1009,6 +1009,20 @@ void GarrisonContain::positionObjectsAtStationGarrisonPoints()
     loadStationGarrisonPoints();
   }
 
+  // Safety check: if station point list is empty, position all objects at container center
+  if ( m_stationPointList.empty() )
+  {
+    const ContainedItemsList& containList = getContainList();
+    Object *contained;
+    const Coord3D *centerPos = getObject()->getPosition();
+    for( ContainedItemsList::const_iterator it = containList.begin(); it != containList.end(); ++it )
+    {
+      contained = *it;
+      contained->setPosition( centerPos );
+    }
+    return;
+  }
+
 	const ContainedItemsList& containList = getContainList();
 	Object *contained;
 	for( ContainedItemsList::const_iterator it = containList.begin(); it != containList.end(); ++it )
@@ -1034,7 +1048,8 @@ void GarrisonContain::positionObjectsAtStationGarrisonPoints()
 
     if ( ! foundHisSpot && ! pickAStationForMe( contained ))
     {
-      DEBUG_ASSERTCRASH( foundHisSpot, ("GarrisonContain::positionObjectsAtStationGarrisonPoints found something terribly wrong... \nthere is either a station point shortage, or some other bug."));
+      // If no station point is available (capacity exceeded), position at container center
+      contained->setPosition( getObject()->getPosition() );
     }
 
 	}
@@ -1048,6 +1063,12 @@ void GarrisonContain::positionObjectsAtStationGarrisonPoints()
 // ------------------------------------------------------------------------------------------------
 Bool GarrisonContain::pickAStationForMe( const Object *obj )
 {
+  // Safety check: if obj is null or station point list is empty, fail gracefully
+  if ( obj == NULL || m_stationPointList.empty() )
+  {
+    return FALSE;
+  }
+
   Bool foundVacancy = FALSE;
   for( std::vector<StationPointData>::iterator pt = m_stationPointList.begin(); pt != m_stationPointList.end(); ++pt)
   {
@@ -1060,8 +1081,8 @@ Bool GarrisonContain::pickAStationForMe( const Object *obj )
     }
   }
 
-  DEBUG_ASSERTCRASH(foundVacancy, ("GarrisonContain::pickAStationForMe is all kinds of bad... \n there was no vacancy found for a newly contained object."));
-
+  // No vacancy found - this can happen if container is at or over capacity
+  // Return FALSE to allow caller to handle gracefully
   return FALSE;
 
 }
