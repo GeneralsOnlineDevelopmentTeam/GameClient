@@ -32,8 +32,14 @@
 
 std::wstring MultiByteToWideCharSingleLine( const char *orig )
 {
-	Int len = strlen(orig);
-	WideChar *dest = NEW WideChar[len+1];
+	// First, get the required buffer size in wide characters
+	Int len = MultiByteToWideChar(CP_UTF8, 0, orig, -1, NULL, 0);
+	if (len <= 0)
+	{
+		return std::wstring();
+	}
+	
+	WideChar *dest = NEW WideChar[len];
 
 	MultiByteToWideChar(CP_UTF8, 0, orig, -1, dest, len);
 	WideChar *c = nullptr;
@@ -56,7 +62,7 @@ std::wstring MultiByteToWideCharSingleLine( const char *orig )
 	}
 	while ( c != nullptr );
 
-	dest[len] = 0;
+	dest[len-1] = 0;
 	std::wstring ret = dest;
 	delete[] dest;
 	return ret;
