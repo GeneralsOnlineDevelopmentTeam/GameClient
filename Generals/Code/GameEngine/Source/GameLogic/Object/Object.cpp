@@ -2224,6 +2224,13 @@ void Object::onCollide( Object *other, const Coord3D *loc, const Coord3D *normal
 		//DEBUG_LOG(("Object::onCollide() - calling collide module"));
 #endif
 		collide->onCollide(other, loc, normal);
+
+		// Check if this object was destroyed during collision handling (e.g., vehicle crashing into building)
+		// If so, break immediately to avoid accessing freed memory in m_behaviors
+		if (isDestroyed())
+		{
+			break;
+		}
 	}
 }
 
