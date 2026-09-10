@@ -322,6 +322,12 @@ GameEngine::~GameEngine()
 	//	delete TheShell;
 	//	TheShell = nullptr;
 
+	// TheSuperHackers @fix 2025-01-09
+	// Shutdown Sentry early to avoid crashes during finalization.
+	// Must be called before subsystems are destroyed, as protobuf (statically linked into Sentry SDK)
+	// depends on valid global state and memory managers.
+	NGMP_OnlineServicesManager::ShutdownSentry();
+
 	TheGameResultsQueue->endThreads();
 
 	// TheSuperHackers @fix helmutbuhler 03/06/2025
@@ -361,8 +367,7 @@ GameEngine::~GameEngine()
 #ifdef PERF_TIMERS
 	PerfGather::termPerfDump();
 #endif
-	// Kill sentry
-	NGMP_OnlineServicesManager::ShutdownSentry();}
+}
 
 //-------------------------------------------------------------------------------------------------
 
