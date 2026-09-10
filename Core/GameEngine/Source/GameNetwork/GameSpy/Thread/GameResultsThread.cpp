@@ -159,7 +159,7 @@ void GameResultsQueue::addRequest( const GameResultsRequest& req )
 
 Bool GameResultsQueue::getRequest( GameResultsRequest& req )
 {
-	MutexClass::LockClass m(m_requestMutex, 0);
+	MutexClass::LockClass m(m_requestMutex, 100);
 	if (m.Failed())
 		return false;
 
@@ -182,7 +182,7 @@ void GameResultsQueue::addResponse( const GameResultsResponse& resp )
 
 Bool GameResultsQueue::getResponse( GameResultsResponse& resp )
 {
-	MutexClass::LockClass m(m_responseMutex, 0);
+	MutexClass::LockClass m(m_responseMutex, 100);
 	if (m.Failed())
 		return false;
 
