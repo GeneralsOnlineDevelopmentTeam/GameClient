@@ -19,6 +19,9 @@
 // This file contains WCHAR and related macros for compatibility with non-windows platforms.
 #pragma once
 
+#include <wchar.h>
+#include <string.h>
+
 // WCHAR
 typedef wchar_t WCHAR;
 typedef const WCHAR* LPCWSTR;
@@ -29,6 +32,82 @@ typedef WCHAR* LPWSTR;
 
 // MultiByteToWideChar
 #define CP_ACP 0
+#define CP_UTF8 65001
 #define MultiByteToWideChar(cp, flags, mbstr, cb, wcstr, cch) mbstowcs(wcstr, mbstr, cch)
-#define WideCharToMultiByte(cp, flags, wcstr, cch, mbstr, cb, defchar, used) wcstombs(mbstr, wcstr, cb)
+
+// WideCharToMultiByte implementation with proper NULL checking and bounds handling
+static inline int WideCharToMultiByte(
+    unsigned int cp,
+    unsigned long flags,
+    const wchar_t* wcstr,
+    int cch,
+    char* mbstr,
+    int cb,
+    const char* defchar,
+    int* used)
+{
+    // Validate input pointer
+    if (wcstr == NULL)
+    {
+        return 0;
+    }
+
+    // Calculate the source string length if cch is -1 (null-terminated string)
+    size_t src_len;
+    if (cch == -1)
+    {
+        src_len = wcslen(wcstr);
+    }
+    else if (cch == 0)
+    {
+        return 0;
+    }
+    else
+    {
+        src_len = (size_t)cch;
+    }
+
+    // If mbstr is NULL, we're querying the required buffer size
+    if (mbstr == NULL)
+    {
+        // Calculate the required buffer size
+        size_t required = wcstombs(NULL, wcstr, 0);
+        if (required == (size_t)-1)
+        {
+            return 0;
+        }
+        return (int)(required + 1); // +1 for null terminator
+    }
+
+    // Validate destination buffer size
+    if (cb <= 0)
+    {
+        return 0;
+    }
+
+    // Perform the conversion
+    // Note: We need to ensure we don't overflow the destination buffer
+    // wcstombs uses the buffer size as the max number of bytes to write
+    size_t result = wcstombs(mbstr, wcstr, (size_t)cb);
+    
+    if (result == (size_t)-1)
+    {
+        // Conversion error
+        return 0;
+    }
+
+    // Ensure null termination if there's space
+    if (result < (size_t)cb)
+    {
+        mbstr[result] = '\0';
+    }
+    else if (cb > 0)
+    {
+        // Buffer was too small, ensure null termination
+        mbstr[cb - 1] = '\0';
+        result = cb - 1;
+    }
+
+    return (int)result;
+}
 
