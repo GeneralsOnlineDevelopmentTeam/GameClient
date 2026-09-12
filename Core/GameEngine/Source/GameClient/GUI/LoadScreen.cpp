@@ -930,12 +930,30 @@ void ChallengeLoadScreen::init( GameInfo *game )
 	const Campaign *campaign = TheCampaignManager->getCurrentCampaign();
 	const Mission *mission = TheCampaignManager->getCurrentMission();
 
+	if ( !campaign || !mission )
+	{
+		DEBUG_LOG(("ChallengeLoadScreen::init - null campaign or mission, aborting load screen init"));
+		return;
+	}
+
+	if ( !TheChallengeGenerals )
+	{
+		DEBUG_LOG(("ChallengeLoadScreen::init - TheChallengeGenerals is null, aborting load screen init"));
+		return;
+	}
+
 	// the player general is tied to the campaign
 	const GeneralPersona* generalPlayer = TheChallengeGenerals->getPlayerGeneralByCampaignName( campaign->m_name );
 
 	// the opponent general is tied to the mission
 	DEBUG_ASSERTCRASH(mission->m_generalName.isNotEmpty(), ("No GeneralName associated with this mission, check Campaign.ini"));
 	const GeneralPersona* generalOpponent = TheChallengeGenerals->getGeneralByGeneralName( mission->m_generalName );
+
+	if ( !generalPlayer || !generalOpponent )
+	{
+		DEBUG_LOG(("ChallengeLoadScreen::init - null generalPlayer or generalOpponent, aborting load screen init"));
+		return;
+	}
 
 	// create the layout of the load screen
 	m_loadScreen = TheWindowManager->winCreateFromScript( "Menus/ChallengeLoadScreen.wnd" );
@@ -951,7 +969,12 @@ void ChallengeLoadScreen::init( GameInfo *game )
 	m_ambientLoop.setEventName("LoadScreenAmbient");
 
 	// create the new background video stream
-	m_videoStream = TheVideoPlayer->open( TheCampaignManager->getCurrentMission()->m_movieLabel );
+	m_videoStream = TheVideoPlayer->open( mission->m_movieLabel );
+
+	if ( m_videoStream == nullptr )
+	{
+		return;
+	}
 
 	// Create the new buffer
 	m_videoBuffer = TheDisplay->createVideoBuffer();
