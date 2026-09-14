@@ -7,6 +7,7 @@
 #include "../HTTP/HTTPManager.h"
 
 #include "Common/PlayerTemplate.h"
+#include "GameLogic/GameLogic.h"
 #include "GameNetwork/GameSpy/LadderDefs.h"
 
 #include <algorithm>
@@ -584,6 +585,7 @@ void NGMP_OnlineServices_StatsInterface::CommitMyOutcome(ScoreKeeper* pScoreKeep
             }
 		
 	    const bool desynced = TheNetwork->sawCRCMismatch();
+		const uint32_t duration = TheGameLogic->getFrame() / LOGICFRAMES_PER_SECOND;
 
 		nlohmann::json j;
 		j["buildings_built"] = buildingsBuilt;
@@ -597,6 +599,7 @@ void NGMP_OnlineServices_StatsInterface::CommitMyOutcome(ScoreKeeper* pScoreKeep
 		j["match_id"] = currentMatchID;
 		j["side"] = resolvedSide;
 		j["desynced"] = desynced;
+		j["duration"] = duration;
 
 		std::string strPostData = j.dump();
 	
