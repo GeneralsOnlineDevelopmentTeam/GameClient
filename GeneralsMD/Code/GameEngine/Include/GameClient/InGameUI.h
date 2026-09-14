@@ -485,6 +485,12 @@ public:  // ********************************************************************
 	virtual void postDraw();													///< Logic which needs to occur after the UI renders
 	virtual void postWindowDraw();											///< Logic which needs to occur after the WindowManager has repainted the menus
 
+	// Text primitives backing GOPluginHostAPI (see PluginABI.h); here rather than in the plugin
+	// framework because they need the message font members below. Only ever called from within
+	// DispatchDrawOverlay(), i.e. during postWindowDraw() where 2D drawing is already set up.
+	void drawPluginText2D(Int x, Int y, const char* asciiText, Color color);
+	void drawPluginText2DScaled(Int x, Int y, const char* asciiText, Color color, Real sizeScale, Bool bold);
+
 	/// Ingame video playback
 	virtual void playMovie(const AsciiString& movieName);
 	virtual void stopMovie();

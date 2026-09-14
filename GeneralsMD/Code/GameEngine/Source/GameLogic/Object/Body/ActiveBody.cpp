@@ -59,6 +59,7 @@
 #include "GameLogic/Module/ContainModule.h"
 #include "GameLogic/Module/DamageModule.h"
 #include "GameLogic/Module/DieModule.h"
+#include "GameNetwork/GeneralsOnline/Plugins/PluginManager.h"
 
 
 
@@ -619,6 +620,28 @@ void ActiveBody::attemptDamage( DamageInfo *damageInfo )
 
 				d->onDamage( damageInfo );
 			}
+
+			// !alreadyHandled matters: the kill-pilot, kill-garrisoned, status and subdual paths above
+			// skip internalChangeHealth, so m_prevHealth/m_currentHealth still hold the previous call's
+			// values and m_actualDamageClipped is that call's number. Without this the plugin gets a
+			// second, phantom event repeating damage it was already told about.
+			if (!alreadyHandled && GOPluginManager::HasGameplayEventHooks())
+			{
+				GOCombatEvent ev = {};
+				ev.objectId = (uint32_t)obj->getID();
+				ev.sourceObjectId = (damageInfo->in.m_sourceID != INVALID_ID) ? (uint32_t)damageInfo->in.m_sourceID : 0;
+				Player* owner = obj->getControllingPlayer();
+				ev.playerIndex = (owner != nullptr) ? (uint32_t)owner->getPlayerIndex() : 0;
+				ev.amount = (int32_t)(damageInfo->out.m_actualDamageClipped + 0.5f);
+				ev.isBuilding = obj->isKindOf(KINDOF_STRUCTURE) ? 1 : 0;
+				ev.isUnit = (obj->isKindOf(KINDOF_INFANTRY) || obj->isKindOf(KINDOF_VEHICLE)) ? 1 : 0;
+				ev.isFlame = (damageInfo->in.m_damageType == DAMAGE_FLAME) ? 1 : 0;
+				const Coord3D* pos = obj->getPosition();
+				ev.positionX = (pos != nullptr) ? pos->x : 0.0f;
+				ev.positionY = (pos != nullptr) ? pos->y : 0.0f;
+				ev.positionZ = (pos != nullptr) ? pos->z : 0.0f;
+				GOPluginManager::DispatchObjectDamaged(ev);
+			}
 		}
 
 		if (m_curDamageState != oldState)
@@ -857,6 +880,24 @@ void ActiveBody::attemptHealing( DamageInfo *damageInfo )
 					continue;
 
 				d->onHealing( damageInfo );
+			}
+
+			if (GOPluginManager::HasGameplayEventHooks())
+			{
+				GOCombatEvent ev = {};
+				ev.objectId = (uint32_t)obj->getID();
+				ev.sourceObjectId = (damageInfo->in.m_sourceID != INVALID_ID) ? (uint32_t)damageInfo->in.m_sourceID : 0;
+				Player* owner = obj->getControllingPlayer();
+				ev.playerIndex = (owner != nullptr) ? (uint32_t)owner->getPlayerIndex() : 0;
+				// m_actualDamageClipped is negative for healing; the ABI wants a positive amount.
+				ev.amount = (int32_t)(-damageInfo->out.m_actualDamageClipped + 0.5f);
+				ev.isBuilding = obj->isKindOf(KINDOF_STRUCTURE) ? 1 : 0;
+				ev.isUnit = (obj->isKindOf(KINDOF_INFANTRY) || obj->isKindOf(KINDOF_VEHICLE)) ? 1 : 0;
+				const Coord3D* pos = obj->getPosition();
+				ev.positionX = (pos != nullptr) ? pos->x : 0.0f;
+				ev.positionY = (pos != nullptr) ? pos->y : 0.0f;
+				ev.positionZ = (pos != nullptr) ? pos->z : 0.0f;
+				GOPluginManager::DispatchObjectHealed(ev);
 			}
 		}
 
