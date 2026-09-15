@@ -1657,8 +1657,12 @@ static void wolTryArmResumeFromReplay(Bool disarm)
 		wolLocalSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeVersionMismatch", L"Resume: the last replay was recorded with a different game version"));
 		return;
 	}
+	// A recording cut short by a crash never had its header frame count patched in.
+	UnsignedInt frameCount = header.frameCount;
+	if (frameCount == 0)
+		frameCount = TheRecorder->scanReplayLastFrame(replayName);
 	const UnsignedInt slackFrames = WOL_RESUME_HANDOFF_SLACK_SECONDS * LOGICFRAMES_PER_SECOND;
-	if (header.frameCount <= slackFrames)
+	if (frameCount <= slackFrames)
 	{
 		wolLocalSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeTooShort", L"Resume: the last replay is too short to resume"));
 		return;
@@ -1706,7 +1710,7 @@ static void wolTryArmResumeFromReplay(Bool disarm)
 		ls->setTeamNumber(rs->getTeamNumber());
 	}
 	pLobbyInterface->UpdateCurrentLobby_BulkSlotUpdate(game);
-	const UnsignedInt handoff = header.frameCount - slackFrames;
+	const UnsignedInt handoff = frameCount - slackFrames;
 	pLobbyInterface->UpdateCurrentLobby_ArmResume(std::string(replayName.str()), handoff, info.getSeed());
 	WOLDisplaySlotList();
 

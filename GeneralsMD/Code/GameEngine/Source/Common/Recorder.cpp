@@ -37,7 +37,11 @@
 #include "GameNetwork/NetworkInterface.h"
 #if defined(GENERALS_ONLINE)
 #include "GameNetwork/GeneralsOnline/NGMPGame.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
 extern NGMPGame* TheNGMPGame;
+#define RESUME_LOG(...) NetworkLog(ELogVerbosity::LOG_RELEASE, __VA_ARGS__)
+#else
+#define RESUME_LOG(...) DEBUG_LOG((__VA_ARGS__))
 #endif
 #include "GameClient/ClientInstance.h"
 #include "GameClient/GameWindow.h"
@@ -1347,6 +1351,10 @@ void RecorderClass::readNextFrame() {
 	if (bytesRead != sizeof(m_nextFrame)) {
 		DEBUG_LOG(("RecorderClass::readNextFrame - read failed on frame %d", TheGameLogic->getFrame()));
 		m_nextFrame = -1;
+		// Resume-from-replay catchup: running out of recorded frames ends the catchup
+		// (updateResumeCatchup hands off early), never the live game.
+		if (m_mode == RECORDERMODETYPE_RESUME_CATCHUP)
+			return;
 		stopPlayback();
 	}
 }
@@ -1868,8 +1876,57 @@ Bool RecorderClass::startResumeCatchup(AsciiString filename, UnsignedInt handoff
 		m_resumeSavedNetFrameRate = TheNetwork->setLogicFrameRate(CATCHUP_FRAME_RATE);
 	}
 
-	DEBUG_LOG(("RecorderClass::startResumeCatchup - catching up %s to frame %u", filename.str(), handoffFrame));
+	RESUME_LOG("Resume: catching up %s to frame %u (lead-in %d s, freeze %d s)", filename.str(), handoffFrame, RESUME_LEADIN_SECONDS, RESUME_FREEZE_SECONDS);
 	return TRUE;
+}
+
+/**
+ * Last frame number recorded in a replay, found by walking its records. The header's frame
+ * count is only patched in when a recording ends normally, so a recording cut short by a crash
+ * (the very file a resume is for) reads 0 there. Uses the recorder's analysis mode, in which
+ * appendNextCommand parses and discards instead of feeding TheCommandList. Lobby use only:
+ * refuses to run while the recorder has a file open.
+ */
+UnsignedInt RecorderClass::scanReplayLastFrame(AsciiString filename)
+{
+	if (m_file != nullptr || m_mode != RECORDERMODETYPE_NONE)
+		return 0;
+
+	ReplayHeader header;
+	header.forPlayback = TRUE;
+	header.filename = filename;
+	if (!readReplayHeader(header))
+		return 0;
+
+	// difficulty, original game mode, rank points, max FPS (see playbackFile)
+	Int skipped[4];
+	m_file->read(skipped, sizeof(skipped));
+
+	const Bool savedAnalysis = m_doingAnalysis;
+	m_doingAnalysis = TRUE;
+
+	UnsignedInt lastFrame = 0;
+	UnsignedInt frame = 0;
+	while (m_file != nullptr && m_file->read(&frame, sizeof(frame)) == sizeof(frame))
+	{
+		if (frame < lastFrame)
+			break; // torn tail: frame numbers only ever grow
+		lastFrame = frame;
+		const Int before = m_file->position();
+		appendNextCommand();
+		if (m_file == nullptr || m_file->position() == before)
+			break; // nothing more could be read
+	}
+
+	if (m_file != nullptr)
+	{
+		m_file->close();
+		m_file = nullptr;
+	}
+	m_doingAnalysis = savedAnalysis;
+	m_nextFrame = (UnsignedInt)-1;
+	m_mode = RECORDERMODETYPE_NONE;
+	return lastFrame;
 }
 
 /**
@@ -1944,6 +2001,7 @@ void RecorderClass::updateResumeCatchup()
 			TheFramePacer->setFramesPerSecondLimit(m_resumeSavedFpsLimit);
 		if (TheNetwork)
 			TheNetwork->setLogicFrameRate(m_resumeSavedNetFrameRate);
+		RESUME_LOG("Resume: lead-in reached at frame %u, back to realtime", curFrame);
 		if (TheInGameUI)
 			TheInGameUI->message(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeCatchupLeadIn",
 				L"Catching up: the last %d seconds play at normal speed", RESUME_LEADIN_SECONDS));
@@ -1991,7 +2049,7 @@ void RecorderClass::updateResumeCatchup()
 		if (m_resumeFreezeStartMs == 0)
 			m_resumeFreezeStartMs = 1;
 		m_resumeFreezeLastAnnounced = -1;
-		DEBUG_LOG(("RecorderClass::updateResumeCatchup - handoff at frame %u, freezing for %d s", curFrame, RESUME_FREEZE_SECONDS));
+		RESUME_LOG("Resume: handoff at frame %u (next replay frame %u), freezing for %d s", curFrame, m_nextFrame, RESUME_FREEZE_SECONDS);
 	}
 }
 
@@ -2011,6 +2069,7 @@ Bool RecorderClass::updateResumeFreeze()
 		if (remaining != m_resumeFreezeLastAnnounced && TheInGameUI)
 		{
 			m_resumeFreezeLastAnnounced = remaining;
+			RESUME_LOG("Resume: countdown %d", remaining);
 			TheInGameUI->message(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeCountdown",
 				L"Resuming in %d", remaining));
 		}
@@ -2021,7 +2080,7 @@ Bool RecorderClass::updateResumeFreeze()
 	m_resumeFreezeLastAnnounced = -1;
 	if (TheInGameUI)
 		TheInGameUI->message(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeHandoffComplete", L"Control handed back. Go!"));
-	DEBUG_LOG(("RecorderClass::updateResumeFreeze - freeze over, live play resumes"));
+	RESUME_LOG("Resume: freeze over at frame %u, live play resumes", TheGameLogic ? TheGameLogic->getFrame() : 0);
 	return FALSE;
 }
 

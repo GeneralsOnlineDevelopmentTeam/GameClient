@@ -834,8 +834,12 @@ static void tryArmResumeFromReplay()
 		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeVersionMismatch", L"Resume: the last replay was recorded with a different game version"));
 		return;
 	}
+	// A recording cut short by a crash never had its header frame count patched in.
+	UnsignedInt frameCount = header.frameCount;
+	if (frameCount == 0)
+		frameCount = TheRecorder->scanReplayLastFrame(replayName);
 	const UnsignedInt slackFrames = RESUME_HANDOFF_SLACK_SECONDS * LOGICFRAMES_PER_SECOND;
-	if (header.frameCount <= slackFrames)
+	if (frameCount <= slackFrames)
 	{
 		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeTooShort", L"Resume: the last replay is too short to resume"));
 		return;
@@ -859,12 +863,12 @@ static void tryArmResumeFromReplay()
 	game->setMapSize(info.getMapSize());
 	game->setSeed(info.getSeed());
 	game->setResumeReplayFile(replayName);
-	game->setResumeHandoffFrame(header.frameCount - slackFrames);
+	game->setResumeHandoffFrame(frameCount - slackFrames);
 	TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
 	lanUpdateSlotList();
 
 	s_resumeArmed = TRUE;
-	s_resumeArmedHandoffFrame = header.frameCount - slackFrames;
+	s_resumeArmedHandoffFrame = frameCount - slackFrames;
 
 	UnicodeString armed = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeArmed",
 		L"Resume armed: the next start replays %hs to %d:%02d, then hands control back",

@@ -159,6 +159,7 @@ public:
 	Bool startResumeCatchup(AsciiString filename, UnsignedInt handoffFrame);
 	void updateResumeCatchup();
 	Bool beginRecordingAfterResume();                ///< take the replay file over for recording so the resumed match is a complete replay
+	UnsignedInt scanReplayLastFrame(AsciiString filename); ///< last frame number in a replay; walks the records, for recordings whose header was never finalized (crash)
 	void initControls();															///< Show or Hide the Replay controls
 
 	static AsciiString getReplayDir();								///< Returns the directory that holds the replay files.
