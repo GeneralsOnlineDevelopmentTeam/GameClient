@@ -1,3 +1,27 @@
+/*
+**	Command & Conquer Generals Zero Hour(tm)
+**	Copyright 2025 Electronic Arts Inc.
+**
+**	This program is free software: you can redistribute it and/or modify
+**	it under the terms of the GNU General Public License as published by
+**	the Free Software Foundation, either version 3 of the License, or
+**	(at your option) any later version.
+**
+**	This program is distributed in the hope that it will be useful,
+**	but WITHOUT ANY WARRANTY; without even the implied warranty of
+**	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**	GNU General Public License for more details.
+**
+**	You should have received a copy of the GNU General Public License
+**	along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+// TheSuperHackers @feature bill-rich 15/09/2026 Lobby "Randomize" button. The placement mirrors
+// populateRandomSideAndColor / populateRandomStartPosition in GameLogic.cpp so the
+// lobby result looks like what a match start would have produced, but it is drawn
+// from an independent, clock-seeded RNG: nothing here consumes or predicts the
+// game-logic RNG that match start seeds from the lobby seed.
+
 #include "PreRTS.h"
 
 #include "GameNetwork/RandomAssign.h"
@@ -9,7 +33,6 @@
 
 #include <cstdlib>
 #include <cmath>
-#include <chrono>
 #include <vector>
 
 // Build the list of valid template indices for random assignment.
@@ -71,19 +94,18 @@ static void assignRandomFactions(GameInfo *game, const std::vector<Int> &validTe
 		Int colorIdx = slot->getColor();
 		if (colorIdx < 0 || colorIdx >= TheMultiplayerSettings->getNumColors())
 		{
+			// Pick uniformly among the colors nobody holds yet, so a full lobby
+			// never ends up with a slot left at -1 because a blind retry loop
+			// kept landing on taken colors.
+			std::vector<Int> freeColors;
 			Int numColors = TheMultiplayerSettings->getNumColors();
-			if (numColors > 0)
+			for (Int c = 0; c < numColors; ++c)
 			{
-				colorIdx = -1;
-				for (Int attempt = 0; attempt < numColors * 2 && colorIdx == -1; ++attempt)
-				{
-					Int candidate = rand() % numColors;
-					if (!game->isColorTaken(candidate))
-						colorIdx = candidate;
-				}
-				if (colorIdx >= 0)
-					slot->setColor(colorIdx);
+				if (!game->isColorTaken(c))
+					freeColors.push_back(c);
 			}
+			if (!freeColors.empty())
+				slot->setColor(freeColors[rand() % freeColors.size()]);
 		}
 	}
 }
@@ -102,6 +124,9 @@ static void assignRandomPositions(GameInfo *game)
 
 	if (numPlayers <= 0)
 		return;
+	// The per-spot tables below are MAX_SLOTS wide; never index past them.
+	if (numPlayers > MAX_SLOTS)
+		numPlayers = MAX_SLOTS;
 
 	// Build distance matrix between all start positions using map waypoints
 	static const WaypointMap s_emptyWaypoints = {};
@@ -298,7 +323,8 @@ void performRandomAssign(GameInfo *game, const std::vector<Int> &lockedTemplates
 	if (!game)
 		return;
 
-	srand(static_cast<unsigned int>(std::chrono::steady_clock::now().time_since_epoch().count()));
+	// Clock-seeded CRT RNG, independent of the game-logic RNG (see header).
+	srand((unsigned int)timeGetTime());
 
 	// Phase 1: Assign factions and colors for random slots
 	std::vector<Int> validTemplates;

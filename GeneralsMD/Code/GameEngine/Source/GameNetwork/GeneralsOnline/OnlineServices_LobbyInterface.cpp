@@ -496,7 +496,10 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_BulkSlotUpdate(NGMPGame* game)
 {
+	// reset autostart if host changes anything (because ready flag will reset too)
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
 	ClearAutoReadyCountdown();
+#endif
 	if (TheNGMPGame && TheNGMPGame->IsCountdownStarted())
 		TheNGMPGame->StopCountdown();
 
