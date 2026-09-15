@@ -979,8 +979,16 @@ static void WOLLockSettings()
 	}
 }
 
+static Bool wolArmedResumeStillMatches(NGMPGame *game);
 static void StartPressed()
 {
+	// An armed resume only works if the lobby still matches the recording.
+	{
+		NGMP_OnlineServices_LobbyInterface* pResumeLobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+		NGMPGame *resumeGame = pResumeLobby ? pResumeLobby->GetCurrentGame() : nullptr;
+		if (resumeGame != nullptr && !resumeGame->getResumeReplayFile().isEmpty() && !wolArmedResumeStillMatches(resumeGame))
+			return;
+	}
 	Bool isReady = TRUE;
 	Bool allHaveMap = TRUE;
 	Int playerCount = 0;
@@ -1619,6 +1627,59 @@ static void wolLocalSystemChat(const UnicodeString &text)
 		GadgetListBoxAddEntryText(listboxGameSetupChat, text, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 }
 
+// Roster problems go to the whole lobby: the player who has to fix something is
+// usually not the host.
+static void wolLobbySystemChat(const UnicodeString &text)
+{
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	UnicodeString msg = text;
+	if (pLobbyInterface != nullptr)
+		pLobbyInterface->SendAnnouncementMessageToCurrentLobby(msg, true);
+	else
+		wolLocalSystemChat(text);
+}
+
+// The lobby must line up with the recording slot for slot (the service owns slot
+// order, so nothing here reorders anything).
+static Bool wolLobbySlotsMatchReplay(const ReplayGameInfo &replayInfo, const GameInfo *lobby, UnicodeString &why)
+{
+	for (Int i = 0; i < MAX_SLOTS; ++i)
+	{
+		const GameSlot *rs = replayInfo.getConstSlot(i);
+		const GameSlot *ls = lobby->getConstSlot(i);
+		const Bool replayHuman = rs && rs->isHuman();
+		const Bool lobbyHuman = ls && ls->isHuman();
+		if (replayHuman == lobbyHuman && (!replayHuman || rs->getName().compare(ls->getName()) == 0))
+			continue;
+		if (replayHuman)
+			why = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeSlotMismatch",
+				L"Resume: slot %d must be %ls (it was theirs in the recording)", i + 1, rs->getName().str());
+		else
+			why = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeSlotExtra",
+				L"Resume: slot %d was not a player in the recording, close it or move %ls", i + 1, ls->getName().str());
+		return FALSE;
+	}
+	return TRUE;
+}
+
+// Called on the host's start while a resume is armed: refuse when the lobby has
+// drifted from the recording since arming.
+static Bool wolArmedResumeStillMatches(NGMPGame *game)
+{
+	RecorderClass::ReplayHeader header;
+	ReplayGameInfo info;
+	const MapMetaData *mapData = nullptr;
+	UnicodeString why;
+	if (!readReplayMapInfo(game->getResumeReplayFile(), header, info, mapData))
+		why = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeHeaderUnreadable", L"Resume: the last replay could not be read");
+	else if (wolLobbySlotsMatchReplay(info, game, why))
+		return TRUE;
+	wolLobbySystemChat(why);
+	wolLobbySystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeStartRefused",
+		L"Resume is armed and the lobby no longer matches the recording. Fix it, or type /resume off to start a fresh game."));
+	return FALSE;
+}
+
 static void wolTryArmResumeFromReplay(Bool disarm)
 {
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
@@ -1675,25 +1736,12 @@ static void wolTryArmResumeFromReplay(Bool disarm)
 	}
 
 	// Every human must sit in the slot they held in the replay; slot order is the
-	// service's, so report the first difference instead of reordering.
-	for (Int i = 0; i < MAX_SLOTS; ++i)
+	// service's, so tell the lobby the first difference instead of reordering.
+	UnicodeString why;
+	if (!wolLobbySlotsMatchReplay(info, game, why))
 	{
-		const GameSlot *rs = info.getConstSlot(i);
-		const GameSlot *ls = game->getConstSlot(i);
-		const Bool replayHuman = rs && rs->isHuman();
-		const Bool lobbyHuman = ls && ls->isHuman();
-		if (replayHuman != lobbyHuman || (replayHuman && rs->getName().compare(ls->getName()) != 0))
-		{
-			UnicodeString msg;
-			if (replayHuman)
-				msg = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeSlotMismatch",
-					L"Resume: slot %d must be %ls (it was theirs in the replay)", i + 1, rs->getName().str());
-			else
-				msg = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeSlotExtra",
-					L"Resume: slot %d was not a player in the replay, close it or move %ls", i + 1, ls->getName().str());
-			wolLocalSystemChat(msg);
-			return;
-		}
+		wolLobbySystemChat(why);
+		return;
 	}
 
 	// Restore the recorded faction, color, start position and team on every human
