@@ -3807,10 +3807,20 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	}
 
 #if defined(GENERALS_ONLINE)
+	else if (token == "resume")
+	{
+		// resume-from-replay arming lives behind a chat command so no layout change is needed
+		AsciiString arg;
+		remainder.nextToken(&arg);
+		arg.toLower();
+		wolTryArmResumeFromReplay(arg == "off");
+		return TRUE; // was a slash command
+	}
 	else if (token == "help" || token == "commands")
 	{
 		const Color helpColor = GameMakeColor(127, 127, 127, 255);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/me <message> - Send an emote."), helpColor, -1, -1);
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/resume - Resume the last recorded match from its replay; /resume off disarms (host only)."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/friendsonly - Let only friends join (host only)."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/public - Let anyone join (host only)."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/setpassword <password> - Set a lobby password (host only)."), helpColor, -1, -1);
@@ -4296,12 +4306,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 					if (!txtInput.isEmpty())
 					{
 						NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-						if (txtInput.compareNoCase(L"/resume") == 0 || txtInput.compareNoCase(L"/resume off") == 0)
-						{
-							// resume-from-replay arming lives behind a chat command so no layout change is needed
-							wolTryArmResumeFromReplay(txtInput.compareNoCase(L"/resume off") == 0);
-						}
-						else if (pLobbyInterface != nullptr)
+						if (pLobbyInterface != nullptr)
 						{
 							pLobbyInterface->SendChatMessageToCurrentLobby(txtInput, false);
 						}
