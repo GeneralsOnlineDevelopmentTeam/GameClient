@@ -50,7 +50,8 @@ enum RecorderModeType CPP_11(: Int) {
 	RECORDERMODETYPE_RECORD,
 	RECORDERMODETYPE_PLAYBACK,
 	RECORDERMODETYPE_SIMULATION_PLAYBACK, // Play back replay without any graphics
-	RECORDERMODETYPE_NONE // this is a valid state to be in on the shell map, or in saved games
+	RECORDERMODETYPE_NONE, // this is a valid state to be in on the shell map, or in saved games
+	RECORDERMODETYPE_RESUME_CATCHUP // Resume-from-replay: feed replay commands into a live network game until the handoff frame.
 };
 
 class RecorderClass : public SubsystemInterface
@@ -138,6 +139,26 @@ public:
 
 	RecorderModeType getMode();												///< Returns the current operating mode.
 	Bool isPlaybackMode() const { return m_mode == RECORDERMODETYPE_PLAYBACK || m_mode == RECORDERMODETYPE_SIMULATION_PLAYBACK; }
+
+	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay.
+	//
+	// Every client opens its own copy of the same replay when the game starts and
+	// injects its recorded commands frame by frame while the live network game runs
+	// in lockstep at an uncapped rate (catchup). The last RESUME_LEADIN_SECONDS before
+	// the handoff frame run at normal speed (lead-in), then the simulation is held for
+	// RESUME_FREEZE_SECONDS of wall-clock time with a countdown (freeze), and finally
+	// control is handed back to the players. Camera scrolling works throughout; every
+	// other interaction is blocked until the freeze ends (see isResumeInputBlocked).
+	static const Int RESUME_LEADIN_SECONDS = 10;
+	static const Int RESUME_FREEZE_SECONDS = 10;
+	Bool isResumeCatchupMode() const { return m_mode == RECORDERMODETYPE_RESUME_CATCHUP; }
+	Bool isResumeCatchupLeadIn() const;              ///< catchup, within the last RESUME_LEADIN_SECONDS before handoff
+	Bool isResumeFreezeActive() const { return m_resumeFreezeStartMs != 0; } ///< handoff reached, holding the sim with a countdown
+	Bool isResumeInputBlocked() const { return isResumeCatchupMode() || isResumeFreezeActive(); }
+	Bool updateResumeFreeze();                       ///< pumped every engine frame by Network::update; TRUE while frames must not advance
+	Bool startResumeCatchup(AsciiString filename, UnsignedInt handoffFrame);
+	void updateResumeCatchup();
+	Bool beginRecordingAfterResume();                ///< take the replay file over for recording so the resumed match is a complete replay
 	void initControls();															///< Show or Hide the Replay controls
 
 	static AsciiString getReplayDir();								///< Returns the directory that holds the replay files.
@@ -198,6 +219,15 @@ protected:
 	Int m_originalGameMode; // valid in replays
 
 	UnsignedInt m_nextFrame;												///< The Frame that the next message is to be executed on.  This can be -1.
+
+	// resume-from-replay state (see the accessors above)
+	UnsignedInt m_resumeHandoffFrame;								///< frame at which replay injection stops and the freeze begins
+	Int m_resumeSavedFpsLimit;											///< render FPS limit to restore after catchup
+	Int m_resumeSavedNetFrameRate;									///< network logic frame rate to restore after catchup
+	Int m_resumeRecordPos;													///< byte offset just past the last replayed record; beginRecordingAfterResume truncates here
+	Bool m_resumeRatesRestored;											///< lead-in reached and the rate caps are back to normal
+	UnsignedInt m_resumeFreezeStartMs;							///< wall-clock start of the freeze, 0 when not frozen
+	Int m_resumeFreezeLastAnnounced;								///< last countdown second shown
 };
 
 extern RecorderClass *TheRecorder;

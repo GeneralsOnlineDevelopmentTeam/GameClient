@@ -1510,6 +1510,24 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 
 			newRunAhead = clamp<Int>(minRunAheadForClamp, newRunAhead, MAX_FRAMES_AHEAD / 2);
 
+			// TheSuperHackers @feature bill-rich 15/09/2026 During resume-from-replay catchup Network::update()
+			// drops the realtime frame gate, so the only thing bounding how fast we
+			// replay is lockstep: a frame advances once every peer's commands for it have
+			// arrived. Throughput is (frames in flight) / (packet send interval), and
+			// processRunAheadCommand derives that interval from runAhead and frameRate.
+			// The values negotiated above are tuned for realtime play and are hostile
+			// here (a low-latency LAN bottoms out at MIN_RUNAHEAD, barely 2x realtime),
+			// so pin a deep pipeline and a short send interval instead. The lead-in
+			// (last seconds before handoff) falls through to the normal negotiation so
+			// run-ahead and frame rate re-converge before control is handed back.
+			const Bool pinCatchupRates = TheRecorder
+				&& TheRecorder->isResumeCatchupMode()
+				&& !TheRecorder->isResumeCatchupLeadIn();
+			if (pinCatchupRates) {
+				newRunAhead = CATCHUP_RUNAHEAD;
+				minFps      = CATCHUP_FRAME_RATE;
+			}
+
 			NetRunAheadCommandMsg* msg = newInstance(NetRunAheadCommandMsg);
 			msg->setPlayerID(m_localSlot);
 			if (DoesCommandRequireACommandID(msg->getNetCommandType())) {
@@ -1582,14 +1600,17 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 
 			// Let the player with the slowest FPS run a little faster than the other computers...
 			// just in case they are able to.  Then we might be able to run the game faster which would be good.
-			Int newMinFps = (minFps * 11) / 10;
-			if (newMinFps == minFps) {
-				newMinFps = minFps + 1;
-			}
-
-
-			if (newMinFps > TheNetwork->getFrameRate()) {
-				newMinFps = TheNetwork->getFrameRate(); // Cap FPS to network frame rate.
+			// During catchup every peer must derive the SAME packet send interval, so the
+			// slowest-player nudge and the network frame-rate cap are skipped.
+			Int newMinFps = minFps;
+			if (!pinCatchupRates) {
+				newMinFps = (minFps * 11) / 10;
+				if (newMinFps == minFps) {
+					newMinFps = minFps + 1;
+				}
+				if (newMinFps > TheNetwork->getFrameRate()) {
+					newMinFps = TheNetwork->getFrameRate(); // Cap FPS to network frame rate.
+				}
 			}
 			msg2->setRunAhead(newRunAhead);
 			msg2->setFrameRate(newMinFps);

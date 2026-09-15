@@ -31,6 +31,10 @@
 #include "Common/Player.h"
 #include "Common/GlobalData.h"
 #include "Common/GameEngine.h"
+#include "Common/FramePacer.h"
+#include "GameNetwork/LANAPI.h"
+#include "GameNetwork/NetworkDefs.h"
+#include "GameNetwork/NetworkInterface.h"
 #include "GameClient/ClientInstance.h"
 #include "GameClient/GameWindow.h"
 #include "GameClient/GameWindowManager.h"
@@ -383,6 +387,14 @@ void RecorderClass::init() {
 	m_doingAnalysis = FALSE;
 	m_playbackFrameCount = 0;
 
+	m_resumeHandoffFrame = 0;
+	m_resumeSavedFpsLimit = 0;
+	m_resumeSavedNetFrameRate = 0;
+	m_resumeRecordPos = 0;
+	m_resumeRatesRestored = FALSE;
+	m_resumeFreezeStartMs = 0;
+	m_resumeFreezeLastAnnounced = -1;
+
 	OptionPreferences optionPref;
 	m_archiveReplays = optionPref.getArchiveReplaysEnabled();
 }
@@ -405,7 +417,10 @@ void RecorderClass::reset() {
  * Do the update for this frame.
  */
 void RecorderClass::update() {
-	if (m_mode == RECORDERMODETYPE_RECORD || m_mode == RECORDERMODETYPE_NONE) {
+	if (m_mode == RECORDERMODETYPE_RESUME_CATCHUP) {
+		updateResumeCatchup();
+	}
+	else if (m_mode == RECORDERMODETYPE_RECORD || m_mode == RECORDERMODETYPE_NONE) {
 		updateRecord();
 	}
 	else if (isPlaybackMode()) {
@@ -489,7 +504,22 @@ void RecorderClass::updateRecord()
 			if (msg->getArgumentCount() >= 4)
 				maxFPS = msg->getArgument(3)->integer;
 
-			startRecording(diff, m_originalGameMode, rankPoints, maxFPS);
+			// TheSuperHackers @feature bill-rich 15/09/2026 If the lobby armed a resume-from-replay, switch into
+			// catchup instead of starting a fresh recording: catchup opens the replay for
+			// READ, while startRecording would open it for WRITE and truncate the very
+			// file we need to read from. Falls back to a normal recording if setup fails.
+			const GameInfo *armedGame = TheGameInfo;
+			if (armedGame == nullptr && TheLAN != nullptr)
+				armedGame = TheLAN->GetMyGame();
+			const Bool armedResume = armedGame != nullptr && !armedGame->getResumeReplayFile().isEmpty();
+			if (armedResume && startResumeCatchup(armedGame->getResumeReplayFile(), armedGame->getResumeHandoffFrame()))
+			{
+				DEBUG_LOG(("RecorderClass::updateRecord() - resume catchup armed to frame %u", armedGame->getResumeHandoffFrame()));
+			}
+			else
+			{
+				startRecording(diff, m_originalGameMode, rankPoints, maxFPS);
+			}
 		}
 		else if (msg->getType() == GameMessage::MSG_CLEAR_GAME_DATA) {
 			if (m_file != nullptr) {
@@ -1734,6 +1764,255 @@ Bool RecorderClass::isMultiplayer()
 		return true;
 
 	return false;
+}
+
+//-------------------------------------------------------------------------------------------------
+// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay. See Recorder.h for the phase overview.
+//-------------------------------------------------------------------------------------------------
+
+Bool RecorderClass::isResumeCatchupLeadIn() const
+{
+	if (!isResumeCatchupMode())
+		return FALSE;
+	const UnsignedInt leadInFrames = RESUME_LEADIN_SECONDS * LOGICFRAMES_PER_SECOND;
+	const UnsignedInt curFrame = TheGameLogic ? TheGameLogic->getFrame() : 0;
+	return m_resumeHandoffFrame >= leadInFrames && curFrame >= m_resumeHandoffFrame - leadInFrames;
+}
+
+static UnicodeString formatGameTime(UnsignedInt frames)
+{
+	const UnsignedInt seconds = frames / LOGICFRAMES_PER_SECOND;
+	UnicodeString text;
+	text.format(L"%d:%02d", seconds / 60, seconds % 60);
+	return text;
+}
+
+/**
+ * Open the given replay, skip its header, prime the first frame of commands and switch the
+ * recorder into RECORDERMODETYPE_RESUME_CATCHUP. While in catchup, update() calls
+ * updateResumeCatchup() instead of updateRecord()/updatePlayback(): the replay's commands are
+ * injected into TheCommandList each frame while the live network keeps running in lockstep.
+ */
+Bool RecorderClass::startResumeCatchup(AsciiString filename, UnsignedInt handoffFrame)
+{
+	if (m_file != nullptr)
+	{
+		m_file->close();
+		m_file = nullptr;
+	}
+	m_mode = RECORDERMODETYPE_NONE;
+
+	ReplayHeader header;
+	header.forPlayback = TRUE;
+	header.filename = filename;
+	if (!readReplayHeader(header))
+	{
+		DEBUG_LOG(("RecorderClass::startResumeCatchup - readReplayHeader failed for %s", filename.str()));
+		return FALSE;
+	}
+
+	// playbackFile consumes these four values between the header and the command stream;
+	// mirror it or readNextFrame reads the difficulty as a frame number.
+	Int difficulty = 0;
+	m_file->read(&difficulty, sizeof(difficulty));
+	m_file->read(&m_originalGameMode, sizeof(m_originalGameMode));
+	Int rankPoints = 0;
+	m_file->read(&rankPoints, sizeof(rankPoints));
+	Int maxFPS = 0;
+	m_file->read(&maxFPS, sizeof(maxFPS));
+
+	m_mode = RECORDERMODETYPE_RESUME_CATCHUP;
+	m_resumeHandoffFrame = handoffFrame;
+	m_currentReplayFilename = filename;
+	m_resumeRatesRestored = FALSE;
+	m_resumeFreezeStartMs = 0;
+	m_resumeFreezeLastAnnounced = -1;
+
+	// Everything up to here is header. beginRecordingAfterResume keeps the file up to
+	// m_resumeRecordPos and appends the live game after it.
+	m_resumeRecordPos = m_file->position();
+
+	readNextFrame();
+
+	// Nothing may be selected when catchup starts: selection is blocked from here on and
+	// a pre-existing selection would be a way to issue commands with the right mouse button.
+	if (TheInGameUI)
+	{
+		TheInGameUI->deselectAllDrawables();
+		TheInGameUI->message(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeCatchupStart",
+			L"Resuming from replay: fast-forwarding to %ls", formatGameTime(handoffFrame).str()));
+	}
+
+	// Two gates cap the logic rate: the render FPS limit and the network's own per-frame
+	// timing (Network::timeForNewFrame). Raise both; lockstep is unchanged, every frame
+	// still waits for every peer's commands, just without the realtime pacing.
+	if (TheFramePacer)
+	{
+		m_resumeSavedFpsLimit = TheFramePacer->getFramesPerSecondLimit();
+		if (m_resumeSavedFpsLimit <= 0)
+			m_resumeSavedFpsLimit = LOGICFRAMES_PER_SECOND; // never restore a 0, FrameRateLimit::wait would spin forever
+		TheFramePacer->setFramesPerSecondLimit(1000);
+	}
+	if (TheNetwork)
+	{
+		m_resumeSavedNetFrameRate = TheNetwork->setLogicFrameRate(CATCHUP_FRAME_RATE);
+	}
+
+	DEBUG_LOG(("RecorderClass::startResumeCatchup - catching up %s to frame %u", filename.str(), handoffFrame));
+	return TRUE;
+}
+
+/**
+ * Hand the replay file over from catchup (reading) to recording (writing). The armed file already
+ * holds the header plus every frame up to the handoff, so keep those bytes and append the live
+ * game to them: one complete replay of the whole match, and stopRecording() runs at the end with
+ * everything that hangs off it. Truncates after the last record actually replayed so the old
+ * tail (already-played frames, the old MSG_CLEAR_GAME_DATA) cannot follow the new commands.
+ */
+Bool RecorderClass::beginRecordingAfterResume()
+{
+	if (m_file == nullptr || m_resumeRecordPos <= 0)
+		return FALSE;
+
+	// Replays are command logs, so the prefix is small; buffer it rather than truncate in place.
+	const Int prefixLen = m_resumeRecordPos;
+	char *prefix = NEW char[prefixLen];
+	m_file->seek(0, File::seekMode::START);
+	const Int got = m_file->read(prefix, prefixLen);
+	m_file->close();
+	m_file = nullptr;
+
+	if (got != prefixLen)
+	{
+		DEBUG_LOG(("RecorderClass::beginRecordingAfterResume - short read of replay prefix (%d of %d)", got, prefixLen));
+		delete [] prefix;
+		return FALSE;
+	}
+
+	AsciiString fileName = getLastReplayFileName();
+	fileName.concat(getReplayExtention());
+
+	AsciiString filepath = getReplayDir();
+	TheFileSystem->createDirectory(filepath);
+	filepath.concat(fileName);
+
+	// WRITE truncates, which is the truncate-at-prefix we want.
+	m_file = TheFileSystem->openFile(filepath.str(), File::WRITE | File::BINARY);
+	if (m_file == nullptr)
+	{
+		DEBUG_LOG(("RecorderClass::beginRecordingAfterResume - could not reopen %s for recording", filepath.str()));
+		delete [] prefix;
+		return FALSE;
+	}
+
+	m_file->write(prefix, prefixLen);
+	delete [] prefix;
+	m_file->flush();
+
+	m_fileName = fileName;
+	m_mode     = RECORDERMODETYPE_RECORD;
+	DEBUG_LOG(("RecorderClass::beginRecordingAfterResume - recording resumed game into %s from offset %d", fileName.str(), prefixLen));
+	return TRUE;
+}
+
+/**
+ * Per-frame update for RECORDERMODETYPE_RESUME_CATCHUP: inject the replay's recorded commands
+ * for the current logic frame, drop the rate caps for the lead-in, and start the freeze when
+ * the handoff frame is reached (or the replay runs out first). Unlike stopPlayback this does NOT
+ * call exitGame; the network session continues uninterrupted.
+ */
+void RecorderClass::updateResumeCatchup()
+{
+	const UnsignedInt curFrame = TheGameLogic ? TheGameLogic->getFrame() : 0;
+
+	// Lead-in: back to realtime so players get a normal-speed look at the last seconds
+	// before the handoff. If the handoff is closer than that to the start, stay fast.
+	if (!m_resumeRatesRestored && isResumeCatchupLeadIn())
+	{
+		m_resumeRatesRestored = TRUE;
+		if (TheFramePacer)
+			TheFramePacer->setFramesPerSecondLimit(m_resumeSavedFpsLimit);
+		if (TheNetwork)
+			TheNetwork->setLogicFrameRate(m_resumeSavedNetFrameRate);
+		if (TheInGameUI)
+			TheInGameUI->message(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeCatchupLeadIn",
+				L"Catching up: the last %d seconds play at normal speed", RESUME_LEADIN_SECONDS));
+	}
+
+	// NOTE: cullBadCommands() is intentionally skipped here. It strips every command in
+	// the network range from TheCommandList, which is exactly what appendNextCommand adds,
+	// and the live network layer writes into the same list each frame. Local input is
+	// blocked at its sources instead (isResumeInputBlocked).
+
+	// Inject every command recorded for this frame, including the handoff frame itself:
+	// GameLogic's CRC validation resumes right after catchup ends and expects the CRC
+	// messages of that frame to be present.
+	while (m_nextFrame == curFrame && curFrame <= m_resumeHandoffFrame)
+	{
+		appendNextCommand();
+		m_resumeRecordPos = m_file->position();
+		readNextFrame();
+	}
+
+	if (curFrame >= m_resumeHandoffFrame || m_nextFrame == (UnsignedInt)-1)
+	{
+		// Take the replay file over for recording rather than dropping it (see above).
+		if (!beginRecordingAfterResume())
+		{
+			DEBUG_LOG(("RecorderClass::updateResumeCatchup - could not take over the replay file for recording"));
+			if (m_file != nullptr)
+			{
+				m_file->close();
+				m_file = nullptr;
+			}
+			m_mode = RECORDERMODETYPE_NONE;
+		}
+		m_currentReplayFilename.clear();
+
+		// Restore both rate caps in case the lead-in never happened.
+		if (TheFramePacer)
+			TheFramePacer->setFramesPerSecondLimit(m_resumeSavedFpsLimit);
+		if (TheNetwork)
+			TheNetwork->setLogicFrameRate(m_resumeSavedNetFrameRate);
+
+		// Hold the simulation with a countdown before control comes back. Network::update
+		// polls updateResumeFreeze() and refuses to advance frames while it returns TRUE.
+		m_resumeFreezeStartMs = timeGetTime();
+		if (m_resumeFreezeStartMs == 0)
+			m_resumeFreezeStartMs = 1;
+		m_resumeFreezeLastAnnounced = -1;
+		DEBUG_LOG(("RecorderClass::updateResumeCatchup - handoff at frame %u, freezing for %d s", curFrame, RESUME_FREEZE_SECONDS));
+	}
+}
+
+/**
+ * Pumped from Network::update() every engine frame (GameLogic, and with it the recorder's own
+ * update, does not run while frames are held). Shows the countdown and ends the freeze.
+ */
+Bool RecorderClass::updateResumeFreeze()
+{
+	if (m_resumeFreezeStartMs == 0)
+		return FALSE;
+
+	const UnsignedInt elapsedMs = timeGetTime() - m_resumeFreezeStartMs;
+	const Int remaining = RESUME_FREEZE_SECONDS - (Int)(elapsedMs / 1000);
+	if (remaining > 0)
+	{
+		if (remaining != m_resumeFreezeLastAnnounced && TheInGameUI)
+		{
+			m_resumeFreezeLastAnnounced = remaining;
+			TheInGameUI->message(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeCountdown",
+				L"Resuming in %d", remaining));
+		}
+		return TRUE;
+	}
+
+	m_resumeFreezeStartMs = 0;
+	m_resumeFreezeLastAnnounced = -1;
+	if (TheInGameUI)
+		TheInGameUI->message(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeHandoffComplete", L"Control handed back. Go!"));
+	DEBUG_LOG(("RecorderClass::updateResumeFreeze - freeze over, live play resumes"));
+	return FALSE;
 }
 
 /**

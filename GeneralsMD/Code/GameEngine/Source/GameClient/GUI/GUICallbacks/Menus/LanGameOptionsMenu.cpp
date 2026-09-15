@@ -59,6 +59,9 @@
 #include "Common/MultiplayerSettings.h"
 #include "GameClient/GameText.h"
 #include "GameNetwork/GUIUtil.h"
+#include "Common/Recorder.h"
+#include "Common/Version.h"
+#include "GameClient/MapUtil.h"
 
 
 extern char *LANnextScreen;
@@ -112,6 +115,7 @@ static NameKeyType buttonBackID = NAMEKEY_INVALID;
 static NameKeyType buttonStartID = NAMEKEY_INVALID;
 static NameKeyType buttonEmoteID = NAMEKEY_INVALID;
 static NameKeyType buttonSelectMapID = NAMEKEY_INVALID;
+static NameKeyType buttonResumeFromReplayID = NAMEKEY_INVALID;
 static NameKeyType checkboxLimitSuperweaponsID = NAMEKEY_INVALID;
 static NameKeyType comboBoxStartingCashID = NAMEKEY_INVALID;
 static NameKeyType windowMapID = NAMEKEY_INVALID;
@@ -120,6 +124,7 @@ static GameWindow *parentLanGameOptions = nullptr;
 static GameWindow *buttonBack = nullptr;
 static GameWindow *buttonStart = nullptr;
 static GameWindow *buttonSelectMap = nullptr;
+static GameWindow *buttonResumeFromReplay = nullptr; // optional: only present in updated .wnd layouts
 static GameWindow *buttonEmote = nullptr;
 static GameWindow *textEntryChat = nullptr;
 static GameWindow *textEntryMapDisplay = nullptr;
@@ -668,6 +673,205 @@ void lanUpdateSlotList()
 //-------------------------------------------------------------------------------------------------
 /** Initialize the Gadgets Options Menu */
 //-------------------------------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay arming (host only).
+//
+// The host arms the last recorded replay (00000000.rep); every client in the
+// lobby is expected to hold its own recording of that same match under the same
+// name. Arming aligns the lobby with the replay (slot order, factions, colors,
+// start spots, teams and the replay's seed) and broadcasts the replay name plus
+// the handoff frame in the game options (RF= / RHF=). On game start the recorder
+// on every client replays that file in lockstep up to the handoff frame before
+// live control resumes (see RecorderClass::startResumeCatchup).
+// -----------------------------------------------------------------------------
+
+extern Bool readReplayMapInfo(const AsciiString& filename, RecorderClass::ReplayHeader &header, ReplayGameInfo &info, const MapMetaData *&mapData);
+
+// The handoff sits this far before the end of the recording, so a client whose
+// recording stopped a little earlier (the one that crashed) still has every frame
+// the others will replay.
+static const Int RESUME_HANDOFF_SLACK_SECONDS = 10;
+
+static Bool s_resumeArmed = FALSE;
+static UnsignedInt s_resumeArmedHandoffFrame = 0;
+
+static void lanSystemChat(const UnicodeString &text)
+{
+	if (TheLAN)
+		TheLAN->OnChat(L"SYSTEM", TheLAN->GetLocalIP(), text, LANAPI::LANCHAT_SYSTEM);
+}
+
+// Every human in the replay must be in the lobby under the same name, the host
+// must be the replay's slot-0 player, and nobody extra may be present.
+static Bool validateResumeRoster(const ReplayGameInfo &replayInfo, LANGameInfo *lobby, UnicodeString &statusOut)
+{
+	Int i;
+	Int replayCount = 0;
+	Int lobbyCount = 0;
+	for (i = 0; i < MAX_SLOTS; ++i)
+	{
+		const GameSlot *rs = replayInfo.getConstSlot(i);
+		if (rs && rs->isHuman())
+			++replayCount;
+		const GameSlot *ls = lobby->getConstSlot(i);
+		if (ls && ls->isHuman())
+			++lobbyCount;
+	}
+	if (replayCount != lobbyCount)
+	{
+		statusOut = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeCountMismatch",
+			L"Resume: the lobby has %d players but the replay has %d", lobbyCount, replayCount);
+		return FALSE;
+	}
+
+	const GameSlot *replayHost = replayInfo.getConstSlot(0);
+	const GameSlot *lobbyHost = lobby->getConstSlot(0);
+	if (!replayHost || !lobbyHost || !replayHost->isHuman() || replayHost->getName().compare(lobbyHost->getName()) != 0)
+	{
+		statusOut = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeHostMismatch",
+			L"Resume: only %ls, the host of the recorded game, can resume it", replayHost ? replayHost->getName().str() : L"?");
+		return FALSE;
+	}
+
+	for (i = 0; i < MAX_SLOTS; ++i)
+	{
+		const GameSlot *rs = replayInfo.getConstSlot(i);
+		if (!rs || !rs->isHuman())
+			continue;
+		Bool found = FALSE;
+		for (Int j = 0; j < MAX_SLOTS && !found; ++j)
+		{
+			const GameSlot *ls = lobby->getConstSlot(j);
+			found = ls && ls->isHuman() && ls->getName().compare(rs->getName()) == 0;
+		}
+		if (!found)
+		{
+			statusOut = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeMissingPlayer",
+				L"Resume: %ls is not in the lobby", rs->getName().str());
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+// Put every human back into the slot they held in the replay and restore the
+// recorded faction, color, start position and team. Recorded commands are indexed
+// by slot position, so the lobby must line up with the recording exactly. Slot 0 is
+// never swapped: the LAN protocol treats it as the host's slot and validation has
+// already checked the host matches. Non-human slots are left alone: setState() has
+// destructive side effects on LAN slot identity.
+static void reorderLobbyForResume(const ReplayGameInfo &replayInfo, LANGameInfo *lobby)
+{
+	Int i;
+	for (i = 1; i < MAX_SLOTS; ++i)
+	{
+		const GameSlot *rs = replayInfo.getConstSlot(i);
+		if (!rs || !rs->isHuman())
+			continue;
+		Int currentIdx = -1;
+		for (Int j = 1; j < MAX_SLOTS; ++j)
+		{
+			const GameSlot *ls = lobby->getConstSlot(j);
+			if (ls && ls->isHuman() && ls->getName().compare(rs->getName()) == 0)
+			{
+				currentIdx = j;
+				break;
+			}
+		}
+		if (currentIdx < 0 || currentIdx == i)
+			continue;
+		LANGameSlot saved = *lobby->getLANSlot(i);
+		lobby->setSlot(i, *lobby->getLANSlot(currentIdx));
+		lobby->setSlot(currentIdx, saved);
+	}
+	for (i = 0; i < MAX_SLOTS; ++i)
+	{
+		const GameSlot *rs = replayInfo.getConstSlot(i);
+		LANGameSlot *ls = lobby->getLANSlot(i);
+		if (!rs || !rs->isHuman() || !ls || !ls->isHuman())
+			continue;
+		ls->setColor(rs->getColor());
+		ls->setPlayerTemplate(rs->getPlayerTemplate());
+		ls->setStartPos(rs->getStartPos());
+		ls->setTeamNumber(rs->getTeamNumber());
+	}
+}
+
+static void clearResumeArm()
+{
+	s_resumeArmed = FALSE;
+	s_resumeArmedHandoffFrame = 0;
+	if (TheLAN && TheLAN->GetMyGame())
+	{
+		TheLAN->GetMyGame()->setResumeReplayFile(AsciiString::TheEmptyString);
+		TheLAN->GetMyGame()->setResumeHandoffFrame(0);
+	}
+}
+
+// Validates the last recorded replay against the current lobby and arms it.
+// Reports success or the reason for refusal in the lobby chat.
+static void tryArmResumeFromReplay()
+{
+	if (!TheLAN || !TheLAN->GetMyGame() || !TheLAN->AmIHost())
+		return;
+
+	AsciiString replayName = TheRecorder->getLastReplayFileName();
+	replayName.concat(TheRecorder->getReplayExtention());
+
+	RecorderClass::ReplayHeader header;
+	ReplayGameInfo info;
+	const MapMetaData *mapData = nullptr;
+	if (!readReplayMapInfo(replayName, header, info, mapData))
+	{
+		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeHeaderUnreadable", L"Resume: the last replay could not be read"));
+		return;
+	}
+	if (header.versionNumber != TheVersion->getVersionNumber()
+		|| header.exeCRC != TheGlobalData->m_exeCRC
+		|| header.iniCRC != TheGlobalData->m_iniCRC)
+	{
+		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeVersionMismatch", L"Resume: the last replay was recorded with a different game version"));
+		return;
+	}
+	const UnsignedInt slackFrames = RESUME_HANDOFF_SLACK_SECONDS * LOGICFRAMES_PER_SECOND;
+	if (header.frameCount <= slackFrames)
+	{
+		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeTooShort", L"Resume: the last replay is too short to resume"));
+		return;
+	}
+	if (mapData == nullptr)
+	{
+		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeMapMissing", L"Resume: the replay's map is not installed"));
+		return;
+	}
+	UnicodeString status;
+	if (!validateResumeRoster(info, TheLAN->GetMyGame(), status))
+	{
+		lanSystemChat(status);
+		return;
+	}
+
+	LANGameInfo *game = TheLAN->GetMyGame();
+	reorderLobbyForResume(info, game);
+	game->setMap(info.getMap());
+	game->setMapCRC(info.getMapCRC());
+	game->setMapSize(info.getMapSize());
+	game->setSeed(info.getSeed());
+	game->setResumeReplayFile(replayName);
+	game->setResumeHandoffFrame(header.frameCount - slackFrames);
+	TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
+	lanUpdateSlotList();
+
+	s_resumeArmed = TRUE;
+	s_resumeArmedHandoffFrame = header.frameCount - slackFrames;
+
+	UnicodeString armed = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeArmed",
+		L"Resume armed: the next start replays %hs to %d:%02d, then hands control back",
+		replayName.str(), (s_resumeArmedHandoffFrame / LOGICFRAMES_PER_SECOND) / 60, (s_resumeArmedHandoffFrame / LOGICFRAMES_PER_SECOND) % 60);
+	TheLAN->RequestChat(armed, LANAPIInterface::LANCHAT_SYSTEM);
+}
+
 void InitLanGameGadgets()
 {
 	//Initialize the gadget IDs
@@ -679,6 +883,7 @@ void InitLanGameGadgets()
 	listboxChatWindowLanGameID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:ListboxChatWindowLanGame" );
 	buttonEmoteID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:ButtonEmote" );
 	buttonSelectMapID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:ButtonSelectMap" );
+	buttonResumeFromReplayID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:ButtonResumeFromReplay" );
   checkboxLimitSuperweaponsID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:CheckboxLimitSuperweapons" );
   comboBoxStartingCashID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:ComboBoxStartingCash" );
 	windowMapID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:MapWindow" );
@@ -689,6 +894,9 @@ void InitLanGameGadgets()
 	buttonEmote = TheWindowManager->winGetWindowFromId( parentLanGameOptions,buttonEmoteID  );
 	DEBUG_ASSERTCRASH(buttonEmote, ("Could not find the buttonEmote"));
 	buttonSelectMap = TheWindowManager->winGetWindowFromId( parentLanGameOptions,buttonSelectMapID  );
+	buttonResumeFromReplay = TheWindowManager->winGetWindowFromId( parentLanGameOptions, buttonResumeFromReplayID ); // may be null
+	if (buttonResumeFromReplay)
+		buttonResumeFromReplay->winEnable( TheLAN && TheLAN->AmIHost() );
 	DEBUG_ASSERTCRASH(buttonSelectMap, ("Could not find the buttonSelectMap"));
 	buttonStart = TheWindowManager->winGetWindowFromId( parentLanGameOptions,buttonStartID  );
 	DEBUG_ASSERTCRASH(buttonStart, ("Could not find the buttonStart"));
@@ -790,6 +998,9 @@ void InitLanGameGadgets()
 
 void DeinitLanGameGadgets()
 {
+	// Disarm any pending resume so it cannot survive into a future lobby session.
+	clearResumeArm();
+	buttonResumeFromReplay = nullptr;
 	parentLanGameOptions = nullptr;
 	buttonEmote = nullptr;
 	buttonSelectMap = nullptr;
@@ -1257,6 +1468,10 @@ WindowMsgHandledType LanGameOptionsMenuSystem( GameWindow *window, UnsignedInt m
 					mapSelectLayout->bringForward();
 
 				}
+				else if ( controlID == buttonResumeFromReplayID )
+				{
+					tryArmResumeFromReplay();
+				}
 				else if ( controlID == buttonStartID )
 				{
 					if (TheLAN->AmIHost())
@@ -1381,6 +1596,15 @@ WindowMsgHandledType LanGameOptionsMenuSystem( GameWindow *window, UnsignedInt m
 					txtInput.trim();
 					// Echo the user's input to the chat window
 					if (!txtInput.isEmpty())
+						// "/resume" arms resume-from-replay without needing a button in the layout
+						if (txtInput.compareNoCase(L"/resume") == 0)
+						{
+							if (TheLAN->AmIHost())
+								tryArmResumeFromReplay();
+							else
+								lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeHostOnly", L"Only the host can resume a game"));
+						}
+						else
 						TheLAN->RequestChat(txtInput, LANAPIInterface::LANCHAT_NORMAL);
 
 				}

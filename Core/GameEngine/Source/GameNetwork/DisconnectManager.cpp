@@ -98,6 +98,12 @@ void DisconnectManager::update(ConnectionManager *conMgr) {
 		m_lastFrameTime = timeGetTime();
 	}
 
+	// TheSuperHackers @feature bill-rich 15/09/2026 The resume-from-replay freeze deliberately holds the
+	// logic frame for a countdown; that is not a stalled peer.
+	if (TheRecorder && TheRecorder->isResumeFreezeActive()) {
+		m_lastFrameTime = timeGetTime();
+	}
+
 	// The game logic stalls on the frame we are currently waiting for commands on,
 	// so we have to check for the current logic frame being one higher than
 	// the last one we had the commands ready for.

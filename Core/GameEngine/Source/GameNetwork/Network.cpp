@@ -179,6 +179,7 @@ public:
 
 	virtual void notifyOthersOfCurrentFrame() override;														///< Tells all the other players what frame we are on.
 	virtual void notifyOthersOfNewFrame(UnsignedInt frame) override;								///< Tells all the other players that we are on a new frame.
+	virtual Int setLogicFrameRate(Int fps) override;															///< Resume-from-replay catchup: override the per-frame timing rate; returns the previous rate.
 
 	virtual Int  getExecutionFrame() override;																			///< Returns the next valid frame for simultaneous command execution.
 
@@ -485,6 +486,13 @@ void Network::attachTransport(Transport* transport) {
 }
 
 Bool Network::isMessageTypeWithinNetworkRange(GameMessage::Type type) {
+	// TheSuperHackers @feature bill-rich 15/09/2026 During resume-from-replay catchup every peer injects
+	// the same commands from its own copy of the replay, so re-broadcasting them
+	// would double them on the receiver. Treat everything as non-transfer so it flows
+	// through processCommand instead, which also drives the per-frame tick forward.
+	if (TheRecorder && TheRecorder->isResumeCatchupMode()) {
+		return FALSE;
+	}
 	return type > GameMessage::MSG_BEGIN_NETWORK_MESSAGES && type < GameMessage::MSG_END_NETWORK_MESSAGES;
 }
 
@@ -778,10 +786,17 @@ void Network::update()
 		endOfGameCheck();
 	}
 
-	if (AllCommandsReady(TheGameLogic->getFrame())) { // If all the commands are ready for the next frame...
+	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay: the freeze after the handoff holds
+	// the simulation on this frame for a wall-clock countdown while the network keeps
+	// pumping, and catchup before it skips the realtime timing gate (timeForNewFrame) so
+	// frames advance as fast as lockstep allows. AllCommandsReady stays enforced either way.
+	const Bool resumeFrozen = TheRecorder && TheRecorder->updateResumeFreeze();
+	const Bool inCatchup = TheRecorder && TheRecorder->isResumeCatchupMode();
+
+	if (!resumeFrozen && AllCommandsReady(TheGameLogic->getFrame())) { // If all the commands are ready for the next frame...
 		m_conMgr->handleAllCommandsReady();
 		//		DEBUG_LOG(("Network::update - frame %d is ready", TheGameLogic->getFrame()));
-		if (timeForNewFrame()) { // This needs to come after any other pre-frame execution checks as this changes the timing variables.
+		if (inCatchup || timeForNewFrame()) { // This needs to come after any other pre-frame execution checks as this changes the timing variables.
 			RelayCommandsToCommandList(TheGameLogic->getFrame());	// Put the commands for the next frame on TheCommandList.
 			m_frameDataReady = TRUE; // Tell the GameEngine to run the commands for the new frame.
 		}
@@ -1115,4 +1130,10 @@ void Network::notifyOthersOfNewFrame(UnsignedInt frame) {
 	if (m_conMgr != NULL) {
 		m_conMgr->notifyOthersOfNewFrame(frame);
 	}
+}
+
+Int Network::setLogicFrameRate(Int fps) {
+	Int prev = m_frameRate;
+	m_frameRate = fps > 0 ? fps : 1;
+	return prev;
 }

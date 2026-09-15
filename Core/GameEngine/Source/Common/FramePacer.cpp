@@ -24,6 +24,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/ScriptEngine.h"
 
+#include "Common/Recorder.h"
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/NetworkInterface.h"
 
@@ -107,6 +108,14 @@ Bool FramePacer::isActualFramesPerSecondLimitEnabled() const
 #else	//always allow this cheat key if we're in a replay game.
 		allowFpsLimit &= !(!TheGameLogic->isGamePaused() && TheGlobalData->m_TiVOFastMode && TheGameLogic->isInReplayGame());
 #endif
+	}
+
+	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay catchup runs one logic frame per
+	// render frame and fast-forwards many times faster than realtime, so the render
+	// cap has to get out of the way until the lead-in.
+	if (TheRecorder != nullptr && TheRecorder->isResumeCatchupMode() && !TheRecorder->isResumeCatchupLeadIn())
+	{
+		allowFpsLimit = false;
 	}
 
 	allowFpsLimit &= TheGlobalData->m_useFpsLimit;

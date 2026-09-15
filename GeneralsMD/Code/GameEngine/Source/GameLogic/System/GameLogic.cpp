@@ -2780,7 +2780,13 @@ void GameLogic::processCommandList(CommandList* list)
 		logicMessageDispatcher(msg, NULL);
 	}
 
-	if (m_shouldValidateCRCs && !TheNetwork->sawCRCMismatch())
+	// TheSuperHackers @feature bill-rich 15/09/2026 Skip CRC validation while in resume-from-replay
+	// catchup: the CRC messages of that window come out of every client's own copy
+	// of the replay, not from the live peers. Validation resumes at handoff when
+	// the recorder leaves catchup mode.
+	const Bool inCatchup = (TheRecorder && TheRecorder->isResumeCatchupMode());
+
+	if (m_shouldValidateCRCs && !TheNetwork->sawCRCMismatch() && !inCatchup)
 	{
 		Bool sawCRCMismatch = FALSE;
 		Int numPlayers = 0;

@@ -54,6 +54,7 @@
 #include "GameClient/Keyboard.h"
 #include "GameClient/SelectionInfo.h"
 #include "GameClient/SelectionXlat.h"
+#include "Common/Recorder.h"
 #include "GameClient/TerrainVisual.h"
 
 
@@ -350,7 +351,8 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 {
 	GameMessageDisposition disp = KEEP_MESSAGE;
 
-	if(	!TheInGameUI->getInputEnabled() )
+	// TheSuperHackers @feature bill-rich 15/09/2026 resume-from-replay catchup: no selecting until control is handed back
+	if(	!TheInGameUI->getInputEnabled() || (TheRecorder && TheRecorder->isResumeInputBlocked()) )
 	{
 		//Keep the message so the other translators (WindowXlat) can handle.
 		if( m_dragSelecting )

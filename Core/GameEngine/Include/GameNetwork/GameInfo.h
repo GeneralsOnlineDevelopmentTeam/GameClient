@@ -220,6 +220,14 @@ public:
 	void setCRCInterval( Int val ) { m_crcInterval = (val > 0 && val < 100) ? val : 100; }
 	Int getCRCInterval() const { return m_crcInterval; }
 
+	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay arming. When non-empty, every client
+	// opens its own copy of this replay on game start and replays it in lockstep up
+	// to the handoff frame before live control resumes (see RecorderClass).
+	void setResumeReplayFile( AsciiString f ) { m_resumeReplayFile = f; }
+	AsciiString getResumeReplayFile() const   { return m_resumeReplayFile; }
+	void setResumeHandoffFrame( UnsignedInt f ) { m_resumeHandoffFrame = f; }
+	UnsignedInt getResumeHandoffFrame() const   { return m_resumeHandoffFrame; }
+
 	Bool haveWeSurrendered() { return m_surrendered; }
 	void markAsSurrendered() { m_surrendered = TRUE; }
 
@@ -254,6 +262,10 @@ protected:
   Money         m_startingCash;
   UnsignedShort m_superweaponRestriction;
   Bool m_oldFactionsOnly; // Only USA, China, GLA -- not USA Air Force General, GLA Toxic General, et al
+
+	// resume-from-replay arming (appended last so existing member offsets are untouched)
+	AsciiString m_resumeReplayFile;
+	UnsignedInt m_resumeHandoffFrame;
 };
 
 extern GameInfo *TheGameInfo;

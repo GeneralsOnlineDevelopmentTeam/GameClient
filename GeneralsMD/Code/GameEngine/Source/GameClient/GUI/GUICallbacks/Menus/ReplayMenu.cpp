@@ -105,7 +105,8 @@ UnicodeString GetReplayFilenameFromListbox(GameWindow *listbox, Int index)
 
 //-------------------------------------------------------------------------------------------------
 
-static Bool readReplayMapInfo(const AsciiString& filename, RecorderClass::ReplayHeader &header, ReplayGameInfo &info, const MapMetaData *&mapData)
+// TheSuperHackers @refactor bill-rich 15/09/2026 No longer static: the LAN lobby's resume-from-replay arming reads replay headers too.
+Bool readReplayMapInfo(const AsciiString& filename, RecorderClass::ReplayHeader &header, ReplayGameInfo &info, const MapMetaData *&mapData)
 {
 	header.forPlayback = FALSE;
 	header.filename = filename;

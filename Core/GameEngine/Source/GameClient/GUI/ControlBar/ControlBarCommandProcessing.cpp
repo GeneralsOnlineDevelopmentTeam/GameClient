@@ -35,6 +35,7 @@
 #include "Common/Money.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
+#include "Common/Recorder.h"
 #include "Common/Science.h"
 #include "Common/SpecialPower.h"
 #include "Common/ThingTemplate.h"
@@ -120,6 +121,11 @@ CBCommandStatus ControlBar::processCommandTransitionUI( GameWindow *control, Gad
 CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 																							GadgetGameMessage gadgetMessage )
 {
+	// TheSuperHackers @feature bill-rich 15/09/2026 resume-from-replay catchup: control bar buttons and
+	// their hotkeys (which re-dispatch into this path) are inert until control is handed back
+	if( TheRecorder && TheRecorder->isResumeInputBlocked() )
+		return CBC_COMMAND_NOT_USED;
+
 	// get the command pointer from the control user data we put in the button
 	const CommandButton *commandButton = (const CommandButton *)GadgetButtonGetData(control);
 	if( !commandButton )

@@ -43,6 +43,12 @@ static Int MIN_RUNAHEAD = 6;
 static constexpr const Int MIN_RUNAHEAD = 4;
 #endif
 
+// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay catchup pins the run-ahead and the
+// logic frame rate that ConnectionManager::updateRunAhead negotiates, so every
+// peer derives the same short packet send interval while fast-forwarding.
+static constexpr const Int CATCHUP_RUNAHEAD = 32;
+static constexpr const Int CATCHUP_FRAME_RATE = 1000;
+
 // FRAME_DATA_LENGTH needs to be MAX_FRAMES_AHEAD+1 because a player on a different
 // computer can send commands for a frame that is one beyond twice the max runahead.
 static constexpr const Int FRAME_DATA_LENGTH = (MAX_FRAMES_AHEAD + 1) * 2;

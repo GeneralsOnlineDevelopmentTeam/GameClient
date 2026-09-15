@@ -937,7 +937,12 @@ Bool GameEngine::canUpdateRegularGameLogic(UnsignedInt logicTimeQueryFlags)
 	const Bool useFastMode = TheGlobalData->m_TiVOFastMode && TheGameLogic->isInReplayGame();
 #endif
 
-	if (useFastMode || logicTimeScaleFps >= maxRenderFps)
+	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay catchup fast-forwards by running
+	// one logic frame per render frame; the logic time scale must not throttle it.
+	const Bool inCatchup = TheRecorder && TheRecorder->isResumeCatchupMode()
+		&& !TheRecorder->isResumeCatchupLeadIn();
+
+	if (useFastMode || inCatchup || logicTimeScaleFps >= maxRenderFps)
 	{
 		// Logic time scale is uncapped or larger equal Render FPS. Update straight away.
 		return true;
@@ -973,6 +978,28 @@ void GameEngine::update()
 {
 	USE_PERF_TIMER(GameEngine_update)
 	{
+		// TheSuperHackers @feature bill-rich 15/09/2026 During resume-from-replay catchup, render on a
+		// wall-clock cadence rather than once per logic frame: logic is fast-forwarding
+		// at many times realtime, so drawing every logic frame would burn the CPU on
+		// frames no one can perceive, while drawing at ~30 fps keeps the catchup
+		// watchable. Render rate is not what bounds catchup (lockstep is, see
+		// ConnectionManager::updateRunAhead) and FrameMetrics stops sampling display
+		// FPS during catchup, which is what makes it safe to throttle here. The lead-in
+		// renders every frame for a realtime preview before control is handed back.
+		Bool catchupSkipRender = TheRecorder && TheRecorder->isResumeCatchupMode()
+			&& !TheRecorder->isResumeCatchupLeadIn();
+		if (catchupSkipRender)
+		{
+			const UnsignedInt CATCHUP_RENDER_INTERVAL_MS = 33;
+			static UnsignedInt s_lastCatchupRenderMs = 0;
+			const UnsignedInt nowMs = timeGetTime();
+			if (nowMs - s_lastCatchupRenderMs >= CATCHUP_RENDER_INTERVAL_MS)
+			{
+				s_lastCatchupRenderMs = nowMs;
+				catchupSkipRender = FALSE;
+			}
+		}
+
 		{
 			// VERIFY CRC needs to be in this code block.  Please to not pull TheGameLogic->update() inside this block.
 			VERIFY_CRC
@@ -995,7 +1022,10 @@ void GameEngine::update()
 			/// @todo Move audio init, update, etc, into GameClient update
 
 			TheAudio->UPDATE();
-			TheGameClient->UPDATE();
+			if (catchupSkipRender)
+				TheParticleSystemManager->update(); // let particles finish instead of piling up while frames are skipped
+			else
+				TheGameClient->UPDATE();
 			TheMessageStream->propagateMessages();
 
             if (TheNetwork != nullptr)
