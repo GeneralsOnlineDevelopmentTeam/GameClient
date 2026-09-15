@@ -1643,6 +1643,8 @@ void InitWOLGameGadgets()
 	buttonSelectMap = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,buttonSelectMapID  );
 	buttonRandomize = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, buttonRandomizeID );
 	DEBUG_ASSERTCRASH(buttonRandomize, ("Could not find the buttonRandomize"));
+	if (buttonRandomize)
+		buttonRandomize->winSetText(TheGameText->FETCH_OR_SUBSTITUTE("GUI:Randomize", L"Randomize")); // no .csf change needed
 	checkBoxUseStats = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, checkBoxUseStatsID );
 	buttonStart = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,buttonStartID  );
 	buttonBack = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,  buttonBackID);
