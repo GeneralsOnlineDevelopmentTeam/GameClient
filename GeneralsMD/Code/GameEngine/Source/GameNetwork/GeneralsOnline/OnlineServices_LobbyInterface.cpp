@@ -75,7 +75,8 @@ enum class ELobbyUpdateField
 	AI_START_POS = 16,
 	MAX_CAMERA_HEIGHT = 17,
 	JOINABILITY = 18,
-	HOST_ACTION_BULK_SLOT_UPDATE = 19
+	HOST_ACTION_BULK_SLOT_UPDATE = 19,
+	HOST_ACTION_ARM_RESUME = 20
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(UnicodeString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -536,6 +537,38 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_BulkSlotUpdate(NGMPG
 		});
 }
 
+// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay: arm (or, with an empty file, disarm) the
+// replay every member holds a copy of. The service stores the file name and handoff
+// frame on the lobby and takes the replay's seed as the lobby seed, so the next start
+// replays that file in lockstep before live control resumes.
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ArmResume(const std::string& replayFile, uint32_t handoffFrame, int rngSeed)
+{
+	// reset autostart if host changes anything (because ready flag will reset too)
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
+	ClearAutoReadyCountdown();
+#endif
+	if (TheNGMPGame && TheNGMPGame->IsCountdownStarted())
+		TheNGMPGame->StopCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::HOST_ACTION_ARM_RESUME;
+	j["replay_file"] = replayFile;
+	j["handoff_frame"] = handoffFrame;
+	j["rng_seed"] = rngSeed;
+	std::string strPostData = j.dump();
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			if (!bSuccess || statusCode < 200 || statusCode >= 300)
+			{
+				DEBUG_LOG(("UpdateCurrentLobby_ArmResume failed: success=%d, status=%d", bSuccess, statusCode));
+			}
+		});
+}
+
 void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
 	std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();;
@@ -964,6 +997,11 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryIter["MaxPlayers"].get_to(lobbyEntry.max_players);
 						lobbyEntryIter["IsVanillaTeamsOnly"].get_to(lobbyEntry.vanilla_teams);
 						lobbyEntryIter["RNGSeed"].get_to(lobbyEntry.rng_seed);
+						// resume-from-replay arming; optional so older services still parse
+						if (lobbyEntryIter.contains("ResumeReplayFile"))
+							lobbyEntryIter["ResumeReplayFile"].get_to(lobbyEntry.resume_replay_file);
+						if (lobbyEntryIter.contains("ResumeHandoffFrame"))
+							lobbyEntryIter["ResumeHandoffFrame"].get_to(lobbyEntry.resume_handoff_frame);
 						lobbyEntryIter["StartingCash"].get_to(lobbyEntry.starting_cash);
 						lobbyEntryIter["IsLimitSuperweapons"].get_to(lobbyEntry.limit_superweapons);
 						lobbyEntryIter["IsTrackingStats"].get_to(lobbyEntry.track_stats);

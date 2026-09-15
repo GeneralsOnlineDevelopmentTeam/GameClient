@@ -35,6 +35,10 @@
 #include "GameNetwork/LANAPI.h"
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/NetworkInterface.h"
+#if defined(GENERALS_ONLINE)
+#include "GameNetwork/GeneralsOnline/NGMPGame.h"
+extern NGMPGame* TheNGMPGame;
+#endif
 #include "GameClient/ClientInstance.h"
 #include "GameClient/GameWindow.h"
 #include "GameClient/GameWindowManager.h"
@@ -508,9 +512,15 @@ void RecorderClass::updateRecord()
 			// catchup instead of starting a fresh recording: catchup opens the replay for
 			// READ, while startRecording would open it for WRITE and truncate the very
 			// file we need to read from. Falls back to a normal recording if setup fails.
-			const GameInfo *armedGame = TheGameInfo;
-			if (armedGame == nullptr && TheLAN != nullptr)
+			const GameInfo *armedGame = nullptr;
+			if (TheLAN != nullptr)
 				armedGame = TheLAN->GetMyGame();
+#if defined(GENERALS_ONLINE)
+			else if (TheNGMPGame != nullptr)
+				armedGame = TheNGMPGame;
+#endif
+			if (armedGame == nullptr)
+				armedGame = TheGameInfo;
 			const Bool armedResume = armedGame != nullptr && !armedGame->getResumeReplayFile().isEmpty();
 			if (armedResume && startResumeCatchup(armedGame->getResumeReplayFile(), armedGame->getResumeHandoffFrame()))
 			{

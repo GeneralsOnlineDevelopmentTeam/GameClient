@@ -115,6 +115,10 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 	// rng seed
 	setSeed(lobby.rng_seed);
 
+	// resume-from-replay arming (see RecorderClass::startResumeCatchup)
+	setResumeReplayFile(AsciiString(lobby.resume_replay_file.c_str()));
+	setResumeHandoffFrame(lobby.resume_handoff_frame);
+
 	// observers
 	setAllowObservers(lobby.allow_observers);
 

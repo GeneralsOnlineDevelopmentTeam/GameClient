@@ -72,6 +72,10 @@ struct LobbyEntry
 
 	int rng_seed = -1;
 
+	// resume-from-replay arming (empty when not armed); see NGMPGame::setResumeReplayFile
+	std::string resume_replay_file;
+	uint32_t resume_handoff_frame = 0;
+
 	bool passworded = false;
 	std::string password;
 
@@ -227,6 +231,7 @@ public:
 	void UpdateCurrentLobby_AIStartPos(int slot, int startpos);
 
 	void UpdateCurrentLobby_BulkSlotUpdate(NGMPGame* game);
+	void UpdateCurrentLobby_ArmResume(const std::string& replayFile, uint32_t handoffFrame, int rngSeed); ///< empty file disarms
 
 	void UpdateCurrentLobbyMaxCameraHeight(uint16_t maxCameraHeight);
 
