@@ -33,7 +33,17 @@
 #include "GameLogic/Module/BattlePlanUpdate.h"
 
 #include <stdio.h>
+
+// TheSuperHackers @build JawadYzbk 16/09/2026 The engine typedefs Byte as char in
+// BaseTypeCore.h, while zlib's zconf.h typedefs it as unsigned char, so any translation unit
+// that pulls in both fails to compile. zconf.h skips its own typedef when __MACTYPES__ is
+// defined, which is its documented hook for hosts that already provide a Byte. Only the gz*
+// file API is used below and none of it mentions Byte or Bytef; note that Bytef does resolve
+// to the engine's Byte here, so the byte oriented zlib calls (compress, inflate, ...) must not
+// be used in this file. Use core_compression for those instead.
+#define __MACTYPES__
 #include <zlib.h>
+#undef __MACTYPES__
 
 #include "GameNetwork/GeneralsOnline/json.hpp"
 
