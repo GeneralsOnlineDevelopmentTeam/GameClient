@@ -104,6 +104,9 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 	// superweapon
 	setSuperweaponRestriction(lobby.limit_superweapons);
 
+	// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+	setAutoLeaveSeconds(lobby.auto_leave_seconds);
+
 	// vanilla teams
 	setOldFactionsOnly(lobby.vanilla_teams);
 

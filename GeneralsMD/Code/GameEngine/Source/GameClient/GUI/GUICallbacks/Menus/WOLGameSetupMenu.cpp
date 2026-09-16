@@ -3514,6 +3514,8 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/setpassword <password> - Set a lobby password (host only)."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/removepassword - Remove the lobby password (host only)."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/maxcameraheight <value> - Set the camera height limit (host only)."), helpColor, -1, -1);
+		// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/autoleave <seconds> - Defeated players return to the score screen after this long. 0 is off (host only)."), helpColor, -1, -1);
 		// GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/leave - Return to the main lobby."), helpColor, -1, -1);
 		// GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/quit - Exit the game."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/support - Open the GeneralsOnline Discord."), helpColor, -1, -1);
@@ -3627,6 +3629,75 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 					else
 					{
 						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Camera height: Only the host can change it."), GameMakeColor(255, 0, 0, 255), -1, -1);
+						return TRUE; // was a slash command
+					}
+				}
+			}
+		}
+
+		return TRUE; // was a slash command
+	}
+	// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+	// Mirrors /maxcameraheight: host only, numeric argument, validated before it is sent.
+	else if (token == "autoleave" && uText.getLength() > 11)
+	{
+		NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+		if (pOnlineServicesMgr != nullptr)
+		{
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+			if (pLobbyInterface != nullptr)
+			{
+				if (pLobbyInterface->IsInLobby())
+				{
+					if (pLobbyInterface->IsHost())
+					{
+						UnicodeString val = UnicodeString(uText.str() + 11); // skip the command
+
+						AsciiString asciiVal;
+						asciiVal.translate(val);
+
+						bool bIsNumber = asciiVal.getLength() > 0;
+
+						for (int i = 0; i < asciiVal.getLength(); ++i)
+						{
+							char thisChar = asciiVal.getCharAt(i);
+							if (!std::isdigit((unsigned char)thisChar))
+							{
+								bIsNumber = false;
+								break;
+							}
+						}
+
+						if (!bIsNumber)
+						{
+							GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Auto-leave: Enter a number of seconds, or 0 to turn it off."), GameMakeColor(255, 0, 0, 255), -1, -1);
+							return TRUE; // was a slash command
+						}
+
+						const UnsignedInt newAutoLeave = (UnsignedInt)atoi(asciiVal.str());
+
+						if (newAutoLeave > AUTO_LEAVE_ON_DEFEAT_MAX_SECONDS)
+						{
+							UnicodeString msg;
+							msg.format(L"Auto-leave: Enter a value from 0 to %d seconds.", AUTO_LEAVE_ON_DEFEAT_MAX_SECONDS);
+							GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameMakeColor(255, 0, 0, 255), -1, -1);
+							return TRUE; // was a slash command
+						}
+
+						// update lobby
+						pLobbyInterface->UpdateCurrentLobby_AutoLeave(newAutoLeave);
+
+						UnicodeString msg;
+						if (newAutoLeave == 0)
+							msg = UnicodeString(L"Auto-leave: Off. Each player's own setting applies.");
+						else
+							msg.format(L"Auto-leave: Defeated players return to the score screen after %d seconds.", newAutoLeave);
+						GadgetListBoxAddEntryText(listboxGameSetupChat, msg, GameMakeColor(0, 255, 0, 255), -1, -1);
+					}
+					else
+					{
+						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Auto-leave: Only the host can change it."), GameMakeColor(255, 0, 0, 255), -1, -1);
 						return TRUE; // was a slash command
 					}
 				}

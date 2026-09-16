@@ -232,6 +232,15 @@ public:
   inline Bool oldFactionsOnly() const;
   inline void setOldFactionsOnly( Bool oldFactionsOnly );
 
+  // TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+  // Host enforced auto-leave duration, 0 when the host does not enforce one and the local
+  // preference applies instead. Deliberately not part of GameInfoToAsciiString(), the slot list
+  // xfer, or the replay header: online lobbies carry this in the backend lobby record, so keeping
+  // it out of the ascii options string avoids breaking the wire format for older clients and
+  // avoids arming a countdown during replay playback.
+  inline UnsignedInt getAutoLeaveSeconds() const;
+  inline void setAutoLeaveSeconds( UnsignedInt seconds );
+
 protected:
 	Int m_preorderMask;
 	Int m_crcInterval;
@@ -253,6 +262,7 @@ protected:
   Money         m_startingCash;
   UnsignedShort m_superweaponRestriction;
   Bool m_oldFactionsOnly; // Only USA, China, GLA -- not USA Air Force General, GLA Toxic General, et al
+  UnsignedInt m_autoLeaveSeconds; // TheSuperHackers @feature JawadYzbk 16/09/2026 host enforced auto-leave on defeat, 0 = not enforced
 };
 
 extern GameInfo *TheGameInfo;
@@ -274,6 +284,8 @@ const Money&GameInfo::getStartingCash() const         { return m_startingCash; }
 UnsignedShort GameInfo::getSuperweaponRestriction() const { return m_superweaponRestriction; }
 Bool        GameInfo::oldFactionsOnly() const           { return m_oldFactionsOnly; }
 void        GameInfo::setOldFactionsOnly( Bool oldFactionsOnly ) { m_oldFactionsOnly = oldFactionsOnly; }
+UnsignedInt GameInfo::getAutoLeaveSeconds() const          { return m_autoLeaveSeconds; }
+void        GameInfo::setAutoLeaveSeconds( UnsignedInt seconds ) { m_autoLeaveSeconds = seconds; }
 
 AsciiString GameInfoToAsciiString( const GameInfo *game );
 Bool ParseAsciiStringToGameInfo( GameInfo *game, AsciiString options );

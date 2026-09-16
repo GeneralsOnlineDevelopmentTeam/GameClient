@@ -310,6 +310,8 @@ void GameInfo::reset()
 	m_useStats = TRUE;
 	m_surrendered = FALSE;
   m_oldFactionsOnly = FALSE;
+  // TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+  m_autoLeaveSeconds = 0;
 //	m_localIP = 0; // BGC - actually we don't want this to be reset since the m_localIP is
 										// set properly in the constructor of LANGameInfo which uses this as a base class.
 	m_mapCRC = 0;

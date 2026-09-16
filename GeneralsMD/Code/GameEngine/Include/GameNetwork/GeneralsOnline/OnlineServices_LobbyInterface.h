@@ -61,6 +61,9 @@ struct LobbyEntry
 	bool track_stats = false;
 	bool allow_observers = false;
 	uint16_t max_cam_height = 0;
+	// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+	// Host enforced auto-leave on defeat, in seconds. 0 means the host does not enforce one.
+	uint16_t auto_leave_seconds = 0;
 
 	uint32_t exe_crc = 0;
 	uint32_t ini_crc = 0;
@@ -210,6 +213,8 @@ public:
 	void UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers);
 	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons);
 	void UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue);
+	// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+	void UpdateCurrentLobby_AutoLeave(UnsignedInt autoLeaveSeconds);
 
 	void UpdateCurrentLobby_HasMap();
 

@@ -74,7 +74,12 @@ enum class ELobbyUpdateField
 	AI_TEAM = 15,
 	AI_START_POS = 16,
 	MAX_CAMERA_HEIGHT = 17,
-	JOINABILITY = 18
+	JOINABILITY = 18,
+	// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+	// NOTE: these values are a wire contract with the lobby service and must match it. The service
+	// also defines HOST_ACTION_BULK_SLOT_UPDATE = 19, which this client does not send, so the next
+	// free value is 20.
+	LOBBY_AUTO_LEAVE = 20
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -153,6 +158,31 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 	nlohmann::json j;
 	j["field"] = ELobbyUpdateField::LOBBY_STARTING_CASH;
 	j["startingcash"] = startingCashValue;
+	std::string strPostData = j.dump();
+
+	// convert
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+
+		});
+}
+
+// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AutoLeave(UnsignedInt autoLeaveSeconds)
+{
+	// reset autostart if host changes anything (because ready flag will reset too)
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
+	ClearAutoReadyCountdown();
+#endif
+	if (TheNGMPGame && TheNGMPGame->IsCountdownStarted())
+		TheNGMPGame->StopCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::LOBBY_AUTO_LEAVE;
+	j["auto_leave_seconds"] = autoLeaveSeconds;
 	std::string strPostData = j.dump();
 
 	// convert
@@ -588,6 +618,8 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				lobbyEntryIter["IsPassworded"].get_to(lobbyEntry.passworded);
 				lobbyEntryIter["AllowObservers"].get_to(lobbyEntry.allow_observers);
 				lobbyEntryIter["MaximumCameraHeight"].get_to(lobbyEntry.max_cam_height);
+				// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+				lobbyEntry.auto_leave_seconds = lobbyEntryIter.value("AutoLeaveSeconds", 0);
 				lobbyEntryIter["ExeCRC"].get_to(lobbyEntry.exe_crc);
 				lobbyEntryIter["IniCRC"].get_to(lobbyEntry.ini_crc);
 				lobbyEntryIter["MatchID"].get_to(lobbyEntry.match_id);
@@ -866,6 +898,8 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryIter["IsPassworded"].get_to(lobbyEntry.passworded);
 						lobbyEntryIter["AllowObservers"].get_to(lobbyEntry.allow_observers);
 						lobbyEntryIter["MaximumCameraHeight"].get_to(lobbyEntry.max_cam_height);
+						// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+						lobbyEntry.auto_leave_seconds = lobbyEntryIter.value("AutoLeaveSeconds", 0);
 						lobbyEntryIter["ExeCRC"].get_to(lobbyEntry.exe_crc);
 						lobbyEntryIter["IniCRC"].get_to(lobbyEntry.ini_crc);
 						lobbyEntryIter["MatchID"].get_to(lobbyEntry.match_id);
@@ -1412,6 +1446,9 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 			j["exe_crc"] = TheGlobalData->m_exeCRC;
 			j["ini_crc"] = TheGlobalData->m_iniCRC;
 			j["max_cam_height"] = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight_WhenLobbyHost();
+			// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+			// New lobbies never enforce auto-leave; the host opts in with /autoleave.
+			j["auto_leave_seconds"] = 0;
 			j["anticheat_id"] = AnticheatPlugInterface::GetAnticheatIdentifier();
 
 			std::string strPostData = j.dump();
