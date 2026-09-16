@@ -878,15 +878,17 @@ void NGMP_OnlineServicesManager::Init()
 	// TODO_NGMP: Get all of this from the service
 	int moneyVal = 100000;
 	int maxMoneyVal = 1000000;
+	bool isFirstEntry = true;
 
 	while (moneyVal <= maxMoneyVal)
 	{
 		
 		Money newMoneyVal;
 		newMoneyVal.deposit(moneyVal, false);
-		TheMultiplayerSettings->addStartingMoneyChoice(newMoneyVal, false);
+		TheMultiplayerSettings->addStartingMoneyChoice(newMoneyVal, isFirstEntry);
 
 		moneyVal += 50000;
+		isFirstEntry = false;
 	}
 
 #if 0
