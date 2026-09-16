@@ -914,17 +914,20 @@ void AIPlayer::guardSupplyCenter( Team *team, Int minSupplies )
 		Coord3D location = *warehouse->getPosition();
 		// It's probably a defensive move - position towards the enemy.
 		Region2D bounds;
-		Int enemyNdx = TheScriptEngine->getSkirmishEnemyPlayer()->getPlayerIndex();
-		getPlayerStructureBounds(&bounds, enemyNdx);
-		Coord3D offset;
-		offset.zero();
-		offset.x = location.x - (bounds.lo.x+bounds.hi.x)*0.5f;
-		offset.y = location.y - (bounds.lo.y+bounds.hi.y)*0.5f;
-		offset.normalize();
-		Real radius = warehouse->getGeometryInfo().getBoundingCircleRadius()*0.8f;
+		Player *enemyPlayer = TheScriptEngine->getSkirmishEnemyPlayer();
+		if (enemyPlayer) {
+			Int enemyNdx = enemyPlayer->getPlayerIndex();
+			getPlayerStructureBounds(&bounds, enemyNdx);
+			Coord3D offset;
+			offset.zero();
+			offset.x = location.x - (bounds.lo.x+bounds.hi.x)*0.5f;
+			offset.y = location.y - (bounds.lo.y+bounds.hi.y)*0.5f;
+			offset.normalize();
+			Real radius = warehouse->getGeometryInfo().getBoundingCircleRadius()*0.8f;
 
-		location.x -= offset.x*radius;
-		location.y -= offset.y*radius;
+			location.x -= offset.x*radius;
+			location.y -= offset.y*radius;
+		}
 		theGroup->groupGuardPosition( &location, GUARDMODE_NORMAL, CMD_FROM_SCRIPT );
 
 	}
@@ -1890,12 +1893,15 @@ void AIPlayer::buildBySupplies(Int minimumCash, const AsciiString& thingName)
 		if (!tTemplate->isKindOf(KINDOF_CASH_GENERATOR)) {
 			// It's probably a defensive structure - build towards the enemy.
 			Region2D bounds;
-			Int enemyNdx = TheScriptEngine->getSkirmishEnemyPlayer()->getPlayerIndex();
-			getPlayerStructureBounds(&bounds, enemyNdx);
-			offset.x = location.x - (bounds.lo.x+bounds.hi.x)*0.5f;
-			offset.y = location.y - (bounds.lo.y+bounds.hi.y)*0.5f;
-			offset.normalize();
-			radius = bestSupplyWarehouse->getGeometryInfo().getBoundingCircleRadius();
+			Player *enemyPlayer = TheScriptEngine->getSkirmishEnemyPlayer();
+			if (enemyPlayer) {
+				Int enemyNdx = enemyPlayer->getPlayerIndex();
+				getPlayerStructureBounds(&bounds, enemyNdx);
+				offset.x = location.x - (bounds.lo.x+bounds.hi.x)*0.5f;
+				offset.y = location.y - (bounds.lo.y+bounds.hi.y)*0.5f;
+				offset.normalize();
+				radius = bestSupplyWarehouse->getGeometryInfo().getBoundingCircleRadius();
+			}
 		}
 		location.x -= offset.x*radius;
 		location.y -= offset.y*radius;
