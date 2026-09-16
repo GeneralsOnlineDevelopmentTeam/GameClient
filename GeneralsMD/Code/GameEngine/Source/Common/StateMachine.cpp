@@ -261,6 +261,7 @@ StateReturnType State::friend_checkForSleepTransitions( StateReturnType status )
  * Constructor
  */
 StateMachine::StateMachine( Object *owner, AsciiString name )
+	: m_stateMap()
 {
 	m_owner = owner;
 	m_sleepTill = 0;
