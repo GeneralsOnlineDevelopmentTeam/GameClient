@@ -193,7 +193,30 @@ Mission *Campaign::getNextMission( Mission *current)
 		name = m_firstMission;
 	}
 	else
+	{
+		// Validate that current still points to a valid mission in our list
+		// to prevent use-after-free crashes
+		Bool foundCurrent = FALSE;
+		MissionListIt validateIt = m_missions.begin();
+		while(validateIt != m_missions.end())
+		{
+			if(*validateIt == current)
+			{
+				foundCurrent = TRUE;
+				break;
+			}
+			++validateIt;
+		}
+		
+		// If current mission is not in our list anymore, it may have been freed
+		if(!foundCurrent)
+		{
+			DEBUG_LOG(("Campaign::getNextMission - current mission pointer is not in mission list, possible use-after-free"));
+			return NULL;
+		}
+		
 		name = current->m_nextMission;
+	}
 	name.toLower();
 	MissionListIt it;
 	it = m_missions.begin();
