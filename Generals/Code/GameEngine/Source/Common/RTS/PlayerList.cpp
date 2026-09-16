@@ -186,7 +186,13 @@ void PlayerList::newGame()
 	for( i = 0; i < TheSidesList->getNumSides(); i++)
 	{
 		Dict *d = TheSidesList->getSideInfo(i)->getDict();
-		Player* p = findPlayerWithNameKey(NAMEKEY(d->getAsciiString(TheKey_playerName)));
+		AsciiString pname = d->getAsciiString(TheKey_playerName);
+		if (pname.isEmpty())
+			continue;	// skip neutral player
+
+		Player* p = findPlayerWithNameKey(NAMEKEY(pname));
+		if (!p)
+			continue;	// player not found, skip
 
 		AsciiString tok;
 
