@@ -1325,6 +1325,12 @@ void PlayerConnection::UpdateLatencyHistogram()
 		histogram_duration = serviceConf.network_mesh_histogram_duration;
 	}
 
+	// Validate histogram_duration to prevent division by zero
+	// If it's 0 or negative, use the default value
+	if (histogram_duration <= 0)
+	{
+		histogram_duration = 20000;
+	}
 
 	// update latency history
 	int currLatency = GetLatency();
