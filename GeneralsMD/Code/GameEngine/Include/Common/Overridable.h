@@ -59,8 +59,14 @@ class Overridable : public MemoryPoolObject
 		// recursively ask if there is a next override, and if not, return this.
 		const Overridable *getFinalOverride() const
 		{
+			// TheSuperHackers @bugfix Add null check to prevent crash from corrupted override chain
 			if (m_nextOverride)
-				return m_nextOverride->getFinalOverride();
+			{
+				// Validate the pointer before dereferencing to prevent access violation
+				const Overridable* next = m_nextOverride->getFinalOverride();
+				if (next)
+					return next;
+			}
 			return this;
 		}
 
@@ -80,16 +86,26 @@ class Overridable : public MemoryPoolObject
 		// useful for the LocomotorStore to create an override dangling off the final override.
 		Overridable *friend_getFinalOverride()
 		{
+			// TheSuperHackers @bugfix Add null check to prevent crash from corrupted override chain
 			if (m_nextOverride)
-				return m_nextOverride->friend_getFinalOverride();
+			{
+				Overridable* next = m_nextOverride->friend_getFinalOverride();
+				if (next)
+					return next;
+			}
 			return this;
 		}
 
 		// useful for the LocomotorStore to create an override dangling off the final override.
 		const Overridable *friend_getFinalOverride() const
 		{
+			// TheSuperHackers @bugfix Add null check to prevent crash from corrupted override chain
 			if (m_nextOverride)
-				return m_nextOverride->friend_getFinalOverride();
+			{
+				const Overridable* next = m_nextOverride->friend_getFinalOverride();
+				if (next)
+					return next;
+			}
 			return this;
 		}
 
