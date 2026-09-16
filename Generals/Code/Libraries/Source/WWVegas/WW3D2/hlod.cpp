@@ -2242,12 +2242,16 @@ void HLodClass::Notify_Added(SceneClass * scene)
 	int i;
 	int model_count = Lod[CurLod].Count();
 	for (i = 0; i < model_count; i++) {
-		Lod[CurLod][i].Model->Notify_Added(scene);
+		if (Lod[CurLod][i].Model != nullptr) {
+			Lod[CurLod][i].Model->Notify_Added(scene);
+		}
 	}
 
 	int additional_count = AdditionalModels.Count();
 	for (i = 0; i < additional_count; i++) {
-		AdditionalModels[i].Model->Notify_Added(scene);
+		if (AdditionalModels[i].Model != nullptr) {
+			AdditionalModels[i].Model->Notify_Added(scene);
+		}
 	}
 }
 
@@ -2269,12 +2273,16 @@ void HLodClass::Notify_Removed(SceneClass * scene)
 	int i;
 	int model_count = Lod[CurLod].Count();
 	for (i = 0; i < model_count; i++) {
-		Lod[CurLod][i].Model->Notify_Removed(scene);
+		if (Lod[CurLod][i].Model != nullptr) {
+			Lod[CurLod][i].Model->Notify_Removed(scene);
+		}
 	}
 
 	int additional_count = AdditionalModels.Count();
 	for (i = 0; i < additional_count; i++) {
-		AdditionalModels[i].Model->Notify_Removed(scene);
+		if (AdditionalModels[i].Model != nullptr) {
+			AdditionalModels[i].Model->Notify_Removed(scene);
+		}
 	}
 	RenderObjClass::Notify_Removed(scene);
 }
