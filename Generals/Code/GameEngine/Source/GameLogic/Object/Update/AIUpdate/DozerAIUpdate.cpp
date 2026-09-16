@@ -1087,7 +1087,12 @@ StateReturnType DozerPrimaryIdleState::update()
 	//
 	if( ai->isIdle() && !m_isMarkedAsIdle && !dozer->isEffectivelyDead())
 	{
-		m_idlePlayerNumber = dozer->getControllingPlayer()->getPlayerIndex();
+		Player *controllingPlayer = dozer->getControllingPlayer();
+		if( !controllingPlayer )
+		{
+			return STATE_FAILURE;
+		}
+		m_idlePlayerNumber = controllingPlayer->getPlayerIndex();
 		TheInGameUI->addIdleWorker(getMachineOwner());
 		m_isMarkedAsIdle = TRUE;
 		getMachineOwner()->setWeaponSetFlag(WEAPONSET_MINE_CLEARING_DETAIL);//maybe go clear some mines, if I feel like it
