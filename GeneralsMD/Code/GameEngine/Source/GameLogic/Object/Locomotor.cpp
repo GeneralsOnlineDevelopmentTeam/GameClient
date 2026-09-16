@@ -1647,7 +1647,12 @@ void Locomotor::moveTowardsPositionLegs(Object* obj, PhysicsBehavior *physics, c
 	}
 
 	Real relAngle = stdAngleDiff(desiredAngle, angle);
-	locoUpdate_moveTowardsAngle(obj, desiredAngle);
+	Coord3D desiredPos;
+	desiredPos.x = obj->getPosition()->x + Cos(desiredAngle) * 1000.0f;
+	desiredPos.y = obj->getPosition()->y + Sin(desiredAngle) * 1000.0f;
+	desiredPos.z = obj->getPosition()->z;
+	PhysicsTurningType rotating = rotateTowardsPosition(obj, desiredPos);
+	physics->setTurning(rotating);
 
 	//
 	// Modulate speed according to turning. The more we have to turn, the slower we go
@@ -1768,7 +1773,12 @@ void Locomotor::moveTowardsPositionClimb(Object* obj, PhysicsBehavior *physics, 
 		relAngle = stdAngleDiff(desiredAngle, angle);
 	}
 
-	locoUpdate_moveTowardsAngle(obj, desiredAngle);
+	Coord3D desiredPos;
+	desiredPos.x = obj->getPosition()->x + Cos(desiredAngle) * 1000.0f;
+	desiredPos.y = obj->getPosition()->y + Sin(desiredAngle) * 1000.0f;
+	desiredPos.z = obj->getPosition()->z;
+	PhysicsTurningType rotating = rotateTowardsPosition(obj, desiredPos);
+	physics->setTurning(rotating);
 
 	//
 	// Modulate speed according to turning. The more we have to turn, the slower we go
