@@ -108,6 +108,33 @@ static GameWindow *		checkRetaliation		= nullptr;
 static NameKeyType		checkDoubleClickAttackMoveID	= NAMEKEY_INVALID;
 static GameWindow *		checkDoubleClickAttackMove		= nullptr;
 
+// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+static NameKeyType		comboBoxAutoLeaveOnDefeatID	= NAMEKEY_INVALID;
+static GameWindow *		comboBoxAutoLeaveOnDefeat		= nullptr;
+
+// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+// The durations offered in the options menu.  Off is first so the feature reads as disabled by
+// default.  The seconds value is stored as the combo box item data, so the order of this table can
+// change without invalidating anything already saved to Options.ini.
+struct AutoLeaveOnDefeatOption
+{
+	UnsignedInt seconds;
+	const char *label;
+};
+
+static const AutoLeaveOnDefeatOption autoLeaveOnDefeatOptions[] =
+{
+	{   0, "GUI:AutoLeaveOnDefeatOff" },
+	{  30, "GUI:AutoLeaveOnDefeat30" },
+	{  60, "GUI:AutoLeaveOnDefeat60" },
+	{ 120, "GUI:AutoLeaveOnDefeat120" },
+	{ 180, "GUI:AutoLeaveOnDefeat180" },
+	{ 300, "GUI:AutoLeaveOnDefeat300" },
+};
+
+static const Int autoLeaveOnDefeatOptionCount =
+	sizeof(autoLeaveOnDefeatOptions) / sizeof(autoLeaveOnDefeatOptions[0]);
+
 static NameKeyType		sliderScrollSpeedID	= NAMEKEY_INVALID;
 static GameWindow *		sliderScrollSpeed		= nullptr;
 
@@ -615,6 +642,20 @@ static void saveOptions()
 	TheWritableGlobalData->m_doubleClickAttackMove = GadgetCheckBoxIsChecked( checkDoubleClickAttackMove );
 	(*pref)["UseDoubleClickAttackMove"] = TheWritableGlobalData->m_doubleClickAttackMove ? "yes" : "no";
 
+	// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+	// Only written when the control is present, so an unmodified window asset leaves any existing
+	// preference untouched rather than resetting it to Off.
+	if (comboBoxAutoLeaveOnDefeat)
+	{
+		Int autoLeaveIndex = -1;
+		GadgetComboBoxGetSelectedPos( comboBoxAutoLeaveOnDefeat, &autoLeaveIndex );
+		if (autoLeaveIndex >= 0)
+		{
+			UnsignedInt seconds = (UnsignedInt)GadgetComboBoxGetItemData( comboBoxAutoLeaveOnDefeat, autoLeaveIndex );
+			pref->setAutoLeaveOnDefeatSeconds( seconds );
+		}
+	}
+
 	// TheSuperHackers @todo Add combo box ?
 	{
 		CursorCaptureMode mode = pref->getCursorCaptureMode();
@@ -1002,6 +1043,10 @@ void OptionsMenuInit( WindowLayout *layout, void *userData )
 	checkRetaliation	     = TheWindowManager->winGetWindowFromId( nullptr, checkRetaliationID);
 	checkDoubleClickAttackMoveID = TheNameKeyGenerator->nameToKey( "OptionsMenu.wnd:CheckDoubleClickAttackMove" );
 	checkDoubleClickAttackMove   = TheWindowManager->winGetWindowFromId( nullptr, checkDoubleClickAttackMoveID );
+	// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+	// Stays null when running against unmodified window assets, so every use below is guarded.
+	comboBoxAutoLeaveOnDefeatID = TheNameKeyGenerator->nameToKey( "OptionsMenu.wnd:ComboBoxAutoLeaveOnDefeat" );
+	comboBoxAutoLeaveOnDefeat   = TheWindowManager->winGetWindowFromId( nullptr, comboBoxAutoLeaveOnDefeatID );
 	sliderScrollSpeedID	   = TheNameKeyGenerator->nameToKey( "OptionsMenu.wnd:SliderScrollSpeed" );
 	sliderScrollSpeed		   = TheWindowManager->winGetWindowFromId( nullptr,  sliderScrollSpeedID);
 	comboBoxAntiAliasingID = TheNameKeyGenerator->nameToKey( "OptionsMenu.wnd:ComboBoxAntiAliasing" );
@@ -1234,6 +1279,40 @@ void OptionsMenuInit( WindowLayout *layout, void *userData )
 		TheWritableGlobalData->m_antiAliasLevel = pos = 0;
 	}
 	GadgetComboBoxSetSelectedPos(comboBoxAntiAliasing, pos);
+
+	// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+	// Populate the auto-leave durations.  The seconds are carried as item data rather than inferred
+	// from the entry position, so a hand edited Options.ini value that is not one of the offered
+	// durations can be preserved as an extra entry instead of being silently rewritten on save.
+	if (comboBoxAutoLeaveOnDefeat)
+	{
+		const UnsignedInt savedSeconds = pref->getAutoLeaveOnDefeatSeconds();
+		Int selectedPos = 0;
+
+		GadgetComboBoxReset(comboBoxAutoLeaveOnDefeat);
+
+		for (Int opt = 0; opt < autoLeaveOnDefeatOptionCount; ++opt)
+		{
+			const AutoLeaveOnDefeatOption &option = autoLeaveOnDefeatOptions[opt];
+			UnicodeString optionText = TheGameText->fetch( option.label );
+			Int optionIndex = GadgetComboBoxAddEntry( comboBoxAutoLeaveOnDefeat, optionText, color );
+			GadgetComboBoxSetItemData( comboBoxAutoLeaveOnDefeat, optionIndex, (void *)option.seconds );
+
+			if (option.seconds == savedSeconds)
+				selectedPos = optionIndex;
+		}
+
+		if (savedSeconds != 0 && selectedPos == 0)
+		{
+			// Not one of the offered durations, so show it rather than lose it.
+			UnicodeString customText;
+			customText.format( TheGameText->fetch("GUI:AutoLeaveOnDefeatCustom").str(), savedSeconds );
+			selectedPos = GadgetComboBoxAddEntry( comboBoxAutoLeaveOnDefeat, customText, color );
+			GadgetComboBoxSetItemData( comboBoxAutoLeaveOnDefeat, selectedPos, (void *)savedSeconds );
+		}
+
+		GadgetComboBoxSetSelectedPos( comboBoxAutoLeaveOnDefeat, selectedPos );
+	}
 
 	// get resolution from saved preferences file
 	AsciiString selectedResolution = (*pref) ["Resolution"];

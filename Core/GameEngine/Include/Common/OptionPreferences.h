@@ -38,6 +38,11 @@
 typedef UnsignedInt CursorCaptureMode;
 typedef UnsignedInt ScreenEdgeScrollMode;
 
+// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+// Upper bound for the auto-leave countdown, so a hand edited preference cannot produce a
+// pathological timer. Well above the longest duration the user interface offers.
+const UnsignedInt AUTO_LEAVE_ON_DEFEAT_MAX_SECONDS = 3600;
+
 //-----------------------------------------------------------------------------
 // OptionsPreferences options menu class
 //-----------------------------------------------------------------------------
@@ -130,6 +135,10 @@ public:
 	Real getResolutionFontAdjustment();
 
 	Bool getShowMoneyPerMinute() const;
+
+	// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+	UnsignedInt getAutoLeaveOnDefeatSeconds() const;
+	void setAutoLeaveOnDefeatSeconds(UnsignedInt seconds);
 
 	Real getGameWindowTransitionSpeedMultiplier() const;
 

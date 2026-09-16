@@ -977,3 +977,32 @@ Real OptionPreferences::getGameWindowTransitionSpeedMultiplier() const
 	Real speed = (Real) atof(it->second.str());
 	return clamp(1.0f, speed, 1000.0f);
 }
+
+// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+// Returns the number of seconds a defeated local player waits before the client returns to
+// the score screen. Zero disables the feature, which is the default.
+UnsignedInt OptionPreferences::getAutoLeaveOnDefeatSeconds() const
+{
+	OptionPreferences::const_iterator it = find("AutoLeaveOnDefeatSeconds");
+	if (it == end())
+		return 0;
+
+	Int seconds = atoi(it->second.str());
+	if (seconds <= 0)
+		return 0;
+	if (seconds > AUTO_LEAVE_ON_DEFEAT_MAX_SECONDS)
+		seconds = AUTO_LEAVE_ON_DEFEAT_MAX_SECONDS;
+
+	return (UnsignedInt)seconds;
+}
+
+// TheSuperHackers @feature JawadYzbk 16/09/2026 Add optional auto-leave on defeat countdown.
+void OptionPreferences::setAutoLeaveOnDefeatSeconds(UnsignedInt seconds)
+{
+	if (seconds > AUTO_LEAVE_ON_DEFEAT_MAX_SECONDS)
+		seconds = AUTO_LEAVE_ON_DEFEAT_MAX_SECONDS;
+
+	AsciiString prefString;
+	prefString.format("%u", seconds);
+	(*this)["AutoLeaveOnDefeatSeconds"] = prefString;
+}
