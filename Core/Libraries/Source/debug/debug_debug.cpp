@@ -1311,7 +1311,7 @@ void Debug::StartOutput(DebugIOInterface::StringType type, const char *fmt, ...)
   // potentially dangerous (fixed string buffer...)
   va_list va;
   va_start(va,fmt);
-  wvsprintf(curSource,fmt,va);
+  vsnprintf(curSource,sizeof(curSource),fmt,va);
   va_end(va);
   __ASSERT(curSource[sizeof(curSource)-1]==0);
 }
