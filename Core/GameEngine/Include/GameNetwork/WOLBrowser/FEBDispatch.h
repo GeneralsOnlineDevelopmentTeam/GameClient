@@ -50,6 +50,7 @@ public C
 public:
 
 	BEGIN_COM_MAP(T)
+		COM_INTERFACE_ENTRY(IUnknown)
 		COM_INTERFACE_ENTRY(C)
 		COM_INTERFACE_ENTRY_AGGREGATE(IID_IDispatch, m_dispatch)
 	END_COM_MAP()
