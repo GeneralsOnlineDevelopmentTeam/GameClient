@@ -68,7 +68,7 @@ enum BuildableStatus CPP_11(: Int);
 typedef const CommandButton* ConstCommandButtonPtr;
 
 // What kind of game we're in.
-enum
+enum GameMode CPP_11(: Int)
 {
 	GAME_SINGLE_PLAYER,
 	GAME_LAN,
@@ -435,7 +435,7 @@ private:
 	virtual TerrainLogic *createTerrainLogic();
 	virtual GhostObjectManager *createGhostObjectManager(bool dummy = false);
 
-	Int m_gameMode;
+	GameMode m_gameMode;
 	Int m_rankLevelLimit;
 
 	LoadScreen *getLoadScreen( Bool saveGame );
