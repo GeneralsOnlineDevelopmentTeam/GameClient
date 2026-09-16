@@ -4263,6 +4263,10 @@ void Object::onDie( DamageInfo *damageInfo )
 //-------------------------------------------------------------------------------------------------
 void Object::adjustModelConditionForWeaponStatus()
 {
+	// Early return if we don't have a drawable (e.g., object is contained or drawable hasn't been bound yet)
+	if (!m_drawable)
+		return;
+
 	UnsignedInt now = TheGameLogic->getFrame();
 
 	for (int i = 0; i < WEAPONSLOT_COUNT; ++i)
