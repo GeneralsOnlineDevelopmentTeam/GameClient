@@ -251,7 +251,17 @@ Object* PointDefenseLaserUpdate::scanClosestTarget()
 	bonus.clear();
 	Real fireRange = data->m_weaponTemplate->getAttackRange( bonus );
 
-	ObjectIterator *iter = ThePartitionManager->iterateObjectsInRange( me->getPosition(), data->m_scanRange, FROM_CENTER_2D );
+	// Check if position is valid before using it
+	const Coord3D *myPosition = me->getPosition();
+	if( !myPosition )
+	{
+		// Position is NULL, cannot scan for targets
+		m_bestTargetID = INVALID_ID;
+		m_inRange = false;
+		return NULL;
+	}
+
+	ObjectIterator *iter = ThePartitionManager->iterateObjectsInRange( myPosition, data->m_scanRange, FROM_CENTER_2D );
 	MemoryPoolObjectHolder hold(iter);
 
 	for( Object *other = iter->first(); other; other = iter->next() )
