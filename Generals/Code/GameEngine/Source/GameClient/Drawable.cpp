@@ -3578,7 +3578,13 @@ void Drawable::replaceModelConditionStateInDrawable()
 //-------------------------------------------------------------------------------------------------
 void Drawable::setIndicatorColor(Color color)
 {
-	for (DrawModule** dm = getDrawModules(); *dm; ++dm)
+	DrawModule** dm = getDrawModules();
+	
+	// TheSuperHackers @bugfix Mauller/xezon 02/08/2025 Prevent crash when DrawModules are not yet initialized during early object creation
+	if (!dm || !*dm)
+		return;
+	
+	for (; *dm; ++dm)
 	{
 		ObjectDrawInterface* di = (*dm)->getObjectDrawInterface();
 		if (di)
