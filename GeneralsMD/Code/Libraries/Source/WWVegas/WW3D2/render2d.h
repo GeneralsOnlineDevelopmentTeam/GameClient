@@ -153,6 +153,11 @@ public:
 	// Color access
 	DynamicVectorClass<unsigned long> &	Get_Color_Array ()	{ return Colors; }
 
+	// Current batch size. Both dynamic buffers Render() fills are indexed by unsigned short, so a
+	// caller that batches across many primitives must flush before either count exceeds 65535.
+	int	Get_Vertex_Count() const	{ return Vertices.Count(); }
+	int	Get_Index_Count() const	{ return Indices.Count(); }
+
 	// statics to access the Screen Resolution in Pixels
 	static void	Set_Screen_Resolution( const RectClass & screen );
 	static const RectClass & Get_Screen_Resolution()			{ return ScreenResolution; }

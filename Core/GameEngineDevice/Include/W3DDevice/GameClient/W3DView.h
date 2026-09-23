@@ -224,6 +224,7 @@ public:
 	virtual void setFieldOfView( Real angle ) override;							///< Set the horizontal field of view angle
 
   virtual WorldToScreenReturn worldToScreenTriReturn( const Coord3D *w, ICoord2D *s ) override;	///< Transform world coordinate "w" into screen coordinate "s"
+  virtual WorldToScreenReturn worldToScreenTriReturnAllowFarClip( const Coord3D *w, ICoord2D *s ) override;	///< As above, but a point beyond the far clip plane still projects
 	virtual Bool screenToTerrain( const ICoord2D *screen, Coord3D *world ) override;
 	virtual PlaneClass::IntersectionResType screenToWorldAtZ( const ICoord2D *screen, Coord3D *world, Real z ) override;
 

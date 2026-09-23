@@ -2396,6 +2396,41 @@ View::WorldToScreenReturn W3DView::worldToScreenTriReturn( const Coord3D *w, ICo
 }
 
 //-------------------------------------------------------------------------------------------------
+/** As worldToScreenTriReturn, but a point beyond the far clip plane still yields a usable screen
+	position. CameraClass::Project only zeroes its output for OUTSIDE_NEAR_CLIP; past the far plane
+	it has already written the perspective-divided position before it returns. */
+//-------------------------------------------------------------------------------------------------
+View::WorldToScreenReturn W3DView::worldToScreenTriReturnAllowFarClip( const Coord3D *w, ICoord2D *s )
+{
+	// sanity
+	if( w == nullptr || s == nullptr || m_3DCamera == nullptr )
+		return WTS_INVALID;
+
+	Vector3 world;
+	Vector3 screen;
+
+	world.Set( w->x, w->y, w->z );
+	enum CameraClass::ProjectionResType projection = m_3DCamera->Project( screen, world );
+	if( projection == CameraClass::OUTSIDE_NEAR_CLIP )
+	{
+		s->x = 0;
+		s->y = 0;
+		return WTS_INVALID;
+	}
+
+	W3DLogicalScreenToPixelScreen( screen.X, screen.Y,
+														 &s->x, &s->y,
+														 getWidth(), getHeight());
+	s->x += m_originX;	//convert viewport coordinates to full screen coordinates
+	s->y += m_originY;
+
+	if( projection != CameraClass::INSIDE_FRUSTUM )
+		return WTS_OUTSIDE_FRUSTUM;
+
+	return WTS_INSIDE_FRUSTUM;
+}
+
+//-------------------------------------------------------------------------------------------------
 /** all the drawables in the view, that fall within the 2D screen region
 	* will call the callback function.  The number of drawables that passed
 	* the test are returned.
