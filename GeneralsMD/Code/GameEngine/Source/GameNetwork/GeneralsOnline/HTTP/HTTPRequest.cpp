@@ -273,6 +273,17 @@ void HTTPRequest::PlatformStartRequest()
 			}
 		}
 
+		// TheSuperHackers @bugfix bill-rich 24/09/2026 Say what the body is. Without a Content-Type
+		// libcurl sends application/x-www-form-urlencoded, and a service that form-parses on that
+		// header rejects any body large enough to exceed its form key limit, because the whole
+		// payload reads as one enormous key. Every request built here carries JSON unless the
+		// caller set a type of its own (the S3 uploads set theirs).
+		if ((m_httpVerb == EHTTPVerb::HTTP_VERB_POST || m_httpVerb == EHTTPVerb::HTTP_VERB_PUT || m_httpVerb == EHTTPVerb::HTTP_VERB_DELETE)
+			&& m_mapHeaders.find("Content-Type") == m_mapHeaders.end())
+		{
+			m_mapHeaders["Content-Type"] = "application/json";
+		}
+
 		for (auto& kvPair : m_mapHeaders)
 		{
 			std::string strHeader = kvPair.first + ": " + kvPair.second;
