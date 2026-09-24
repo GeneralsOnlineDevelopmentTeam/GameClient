@@ -226,9 +226,13 @@ static GameWindow *buttonRandomize = NULL;
 // TheSuperHackers @feature bill-rich 15/09/2026 How many times the host pressed Randomize in this
 // lobby; announced with every roll so re-rolling is visible to everyone present.
 static Int s_randomizeCount = 0;
-// TheSuperHackers @feature bill-rich 24/09/2026 True while the host's own faction and colour were set by
-// Randomize rather than chosen, so Back/Start does not persist a rolled slot as the preferred one.
-static Bool s_hostSlotFromRandomize = FALSE;
+// TheSuperHackers @feature bill-rich 24/09/2026 The lobby remembers a faction and colour as the player's
+// preference only when the player picked them here. A value that arrived from the service, because
+// the host pressed Randomize or moved this slot, is not a choice and must not be stored.
+// s_applyingLobbyUpdate marks the repaint that a service push drives: it fires the same combo
+// callbacks as a real click, so without it the push that delivers a roll looks like a choice.
+static Bool s_localSlotChosen = FALSE;
+static Bool s_applyingLobbyUpdate = FALSE;
 static GameWindow *buttonEmote = NULL;
 static GameWindow *textEntryChat = NULL;
 static GameWindow *textEntryMapDisplay = NULL;
@@ -369,7 +373,7 @@ static void savePlayerInfo()
 			{
 				// save off some prefs
 				CustomMatchPreferences pref;
-				if (!s_hostSlotFromRandomize)
+				if (s_localSlotChosen)
 				{
 					pref.setPreferredColor(slot->getColor());
 					pref.setPreferredFaction(slot->getPlayerTemplate());
@@ -698,6 +702,8 @@ NameKeyType listboxGameSetupChatID = NAMEKEY_INVALID;
 
 static void handleColorSelection(int index)
 {
+	if (!s_applyingLobbyUpdate && TheNGMPGame && index == TheNGMPGame->getLocalSlotNum())
+		s_localSlotChosen = TRUE; // picked here, so it is worth remembering
 	GameWindow *combo = comboBoxColor[index];
 	Int color, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
@@ -759,8 +765,8 @@ static void handleColorSelection(int index)
 
 static void handlePlayerTemplateSelection(int index, bool bInitialSetup = false)
 {
-	if (!bInitialSetup && TheNGMPGame && index == TheNGMPGame->getLocalSlotNum())
-		s_hostSlotFromRandomize = FALSE; // an explicit choice is worth remembering again
+	if (!bInitialSetup && !s_applyingLobbyUpdate && TheNGMPGame && index == TheNGMPGame->getLocalSlotNum())
+		s_localSlotChosen = TRUE; // picked here, so it is worth remembering
 	GameWindow *combo = comboBoxPlayerTemplate[index];
 	Int playerTemplate, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
@@ -1573,8 +1579,10 @@ void WOLDisplaySlotList(void)
 
     DEBUG_ASSERTCRASH(!game->getConstSlot(0)->isOpen(), ("Open host!"));
 
+    s_applyingLobbyUpdate = TRUE;
     UpdateSlotList(game, comboBoxPlayer, comboBoxColor,
         comboBoxPlayerTemplate, comboBoxTeam, buttonAccept, buttonStart, buttonMapStartPosition);
+    s_applyingLobbyUpdate = FALSE;
 
     WOLDisplayGameOptions();
 
@@ -1901,7 +1909,8 @@ Bool initialAcceptEnable = FALSE;
 void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 {
 	s_randomizeCount = 0;
-	s_hostSlotFromRandomize = FALSE;
+	s_localSlotChosen = FALSE;
+	s_applyingLobbyUpdate = FALSE;
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface == nullptr)
 	{
@@ -4196,26 +4205,17 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 							}
 							else
 							{
-								const Int localSlot = game->getLocalSlotNum();
-								Bool hostRolled = FALSE;
-								for (const RandomSlotAssignment& change : changes)
-								{
-									if (change.slotIndex == localSlot && change.side != -1)
-										hostRolled = TRUE;
-								}
 								// The button is held down only while the request is in flight, and goes back to
 								// whatever it was when the roll started: a stats match or a guest must not end
 								// up with it enabled.
 								const Bool bWasEnabled = (buttonRandomize != NULL) && BitIsSet(buttonRandomize->winGetStatus(), WIN_STATUS_ENABLED);
 								if (buttonRandomize)
 									buttonRandomize->winEnable(FALSE);
-								pLobbyInterface->UpdateCurrentLobby_BulkSlotUpdate(changes, [pLobbyInterface, hostRolled, bWasEnabled](bool bSuccess)
+								pLobbyInterface->UpdateCurrentLobby_BulkSlotUpdate(changes, [pLobbyInterface, bWasEnabled](bool bSuccess)
 									{
 										if (bSuccess)
 										{
 											++s_randomizeCount;
-											if (hostRolled)
-												s_hostSlotFromRandomize = TRUE;
 											UnicodeString strInform;
 											strInform.format(TheGameText->FETCH_OR_SUBSTITUTE("GUI:HostRandomizedSlots", L"Randomize: the host resolved the random factions, colors and start positions (roll %d)"), s_randomizeCount);
 											pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, true);
