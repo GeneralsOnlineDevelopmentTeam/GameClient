@@ -520,7 +520,7 @@ void NGMPGame::launchGame(void)
 	UnicodeString resumeWhy;
 	if (!ResumeFromReplay::prepareGameStart(this, resumeWhy))
 	{
-		DEBUG_LOG(("Resume-from-replay validation failed.  Bailing...\n"));
+		DEBUG_LOG(("Resume-from-replay validation failed.  Bailing..."));
 		if (TheNetwork != NULL) {
 			delete TheNetwork;
 			TheNetwork = NULL;

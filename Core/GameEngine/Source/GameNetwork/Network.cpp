@@ -798,9 +798,11 @@ void Network::update()
 	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay: the freeze after the handoff holds
 	// the simulation on this frame for a wall-clock countdown while the network keeps
 	// pumping, and catchup before it skips the realtime timing gate (timeForNewFrame) so
-	// frames advance as fast as lockstep allows. AllCommandsReady stays enforced either way.
+	// frames advance as fast as lockstep allows; the lead-in (last seconds before the
+	// handoff) keeps the gate so it runs at the logic rate whatever the render rate does.
+	// AllCommandsReady stays enforced either way.
 	const Bool resumeFrozen = TheRecorder && TheRecorder->updateResumeFreeze();
-	const Bool inCatchup = TheRecorder && TheRecorder->isResumeCatchupMode();
+	const Bool inCatchup = TheRecorder && TheRecorder->isResumeCatchupMode() && !TheRecorder->isResumeCatchupLeadIn();
 
 	if (!resumeFrozen && AllCommandsReady(TheGameLogic->getFrame())) { // If all the commands are ready for the next frame...
 		m_conMgr->handleAllCommandsReady();

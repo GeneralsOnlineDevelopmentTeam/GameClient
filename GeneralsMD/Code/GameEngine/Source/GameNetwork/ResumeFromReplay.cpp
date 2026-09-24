@@ -73,6 +73,11 @@ Bool readSource(SourceReplay &out, UnicodeString &why)
 	// cut short by a crash (the very file a resume is for) reads 0 there, and a torn tail may hold
 	// fewer complete records than the count says. Walk the records either way.
 	out.lastFrame = TheRecorder->scanReplayLastFrame(getSourceFileName());
+	if (out.lastFrame == 0)
+	{
+		why = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeNoFrames", L"the resume replay holds no complete frames (or the recorder is busy)");
+		return FALSE;
+	}
 	return TRUE;
 }
 
@@ -117,27 +122,70 @@ Bool prepareHostSource(SourceReplay &out, UnsignedInt &handoffFrame, UnicodeStri
 	return computeHandoffFrame(out.lastFrame, handoffFrame, why);
 }
 
-// The lobby must line up with the recording slot for slot: every recorded human in the slot
-// they held, under the same name, and nobody else in a recorded slot. Recorded commands are
-// indexed by slot position, so this is what keeps the replayed commands attached to the
-// right players.
+static UnicodeString slotOccupantName(const GameSlot *slot)
+{
+	if (slot != nullptr && slot->isHuman())
+		return slot->getName();
+	return TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeAIPlayer", L"the AI player");
+}
+
+static UnicodeString slotStateName(const GameSlot *slot)
+{
+	if (slot == nullptr)
+		return UnicodeString::TheEmptyString;
+	switch (slot->getState())
+	{
+		case SLOT_EASY_AI:   return TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeEasyAI", L"an easy AI");
+		case SLOT_MED_AI:    return TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeMediumAI", L"a medium AI");
+		case SLOT_BRUTAL_AI: return TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeHardAI", L"a hard AI");
+		default:             return slot->getName();
+	}
+}
+
+// The lobby must line up with the recording slot for slot. Recorded commands are indexed by
+// slot position and the simulation is seeded by every slot's occupant, faction, start spot
+// and team, so all of it has to match: every recorded human in the slot they held under the
+// same name, every recorded AI in its slot at its difficulty, nobody in a slot that was empty,
+// and the same faction, color, start position and team everywhere. Open and closed slots
+// are both empty.
 Bool slotsMatch(const ReplayGameInfo &replay, const GameInfo *lobby, UnicodeString &why)
 {
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
 		const GameSlot *rs = replay.getConstSlot(i);
 		const GameSlot *ls = lobby->getConstSlot(i);
-		const Bool replayHuman = rs && rs->isHuman();
-		const Bool lobbyHuman = ls && ls->isHuman();
-		if (replayHuman == lobbyHuman && (!replayHuman || rs->getName().compare(ls->getName()) == 0))
+		const Bool replayOccupied = rs && rs->isOccupied();
+		const Bool lobbyOccupied = ls && ls->isOccupied();
+		if (!replayOccupied && !lobbyOccupied)
 			continue;
-		if (replayHuman)
+		if (replayOccupied && !lobbyOccupied)
+		{
 			why = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeSlotMismatch",
-				L"slot %d must be %ls (it was theirs in the recording)", i + 1, rs->getName().str());
-		else
+				L"slot %d must be %ls (it was theirs in the recording)", i + 1, slotStateName(rs).str());
+			return FALSE;
+		}
+		if (!replayOccupied && lobbyOccupied)
+		{
 			why = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeSlotExtra",
-				L"slot %d was not a player in the recording, close it or move %ls", i + 1, ls->getName().str());
-		return FALSE;
+				L"slot %d was not a player in the recording, close it or move %ls", i + 1, slotOccupantName(ls).str());
+			return FALSE;
+		}
+		// human vs AI, AI difficulty
+		if (rs->getState() != ls->getState() || (rs->isHuman() && rs->getName().compare(ls->getName()) != 0))
+		{
+			why = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeSlotMismatch",
+				L"slot %d must be %ls (it was theirs in the recording)", i + 1, slotStateName(rs).str());
+			return FALSE;
+		}
+		if (rs->getPlayerTemplate() != ls->getPlayerTemplate()
+			|| rs->getColor() != ls->getColor()
+			|| rs->getStartPos() != ls->getStartPos()
+			|| rs->getTeamNumber() != ls->getTeamNumber())
+		{
+			why = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeSlotSettingsMismatch",
+				L"slot %d (%ls) has a different faction, color, start position or team than in the recording", i + 1, slotOccupantName(ls).str());
+			return FALSE;
+		}
 	}
 	return TRUE;
 }
@@ -259,7 +307,7 @@ Bool guestSourceReport(const GameInfo *lobby, UnicodeString &report)
 	return TRUE;
 }
 
-Bool prepareGameStart(const GameInfo *game, UnicodeString &why)
+Bool prepareGameStart(GameInfo *game, UnicodeString &why)
 {
 	if (TheRecorder == nullptr)
 		return TRUE;
@@ -276,6 +324,10 @@ Bool prepareGameStart(const GameInfo *game, UnicodeString &why)
 		return FALSE;
 	}
 	TheRecorder->armResumeForNextGame(game->getResumeHandoffFrame(), replay.lastFrame);
+	// The recorder owns the arm from here. Clearing it on the game info keeps RH= out of the
+	// new recording's options string (external replay parsers do not know the token) and
+	// leaves the lobby disarmed when the players come back after the match.
+	game->setResumeHandoffFrame(0);
 	return TRUE;
 }
 

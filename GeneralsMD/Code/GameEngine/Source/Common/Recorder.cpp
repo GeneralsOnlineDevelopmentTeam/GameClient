@@ -1966,7 +1966,13 @@ Bool RecorderClass::startResumeCatchup()
 UnsignedInt RecorderClass::scanReplayLastFrame(AsciiString filename)
 {
 	if (m_file != nullptr || isPlaybackMode() || isResumeCatchupMode())
+	{
+		// Lobby-only helper; the read helpers it borrows (readReplayHeader, appendNextCommand) work on
+		// m_file, so it cannot run while a recording or playback holds that. 0 is "no usable frames".
+		DEBUG_CRASH(("RecorderClass::scanReplayLastFrame(%s) called while the recorder has a file open (mode %d)", filename.str(), m_mode));
+		RESUME_LOG("Resume: cannot scan %s while the recorder has a file open (mode %d)", filename.str(), m_mode);
 		return 0;
+	}
 
 	ReplayHeader header;
 	header.forPlayback = TRUE;

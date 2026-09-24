@@ -88,6 +88,7 @@ namespace
 	// Resume-from-replay source transfer: replays are command logs, a long match is a few MB.
 	const size_t RESUME_REPLAY_CHUNK_BYTES = 256 * 1024;
 	const size_t RESUME_REPLAY_MAX_BYTES = 16 * 1024 * 1024;
+	const int RESUME_REPLAY_MAX_CONFLICT_RETRIES = 3; // 409s in a row before an upload gives up
 
 	std::vector<uint8_t> ReadWholeFile(const char* path)
 	{
@@ -662,10 +663,10 @@ void NGMP_OnlineServices_LobbyInterface::UploadResumeReplay(const AsciiString& p
 		return;
 	}
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "UploadResumeReplay: uploading %s (%u bytes)", path.str(), (unsigned)bytes.size());
-	SendResumeReplayChunk(m_CurrentLobby.lobbyID, std::make_shared<std::vector<uint8_t>>(std::move(bytes)), 0, onComplete);
+	SendResumeReplayChunk(m_CurrentLobby.lobbyID, std::make_shared<std::vector<uint8_t>>(std::move(bytes)), 0, 0, onComplete);
 }
 
-void NGMP_OnlineServices_LobbyInterface::SendResumeReplayChunk(int64_t lobbyID, std::shared_ptr<std::vector<uint8_t>> data, size_t offset, std::function<void(bool bSuccess)> onComplete)
+void NGMP_OnlineServices_LobbyInterface::SendResumeReplayChunk(int64_t lobbyID, std::shared_ptr<std::vector<uint8_t>> data, size_t offset, int conflictRetries, std::function<void(bool bSuccess)> onComplete)
 {
 	if (offset >= data->size())
 	{
@@ -686,16 +687,37 @@ void NGMP_OnlineServices_LobbyInterface::SendResumeReplayChunk(int64_t lobbyID, 
 	j["data"] = Base64Encode(chunk);
 	std::string strPostData = j.dump();
 
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [this, lobbyID, data, offset, len, onComplete](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [this, lobbyID, data, offset, len, conflictRetries, onComplete](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
-			if (!bSuccess || statusCode != 200 || m_CurrentLobby.lobbyID != lobbyID)
+			if (bSuccess && statusCode == 200 && m_CurrentLobby.lobbyID == lobbyID)
 			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "UploadResumeReplay: chunk at %u failed (success=%d, status=%d)", (unsigned)offset, bSuccess, statusCode);
-				if (onComplete != nullptr)
-					onComplete(false);
+				SendResumeReplayChunk(lobbyID, data, offset + len, 0, onComplete);
 				return;
 			}
-			SendResumeReplayChunk(lobbyID, data, offset + len, onComplete);
+
+			// 409 carries the service's real length (a lost reply, a duplicate send, or the service
+			// dropped the file): resume from there, or from 0 when it does not fit our file.
+			if (statusCode == 409 && m_CurrentLobby.lobbyID == lobbyID && conflictRetries < RESUME_REPLAY_MAX_CONFLICT_RETRIES)
+			{
+				size_t resumeAt = 0;
+				try
+				{
+					nlohmann::json jResp = nlohmann::json::parse(strBody);
+					const int64_t total = jResp.value("total", (int64_t)0);
+					if (total > 0 && (uint64_t)total < (uint64_t)data->size())
+						resumeAt = (size_t)total;
+				}
+				catch (...)
+				{
+				}
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "UploadResumeReplay: chunk at %u conflicted, resuming from %u (retry %d)", (unsigned)offset, (unsigned)resumeAt, conflictRetries + 1);
+				SendResumeReplayChunk(lobbyID, data, resumeAt, conflictRetries + 1, onComplete);
+				return;
+			}
+
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "UploadResumeReplay: chunk at %u failed (success=%d, status=%d)", (unsigned)offset, bSuccess, statusCode);
+			if (onComplete != nullptr)
+				onComplete(false);
 		});
 }
 
@@ -1188,6 +1210,8 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						// TheSuperHackers @feature bill-rich 15/09/2026 resume-from-replay arming; optional so older services still parse
 						if (lobbyEntryIter.contains("ResumeHandoffFrame"))
 							lobbyEntryIter["ResumeHandoffFrame"].get_to(lobbyEntry.resume_handoff_frame);
+						if (lobbyEntryIter.contains("ResumeReplayGeneration"))
+							lobbyEntryIter["ResumeReplayGeneration"].get_to(lobbyEntry.resume_replay_generation);
 						lobbyEntryIter["StartingCash"].get_to(lobbyEntry.starting_cash);
 						lobbyEntryIter["IsLimitSuperweapons"].get_to(lobbyEntry.limit_superweapons);
 						lobbyEntryIter["IsTrackingStats"].get_to(lobbyEntry.track_stats);

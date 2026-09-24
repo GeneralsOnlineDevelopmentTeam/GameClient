@@ -71,7 +71,7 @@ namespace ResumeFromReplay
 	/// the recording's slot-0 player and nobody extra is present (slot order is checked separately).
 	Bool validateRoster(const ReplayGameInfo &replay, const GameInfo *lobby, UnicodeString &why);
 
-	/// Every recorded human in the slot they held, under the same name, and nobody else in a recorded slot.
+	/// Every slot as recorded: occupant (human by name, AI by difficulty, or empty), faction, color, start position and team.
 	Bool slotsMatch(const ReplayGameInfo &replay, const GameInfo *lobby, UnicodeString &why);
 
 	/// Guest: after its copy of Resume.rep arrived, whether it matches the lobby, with one chat line
@@ -79,7 +79,8 @@ namespace ResumeFromReplay
 	Bool guestSourceReport(const GameInfo *lobby, UnicodeString &report);
 
 	/// Game start (LAN OnGameStart / NGMPGame::startGame), before MSG_NEW_GAME: when the lobby is armed,
-	/// validates this client's Resume.rep against it and arms the recorder. Returns FALSE with the
-	/// reason when the start must be abandoned; the recorder is never left armed in that case.
-	Bool prepareGameStart(const GameInfo *game, UnicodeString &why);
+	/// validates this client's Resume.rep against it, arms the recorder and clears the arm on the game
+	/// info (the recorder owns it from here). Returns FALSE with the reason when the start must be
+	/// abandoned; the recorder is never left armed in that case.
+	Bool prepareGameStart(GameInfo *game, UnicodeString &why);
 }

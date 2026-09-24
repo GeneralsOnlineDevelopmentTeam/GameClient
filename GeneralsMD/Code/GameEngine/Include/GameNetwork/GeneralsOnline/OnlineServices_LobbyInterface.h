@@ -75,8 +75,10 @@ struct LobbyEntry
 
 	int rng_seed = -1;
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 resume-from-replay arming (0 when not armed); see ResumeFromReplay
+	// TheSuperHackers @feature bill-rich 15/09/2026 resume-from-replay arming (0 when not armed); see ResumeFromReplay.
+	// The generation counts the service's arms, so a guest can tell a fresh upload from the one it already holds.
 	uint32_t resume_handoff_frame = 0;
+	uint32_t resume_replay_generation = 0;
 
 	bool passworded = false;
 	std::string password;
@@ -547,7 +549,7 @@ public:
 	}
 
 private:
-	void SendResumeReplayChunk(int64_t lobbyID, std::shared_ptr<std::vector<uint8_t>> data, size_t offset, std::function<void(bool bSuccess)> onComplete);
+	void SendResumeReplayChunk(int64_t lobbyID, std::shared_ptr<std::vector<uint8_t>> data, size_t offset, int conflictRetries, std::function<void(bool bSuccess)> onComplete);
 	void FetchResumeReplayChunk(int64_t lobbyID, AsciiString path, std::shared_ptr<std::vector<uint8_t>> data, std::function<void(bool bSuccess)> onComplete);
 
 	std::function<void(bool)> m_cb_CreateLobbyPendingCallback = nullptr;

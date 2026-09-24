@@ -725,11 +725,13 @@ static Bool lanArmedResumeStillMatches(LANGameInfo *game)
 }
 
 // Put every human back into the slot they held in the replay and restore the
-// recorded faction, color, start position and team. Recorded commands are indexed
-// by slot position, so the lobby must line up with the recording exactly. Slot 0 is
-// never swapped: the LAN protocol treats it as the host's slot and validation has
-// already checked the host matches. Non-human slots are left alone: setState() has
-// destructive side effects on LAN slot identity.
+// recorded faction, color, start position and team on every occupied slot whose kind
+// (human, or AI at the recorded difficulty) already matches. Recorded commands are
+// indexed by slot position, so the lobby must line up with the recording exactly.
+// Slot 0 is never swapped: the LAN protocol treats it as the host's slot and validation
+// has already checked the host matches. Slot kinds are never changed here: setState()
+// has destructive side effects on LAN slot identity, so a missing or wrong AI is
+// reported by the full check afterwards for the host to fix.
 static void reorderLobbyForResume(const ReplayGameInfo &replayInfo, LANGameInfo *lobby)
 {
 	Int i;
@@ -758,7 +760,7 @@ static void reorderLobbyForResume(const ReplayGameInfo &replayInfo, LANGameInfo 
 	{
 		const GameSlot *rs = replayInfo.getConstSlot(i);
 		LANGameSlot *ls = lobby->getLANSlot(i);
-		if (!rs || !rs->isHuman() || !ls || !ls->isHuman())
+		if (!rs || !rs->isOccupied() || !ls || !ls->isOccupied() || rs->getState() != ls->getState())
 			continue;
 		ls->setColor(rs->getColor());
 		ls->setPlayerTemplate(rs->getPlayerTemplate());
@@ -842,6 +844,16 @@ static void tryArmResumeFromReplay()
 	game->setStartingCash(replay.game.getStartingCash());
 	game->setSuperweaponRestriction(replay.game.getSuperweaponRestriction());
 	game->setResumeHandoffFrame(handoff);
+
+	// The alignment above cannot add or change AI slots; the full check reports what is left for the host to fix.
+	if (!ResumeFromReplay::sourceMatchesGame(replay, game, handoff, why))
+	{
+		lanClearResumeArm();
+		TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
+		lanUpdateSlotList();
+		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeRefused", L"Resume: %ls", why.str()));
+		return;
+	}
 
 	// The options travel in one LAN packet; refuse to arm rather than let the field be cut off.
 	AsciiString options = GenerateGameOptionsString();
