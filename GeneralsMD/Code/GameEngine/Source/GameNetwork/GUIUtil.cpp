@@ -507,17 +507,29 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 			//if( i == myGame->getLocalSlotNum())
       if((comboColor[i] != nullptr) && BitIsSet(comboColor[i]->winGetStatus(), WIN_STATUS_ENABLED))
 				PopulateColorComboBox(i, comboColor, myGame, myGame->getConstSlot(i)->getPlayerTemplate() == PLAYERTEMPLATE_OBSERVER);
-			Int max, idx;
+			Int max, idx, attempt;
 			if (comboColor[i] != nullptr) {
-				max = GadgetComboBoxGetLength(comboColor[i]);
-				for (idx=0; idx<max; ++idx)
+				Bool bFound = FALSE;
+				for (attempt = 0; attempt < 2 && !bFound; ++attempt)
 				{
-					Int color = (Int)GadgetComboBoxGetItemData(comboColor[i], idx);
-					if (color == slot->getColor())
+					max = GadgetComboBoxGetLength(comboColor[i]);
+					for (idx=0; idx<max; ++idx)
 					{
-						GadgetComboBoxSetSelectedPos(comboColor[i], idx, TRUE);
-						break;
+						Int color = (Int)GadgetComboBoxGetItemData(comboColor[i], idx);
+						if (color == slot->getColor())
+						{
+							GadgetComboBoxSetSelectedPos(comboColor[i], idx, TRUE);
+							bFound = TRUE;
+							break;
+						}
 					}
+					// TheSuperHackers @bugfix bill-rich 24/09/2026 A slot whose colour combo is disabled (every
+					// remote slot, on the host) is skipped by the populate above, so a colour it has not
+					// listed before is missing and the cell keeps showing whatever it showed last. Rebuild
+					// it once and look again, rather than leaving the host's lobby disagreeing with the
+					// service and with every other client.
+					if (!bFound && attempt == 0)
+						PopulateColorComboBox(i, comboColor, myGame, myGame->getConstSlot(i)->getPlayerTemplate() == PLAYERTEMPLATE_OBSERVER);
 				}
 			}
 

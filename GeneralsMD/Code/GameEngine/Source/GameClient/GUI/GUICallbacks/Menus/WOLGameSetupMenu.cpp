@@ -226,9 +226,9 @@ static GameWindow *buttonRandomize = NULL;
 // TheSuperHackers @feature bill-rich 15/09/2026 How many times the host pressed Randomize in this
 // lobby; announced with every roll so re-rolling is visible to everyone present.
 static Int s_randomizeCount = 0;
-// TheSuperHackers @feature bill-rich 24/09/2026 True while the host's own faction was set by Randomize rather
-// than chosen, so Back/Start does not persist a rolled faction as the preferred one.
-static Bool s_hostFactionFromRandomize = FALSE;
+// TheSuperHackers @feature bill-rich 24/09/2026 True while the host's own faction and colour were set by
+// Randomize rather than chosen, so Back/Start does not persist a rolled slot as the preferred one.
+static Bool s_hostSlotFromRandomize = FALSE;
 static GameWindow *buttonEmote = NULL;
 static GameWindow *textEntryChat = NULL;
 static GameWindow *textEntryMapDisplay = NULL;
@@ -369,9 +369,11 @@ static void savePlayerInfo()
 			{
 				// save off some prefs
 				CustomMatchPreferences pref;
-				pref.setPreferredColor(slot->getColor());
-				if (!s_hostFactionFromRandomize)
+				if (!s_hostSlotFromRandomize)
+				{
+					pref.setPreferredColor(slot->getColor());
 					pref.setPreferredFaction(slot->getPlayerTemplate());
+				}
 				if (TheNGMPGame->amIHost())
 				{
 					pref.setPreferredMap(TheNGMPGame->getMap());
@@ -758,7 +760,7 @@ static void handleColorSelection(int index)
 static void handlePlayerTemplateSelection(int index, bool bInitialSetup = false)
 {
 	if (!bInitialSetup && TheNGMPGame && index == TheNGMPGame->getLocalSlotNum())
-		s_hostFactionFromRandomize = FALSE; // an explicit choice is worth remembering again
+		s_hostSlotFromRandomize = FALSE; // an explicit choice is worth remembering again
 	GameWindow *combo = comboBoxPlayerTemplate[index];
 	Int playerTemplate, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
@@ -1899,7 +1901,7 @@ Bool initialAcceptEnable = FALSE;
 void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 {
 	s_randomizeCount = 0;
-	s_hostFactionFromRandomize = FALSE;
+	s_hostSlotFromRandomize = FALSE;
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface == nullptr)
 	{
@@ -4201,15 +4203,19 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 									if (change.slotIndex == localSlot && change.side != -1)
 										hostRolled = TRUE;
 								}
+								// The button is held down only while the request is in flight, and goes back to
+								// whatever it was when the roll started: a stats match or a guest must not end
+								// up with it enabled.
+								const Bool bWasEnabled = (buttonRandomize != NULL) && BitIsSet(buttonRandomize->winGetStatus(), WIN_STATUS_ENABLED);
 								if (buttonRandomize)
-									buttonRandomize->winEnable(FALSE); // one roll in flight at a time; re-enabled by the lobby push
-								pLobbyInterface->UpdateCurrentLobby_BulkSlotUpdate(changes, [pLobbyInterface, hostRolled](bool bSuccess)
+									buttonRandomize->winEnable(FALSE);
+								pLobbyInterface->UpdateCurrentLobby_BulkSlotUpdate(changes, [pLobbyInterface, hostRolled, bWasEnabled](bool bSuccess)
 									{
 										if (bSuccess)
 										{
 											++s_randomizeCount;
 											if (hostRolled)
-												s_hostFactionFromRandomize = TRUE;
+												s_hostSlotFromRandomize = TRUE;
 											UnicodeString strInform;
 											strInform.format(TheGameText->FETCH_OR_SUBSTITUTE("GUI:HostRandomizedSlots", L"Randomize: the host resolved the random factions, colors and start positions (roll %d)"), s_randomizeCount);
 											pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, true);
@@ -4218,9 +4224,9 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 										{
 											TheNGMPGame->UpdateSlotsFromCurrentLobby();
 											WOLDisplaySlotList();
-											if (buttonRandomize)
-												buttonRandomize->winEnable(TRUE);
 										}
+										if (buttonRandomize)
+											buttonRandomize->winEnable(bWasEnabled);
 									});
 							}
 						}
