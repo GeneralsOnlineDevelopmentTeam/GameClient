@@ -67,7 +67,8 @@ static Bool hasValidTransferFileExtension(const AsciiString& filePath)
 		"str",
 		"wak",
 		"tga",
-		"txt"
+		"txt",
+		"rep" // TheSuperHackers @feature bill-rich 24/09/2026 the resume-from-replay source (see ResumeFromReplay)
 	};
 
 	const char* fileExt = strrchr(filePath.str(), '.');
@@ -99,6 +100,7 @@ enum TransferFileType
 	TransferFileType_Txt,
 	TransferFileType_Tga,
 	TransferFileType_Wak,
+	TransferFileType_Rep,
 	TransferFileType_Count
 };
 
@@ -116,6 +118,7 @@ static const TransferFileRule transferFileRules[TransferFileType_Count] =
 	{ ".txt", 1 * 1024 * 1024 },
 	{ ".tga", 2 * 1024 * 1024 },
 	{ ".wak", 128 * 1024 },
+	{ ".rep", 16 * 1024 * 1024 },
 };
 
 static TransferFileType getTransferFileType(const char* extension)
@@ -169,6 +172,18 @@ static Bool hasValidTransferFileContent(const AsciiString& filePath, const Unsig
 				DEBUG_LOG(("INI file '%s' contains null bytes (likely binary).", filePath.str()));
 				return false;
 			}
+		}
+		break;
+	}
+
+	case TransferFileType_Rep:
+	{
+		// a replay starts with the GENREP tag (see RecorderClass::startRecording)
+		static const char replayTag[] = "GENREP";
+		if (dataSize < sizeof(replayTag) - 1 || memcmp(data, replayTag, sizeof(replayTag) - 1) != 0)
+		{
+			DEBUG_LOG(("Replay file '%s' does not start with GENREP.", filePath.str()));
+			return false;
 		}
 		break;
 	}

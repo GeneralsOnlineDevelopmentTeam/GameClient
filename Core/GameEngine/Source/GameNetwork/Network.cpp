@@ -179,7 +179,6 @@ public:
 
 	virtual void notifyOthersOfCurrentFrame() override;														///< Tells all the other players what frame we are on.
 	virtual void notifyOthersOfNewFrame(UnsignedInt frame) override;								///< Tells all the other players that we are on a new frame.
-	virtual Int setLogicFrameRate(Int fps) override;															///< Resume-from-replay catchup: override the per-frame timing rate; returns the previous rate.
 
 	virtual Int  getExecutionFrame() override;																			///< Returns the next valid frame for simultaneous command execution.
 
@@ -500,11 +499,20 @@ Bool Network::isMessageTypeWithinNetworkRange(GameMessage::Type type) {
  * Take commands from TheCommandList and give them to the connection manager for transport.
  */
 void Network::GetCommandsFromCommandList() {
+	// TheSuperHackers @feature bill-rich 24/09/2026 During resume-from-replay catchup the local CRCs
+	// are not exchanged (every peer is replaying the source's recorded CRC messages instead),
+	// and leaving one in TheCommandList would have it execute a frame later on its own: on
+	// the handoff frame that is a lone CRC with validation back on, a false "Not enough CRCs".
+	const Bool inCatchup = TheRecorder && TheRecorder->isResumeCatchupMode();
 	GameMessage* msg = TheCommandList->getFirstMessage();
 	GameMessage* next = NULL;
 	while (msg != NULL) {
 		next = msg->next();
-		if (isMessageTypeWithinNetworkRange(msg->getType())) { // Is this something we should be sending to the other players?
+		if (inCatchup && msg->getType() == GameMessage::MSG_LOGIC_CRC) {
+			TheCommandList->removeMessage(msg);
+			deleteInstance(msg);
+		}
+		else if (isMessageTypeWithinNetworkRange(msg->getType())) { // Is this something we should be sending to the other players?
 			if (m_localStatus == NETLOCALSTATUS_INGAME) {
 				m_conMgr->sendLocalGameMessage(msg, getExecutionFrame());
 			}
@@ -639,7 +647,8 @@ void Network::RelayCommandsToCommandList(UnsignedInt frame) {
 			if (isMessageTypeWithinNetworkRange(gmsg->getGameMessageType())) {
 				//DEBUG_LOG(("Network::RelayCommandsToCommandList - appending command %d of type %s to command list on frame %d", msg->getCommand()->getID(), gmsg->getCommandAsString(), TheGameLogic->getFrame()));
 				TheCommandList->appendMessage(gmsg->constructGameMessage());
-			} else {
+			} else if (!(TheRecorder && TheRecorder->isResumeCatchupMode())) {
+				// (during resume-from-replay catchup every type is non-transfer, so this would log every message)
 				DEBUG_LOG(("Network::RelayCommandsToCommandList - rejecting game message from player %d of type %s, which is not a network type.",
 					gmsg->getPlayerID(), GameMessage::getCommandTypeAsString(gmsg->getGameMessageType())));
 			}
@@ -1130,10 +1139,4 @@ void Network::notifyOthersOfNewFrame(UnsignedInt frame) {
 	if (m_conMgr != NULL) {
 		m_conMgr->notifyOthersOfNewFrame(frame);
 	}
-}
-
-Int Network::setLogicFrameRate(Int fps) {
-	Int prev = m_frameRate;
-	m_frameRate = fps > 0 ? fps : 1;
-	return prev;
 }

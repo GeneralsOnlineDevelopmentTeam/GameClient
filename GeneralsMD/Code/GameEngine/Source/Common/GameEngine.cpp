@@ -968,6 +968,10 @@ Bool GameEngine::canUpdateRegularGameLogic(UnsignedInt logicTimeQueryFlags)
 extern NGMPGame* TheNGMPGame;
 #endif
 
+// TheSuperHackers @feature bill-rich 15/09/2026 Wall-clock cadence of the render passes during
+// resume-from-replay catchup (about 30 fps), see GameEngine::update.
+static constexpr const UnsignedInt CATCHUP_RENDER_INTERVAL_MS = 33;
+
 /// -----------------------------------------------------------------------------------------------
 DECLARE_PERF_TIMER(GameEngine_update)
 
@@ -990,7 +994,6 @@ void GameEngine::update()
 			&& !TheRecorder->isResumeCatchupLeadIn();
 		if (catchupSkipRender)
 		{
-			const UnsignedInt CATCHUP_RENDER_INTERVAL_MS = 33;
 			static UnsignedInt s_lastCatchupRenderMs = 0;
 			const UnsignedInt nowMs = timeGetTime();
 			if (nowMs - s_lastCatchupRenderMs >= CATCHUP_RENDER_INTERVAL_MS)
@@ -1023,7 +1026,15 @@ void GameEngine::update()
 
 			TheAudio->UPDATE();
 			if (catchupSkipRender)
+			{
 				TheParticleSystemManager->update(); // let particles finish instead of piling up while frames are skipped
+
+				// The frame tick is the client update's first act (GameClient::update) and the
+				// network relies on one per logic frame: Network::processCommand drives the
+				// per-frame command counts off it and switches PREGAME to INGAME on frame 1.
+				GameMessage *frameMsg = TheMessageStream->appendMessage( GameMessage::MSG_FRAME_TICK );
+				frameMsg->appendTimestampArgument( TheGameClient->getFrame() );
+			}
 			else
 				TheGameClient->UPDATE();
 			TheMessageStream->propagateMessages();

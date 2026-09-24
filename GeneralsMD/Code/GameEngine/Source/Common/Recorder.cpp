@@ -31,18 +31,9 @@
 #include "Common/Player.h"
 #include "Common/GlobalData.h"
 #include "Common/GameEngine.h"
-#include "Common/FramePacer.h"
-#include "GameNetwork/LANAPI.h"
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/NetworkInterface.h"
-#if defined(GENERALS_ONLINE)
-#include "GameNetwork/GeneralsOnline/NGMPGame.h"
-#include "GameNetwork/GeneralsOnline/NGMP_include.h"
-extern NGMPGame* TheNGMPGame;
-#define RESUME_LOG(...) NetworkLog(ELogVerbosity::LOG_RELEASE, __VA_ARGS__)
-#else
-#define RESUME_LOG(...) DEBUG_LOG((__VA_ARGS__))
-#endif
+#include "GameNetwork/ResumeFromReplay.h"
 #include "GameClient/ClientInstance.h"
 #include "GameClient/GameWindow.h"
 #include "GameClient/GameWindowManager.h"
@@ -64,6 +55,13 @@ extern NGMPGame* TheNGMPGame;
 
 extern NGMPGame* TheNGMPGame;
 
+// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay milestones go to the release log online.
+#if defined(GENERALS_ONLINE)
+#define RESUME_LOG(...) NetworkLog(ELogVerbosity::LOG_RELEASE, __VA_ARGS__)
+#else
+#define RESUME_LOG(...) DEBUG_LOG((__VA_ARGS__))
+#endif
+
 constexpr const char s_genrep[] = "GENREP";
 constexpr const UnsignedInt replayBufferBytes = 8192;
 
@@ -71,6 +69,7 @@ Int REPLAY_CRC_INTERVAL = 100;
 
 const char* replayExtention = ".rep";
 const char* lastReplayFileName = "00000000";	// a name the user is unlikely to ever type, but won't cause panic & confusion
+const char* resumeReplayFileName = "Resume";	// the resume-from-replay source every client replays (see ResumeFromReplay)
 
 // TheSuperHackers @tweak helmutbuhler 25/04/2025
 // The replay header contains two time fields; startTime and endTime of type time_t.
@@ -356,6 +355,7 @@ RecorderClass::RecorderClass()
 	m_originalGameMode = GAME_NONE;
 	m_mode = RECORDERMODETYPE_RECORD;
 	m_file = nullptr;
+	m_resumeSourceFile = nullptr;
 	m_fileName.clear();
 	m_currentFilePosition = 0;
 	m_doingAnalysis = FALSE;
@@ -395,13 +395,7 @@ void RecorderClass::init() {
 	m_doingAnalysis = FALSE;
 	m_playbackFrameCount = 0;
 
-	m_resumeHandoffFrame = 0;
-	m_resumeSavedFpsLimit = 0;
-	m_resumeSavedNetFrameRate = 0;
-	m_resumeRecordPos = 0;
-	m_resumeRatesRestored = FALSE;
-	m_resumeFreezeStartMs = 0;
-	m_resumeFreezeLastAnnounced = -1;
+	clearResumeState();
 
 	OptionPreferences optionPref;
 	m_archiveReplays = optionPref.getArchiveReplaysEnabled();
@@ -426,7 +420,12 @@ void RecorderClass::reset() {
  */
 void RecorderClass::update() {
 	if (m_mode == RECORDERMODETYPE_RESUME_CATCHUP) {
+		// TheSuperHackers @feature bill-rich 15/09/2026 Inject the resume source's commands for this
+		// frame, then record them like any other frame: the new recording is a normal replay of
+		// the resumed match from frame 0. The handoff (or an abort) switches the mode inside.
 		updateResumeCatchup();
+		if (m_mode != RECORDERMODETYPE_NONE)
+			updateRecord();
 	}
 	else if (m_mode == RECORDERMODETYPE_RECORD || m_mode == RECORDERMODETYPE_NONE) {
 		updateRecord();
@@ -512,27 +511,22 @@ void RecorderClass::updateRecord()
 			if (msg->getArgumentCount() >= 4)
 				maxFPS = msg->getArgument(3)->integer;
 
-			// TheSuperHackers @feature bill-rich 15/09/2026 If the lobby armed a resume-from-replay, switch into
-			// catchup instead of starting a fresh recording: catchup opens the replay for
-			// READ, while startRecording would open it for WRITE and truncate the very
-			// file we need to read from. Falls back to a normal recording if setup fails.
-			const GameInfo *armedGame = nullptr;
-			if (TheLAN != nullptr)
-				armedGame = TheLAN->GetMyGame();
-#if defined(GENERALS_ONLINE)
-			else if (TheNGMPGame != nullptr)
-				armedGame = TheNGMPGame;
-#endif
-			if (armedGame == nullptr)
-				armedGame = TheGameInfo;
-			const Bool armedResume = armedGame != nullptr && !armedGame->getResumeReplayFile().isEmpty();
-			if (armedResume && startResumeCatchup(armedGame->getResumeReplayFile(), armedGame->getResumeHandoffFrame()))
+			// TheSuperHackers @feature bill-rich 15/09/2026 The new recording starts as for any game.
+			// When the lobby's start path armed a resume-from-replay (ResumeFromReplay::prepareGameStart
+			// validated this client's copy of the source), the source is then replayed into it.
+			// startRecording resets the recorder, so the arming is carried across by hand. A source
+			// that cannot be opened leaves the game: a client that silently recorded a fresh match
+			// would desync everyone else.
+			const UnsignedInt armedHandoffFrame = m_resumeArmedHandoffFrame;
+			const UnsignedInt armedSourceLastFrame = m_resumeArmedSourceLastFrame;
+			startRecording(diff, m_originalGameMode, rankPoints, maxFPS);
+			if (armedHandoffFrame != 0)
 			{
-				DEBUG_LOG(("RecorderClass::updateRecord() - resume catchup armed to frame %u", armedGame->getResumeHandoffFrame()));
-			}
-			else
-			{
-				startRecording(diff, m_originalGameMode, rankPoints, maxFPS);
+				armResumeForNextGame(armedHandoffFrame, armedSourceLastFrame);
+				if (startResumeCatchup())
+					DEBUG_LOG(("RecorderClass::updateRecord() - resume catchup to frame %u", armedHandoffFrame));
+				else
+					abortResume(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeSourceUnreadable", L"Resume aborted: the resume replay could not be opened"));
 			}
 		}
 		else if (msg->getType() == GameMessage::MSG_CLEAR_GAME_DATA) {
@@ -543,6 +537,7 @@ void RecorderClass::updateRecord()
 				needFlush = FALSE;
 			}
 			m_fileName.clear();
+			clearResumeState();
 		}
 		else {
 			if (m_file != nullptr) {
@@ -1351,8 +1346,8 @@ void RecorderClass::readNextFrame() {
 	if (bytesRead != sizeof(m_nextFrame)) {
 		DEBUG_LOG(("RecorderClass::readNextFrame - read failed on frame %d", TheGameLogic->getFrame()));
 		m_nextFrame = -1;
-		// Resume-from-replay catchup: running out of recorded frames ends the catchup
-		// (updateResumeCatchup hands off early), never the live game.
+		// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay catchup: running out of
+		// records is handled by updateResumeCatchup (which never ends the live game here).
 		if (m_mode == RECORDERMODETYPE_RESUME_CATCHUP)
 			return;
 		stopPlayback();
@@ -1361,16 +1356,21 @@ void RecorderClass::readNextFrame() {
 
 /**
  * This reads the next command from the replay file and appends it to TheCommandList.
+ * TheSuperHackers @feature bill-rich 24/09/2026 Returns FALSE when the record is incomplete (a
+ * recording cut short by a crash ends in a torn record); the torn record is discarded and
+ * m_nextFrame is set to -1 so the callers treat it as the end of the usable data.
  */
-void RecorderClass::appendNextCommand() {
+Bool RecorderClass::appendNextCommand() {
 	GameMessage::Type type;
 	Int bytesRead = m_file->read(&type, sizeof(type));
 	if (bytesRead != sizeof(type)) {
 		DEBUG_LOG(("RecorderClass::appendNextCommand - read failed on frame %d", m_nextFrame/*TheGameLogic->getFrame()*/));
-		return;
+		m_nextFrame = -1;
+		return FALSE;
 	}
 
 	GameMessage* msg = newInstance(GameMessage)(type);
+	Bool complete = TRUE;
 
 #ifdef DEBUG_LOGGING
 	AsciiString commandName = msg->getCommandAsString();
@@ -1385,7 +1385,8 @@ void RecorderClass::appendNextCommand() {
 #endif // DEBUG_LOGGING
 
 	Int playerIndex = -1;
-	m_file->read(&playerIndex, sizeof(playerIndex));
+	if (m_file->read(&playerIndex, sizeof(playerIndex)) != sizeof(playerIndex))
+		complete = FALSE;
 	msg->friend_setPlayerIndex(playerIndex);
 
 	// don't debug log this if we're debugging sync errors, as it will cause diff problems between a game and it's replay...
@@ -1404,14 +1405,17 @@ void RecorderClass::appendNextCommand() {
 
 	UnsignedByte numTypes = 0;
 	Int totalArgs = 0;
-	m_file->read(&numTypes, sizeof(numTypes));
+	if (complete && m_file->read(&numTypes, sizeof(numTypes)) != sizeof(numTypes))
+		complete = FALSE;
 
 	GameMessageParser* parser = newInstance(GameMessageParser)();
-	for (UnsignedByte i = 0; i < numTypes; ++i) {
+	for (UnsignedByte i = 0; complete && i < numTypes; ++i) {
 		UnsignedByte type = (UnsignedByte)ARGUMENTDATATYPE_UNKNOWN;
-		m_file->read(&type, sizeof(type));
 		UnsignedByte numArgs = 0;
-		m_file->read(&numArgs, sizeof(numArgs));
+		if (m_file->read(&type, sizeof(type)) != sizeof(type) || m_file->read(&numArgs, sizeof(numArgs)) != sizeof(numArgs)) {
+			complete = FALSE;
+			break;
+		}
 		parser->addArgType((GameMessageArgumentDataType)type, numArgs);
 		totalArgs += numArgs;
 	}
@@ -1423,14 +1427,20 @@ void RecorderClass::appendNextCommand() {
 		lasttype = parserArgType->getType();
 		argsLeftForType = parserArgType->getArgCount();
 	}
-	for (Int j = 0; j < totalArgs; ++j) {
-		readArgument(lasttype, msg);
+	for (Int j = 0; complete && j < totalArgs; ++j) {
+		if (!readArgument(lasttype, msg)) {
+			complete = FALSE;
+			break;
+		}
 
 		--argsLeftForType;
 		if (argsLeftForType == 0) {
 			DEBUG_ASSERTCRASH(parserArgType != nullptr, ("parserArgType was null when it shouldn't have been."));
 			if (parserArgType == nullptr) {
-				return;
+				deleteInstance(msg);
+				deleteInstance(parser);
+				m_nextFrame = -1;
+				return FALSE;
 			}
 
 			parserArgType = parserArgType->getNext();
@@ -1440,6 +1450,15 @@ void RecorderClass::appendNextCommand() {
 				lasttype = parserArgType->getType();
 			}
 		}
+	}
+
+	if (!complete)
+	{
+		DEBUG_LOG(("RecorderClass::appendNextCommand - torn record on frame %d, treating it as the end of the replay", m_nextFrame));
+		deleteInstance(msg);
+		deleteInstance(parser);
+		m_nextFrame = -1;
+		return FALSE;
 	}
 
 	if (type != GameMessage::MSG_BEGIN_NETWORK_MESSAGES && type != GameMessage::MSG_CLEAR_GAME_DATA && !m_doingAnalysis)
@@ -1454,13 +1473,16 @@ void RecorderClass::appendNextCommand() {
 
 	deleteInstance(parser);
 	parser = nullptr;
+	return TRUE;
 }
 
-void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *msg) {
+/// Reads one argument of the given type; FALSE on a short read.
+Bool RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *msg) {
 	switch (type) {
 		case ARGUMENTDATATYPE_INTEGER: {
 			Int theint;
-			m_file->read(&theint, sizeof(theint));
+			if (m_file->read(&theint, sizeof(theint)) != sizeof(theint))
+				return FALSE;
 			msg->appendIntegerArgument(theint);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1472,7 +1494,8 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_REAL: {
 			Real thereal;
-			m_file->read(&thereal, sizeof(thereal));
+			if (m_file->read(&thereal, sizeof(thereal)) != sizeof(thereal))
+				return FALSE;
 			msg->appendRealArgument(thereal);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1484,7 +1507,8 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_BOOLEAN: {
 			Bool thebool;
-			m_file->read(&thebool, sizeof(thebool));
+			if (m_file->read(&thebool, sizeof(thebool)) != sizeof(thebool))
+				return FALSE;
 			msg->appendBooleanArgument(thebool);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1496,7 +1520,8 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_OBJECTID: {
 			ObjectID theid;
-			m_file->read(&theid, sizeof(theid));
+			if (m_file->read(&theid, sizeof(theid)) != sizeof(theid))
+				return FALSE;
 			msg->appendObjectIDArgument(theid);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1508,7 +1533,8 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_DRAWABLEID: {
 			DrawableID theid;
-			m_file->read(&theid, sizeof(theid));
+			if (m_file->read(&theid, sizeof(theid)) != sizeof(theid))
+				return FALSE;
 			msg->appendDrawableIDArgument(theid);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1520,7 +1546,8 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_TEAMID: {
 			UnsignedInt theid;
-			m_file->read(&theid, sizeof(theid));
+			if (m_file->read(&theid, sizeof(theid)) != sizeof(theid))
+				return FALSE;
 			msg->appendTeamIDArgument(theid);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1532,7 +1559,8 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_LOCATION: {
 			Coord3D loc;
-			m_file->read(&loc, sizeof(loc));
+			if (m_file->read(&loc, sizeof(loc)) != sizeof(loc))
+				return FALSE;
 			msg->appendLocationArgument(loc);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1545,7 +1573,8 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_PIXEL: {
 			ICoord2D pixel;
-			m_file->read(&pixel, sizeof(pixel));
+			if (m_file->read(&pixel, sizeof(pixel)) != sizeof(pixel))
+				return FALSE;
 			msg->appendPixelArgument(pixel);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1557,7 +1586,8 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_PIXELREGION: {
 			IRegion2D reg;
-			m_file->read(&reg, sizeof(reg));
+			if (m_file->read(&reg, sizeof(reg)) != sizeof(reg))
+				return FALSE;
 			msg->appendPixelRegionArgument(reg);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1569,7 +1599,8 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_TIMESTAMP: {  // Not to be confused with Terrance Stamp... Kneel before Zod!!!
 			UnsignedInt stamp;
-			m_file->read(&stamp, sizeof(stamp));
+			if (m_file->read(&stamp, sizeof(stamp)) != sizeof(stamp))
+				return FALSE;
 			msg->appendTimestampArgument(stamp);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1581,7 +1612,8 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_WIDECHAR: {
 			WideChar theid;
-			m_file->read(&theid, sizeof(theid));
+			if (m_file->read(&theid, sizeof(theid)) != sizeof(theid))
+				return FALSE;
 			msg->appendWideCharArgument(theid);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)
@@ -1594,6 +1626,7 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		default:
 			break;
 	}
+	return TRUE;
 }
 
 /**
@@ -1788,6 +1821,41 @@ Bool RecorderClass::isMultiplayer()
 // TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay. See Recorder.h for the phase overview.
 //-------------------------------------------------------------------------------------------------
 
+AsciiString RecorderClass::getResumeReplayFileName()
+{
+	return AsciiString(resumeReplayFileName);
+}
+
+void RecorderClass::clearResumeState()
+{
+	if (m_resumeSourceFile != nullptr)
+	{
+		m_resumeSourceFile->close();
+		m_resumeSourceFile = nullptr;
+	}
+	m_resumeArmedHandoffFrame = 0;
+	m_resumeArmedSourceLastFrame = 0;
+	m_resumeHandoffFrame = 0;
+	m_resumeSourceLastFrame = 0;
+	m_resumeLeadInAnnounced = FALSE;
+	m_resumeFreezeStartMs = 0;
+	m_resumeFreezeLastAnnounced = -1;
+	if (m_mode == RECORDERMODETYPE_RESUME_CATCHUP)
+		m_mode = RECORDERMODETYPE_NONE;
+}
+
+void RecorderClass::armResumeForNextGame(UnsignedInt handoffFrame, UnsignedInt sourceLastFrame)
+{
+	m_resumeArmedHandoffFrame = handoffFrame;
+	m_resumeArmedSourceLastFrame = sourceLastFrame;
+}
+
+void RecorderClass::disarmResume()
+{
+	m_resumeArmedHandoffFrame = 0;
+	m_resumeArmedSourceLastFrame = 0;
+}
+
 Bool RecorderClass::isResumeCatchupLeadIn() const
 {
 	if (!isResumeCatchupMode())
@@ -1797,60 +1865,79 @@ Bool RecorderClass::isResumeCatchupLeadIn() const
 	return m_resumeHandoffFrame >= leadInFrames && curFrame >= m_resumeHandoffFrame - leadInFrames;
 }
 
-static UnicodeString formatGameTime(UnsignedInt frames)
+/**
+ * CRC validation is off during catchup (the CRC messages of that window come out of the resume
+ * source, not from the live peers) and stays off for one full run-ahead after the handoff: a CRC
+ * generated on frame F is compared on F plus the run-ahead, and every set that could still be
+ * compared before that was generated while the peers were not exchanging any.
+ */
+Bool RecorderClass::isResumeCRCValidationSuppressed() const
 {
-	const UnsignedInt seconds = frames / LOGICFRAMES_PER_SECOND;
-	UnicodeString text;
-	text.format(L"%d:%02d", seconds / 60, seconds % 60);
-	return text;
+	if (isResumeCatchupMode())
+		return TRUE;
+	if (m_resumeHandoffFrame == 0 || TheGameLogic == nullptr)
+		return FALSE;
+	return TheGameLogic->getFrame() <= m_resumeHandoffFrame + MAX_FRAMES_AHEAD;
 }
 
 /**
- * Open the given replay, skip its header, prime the first frame of commands and switch the
- * recorder into RECORDERMODETYPE_RESUME_CATCHUP. While in catchup, update() calls
- * updateResumeCatchup() instead of updateRecord()/updatePlayback(): the replay's commands are
- * injected into TheCommandList each frame while the live network keeps running in lockstep.
+ * Open the resume source (Resume.rep), skip its header, prime the first frame of commands and
+ * switch the recorder into RECORDERMODETYPE_RESUME_CATCHUP. startRecording has already opened the
+ * new recording in m_file and written its header for the live game; the source is read through a
+ * second handle. While in catchup, update() injects the source's commands into TheCommandList each
+ * frame and records them, while the live network keeps running in lockstep.
  */
-Bool RecorderClass::startResumeCatchup(AsciiString filename, UnsignedInt handoffFrame)
+Bool RecorderClass::startResumeCatchup()
 {
-	if (m_file != nullptr)
-	{
-		m_file->close();
-		m_file = nullptr;
-	}
-	m_mode = RECORDERMODETYPE_NONE;
+	if (m_file == nullptr || m_resumeArmedHandoffFrame == 0)
+		return FALSE;
 
+	// The read helpers (readReplayHeader, readNextFrame, appendNextCommand) work on m_file:
+	// point it at the source for the duration and put the recording back afterwards.
+	File *recordFile = m_file;
+	m_file = nullptr;
 	ReplayHeader header;
 	header.forPlayback = TRUE;
-	header.filename = filename;
-	if (!readReplayHeader(header))
+	header.filename = ResumeFromReplay::getSourceFileName();
+	const Bool headerOk = readReplayHeader(header);
+	m_resumeSourceFile = m_file;
+	m_file = recordFile;
+	if (!headerOk || m_resumeSourceFile == nullptr)
 	{
-		DEBUG_LOG(("RecorderClass::startResumeCatchup - readReplayHeader failed for %s", filename.str()));
+		DEBUG_LOG(("RecorderClass::startResumeCatchup - readReplayHeader failed for %s", header.filename.str()));
+		if (m_resumeSourceFile != nullptr)
+		{
+			m_resumeSourceFile->close();
+			m_resumeSourceFile = nullptr;
+		}
 		return FALSE;
 	}
 
-	// playbackFile consumes these four values between the header and the command stream;
-	// mirror it or readNextFrame reads the difficulty as a frame number.
-	Int difficulty = 0;
-	m_file->read(&difficulty, sizeof(difficulty));
-	m_file->read(&m_originalGameMode, sizeof(m_originalGameMode));
-	Int rankPoints = 0;
-	m_file->read(&rankPoints, sizeof(rankPoints));
-	Int maxFPS = 0;
-	m_file->read(&maxFPS, sizeof(maxFPS));
+	// playbackFile consumes these four values between the header and the command stream
+	// (difficulty, original game mode, rank points, max FPS); mirror it or readNextFrame reads
+	// the difficulty as a frame number.
+	Int skipped[4];
+	if (m_resumeSourceFile->read(skipped, sizeof(skipped)) != sizeof(skipped))
+	{
+		m_resumeSourceFile->close();
+		m_resumeSourceFile = nullptr;
+		return FALSE;
+	}
 
 	m_mode = RECORDERMODETYPE_RESUME_CATCHUP;
-	m_resumeHandoffFrame = handoffFrame;
-	m_currentReplayFilename = filename;
-	m_resumeRatesRestored = FALSE;
+	m_resumeHandoffFrame = m_resumeArmedHandoffFrame;
+	m_resumeSourceLastFrame = m_resumeArmedSourceLastFrame;
+	m_resumeArmedHandoffFrame = 0;
+	m_resumeArmedSourceLastFrame = 0;
+	m_resumeLeadInAnnounced = FALSE;
 	m_resumeFreezeStartMs = 0;
 	m_resumeFreezeLastAnnounced = -1;
 
-	// Everything up to here is header. beginRecordingAfterResume keeps the file up to
-	// m_resumeRecordPos and appends the live game after it.
-	m_resumeRecordPos = m_file->position();
-
+	// Prime the first record's frame number (in catchup mode, readNextFrame never ends the game).
+	m_file = m_resumeSourceFile;
 	readNextFrame();
+	m_resumeSourceFile = m_file;
+	m_file = recordFile;
 
 	// Nothing may be selected when catchup starts: selection is blocked from here on and
 	// a pre-existing selection would be a way to issue commands with the right mouse button.
@@ -1858,38 +1945,27 @@ Bool RecorderClass::startResumeCatchup(AsciiString filename, UnsignedInt handoff
 	{
 		TheInGameUI->deselectAllDrawables();
 		TheInGameUI->message(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeCatchupStart",
-			L"Resuming from replay: fast-forwarding to %ls", formatGameTime(handoffFrame).str()));
+			L"Resuming from replay: fast-forwarding to %ls", ResumeFromReplay::formatGameTime(m_resumeHandoffFrame).str()));
 	}
 
-	// Two gates cap the logic rate: the render FPS limit and the network's own per-frame
-	// timing (Network::timeForNewFrame). Raise both; lockstep is unchanged, every frame
-	// still waits for every peer's commands, just without the realtime pacing.
-	if (TheFramePacer)
-	{
-		m_resumeSavedFpsLimit = TheFramePacer->getFramesPerSecondLimit();
-		if (m_resumeSavedFpsLimit <= 0)
-			m_resumeSavedFpsLimit = LOGICFRAMES_PER_SECOND; // never restore a 0, FrameRateLimit::wait would spin forever
-		TheFramePacer->setFramesPerSecondLimit(1000);
-	}
-	if (TheNetwork)
-	{
-		m_resumeSavedNetFrameRate = TheNetwork->setLogicFrameRate(CATCHUP_FRAME_RATE);
-	}
-
-	RESUME_LOG("Resume: catching up %s to frame %u (lead-in %d s, freeze %d s)", filename.str(), handoffFrame, RESUME_LEADIN_SECONDS, RESUME_FREEZE_SECONDS);
+	// The realtime pacing is bypassed for the duration by the catchup checks in FramePacer,
+	// GameEngine and Network (isResumeCatchupMode); lockstep is unchanged, every frame still
+	// waits for every peer's commands.
+	RESUME_LOG("Resume: catching up %s to frame %u (source ends at frame %u, lead-in %d s, freeze %d s)",
+		header.filename.str(), m_resumeHandoffFrame, m_resumeSourceLastFrame, RESUME_LEADIN_SECONDS, RESUME_FREEZE_SECONDS);
 	return TRUE;
 }
 
 /**
- * Last frame number recorded in a replay, found by walking its records. The header's frame
+ * Last frame with a complete record in a replay, found by walking its records. The header's frame
  * count is only patched in when a recording ends normally, so a recording cut short by a crash
- * (the very file a resume is for) reads 0 there. Uses the recorder's analysis mode, in which
- * appendNextCommand parses and discards instead of feeding TheCommandList. Lobby use only:
- * refuses to run while the recorder has a file open.
+ * (the very file a resume is for) reads 0 there, and its last record is usually torn. Uses the
+ * recorder's analysis mode, in which appendNextCommand parses and discards instead of feeding
+ * TheCommandList. Lobby use only: refuses to run while the recorder has a file open.
  */
 UnsignedInt RecorderClass::scanReplayLastFrame(AsciiString filename)
 {
-	if (m_file != nullptr || m_mode != RECORDERMODETYPE_NONE)
+	if (m_file != nullptr || isPlaybackMode() || isResumeCatchupMode())
 		return 0;
 
 	ReplayHeader header;
@@ -1900,107 +1976,104 @@ UnsignedInt RecorderClass::scanReplayLastFrame(AsciiString filename)
 
 	// difficulty, original game mode, rank points, max FPS (see playbackFile)
 	Int skipped[4];
-	m_file->read(skipped, sizeof(skipped));
+	if (m_file->read(skipped, sizeof(skipped)) != sizeof(skipped))
+	{
+		m_file->close();
+		m_file = nullptr;
+		return 0;
+	}
 
 	const Bool savedAnalysis = m_doingAnalysis;
 	m_doingAnalysis = TRUE;
 
 	UnsignedInt lastFrame = 0;
 	UnsignedInt frame = 0;
-	while (m_file != nullptr && m_file->read(&frame, sizeof(frame)) == sizeof(frame))
+	while (m_file->read(&frame, sizeof(frame)) == sizeof(frame))
 	{
 		if (frame < lastFrame)
 			break; // torn tail: frame numbers only ever grow
+		m_nextFrame = frame;
+		if (!appendNextCommand())
+			break; // torn record: everything before it is usable
 		lastFrame = frame;
-		const Int before = m_file->position();
-		appendNextCommand();
-		if (m_file == nullptr || m_file->position() == before)
-			break; // nothing more could be read
 	}
 
-	if (m_file != nullptr)
-	{
-		m_file->close();
-		m_file = nullptr;
-	}
+	m_file->close();
+	m_file = nullptr;
 	m_doingAnalysis = savedAnalysis;
 	m_nextFrame = (UnsignedInt)-1;
-	m_mode = RECORDERMODETYPE_NONE;
 	return lastFrame;
 }
 
 /**
- * Hand the replay file over from catchup (reading) to recording (writing). The armed file already
- * holds the header plus every frame up to the handoff, so keep those bytes and append the live
- * game to them: one complete replay of the whole match, and stopRecording() runs at the end with
- * everything that hangs off it. Truncates after the last record actually replayed so the old
- * tail (already-played frames, the old MSG_CLEAR_GAME_DATA) cannot follow the new commands.
+ * Read the source's records for curFrame into TheCommandList. Never reads past the last complete
+ * frame found by scanReplayLastFrame, so a torn tail cannot be replayed, and never past the handoff.
  */
-Bool RecorderClass::beginRecordingAfterResume()
+void RecorderClass::injectResumeCommands(UnsignedInt curFrame)
 {
-	if (m_file == nullptr || m_resumeRecordPos <= 0)
-		return FALSE;
-
-	// Replays are command logs, so the prefix is small; buffer it rather than truncate in place.
-	const Int prefixLen = m_resumeRecordPos;
-	char *prefix = NEW char[prefixLen];
-	m_file->seek(0, File::seekMode::START);
-	const Int got = m_file->read(prefix, prefixLen);
-	m_file->close();
-	m_file = nullptr;
-
-	if (got != prefixLen)
+	File *recordFile = m_file;
+	m_file = m_resumeSourceFile;
+	while (m_nextFrame == curFrame && m_nextFrame <= m_resumeSourceLastFrame && curFrame <= m_resumeHandoffFrame)
 	{
-		DEBUG_LOG(("RecorderClass::beginRecordingAfterResume - short read of replay prefix (%d of %d)", got, prefixLen));
-		delete [] prefix;
-		return FALSE;
+		if (!appendNextCommand())
+			break; // torn record: appendNextCommand marked the end of the usable data
+		readNextFrame();
+		if (m_nextFrame != (UnsignedInt)-1 && m_nextFrame < curFrame)
+			m_nextFrame = (UnsignedInt)-1; // regression: the file is not the one that was scanned
 	}
-
-	AsciiString fileName = getLastReplayFileName();
-	fileName.concat(getReplayExtention());
-
-	AsciiString filepath = getReplayDir();
-	TheFileSystem->createDirectory(filepath);
-	filepath.concat(fileName);
-
-	// WRITE truncates, which is the truncate-at-prefix we want.
-	m_file = TheFileSystem->openFile(filepath.str(), File::WRITE | File::BINARY);
-	if (m_file == nullptr)
-	{
-		DEBUG_LOG(("RecorderClass::beginRecordingAfterResume - could not reopen %s for recording", filepath.str()));
-		delete [] prefix;
-		return FALSE;
-	}
-
-	m_file->write(prefix, prefixLen);
-	delete [] prefix;
-	m_file->flush();
-
-	m_fileName = fileName;
-	m_mode     = RECORDERMODETYPE_RECORD;
-	DEBUG_LOG(("RecorderClass::beginRecordingAfterResume - recording resumed game into %s from offset %d", fileName.str(), prefixLen));
-	return TRUE;
+	m_resumeSourceFile = m_file;
+	m_file = recordFile;
 }
 
 /**
- * Per-frame update for RECORDERMODETYPE_RESUME_CATCHUP: inject the replay's recorded commands
- * for the current logic frame, drop the rate caps for the lead-in, and start the freeze when
- * the handoff frame is reached (or the replay runs out first). Unlike stopPlayback this does NOT
- * call exitGame; the network session continues uninterrupted.
+ * Close the source and leave catchup. The recording of the resumed match goes on in m_file.
+ */
+void RecorderClass::endResumeCatchup()
+{
+	if (m_resumeSourceFile != nullptr)
+	{
+		m_resumeSourceFile->close();
+		m_resumeSourceFile = nullptr;
+	}
+	m_nextFrame = (UnsignedInt)-1;
+	m_resumeSourceLastFrame = 0;
+	if (m_mode == RECORDERMODETYPE_RESUME_CATCHUP)
+		m_mode = RECORDERMODETYPE_RECORD;
+}
+
+/**
+ * The source cannot be replayed to the handoff on this client. Every client validated its copy
+ * against the handoff before starting, so this is not a shorter-replay case a local handoff could
+ * paper over (that would desync the peers): tell the player and leave the game, never fall back
+ * to playing on.
+ */
+void RecorderClass::abortResume(const UnicodeString &why)
+{
+	RESUME_LOG("Resume: aborted at frame %u: %ls", TheGameLogic ? TheGameLogic->getFrame() : 0, why.str());
+	endResumeCatchup();
+	m_resumeHandoffFrame = 0;
+	m_resumeFreezeStartMs = 0;
+	if (TheInGameUI)
+		TheInGameUI->message(why);
+	if (TheGameLogic)
+		TheGameLogic->exitGame();
+}
+
+/**
+ * Per-frame update for RECORDERMODETYPE_RESUME_CATCHUP: inject the source's commands for the
+ * current logic frame, announce the lead-in, and start the freeze when the handoff frame is reached.
+ * Unlike stopPlayback this does NOT call exitGame at the handoff; the network session continues.
  */
 void RecorderClass::updateResumeCatchup()
 {
 	const UnsignedInt curFrame = TheGameLogic ? TheGameLogic->getFrame() : 0;
 
-	// Lead-in: back to realtime so players get a normal-speed look at the last seconds
-	// before the handoff. If the handoff is closer than that to the start, stay fast.
-	if (!m_resumeRatesRestored && isResumeCatchupLeadIn())
+	// Lead-in: the pacing bypasses switch off (isResumeCatchupLeadIn) so players get a
+	// normal-speed look at the last seconds before the handoff. If the handoff is closer than
+	// that to the start, it stays fast.
+	if (!m_resumeLeadInAnnounced && isResumeCatchupLeadIn())
 	{
-		m_resumeRatesRestored = TRUE;
-		if (TheFramePacer)
-			TheFramePacer->setFramesPerSecondLimit(m_resumeSavedFpsLimit);
-		if (TheNetwork)
-			TheNetwork->setLogicFrameRate(m_resumeSavedNetFrameRate);
+		m_resumeLeadInAnnounced = TRUE;
 		RESUME_LOG("Resume: lead-in reached at frame %u, back to realtime", curFrame);
 		if (TheInGameUI)
 			TheInGameUI->message(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeCatchupLeadIn",
@@ -2012,36 +2085,12 @@ void RecorderClass::updateResumeCatchup()
 	// and the live network layer writes into the same list each frame. Local input is
 	// blocked at its sources instead (isResumeInputBlocked).
 
-	// Inject every command recorded for this frame, including the handoff frame itself:
-	// GameLogic's CRC validation resumes right after catchup ends and expects the CRC
-	// messages of that frame to be present.
-	while (m_nextFrame == curFrame && curFrame <= m_resumeHandoffFrame)
-	{
-		appendNextCommand();
-		m_resumeRecordPos = m_file->position();
-		readNextFrame();
-	}
+	// Inject every command recorded for this frame, including the handoff frame itself.
+	injectResumeCommands(curFrame);
 
-	if (curFrame >= m_resumeHandoffFrame || m_nextFrame == (UnsignedInt)-1)
+	if (curFrame >= m_resumeHandoffFrame)
 	{
-		// Take the replay file over for recording rather than dropping it (see above).
-		if (!beginRecordingAfterResume())
-		{
-			DEBUG_LOG(("RecorderClass::updateResumeCatchup - could not take over the replay file for recording"));
-			if (m_file != nullptr)
-			{
-				m_file->close();
-				m_file = nullptr;
-			}
-			m_mode = RECORDERMODETYPE_NONE;
-		}
-		m_currentReplayFilename.clear();
-
-		// Restore both rate caps in case the lead-in never happened.
-		if (TheFramePacer)
-			TheFramePacer->setFramesPerSecondLimit(m_resumeSavedFpsLimit);
-		if (TheNetwork)
-			TheNetwork->setLogicFrameRate(m_resumeSavedNetFrameRate);
+		endResumeCatchup();
 
 		// Hold the simulation with a countdown before control comes back. Network::update
 		// polls updateResumeFreeze() and refuses to advance frames while it returns TRUE.
@@ -2049,7 +2098,17 @@ void RecorderClass::updateResumeCatchup()
 		if (m_resumeFreezeStartMs == 0)
 			m_resumeFreezeStartMs = 1;
 		m_resumeFreezeLastAnnounced = -1;
-		RESUME_LOG("Resume: handoff at frame %u (next replay frame %u), freezing for %d s", curFrame, m_nextFrame, RESUME_FREEZE_SECONDS);
+		RESUME_LOG("Resume: handoff at frame %u, freezing for %d s", curFrame, RESUME_FREEZE_SECONDS);
+		return;
+	}
+
+	// The source's records ended before the last complete frame the scan found: the file is
+	// not the one that was validated. A local handoff here would desync the peers.
+	if (m_nextFrame == (UnsignedInt)-1 && curFrame < m_resumeSourceLastFrame)
+	{
+		abortResume(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeSourceEnded",
+			L"Resume aborted: the replay ended at %ls, before the handoff at %ls",
+			ResumeFromReplay::formatGameTime(curFrame).str(), ResumeFromReplay::formatGameTime(m_resumeHandoffFrame).str()));
 	}
 }
 

@@ -46,3 +46,7 @@ AsciiString GetReadmeFromMap( AsciiString path );
 
 // The meat of file (map) transfers
 Bool DoAnyMapTransfers(GameInfo *game);
+
+// TheSuperHackers @feature bill-rich 24/09/2026 Resume-from-replay: the host pushes the resume source
+// (a replay file) to every human guest over the same transfer path at game start.
+Bool DoResumeReplayTransfer(GameInfo *game, AsciiString path);

@@ -46,6 +46,7 @@
 #include "GameNetwork/FileTransfer.h"
 #include "GameNetwork/LANAPICallbacks.h"
 #include "GameNetwork/networkutil.h"
+#include "GameNetwork/ResumeFromReplay.h"
 
 LANAPI *TheLAN = nullptr;
 extern Bool LANbuttonPushed;
@@ -241,6 +242,38 @@ void LANAPI::OnGameStart()
 
 			OnChat(UnicodeString::TheEmptyString, 0, TheGameText->fetch("GUI:CouldNotTransferMap"), LANCHAT_SYSTEM);
 			return;
+		}
+
+		// TheSuperHackers @feature bill-rich 24/09/2026 An armed resume-from-replay first pushes the host's
+		// resume source to every guest over the map transfer path, then every client checks its
+		// copy against the lobby and arms the recorder. Either failing backs out the same way as
+		// a missing map rather than start a fresh match that would desync everyone.
+		if (m_currentGame->isResumeArmed())
+		{
+			UnicodeString resumeWhy;
+			Bool resumeOk = DoResumeReplayTransfer(m_currentGame, ResumeFromReplay::getSourceFilePath());
+			if (!resumeOk)
+				resumeWhy = TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeTransferFailed", L"Resume aborted: the resume replay could not be transferred");
+			else
+				resumeOk = ResumeFromReplay::prepareGameStart(m_currentGame, resumeWhy);
+			if (!resumeOk)
+			{
+				DEBUG_LOG(("Resume-from-replay transfer or validation failed.  Bailing..."));
+				OnPlayerLeave(m_name);
+				removeGame(m_currentGame);
+				m_currentGame = nullptr;
+				m_inLobby = TRUE;
+
+				delete TheNetwork;
+				TheNetwork = nullptr;
+
+				OnChat(UnicodeString::TheEmptyString, 0, resumeWhy, LANCHAT_SYSTEM);
+				return;
+			}
+		}
+		else if (TheRecorder != nullptr)
+		{
+			TheRecorder->disarmResume();
 		}
 
 		m_currentGame->startGame(0);

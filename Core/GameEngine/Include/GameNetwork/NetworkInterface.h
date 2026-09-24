@@ -123,11 +123,6 @@ public:
 	virtual void notifyOthersOfCurrentFrame() = 0;					///< Tells all the other players what frame we are on.
 	virtual void notifyOthersOfNewFrame(UnsignedInt frame) = 0;							///< Tells all the other players that we are on a new frame.
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay catchup: override the network's
-	// logic frame-rate cap so timeForNewFrame() lets frames advance faster than realtime.
-	// Returns the previous rate for restoration.
-	virtual Int setLogicFrameRate(Int fps) = 0;
-
 	virtual Int  getExecutionFrame() = 0;																			///< Returns the next valid frame for simultaneous command execution.
 
 #if defined(RTS_DEBUG)

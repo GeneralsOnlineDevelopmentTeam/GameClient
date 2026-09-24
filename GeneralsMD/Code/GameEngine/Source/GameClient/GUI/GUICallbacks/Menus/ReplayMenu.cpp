@@ -45,6 +45,7 @@
 #include "GameClient/GameWindowManager.h"
 #include "GameClient/MessageBox.h"
 #include "GameClient/MapUtil.h"
+#include "GameNetwork/ResumeFromReplay.h"
 #include "GameClient/Mouse.h"
 #include "GameClient/GameText.h"
 #include "GameClient/GameWindowTransitions.h"
@@ -105,7 +106,7 @@ UnicodeString GetReplayFilenameFromListbox(GameWindow *listbox, Int index)
 
 //-------------------------------------------------------------------------------------------------
 
-// TheSuperHackers @refactor bill-rich 15/09/2026 No longer static: the LAN lobby's resume-from-replay arming reads replay headers too.
+// TheSuperHackers @refactor bill-rich 15/09/2026 No longer static: resume-from-replay reads replay headers too (declared in ResumeFromReplay.h).
 Bool readReplayMapInfo(const AsciiString& filename, RecorderClass::ReplayHeader &header, ReplayGameInfo &info, const MapMetaData *&mapData)
 {
 	header.forPlayback = FALSE;

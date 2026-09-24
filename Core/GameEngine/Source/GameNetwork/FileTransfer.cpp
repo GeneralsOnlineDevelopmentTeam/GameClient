@@ -82,7 +82,9 @@ static Bool doFileTransfer( AsciiString filename, MapTransferLoadScreen *ls, Int
 			fileTransferPercent = 100;
 			for (i=1; i<MAX_SLOTS; ++i)
 			{
-				if (TheGameInfo->getConstSlot(i)->isHuman() && !TheGameInfo->getConstSlot(i)->hasMap())
+				// TheSuperHackers @refactor bill-rich 24/09/2026 Wait on the slots in the mask (the callers build it
+				// from the slots that lack the file), so the same loop serves the resume-from-replay transfer.
+				if (TheGameInfo->getConstSlot(i)->isHuman() && (mask & (1<<i)))
 				{
 					Int slotTransferPercent = TheNetwork->getFileTransferProgress(i, filename);
 					fileTransferPercent = min(fileTransferPercent, slotTransferPercent);
@@ -275,6 +277,41 @@ Bool DoAnyMapTransfers(GameInfo *game)
 		ok = doFileTransfer(GetReadmeFromMap(game->getMap()), ls, mask);
 	if (ok)
 		ok = doFileTransfer(game->getMap(), ls, mask);
+	delete ls;
+	ls = nullptr;
+	if (!ok)
+		TheShell->showShell();
+	return ok;
+}
+
+//-------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------
+
+// TheSuperHackers @feature bill-rich 24/09/2026 Push the resume-from-replay source from the host to every
+// human guest. Every guest needs it (there is no "has file" state for replays), so the mask is
+// every human slot but the host's; the file lands in the guest's replay directory under the same
+// name (see GameState::portableMapPathToRealMapPath).
+Bool DoResumeReplayTransfer(GameInfo *game, AsciiString path)
+{
+	TheGameInfo = game;
+	path.toLower(); // the transfer bookkeeping compares against the normalized (lower-case) real path
+	Int mask = 0;
+	Int i=0;
+	for (i=1; i<MAX_SLOTS; ++i)
+	{
+		if (TheGameInfo->getConstSlot(i)->isHuman())
+		{
+			DEBUG_LOG(("Adding player %d to resume replay transfer mask", i));
+			mask |= (1<<i);
+		}
+	}
+	if (!mask)
+		return TRUE;
+
+	TheShell->hideShell();
+	MapTransferLoadScreen *ls = NEW MapTransferLoadScreen;
+	ls->init(TheGameInfo);
+	Bool ok = doFileTransfer(path, ls, mask);
 	delete ls;
 	ls = nullptr;
 	if (!ok)
