@@ -699,8 +699,7 @@ void InitLanGameGadgets()
 	DEBUG_ASSERTCRASH(buttonSelectMap, ("Could not find the buttonSelectMap"));
 	buttonStart = TheWindowManager->winGetWindowFromId( parentLanGameOptions,buttonStartID  );
 	DEBUG_ASSERTCRASH(buttonStart, ("Could not find the buttonStart"));
-	buttonRandomize = TheWindowManager->winGetWindowFromId( parentLanGameOptions, buttonRandomizeID );
-	DEBUG_ASSERTCRASH(buttonRandomize, ("Could not find the buttonRandomize"));
+	buttonRandomize = TheWindowManager->winGetWindowFromId( parentLanGameOptions, buttonRandomizeID ); // absent from older .wnd layouts
 	if (buttonRandomize)
 		buttonRandomize->winSetText(TheGameText->FETCH_OR_SUBSTITUTE("GUI:Randomize", L"Randomize")); // no .csf change needed
 	buttonBack = TheWindowManager->winGetWindowFromId( parentLanGameOptions,  buttonBackID);
@@ -1296,15 +1295,22 @@ WindowMsgHandledType LanGameOptionsMenuSystem( GameWindow *window, UnsignedInt m
 					// broadcast the new options and tell the room it happened.
 					if (TheLAN->AmIHost())
 					{
-						std::vector<Int> lockedTemplates = buildLockedTemplates();
-						performRandomAssign(TheLAN->GetMyGame(), lockedTemplates);
-						TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
-						lanUpdateSlotList();
+						std::vector<RandomSlotAssignment> changes;
+						performRandomAssign(TheLAN->GetMyGame(), &changes);
+						if (changes.empty())
+						{
+							TheLAN->RequestChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:RandomizeNothingToDo", L"Randomize: every slot already has a faction, color and start position"), LANAPIInterface::LANCHAT_SYSTEM);
+						}
+						else
+						{
+							TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
+							lanUpdateSlotList();
 
-						++s_randomizeCount;
-						UnicodeString strInform;
-						strInform.format(TheGameText->FETCH_OR_SUBSTITUTE("GUI:HostRandomizedSlots", L"Host randomized factions, colors and start positions (roll %d)"), s_randomizeCount);
-						TheLAN->RequestChat(strInform, LANAPIInterface::LANCHAT_SYSTEM);
+							++s_randomizeCount;
+							UnicodeString strInform;
+							strInform.format(TheGameText->FETCH_OR_SUBSTITUTE("GUI:HostRandomizedSlots", L"Randomize: the host resolved the random factions, colors and start positions (roll %d)"), s_randomizeCount);
+							TheLAN->RequestChat(strInform, LANAPIInterface::LANCHAT_SYSTEM);
+						}
 					}
 				}
         else if ( controlID == checkboxLimitSuperweaponsID )

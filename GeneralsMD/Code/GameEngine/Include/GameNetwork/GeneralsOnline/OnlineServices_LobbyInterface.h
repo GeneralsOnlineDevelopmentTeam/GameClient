@@ -1,5 +1,7 @@
 #pragma once
 
+#include "GameNetwork/RandomAssign.h"
+
 #include "NGMP_include.h"
 #include "OnlineServices_RoomsInterface.h"
 #include "GameNetwork/GameInfo.h"
@@ -226,7 +228,9 @@ public:
 	void UpdateCurrentLobby_AITeam(int slot, int team);
 	void UpdateCurrentLobby_AIStartPos(int slot, int startpos);
 
-	void UpdateCurrentLobby_BulkSlotUpdate(NGMPGame* game);
+	// TheSuperHackers @feature bill-rich 15/09/2026 Randomize: send the slots a roll changed (only the fields it
+	// changed, with the occupant's user id so the service can skip a slot that changed hands) and report the outcome.
+	void UpdateCurrentLobby_BulkSlotUpdate(const std::vector<RandomSlotAssignment>& changes, std::function<void(bool bSuccess)> onDone);
 
 	void UpdateCurrentLobbyMaxCameraHeight(uint16_t maxCameraHeight);
 

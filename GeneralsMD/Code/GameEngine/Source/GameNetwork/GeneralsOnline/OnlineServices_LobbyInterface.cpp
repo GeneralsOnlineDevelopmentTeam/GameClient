@@ -494,8 +494,9 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 		});
 }
 
-void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_BulkSlotUpdate(NGMPGame* game)
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_BulkSlotUpdate(const std::vector<RandomSlotAssignment>& changes, std::function<void(bool bSuccess)> onDone)
 {
+	// TheSuperHackers @feature bill-rich 15/09/2026 Randomize: one host action for all rolled slots.
 	// reset autostart if host changes anything (because ready flag will reset too)
 #if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
 	ClearAutoReadyCountdown();
@@ -510,29 +511,41 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_BulkSlotUpdate(NGMPG
 	j["field"] = ELobbyUpdateField::HOST_ACTION_BULK_SLOT_UPDATE;
 
 	nlohmann::json slotsArray = nlohmann::json::array();
-	for (int i = 0; i < MAX_SLOTS; ++i)
+	for (const RandomSlotAssignment& change : changes)
 	{
-		const GameSlot *slot = game->getConstSlot(i);
-		if (slot && slot->isOccupied())
+		// AI slots are members too (with the service's placeholder user id), so match on
+		// the slot rather than on a real user id.
+		const LobbyMemberEntry* occupant = nullptr;
+		for (const LobbyMemberEntry& member : m_CurrentLobby.members)
 		{
-			nlohmann::json slotEntry;
-			slotEntry["slot_index"] = i;
-			slotEntry["side"] = slot->getPlayerTemplate();
-			slotEntry["color"] = slot->getColor();
-			slotEntry["start_pos"] = slot->getStartPos();
-			slotEntry["team"] = slot->getTeamNumber();
-			slotsArray.push_back(slotEntry);
+			if (member.m_SlotIndex == change.slotIndex)
+				occupant = &member;
 		}
+		if (occupant == nullptr)
+			continue; // nobody in that slot any more
+		nlohmann::json slotEntry;
+		slotEntry["slot_index"] = change.slotIndex;
+		slotEntry["user_id"] = occupant->user_id;
+		if (change.side != -1)
+			slotEntry["side"] = change.side;
+		if (change.color != -1)
+			slotEntry["color"] = change.color;
+		if (change.startPos != -1)
+			slotEntry["start_pos"] = change.startPos;
+		slotsArray.push_back(slotEntry);
 	}
 	j["slots"] = slotsArray;
 	std::string strPostData = j.dump();
 
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [onDone](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
-			if (!bSuccess || statusCode < 200 || statusCode >= 300)
+			const bool bOK = bSuccess && statusCode >= 200 && statusCode < 300;
+			if (!bOK)
 			{
-				DEBUG_LOG(("UpdateCurrentLobby_BulkSlotUpdate failed: success=%d, status=%d", bSuccess, statusCode));
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "UpdateCurrentLobby_BulkSlotUpdate failed: success=%d, status=%d", bSuccess, statusCode);
 			}
+			if (onDone)
+				onDone(bOK);
 		});
 }
 

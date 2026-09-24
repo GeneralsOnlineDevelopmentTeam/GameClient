@@ -69,7 +69,6 @@
 
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/RandomAssign.h"
-#include "GameClient/ChallengeGenerals.h"
 #include <ws2ipdef.h>
 #include <format>
 #include <cmath>
@@ -227,6 +226,9 @@ static GameWindow *buttonRandomize = NULL;
 // TheSuperHackers @feature bill-rich 15/09/2026 How many times the host pressed Randomize in this
 // lobby; announced with every roll so re-rolling is visible to everyone present.
 static Int s_randomizeCount = 0;
+// TheSuperHackers @feature bill-rich 24/09/2026 True while the host's own faction was set by Randomize rather
+// than chosen, so Back/Start does not persist a rolled faction as the preferred one.
+static Bool s_hostFactionFromRandomize = FALSE;
 static GameWindow *buttonEmote = NULL;
 static GameWindow *textEntryChat = NULL;
 static GameWindow *textEntryMapDisplay = NULL;
@@ -368,7 +370,8 @@ static void savePlayerInfo()
 				// save off some prefs
 				CustomMatchPreferences pref;
 				pref.setPreferredColor(slot->getColor());
-				pref.setPreferredFaction(slot->getPlayerTemplate());
+				if (!s_hostFactionFromRandomize)
+					pref.setPreferredFaction(slot->getPlayerTemplate());
 				if (TheNGMPGame->amIHost())
 				{
 					pref.setPreferredMap(TheNGMPGame->getMap());
@@ -754,6 +757,8 @@ static void handleColorSelection(int index)
 
 static void handlePlayerTemplateSelection(int index, bool bInitialSetup = false)
 {
+	if (!bInitialSetup && TheNGMPGame && index == TheNGMPGame->getLocalSlotNum())
+		s_hostFactionFromRandomize = FALSE; // an explicit choice is worth remembering again
 	GameWindow *combo = comboBoxPlayerTemplate[index];
 	Int playerTemplate, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
@@ -1641,8 +1646,7 @@ void InitWOLGameGadgets()
 	parentWOLGameSetup = TheWindowManager->winGetWindowFromId( NULL, parentWOLGameSetupID );
 	buttonEmote = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,buttonEmoteID  );
 	buttonSelectMap = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,buttonSelectMapID  );
-	buttonRandomize = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, buttonRandomizeID );
-	DEBUG_ASSERTCRASH(buttonRandomize, ("Could not find the buttonRandomize"));
+	buttonRandomize = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, buttonRandomizeID ); // absent from older .wnd layouts
 	if (buttonRandomize)
 		buttonRandomize->winSetText(TheGameText->FETCH_OR_SUBSTITUTE("GUI:Randomize", L"Randomize")); // no .csf change needed
 	checkBoxUseStats = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, checkBoxUseStatsID );
@@ -1895,6 +1899,7 @@ Bool initialAcceptEnable = FALSE;
 void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 {
 	s_randomizeCount = 0;
+	s_hostFactionFromRandomize = FALSE;
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface == nullptr)
 	{
@@ -4158,23 +4163,66 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 				}
 				else if ( controlID == buttonRandomizeID )
 				{
-					// TheSuperHackers @feature bill-rich 15/09/2026 host-only Randomize: resolve the random slots,
-					// push them to the lobby service and tell the room it happened.
+					// TheSuperHackers @feature bill-rich 15/09/2026 host-only Randomize. The lobby service owns the
+					// slots, so the roll is computed on a scratch copy, only the slots it changed are sent, and
+					// the room is told once the service has accepted them; the next lobby push shows the result.
 					NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 					if (pLobbyInterface != nullptr && pLobbyInterface->IsHost())
 					{
 						NGMPGame* game = pLobbyInterface->GetCurrentGame();
 						if (game)
 						{
-							std::vector<Int> lockedTemplates = buildLockedTemplates();
-							performRandomAssign(game, lockedTemplates);
-							pLobbyInterface->UpdateCurrentLobby_BulkSlotUpdate(game);
-							WOLDisplaySlotList();
+							GameSlot saved[MAX_SLOTS];
+							Int i;
+							for (i = 0; i < MAX_SLOTS; ++i)
+							{
+								if (game->getSlot(i))
+									saved[i] = *game->getSlot(i);
+							}
+							std::vector<RandomSlotAssignment> changes;
+							performRandomAssign(game, &changes);
+							for (i = 0; i < MAX_SLOTS; ++i)
+							{
+								if (game->getSlot(i))
+									*game->getSlot(i) = saved[i];
+							}
 
-							++s_randomizeCount;
-							UnicodeString strInform;
-							strInform.format(TheGameText->FETCH_OR_SUBSTITUTE("GUI:HostRandomizedSlots", L"Host randomized factions, colors and start positions (roll %d)"), s_randomizeCount);
-							pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, true);
+							if (changes.empty())
+							{
+								UnicodeString strNothing = TheGameText->FETCH_OR_SUBSTITUTE("GUI:RandomizeNothingToDo", L"Randomize: every slot already has a faction, color and start position");
+								pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strNothing, true);
+							}
+							else
+							{
+								const Int localSlot = game->getLocalSlotNum();
+								Bool hostRolled = FALSE;
+								for (const RandomSlotAssignment& change : changes)
+								{
+									if (change.slotIndex == localSlot && change.side != -1)
+										hostRolled = TRUE;
+								}
+								if (buttonRandomize)
+									buttonRandomize->winEnable(FALSE); // one roll in flight at a time; re-enabled by the lobby push
+								pLobbyInterface->UpdateCurrentLobby_BulkSlotUpdate(changes, [pLobbyInterface, hostRolled](bool bSuccess)
+									{
+										if (bSuccess)
+										{
+											++s_randomizeCount;
+											if (hostRolled)
+												s_hostFactionFromRandomize = TRUE;
+											UnicodeString strInform;
+											strInform.format(TheGameText->FETCH_OR_SUBSTITUTE("GUI:HostRandomizedSlots", L"Randomize: the host resolved the random factions, colors and start positions (roll %d)"), s_randomizeCount);
+											pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, true);
+										}
+										else if (TheNGMPGame != nullptr)
+										{
+											TheNGMPGame->UpdateSlotsFromCurrentLobby();
+											WOLDisplaySlotList();
+											if (buttonRandomize)
+												buttonRandomize->winEnable(TRUE);
+										}
+									});
+							}
 						}
 					}
 				}

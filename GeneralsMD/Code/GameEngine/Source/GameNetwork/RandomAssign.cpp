@@ -31,13 +31,21 @@
 #include "GameClient/MapUtil.h"
 #include "GameClient/ChallengeGenerals.h"
 
-#include <cstdlib>
 #include <cmath>
+#include <random>
 #include <vector>
+
+// Private RNG for the roll: seeded from the clock, never the game-logic RNG, and
+// not the process CRT RNG either so the roll has no side effect on anything else.
+static Int rollBelow(Int n)
+{
+	static std::mt19937 s_rng((unsigned int)std::random_device{}() ^ (unsigned int)timeGetTime());
+	return (n > 0) ? (Int)(s_rng() % (unsigned int)n) : 0;
+}
 
 // Build the list of valid template indices for random assignment.
 // Same filtering as populateRandomSideAndColor (GameLogic.cpp).
-static void buildValidTemplates(const GameInfo *game, const std::vector<Int> &lockedTemplates, std::vector<Int> &out)
+static void buildValidTemplates(const GameInfo *game, std::vector<Int> &out)
 {
 	Int count = ThePlayerTemplateStore->getPlayerTemplateCount();
 	for (Int c = 0; c < count; ++c)
@@ -54,17 +62,10 @@ static void buildValidTemplates(const GameInfo *game, const std::vector<Int> &lo
 		if (game->oldFactionsOnly() && !fac->isOldFaction())
 			continue;
 
-		// Skip locked generals (list provided by caller from client code)
-		Bool isLocked = FALSE;
-		for (size_t k = 0; k < lockedTemplates.size(); ++k)
-		{
-			if (lockedTemplates[k] == c)
-			{
-				isLocked = TRUE;
-				break;
-			}
-		}
-		if (isLocked)
+		// Skip generals that are not unlocked on this client, the same test the
+		// lobby faction combo applies (GUIUtil.cpp) and match start enforces.
+		const GeneralPersona *general = TheChallengeGenerals->getGeneralByTemplateName(fac->getName());
+		if (general && !general->isStartingEnabled())
 			continue;
 
 		out.push_back(c);
@@ -79,14 +80,14 @@ static void assignRandomFactions(GameInfo *game, const std::vector<Int> &validTe
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
 		GameSlot *slot = game->getSlot(i);
-		if (!slot || !slot->isOccupied())
+		if (!slot || !slot->isOccupied() || slot->getPlayerTemplate() == PLAYERTEMPLATE_OBSERVER)
 			continue;
 
 		// Assign faction if random
 		Int playerTemplateIdx = slot->getPlayerTemplate();
 		if (playerTemplateIdx == PLAYERTEMPLATE_RANDOM && !validTemplates.empty())
 		{
-			playerTemplateIdx = validTemplates[rand() % validTemplates.size()];
+			playerTemplateIdx = validTemplates[rollBelow((Int)validTemplates.size())];
 			slot->setPlayerTemplate(playerTemplateIdx);
 		}
 
@@ -105,7 +106,7 @@ static void assignRandomFactions(GameInfo *game, const std::vector<Int> &validTe
 					freeColors.push_back(c);
 			}
 			if (!freeColors.empty())
-				slot->setColor(freeColors[rand() % freeColors.size()]);
+				slot->setColor(freeColors[rollBelow((Int)freeColors.size())]);
 		}
 	}
 }
@@ -117,10 +118,10 @@ static void assignRandomFactions(GameInfo *game, const std::vector<Int> &validTe
 static void assignRandomPositions(GameInfo *game)
 {
 	Int i;
-	Int numPlayers = MAX_SLOTS;
 	const MapMetaData *md = TheMapCache ? TheMapCache->findMap(game->getMap()) : nullptr;
-	if (md)
-		numPlayers = md->m_numPlayers;
+	if (!md)
+		return; // unknown map: no start spots to hand out; match start will do it
+	Int numPlayers = md->m_numPlayers;
 
 	if (numPlayers <= 0)
 		return;
@@ -129,8 +130,7 @@ static void assignRandomPositions(GameInfo *game)
 		numPlayers = MAX_SLOTS;
 
 	// Build distance matrix between all start positions using map waypoints
-	static const WaypointMap s_emptyWaypoints = {};
-	const WaypointMap &waypoints = md ? md->m_waypoints : s_emptyWaypoints;
+	const WaypointMap &waypoints = md->m_waypoints;
 	Real startSpotDistance[MAX_SLOTS][MAX_SLOTS];
 	for (i = 0; i < MAX_SLOTS; ++i)
 	{
@@ -220,7 +220,7 @@ static void assignRandomPositions(GameInfo *game)
 			posIdx = -1;
 			for (Int attempt = 0; attempt < numPlayers * 2 && posIdx == -1; ++attempt)
 			{
-				Int candidate = rand() % numPlayers;
+				Int candidate = rollBelow(numPlayers);
 				if (!taken[candidate])
 					posIdx = candidate;
 			}
@@ -284,73 +284,53 @@ static void assignRandomPositions(GameInfo *game)
 		}
 	}
 
-	// Assign observer slots to an existing player's position
-	Int numPlayersInGame = 0;
-	for (i = 0; i < MAX_SLOTS; ++i)
-	{
-		const GameSlot *slot = game->getConstSlot(i);
-		if (slot->isOccupied() && slot->getPlayerTemplate() != PLAYERTEMPLATE_OBSERVER)
-			++numPlayersInGame;
-	}
-	for (i = 0; i < MAX_SLOTS; ++i)
-	{
-		GameSlot *slot = game->getSlot(i);
-		if (!slot || !slot->isOccupied() || slot->getPlayerTemplate() != PLAYERTEMPLATE_OBSERVER)
-			continue;
-
-		Int posIdx = -1;
-		if (numPlayersInGame == 0)
-		{
-			posIdx = 0;
-		}
-		else
-		{
-			// Pick a random position that IS taken by a real player
-			for (Int attempt = 0; attempt < numPlayers * 2 && posIdx == -1; ++attempt)
-			{
-				Int candidate = rand() % numPlayers;
-				if (game->isStartPositionTaken(candidate))
-					posIdx = candidate;
-			}
-		}
-		if (posIdx >= 0)
-			slot->setStartPos(posIdx);
-	}
+	// Observer slots are left alone: they take a player's spot at match start.
 }
 
-void performRandomAssign(GameInfo *game, const std::vector<Int> &lockedTemplates)
+void performRandomAssign(GameInfo *game, std::vector<RandomSlotAssignment> *outChanges)
 {
 	if (!game)
 		return;
 
-	// Clock-seeded CRT RNG, independent of the game-logic RNG (see header).
-	srand((unsigned int)timeGetTime());
+	Int before[MAX_SLOTS][3];
+	Int i;
+	for (i = 0; i < MAX_SLOTS; ++i)
+	{
+		const GameSlot *slot = game->getConstSlot(i);
+		before[i][0] = slot ? slot->getPlayerTemplate() : -1;
+		before[i][1] = slot ? slot->getColor() : -1;
+		before[i][2] = slot ? slot->getStartPos() : -1;
+	}
 
 	// Phase 1: Assign factions and colors for random slots
 	std::vector<Int> validTemplates;
-	buildValidTemplates(game, lockedTemplates, validTemplates);
+	buildValidTemplates(game, validTemplates);
 	assignRandomFactions(game, validTemplates);
 
 	// Phase 2: Assign start positions using distance-based placement
 	assignRandomPositions(game);
 
-	// Reset accepted state since we changed settings
-	game->resetAccepted();
-}
-
-std::vector<Int> buildLockedTemplates()
-{
-	std::vector<Int> lockedTemplates;
-	Int templateCount = ThePlayerTemplateStore->getPlayerTemplateCount();
-	for (Int t = 0; t < templateCount; ++t)
+	if (outChanges)
 	{
-		const PlayerTemplate *fac = ThePlayerTemplateStore->getNthPlayerTemplate(t);
-		if (fac)
+		outChanges->clear();
+		for (i = 0; i < MAX_SLOTS; ++i)
 		{
-			const GeneralPersona *general = TheChallengeGenerals->getGeneralByTemplateName(fac->getName());
-			if (general && !general->isStartingEnabled())
-				lockedTemplates.push_back(t);
+			const GameSlot *slot = game->getConstSlot(i);
+			if (!slot)
+				continue;
+			RandomSlotAssignment change;
+			change.slotIndex = i;
+			if (slot->getPlayerTemplate() != before[i][0])
+				change.side = slot->getPlayerTemplate();
+			if (slot->getColor() != before[i][1])
+				change.color = slot->getColor();
+			if (slot->getStartPos() != before[i][2])
+				change.startPos = slot->getStartPos();
+			if (change.side != -1 || change.color != -1 || change.startPos != -1)
+				outChanges->push_back(change);
 		}
 	}
-	return lockedTemplates;
+
+	// Reset accepted state since we changed settings
+	game->resetAccepted();
 }

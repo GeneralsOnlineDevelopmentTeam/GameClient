@@ -28,12 +28,21 @@
 
 class GameInfo;
 
-// Resolve random factions, colors and start positions on every occupied slot of
-// the lobby that still has them unset. Slots with explicit choices are left alone.
-// Draws from the C runtime RNG seeded from the clock, deliberately NOT from the
-// game-logic RNG, so the result says nothing about the draw the engine will make
-// from the lobby seed at match start.
-void performRandomAssign(GameInfo *game, const std::vector<Int> &lockedTemplates);
+// One slot the roll changed. A field left at -1 was not touched by the roll.
+struct RandomSlotAssignment
+{
+	Int slotIndex = -1;
+	Int side = -1;
+	Int color = -1;
+	Int startPos = -1;
+};
 
-// Player-template indices of generals that are not unlocked on this client.
-std::vector<Int> buildLockedTemplates();
+// Resolve random factions, colors and start positions on every occupied player
+// slot of the lobby that still has them unset. Slots with explicit choices and
+// observer slots are left alone (observers are resolved at match start, as in
+// retail). Draws from a private RNG seeded from the clock, deliberately NOT from
+// the game-logic RNG, so the result says nothing about the draw the engine will
+// make from the lobby seed at match start. outChanges, when given, receives the
+// slots that changed and what changed, for callers that must push the roll
+// through an authoritative service instead of applying it locally.
+void performRandomAssign(GameInfo *game, std::vector<RandomSlotAssignment> *outChanges = nullptr);
