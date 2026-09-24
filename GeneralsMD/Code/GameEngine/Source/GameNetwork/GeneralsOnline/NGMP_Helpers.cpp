@@ -204,21 +204,23 @@ std::string Base64Encode(const std::vector<uint8_t>& data)
 		"0123456789+/";
 
 	std::string encoded;
-	size_t i = 0;
-	uint32_t octet_a, octet_b, octet_c, triple;
+	encoded.reserve((data.size() + 2) / 3 * 4);
 
-	while (i < data.size())
+	// TheSuperHackers @bugfix bill-rich 24/09/2026 A one-byte tail was emitted as "XXX=" instead of "XX==":
+	// the old padding test compared the consumed index against size + 1, which can never be
+	// true, so every input whose length is 1 mod 3 decoded to one byte too many.
+	for (size_t i = 0; i < data.size(); i += 3)
 	{
-		octet_a = i < data.size() ? data[i++] : 0;
-		octet_b = i < data.size() ? data[i++] : 0;
-		octet_c = i < data.size() ? data[i++] : 0;
-
-		triple = (octet_a << 16) | (octet_b << 8) | octet_c;
+		const size_t remaining = data.size() - i;
+		const uint32_t octet_a = data[i];
+		const uint32_t octet_b = remaining > 1 ? data[i + 1] : 0;
+		const uint32_t octet_c = remaining > 2 ? data[i + 2] : 0;
+		const uint32_t triple = (octet_a << 16) | (octet_b << 8) | octet_c;
 
 		encoded += base64_chars[(triple >> 18) & 0x3F];
 		encoded += base64_chars[(triple >> 12) & 0x3F];
-		encoded += (i >= data.size() + 1) ? '=' : base64_chars[(triple >> 6) & 0x3F];
-		encoded += (i >= data.size())     ? '=' : base64_chars[triple & 0x3F];
+		encoded += remaining > 1 ? base64_chars[(triple >> 6) & 0x3F] : '=';
+		encoded += remaining > 2 ? base64_chars[triple & 0x3F] : '=';
 	}
 
 	return encoded;
