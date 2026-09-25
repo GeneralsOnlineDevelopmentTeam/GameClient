@@ -109,6 +109,14 @@ void HTTPRequest::InvokeCallbackIfComplete()
 	{
 		if (m_completionCallback != nullptr)
 		{
+			// Move the callback into a local variable and clear the member before
+			// invoking it. This prevents a use-after-free: the HTTPRequest may be
+			// deleted (by HTTPManager::Tick) immediately after this call returns,
+			// which would run ~HTTPRequest and destroy m_completionCallback's
+			// captured state while it is still on the call stack.
+			auto callback = std::move(m_completionCallback);
+			m_completionCallback = nullptr;
+
 			// Convert m_vecBuffer to std::string for m_strResponse
 			std::string strResponse;
 			if (!m_vecBuffer.empty() && m_currentBufSize_Used > 0)
@@ -119,7 +127,7 @@ void HTTPRequest::InvokeCallbackIfComplete()
 			{
 				strResponse.clear();
 			}
-			m_completionCallback(true, m_responseCode, strResponse, this);
+			callback(true, m_responseCode, strResponse, this);
 		}
 	}
 }
