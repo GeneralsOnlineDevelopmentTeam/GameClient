@@ -185,7 +185,10 @@ void ParachuteContain::updateBonePositions()
 			{
 				//DEBUG_LOG(("*** No parachute-attach bone... using object height!"));
 				m_riderAttachBone.zero();
-				m_riderAttachBone.z += riderDraw->getDrawableGeometryInfo().getMaxHeightAbovePosition();
+				if (riderDraw->getObject())
+				{
+					m_riderAttachBone.z += riderDraw->getDrawableGeometryInfo().getMaxHeightAbovePosition();
+				}
 			}
 		}
 
