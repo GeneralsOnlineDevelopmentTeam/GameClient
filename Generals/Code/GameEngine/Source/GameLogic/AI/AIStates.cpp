@@ -5096,6 +5096,10 @@ StateReturnType AIAttackFireWeaponState::update()
 
 	if (m_att->isAttackingObject())
 	{
+		// Re-validate victim immediately before firing; it may have been destroyed since the earlier check.
+		if (!victim || victim->isEffectivelyDead())
+			return STATE_FAILURE;
+
 		obj->fireCurrentWeapon(victim);
 		// clear this, just in case.
 		obj->clearStatus( MAKE_OBJECT_STATUS_MASK( OBJECT_STATUS_IGNORING_STEALTH ) );
