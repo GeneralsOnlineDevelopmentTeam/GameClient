@@ -1079,7 +1079,7 @@ void AIPlayer::onUnitProduced( Object *factory, Object *unit )
 					team->m_reinforcementID = unit->getID();
 				}
 				AIUpdateInterface *ai = unit->getAIUpdateInterface();
-				if (team->m_team->getPrototype()->getTemplateInfo()->m_hasHomeLocation) {
+				if (team->m_team && team->m_team->getPrototype()->getTemplateInfo()->m_hasHomeLocation) {
 					if (ai) {
 						std::vector<Coord3D> path;
 						path.push_back( *ai->getGoalPosition() );
@@ -2357,7 +2357,7 @@ void AIPlayer::queueUnits()
 			// the center of the team, or to the home area of this player?
 			Coord3D home = team->m_team->getPrototype()->getTemplateInfo()->m_homeLocation;
 			Bool hasHome = false;
-			if (team->m_team->getPrototype()->getTemplateInfo()->m_hasHomeLocation) {
+			if (team->m_team && team->m_team->getPrototype()->getTemplateInfo()->m_hasHomeLocation) {
 				hasHome = true;
 			} else {
 				hasHome = getBaseCenter(&home);
