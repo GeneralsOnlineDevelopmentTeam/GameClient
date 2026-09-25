@@ -1042,6 +1042,11 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 	// Show Menu
 	layout->hide( FALSE );
 
+	// Show the QM setup menu by default
+	hideInfoGadgets(TRUE);
+	hideOptionsGadgets(FALSE);
+	GadgetButtonSetText(TheWindowManager->winGetWindowFromId(parentWOLQuickMatch, NAMEKEY("WOLQuickMatchMenu.wnd:ButtonOptions")), TheGameText->fetch("GUI:PlayerInfo"));
+
 	// Set Keyboard to Main Parent
 	TheWindowManager->winSetFocus( parentWOLQuickMatch );
 
