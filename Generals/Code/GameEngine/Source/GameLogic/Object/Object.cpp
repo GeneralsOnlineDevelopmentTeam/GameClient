@@ -2406,7 +2406,12 @@ void Object::setTriggerAreaFlagsForChangeInPosition()
 		return; // didn't move enough to change integer position.
 	}
 
-	if (getAIUpdateInterface())
+	// TheSuperHackers @bugfix Only update the pathfinder position after game initialization is
+	// complete. During startNewGame, bridge objects are positioned before TheTerrainLogic->newMap()
+	// is called, which means W3DTreeBuffer (initialized inside newMap) may not yet exist.
+	// Calling updatePos at that point causes an access violation inside W3DTreeBuffer::unitMoved.
+	// Frame 0 corresponds to the loading/initialization phase; gameplay begins at frame 1.
+	if (getAIUpdateInterface() && TheGameLogic->getFrame() > 0)
 	{
 		TheAI->pathfinder()->updatePos(this, getPosition());
 	}
@@ -2419,7 +2424,10 @@ void Object::setTriggerAreaFlagsForChangeInPosition()
 	Int i;
 	for (i=0; i<m_numTriggerAreasActive; i++)
 	{
-		if (!m_triggerInfo[i].pTrigger->pointInTrigger(m_iPos))
+		// TheSuperHackers @bugfix Guard against a null or dangling pTrigger pointer, which can
+		// occur if a PolygonTrigger was deleted (e.g. via deleteTriggers) while the object still
+		// holds a reference to it in m_triggerInfo.
+		if (!m_triggerInfo[i].pTrigger || !m_triggerInfo[i].pTrigger->pointInTrigger(m_iPos))
 		{
 			m_triggerInfo[i].isInside = false;
 			m_triggerInfo[i].exited = true;
@@ -2437,6 +2445,11 @@ void Object::setTriggerAreaFlagsForChangeInPosition()
 
 	for (const PolygonTrigger *pTrig = PolygonTrigger::getFirstPolygonTrigger(); pTrig; pTrig = pTrig->getNext())
 	{
+		// TheSuperHackers @bugfix Skip water area polygon triggers. Water areas are not script
+		// trigger areas and should not be checked for unit entry/exit events.
+		if (pTrig->isWaterArea())
+			continue;
+
 		Bool skip = false;
 		for (i = 0; i < m_numTriggerAreasActive; i++)
 		{
