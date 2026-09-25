@@ -764,17 +764,32 @@ Bool GameClient::isMovieAbortRequested()
  */
 void GameClient::iterateDrawablesInRegion( Region3D *region, GameClientFuncPtr userFunc, void *userData )
 {
-	Drawable *draw, *nextDrawable;
+	// TheSuperHackers @bugfix Collect matching drawable IDs upfront before invoking any callbacks.
+	// The userFunc (e.g. drawablePostDraw) can indirectly call getShroudedStatus(), which may
+	// trigger ghost-object snapshot operations that destroy drawables and remove them from
+	// m_drawableList. Pre-fetching nextDrawable before the call is not sufficient because the
+	// pre-fetched pointer itself can become dangling if that drawable is also destroyed during
+	// the callback. By collecting IDs first and then validating each via findDrawableByID(),
+	// we ensure we never dereference a freed drawable pointer.
+	static std::vector<DrawableID> s_drawableIDs;
+	s_drawableIDs.clear();
 
-	for( draw = m_drawableList; draw; draw=nextDrawable )
+	for( Drawable *draw = m_drawableList; draw; draw = draw->getNextDrawable() )
 	{
-		nextDrawable = draw->getNextDrawable();
-
 		Coord3D pos = *draw->getPosition();
 		if( region == nullptr ||
 			  (pos.x >= region->lo.x && pos.x <= region->hi.x &&
 			   pos.y >= region->lo.y && pos.y <= region->hi.y &&
 				 pos.z >= region->lo.z && pos.z <= region->hi.z) )
+		{
+			s_drawableIDs.push_back( draw->getID() );
+		}
+	}
+
+	for( Int i = 0; i < (Int)s_drawableIDs.size(); ++i )
+	{
+		Drawable *draw = findDrawableByID( s_drawableIDs[i] );
+		if( draw != nullptr )
 		{
 			(*userFunc)( draw, userData );
 		}
