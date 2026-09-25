@@ -356,8 +356,11 @@ static void playerTooltip(GameWindow *window,
 		{
 			if (roomMember != nullptr)
 			{
+				// Capture user_id by value to avoid use-after-free when m_mapMembers is reassigned
+				uint64_t userID = roomMember->user_id;
+				
 				// new
-				pStatsInterface->findPlayerStatsByID(roomMember->user_id, [=](bool bSuccess, PSPlayerStats stats)
+				pStatsInterface->findPlayerStatsByID(userID, [=](bool bSuccess, PSPlayerStats stats)
 					{
 						if (!bSuccess)
 						{
@@ -366,14 +369,14 @@ static void playerTooltip(GameWindow *window,
 						else
 						{
 							UnicodeString tooltip = UnicodeString::TheEmptyString;
-							if (roomMember->user_id == pAuthInterface->GetUserID())
+							if (userID == pAuthInterface->GetUserID())
 							{
 								tooltip.format(TheGameText->fetch("TOOLTIP:LocalPlayer"), uName.str());
 							}
 							else
 							{
 								// not us
-								bool bIsFriend = pSocialInterface->IsUserFriend(roomMember->user_id);
+								bool bIsFriend = pSocialInterface->IsUserFriend(userID);
 								if (bIsFriend)
 								{
 									// buddy
@@ -388,7 +391,7 @@ static void playerTooltip(GameWindow *window,
 								}
 							}
 
-							bool bIgnored = pSocialInterface->IsUserIgnored(roomMember->user_id);
+							bool bIgnored = pSocialInterface->IsUserIgnored(userID);
 							if (bIgnored)
 							{
 								tooltip.concat(TheGameText->fetch("TOOLTIP:IgnoredModifier"));
