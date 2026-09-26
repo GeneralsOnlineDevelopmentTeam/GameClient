@@ -889,6 +889,12 @@ void updateGameOptions()
 //-------------------------------------------------------------------------------------------------
 void setLANPlayerTooltip(LANPlayer* player)
 {
+	if (!player)
+	{
+		TheMouse->setCursorTooltip( UnicodeString::TheEmptyString );
+		return;
+	}
+
 	UnicodeString tooltip;
 
 	if (!player->getLogin().isEmpty() || !player->getHost().isEmpty())
