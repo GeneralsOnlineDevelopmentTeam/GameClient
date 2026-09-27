@@ -142,6 +142,9 @@ Int findPositionButton( Int controlID )
 //-------------------------------------------------------------------------------------------------
 void setEnabledButtons()
 {
+	if (!TheChallengeGenerals)
+		return;
+
 	for (Int i = 0; i < NUM_GENERALS; i++)
 	{
 		const GeneralPersona* generals = TheChallengeGenerals->getChallengeGenerals();
