@@ -1343,6 +1343,8 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 	SIZE char_size = { 0 };
 	::GetTextExtentPoint32W( MemDC, &ch, 1, &char_size );
 	char_size.cx += PixelOverlap + xOrigin;
+	char_size.cx = min((int)char_size.cx, width);
+	char_size.cy = CharHeight;
 	//
 	//	Get a pointer to the surface that this character should use
 	//
