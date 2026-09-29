@@ -930,12 +930,21 @@ void ChallengeLoadScreen::init( GameInfo *game )
 	const Campaign *campaign = TheCampaignManager->getCurrentCampaign();
 	const Mission *mission = TheCampaignManager->getCurrentMission();
 
+	if ( !TheChallengeGenerals || !campaign || !mission )
+		return;
+
 	// the player general is tied to the campaign
 	const GeneralPersona* generalPlayer = TheChallengeGenerals->getPlayerGeneralByCampaignName( campaign->m_name );
+
+	if ( !generalPlayer )
+		return;
 
 	// the opponent general is tied to the mission
 	DEBUG_ASSERTCRASH(mission->m_generalName.isNotEmpty(), ("No GeneralName associated with this mission, check Campaign.ini"));
 	const GeneralPersona* generalOpponent = TheChallengeGenerals->getGeneralByGeneralName( mission->m_generalName );
+
+	if ( !generalOpponent )
+		return;
 
 	// create the layout of the load screen
 	m_loadScreen = TheWindowManager->winCreateFromScript( "Menus/ChallengeLoadScreen.wnd" );
@@ -951,7 +960,10 @@ void ChallengeLoadScreen::init( GameInfo *game )
 	m_ambientLoop.setEventName("LoadScreenAmbient");
 
 	// create the new background video stream
-	m_videoStream = TheVideoPlayer->open( TheCampaignManager->getCurrentMission()->m_movieLabel );
+	m_videoStream = TheVideoPlayer->open( mission->m_movieLabel );
+
+	if ( !m_videoStream )
+		return;
 
 	// Create the new buffer
 	m_videoBuffer = TheDisplay->createVideoBuffer();
