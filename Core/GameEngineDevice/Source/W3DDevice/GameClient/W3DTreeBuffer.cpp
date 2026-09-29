@@ -169,7 +169,9 @@ int W3DTreeBuffer::W3DTreeTextureClass::update(W3DTreeBuffer* buffer)
 			}
 			Int i, j;
 			for (j = 0; j < tilePixelExtent; j++) {
-				UnsignedByte* pBGR = pTile->getRGBDataForWidth(tilePixelExtent);
+				UnsignedByte* pTileRGB = pTile->getRGBDataForWidth(tilePixelExtent);
+				if (!pTileRGB) continue;
+				UnsignedByte* pBGR = pTileRGB;
 				pBGR += (tilePixelExtent - (1 + j)) * TILE_BYTES_PER_PIXEL * tilePixelExtent; // invert to match.
 				Int row = position.y + j;
 				UnsignedByte* pBGRA = ((UnsignedByte*)locked_rect.pBits) +
@@ -1990,6 +1992,10 @@ void W3DTreeBuffer::loadPostProcess()
 {
 	// empty. jba [8/11/2003]
 }
+
+
+
+
 
 
 
