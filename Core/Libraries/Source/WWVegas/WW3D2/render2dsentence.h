@@ -47,6 +47,7 @@
 ** FontCharsClass
 */
 class	SurfaceClass;
+class	ShapedTextClass;
 
 //
 //	Private data structures
@@ -93,6 +94,14 @@ public:
 	int Get_Extra_Overlap() {return PixelOverlap;}
 
 	void	Blit_Char( WCHAR ch, uint16 *dest_ptr, int dest_stride, int x, int y );
+
+	//
+	//	Text that the glyph cache cannot draw is shaped as a whole, see ShapedTextClass
+	//
+	bool	Needs_Shaping( const WCHAR *text );
+	bool	Layout_Shaped_Text( ShapedTextClass &shaped_text, const WCHAR *text, int wrap_width );
+	// Returns a buffer of width * shaped_text.Get_Height() pixels that the caller deletes.
+	uint16 *	Rasterize_Shaped_Text( const ShapedTextClass &shaped_text, bool centered, int *width );
 
 private:
 
@@ -190,6 +199,15 @@ public:
 	void	Build_Sentence (const WCHAR *text, int *hkX, int *hkY);
 	void	Draw_Sentence (uint32 color = 0xFFFFFFFF);
 
+	// Returns whether the last built sentence was shaped as a whole. Shaped sentences have no
+	// hot key position.
+	bool	Is_Shaped_Sentence () const						{ return IsShaped; }
+
+	// Gets the width of the widest line of shaped text, the distance from its left edge to a caret
+	// after the last character, and whether the text reads right-to-left. Fails for text that is
+	// not shaped.
+	bool	Get_Shaped_Text_Metrics (const WCHAR *text, int *width, int *caret_x, bool *right_to_left);
+
 	//
 	//	Texture hint
 	//
@@ -235,9 +253,13 @@ private:
 	void	Build_Textures ();
 	void	Record_Sentence_Chunk ();
 	void	Allocate_New_Surface (const WCHAR *text, bool justCalcExtents = false);
+	void	Allocate_New_Surface (int text_width, bool justCalcExtents = false);
 	void	Release_Pending_Surfaces ();
 	void	Build_Sentence_Centered (const WCHAR *text, int *hkX, int *hkY);
 	Vector2	Build_Sentence_Not_Centered (const WCHAR *text, int *hkX, int *hkY,bool justCalcExtents = false );
+	bool	Layout_Shaped_Text (ShapedTextClass &shaped_text, const WCHAR *text, int wrap_width);
+	bool	Get_Shaped_Text_Extents (const WCHAR *text, int wrap_width, Vector2 *extents);
+	bool	Build_Shaped_Sentence (const WCHAR *text);
 	//
 	//	Private member data
 	//
@@ -261,6 +283,7 @@ private:
 	bool												IsClippedEnabled;
 	bool												ParseHotKey;
 	bool												useHardWordWrap;
+	bool												IsShaped;
 
 	uint16 *										LockedPtr;
 	int													LockedStride;

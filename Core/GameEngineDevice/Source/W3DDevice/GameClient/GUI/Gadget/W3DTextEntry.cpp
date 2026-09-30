@@ -133,6 +133,11 @@ static void drawTextEntryText( GameWindow *window, WinInstanceData *instData,
 	// get the size of our text, and construct text
 	Int textWidth = text->getWidth();
 
+	// TheSuperHackers @feature Right-to-left text ends on its left side, so the caret
+	// follows the last character instead of the right edge of the text.
+	Int caretOffset = text->getCaretOffset();
+	Bool rightToLeft = text->isRightToLeft();
+
 	if (!e->drawTextFromStart)
 	{
 		// clip the text to the edit window size
@@ -153,14 +158,17 @@ static void drawTextEntryText( GameWindow *window, WinInstanceData *instData,
 		// draw the text
 		if(textWidth < width)
 		{
-			text->draw( x, y, textColor, textDropColor );
-			cursorPos = textWidth + x;
+			// right-to-left text starts at the right edge of the entry
+			Int textX = rightToLeft ? x + width - 4 - textWidth : x;
+			text->draw( textX, y, textColor, textDropColor );
+			cursorPos = caretOffset + textX;
 		}
 		else
 		{
-			Int div = textWidth / (width / 2) - 1;
+			// scroll by half the entry width until the caret is visible
+			Int div = max( caretOffset / (width / 2) - 1, 0 );
 			text->draw(x - (div * (width/2)), y, textColor, textDropColor);
-			cursorPos = textWidth - (div * (width/2)) + x;
+			cursorPos = caretOffset - (div * (width/2)) + x;
 		}
 
 		//cursorPos = x + textWidth;
@@ -183,8 +191,12 @@ static void drawTextEntryText( GameWindow *window, WinInstanceData *instData,
 		x+= 5;
 		// draw the text
 		text->draw( x, y, textColor, textDropColor );
-		cursorPos = textWidth + x;
+		cursorPos = caretOffset + x;
 	}
+
+	// the next right-to-left character goes left of the caret, so draw the caret left of its position
+	if (rightToLeft)
+		cursorPos -= 2;
 
 	if (e->constructText->getTextLength() > 0 )
 	{

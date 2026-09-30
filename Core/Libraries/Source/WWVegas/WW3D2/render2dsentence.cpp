@@ -40,6 +40,10 @@
 #include "WWDebug/wwprofile.h"
 #include "WWDebug/wwmemlog.h"
 #include "dx8wrapper.h"
+#if defined(_WIN32)
+#include "shapedtext.h"
+#include "Usp10Loader.h"
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -48,6 +52,17 @@
 #define no_TEST_PLACEMENT 1	 // Shows alignment markers for text.
 
 #define TEXTURE_OFFSET 2
+
+////////////////////////////////////////////////////////////////////////////////////
+//	Local functions
+////////////////////////////////////////////////////////////////////////////////////
+
+// Returns whether the character at text is a hot key marker that Build_Sentence_Not_Centered skips.
+static inline bool Is_Hot_Key_Marker (const WCHAR *text)
+{
+	return text[0] == L'&' && text[1] != 0 && text[1] > L' ' && text[1] != L'\n';
+}
+
 ////////////////////////////////////////////////////////////////////////////////////
 //
 //	Render2DSentenceClass
@@ -72,7 +87,8 @@ Render2DSentenceClass::Render2DSentenceClass () :
 	Centered (false),
 	DrawExtents (0, 0, 0, 0),
 	ParseHotKey( false ),
-	useHardWordWrap( false)
+	useHardWordWrap( false),
+	IsShaped( false )
 {
 	Shader = Render2DClass::Get_Default_Shader ();
 }
@@ -251,6 +267,9 @@ Vector2
 Render2DSentenceClass::Get_Text_Extents (const WCHAR *text)
 {
 	Vector2 extent (0, Font->Get_Char_Height());
+	if (Get_Shaped_Text_Extents (text, 0, &extent)) {
+		return extent;
+	}
 
 	while (*text) {
 		WCHAR ch = *text++;
@@ -272,6 +291,11 @@ Render2DSentenceClass::Get_Text_Extents (const WCHAR *text)
 Vector2
 Render2DSentenceClass::Get_Formatted_Text_Extents (const WCHAR *text)
 {
+	Vector2 extent;
+	if (Get_Shaped_Text_Extents (text, (int)WrapWidth, &extent)) {
+		return extent;
+	}
+
 	return Build_Sentence_Not_Centered(text, nullptr, nullptr, true);
 }
 
@@ -605,6 +629,21 @@ Render2DSentenceClass::Record_Sentence_Chunk ()
 void
 Render2DSentenceClass::Allocate_New_Surface (const WCHAR *text, bool justCalcExtents)
 {
+	//
+	// Calculate the width of the text
+	//
+	int text_width = 0;
+	for (int index = 0; text[index] != 0; index ++) {
+		text_width += Font->Get_Char_Spacing (text[index]);
+	}
+
+	Allocate_New_Surface (text_width, justCalcExtents);
+}
+
+
+void
+Render2DSentenceClass::Allocate_New_Surface (int text_width, bool justCalcExtents)
+{
 	if (!justCalcExtents)
 	{
 		//
@@ -614,14 +653,6 @@ Render2DSentenceClass::Allocate_New_Surface (const WCHAR *text, bool justCalcExt
 			CurSurface->Unlock ();
 			LockedPtr = nullptr;
 		}
-	}
-
-	//
-	// Calculate the width of the text
-	//
-	int text_width = 0;
-	for (int index = 0; text[index] != 0; index ++) {
-		text_width += Font->Get_Char_Spacing (text[index]);
 	}
 
 	int char_height = Font->Get_Char_Height ();
@@ -1151,6 +1182,8 @@ Vector2	Render2DSentenceClass::Build_Sentence_Not_Centered (const WCHAR *text, i
 void
 Render2DSentenceClass::Build_Sentence (const WCHAR *text, int *hkX, int *hkY)
 {
+	IsShaped = false;
+
 	if (text == nullptr) {
 		return ;
 	}
@@ -1158,11 +1191,185 @@ Render2DSentenceClass::Build_Sentence (const WCHAR *text, int *hkX, int *hkY)
 	if (Font == nullptr)
 		return;
 
+	if (Build_Shaped_Sentence (text)) {
+		IsShaped = true;
+		return;
+	}
+
 	if(Centered && (WrapWidth > 0 || wcschr(text,L'\n')))
 		Build_Sentence_Centered(text, hkX, hkY);
 	else
 		Build_Sentence_Not_Centered(text, hkX, hkY);
 
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////
+//
+//	Layout_Shaped_Text
+//
+//	TheSuperHackers @feature Lays out text that the glyph cache cannot draw, such as
+//	joined Arabic letters, right-to-left lines and emoji. Returns false for all other
+//	text, which keeps its original appearance.
+//
+////////////////////////////////////////////////////////////////////////////////////
+bool
+Render2DSentenceClass::Layout_Shaped_Text (ShapedTextClass &shaped_text, const WCHAR *text, int wrap_width)
+{
+	if (Font == nullptr || text == nullptr || MonoSpaced || !Font->Needs_Shaping (text)) {
+		return false;
+	}
+
+	if (!ParseHotKey) {
+		return Font->Layout_Shaped_Text (shaped_text, text, wrap_width);
+	}
+
+	// Shaped text shows no hot key, so only its markers are removed.
+	const int length = (int)wcslen (text);
+	WCHAR *stripped_text = W3DNEWARRAY WCHAR[length + 1];
+	int stripped_length = 0;
+	for (int index = 0; index < length; ++index) {
+		if (!Is_Hot_Key_Marker (text + index)) {
+			stripped_text[stripped_length++] = text[index];
+		}
+	}
+	stripped_text[stripped_length] = 0;
+
+	const bool success = Font->Layout_Shaped_Text (shaped_text, stripped_text, wrap_width);
+	delete [] stripped_text;
+	return success;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////
+//
+//	Get_Shaped_Text_Extents
+//
+////////////////////////////////////////////////////////////////////////////////////
+bool
+Render2DSentenceClass::Get_Shaped_Text_Extents (const WCHAR *text, int wrap_width, Vector2 *extents)
+{
+#if defined(_WIN32)
+	ShapedTextClass shaped_text;
+	if (!Layout_Shaped_Text (shaped_text, text, wrap_width)) {
+		return false;
+	}
+
+	extents->Set ((float)(shaped_text.Get_Width () + Font->Get_Extra_Overlap ()), (float)shaped_text.Get_Height ());
+	return true;
+#else
+	return false;
+#endif
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////
+//
+//	Get_Shaped_Text_Metrics
+//
+////////////////////////////////////////////////////////////////////////////////////
+bool
+Render2DSentenceClass::Get_Shaped_Text_Metrics (const WCHAR *text, int *width, int *caret_x, bool *right_to_left)
+{
+#if defined(_WIN32)
+	ShapedTextClass shaped_text;
+	if (!Layout_Shaped_Text (shaped_text, text, (int)WrapWidth)) {
+		return false;
+	}
+
+	*width = shaped_text.Get_Width ();
+	*caret_x = shaped_text.Get_End_Caret_X (Centered);
+	*right_to_left = shaped_text.Is_Right_To_Left ();
+	return true;
+#else
+	return false;
+#endif
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////
+//
+//	Build_Shaped_Sentence
+//
+//	Copies the shaped text into the sentence textures line by line. Every line is
+//	as tall as a line of the glyph cache, so chunks are recorded the same way.
+//
+////////////////////////////////////////////////////////////////////////////////////
+bool
+Render2DSentenceClass::Build_Shaped_Sentence (const WCHAR *text)
+{
+#if defined(_WIN32)
+	const int line_height = Font->Get_Char_Height ();
+	if (line_height + 1 >= max (TextureSizeHint, 256)) {
+		return false;
+	}
+
+	ShapedTextClass shaped_text;
+	if (!Layout_Shaped_Text (shaped_text, text, (int)WrapWidth)) {
+		return false;
+	}
+
+	int text_width = 0;
+	uint16 *raster = Font->Rasterize_Shaped_Text (shaped_text, Centered, &text_width);
+	if (raster == nullptr) {
+		return false;
+	}
+
+	const int line_count = shaped_text.Get_Height () / line_height;
+
+	Reset_Sentence_Data ();
+	Cursor.Set (0, 0);
+
+	if (CurSurface == nullptr) {
+		Allocate_New_Surface (text_width * line_count);
+	}
+	TextureOffset.Set (TEXTURE_OFFSET, 0);
+	TextureStartX = TEXTURE_OFFSET;
+
+	for (int line = 0; line < line_count; ++line) {
+		Cursor.Set (0, (float)(line * line_height));
+
+		int source_x = 0;
+		while (source_x < text_width) {
+			const int chunk_width = min (text_width - source_x, CurrTextureSize - 1 - TextureOffset.I);
+			if (chunk_width <= 0) {
+				//
+				//	Continue on the next row of the texture, or on a new texture
+				//
+				TextureOffset.J += line_height;
+				if ((TextureOffset.J + line_height) >= CurrTextureSize) {
+					Allocate_New_Surface (text_width * (line_count - line) - source_x);
+				}
+				TextureOffset.I = TEXTURE_OFFSET;
+				TextureStartX = TEXTURE_OFFSET;
+				continue;
+			}
+
+			if (LockedPtr == nullptr) {
+				LockedPtr = (uint16 *)CurSurface->Lock (&LockedStride);
+				WWASSERT (LockedPtr != nullptr);
+			}
+
+			const int dest_inc = LockedStride >> 1;
+			for (int row = 0; row < line_height; ++row) {
+				const uint16 *source = raster + ((line * line_height + row) * text_width) + source_x;
+				uint16 *destination = LockedPtr + ((TextureOffset.J + row) * dest_inc) + TextureOffset.I;
+				::memcpy (destination, source, chunk_width * sizeof (uint16));
+			}
+
+			TextureOffset.I += chunk_width;
+			Record_Sentence_Chunk ();
+			Cursor.X += chunk_width;
+			TextureStartX = TextureOffset.I;
+			source_x += chunk_width;
+		}
+	}
+
+	delete [] raster;
+	return true;
+#else
+	return false;
+#endif
 }
 
 
@@ -1188,6 +1395,9 @@ FontCharsClass::FontCharsClass () :
 {
 	AlternateUnicodeFont = nullptr;
 	::memset( ASCIICharArray, 0, sizeof (ASCIICharArray) );
+#if defined(_WIN32)
+	Usp10Loader::load();
+#endif
 }
 
 
@@ -1205,6 +1415,9 @@ FontCharsClass::~FontCharsClass ()
 
 	Free_GDI_Font();
 	Free_Character_Arrays();
+#if defined(_WIN32)
+	Usp10Loader::unload();
+#endif
 }
 
 
@@ -1313,6 +1526,111 @@ FontCharsClass::Blit_Char (WCHAR ch, uint16 *dest_ptr, int dest_stride, int x, i
 			dest_ptr	+= dest_inc;
 		}
 	}
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////
+//
+//	Needs_Shaping
+//
+////////////////////////////////////////////////////////////////////////////////////
+bool
+FontCharsClass::Needs_Shaping (const WCHAR *text)
+{
+#if defined(_WIN32)
+	// The glyph cache takes characters beyond Latin-1 from the alternate Unicode font.
+	FontCharsClass *unicode_font = AlternateUnicodeFont != nullptr ? AlternateUnicodeFont : this;
+	return unicode_font->MemDC != nullptr && ShapedTextClass::Needs_Shaping (unicode_font->MemDC, text);
+#else
+	return false;
+#endif
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////
+//
+//	Layout_Shaped_Text
+//
+////////////////////////////////////////////////////////////////////////////////////
+bool
+FontCharsClass::Layout_Shaped_Text (ShapedTextClass &shaped_text, const WCHAR *text, int wrap_width)
+{
+#if defined(_WIN32)
+	return MemDC != nullptr && shaped_text.Layout (MemDC, text, wrap_width, CharHeight);
+#else
+	return false;
+#endif
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////
+//
+//	Rasterize_Shaped_Text
+//
+////////////////////////////////////////////////////////////////////////////////////
+uint16 *
+FontCharsClass::Rasterize_Shaped_Text (const ShapedTextClass &shaped_text, bool centered, int *width)
+{
+#if defined(_WIN32)
+	//
+	//	Leave room for glyphs that reach beyond their advance, like the glyph cache does
+	//
+	const int text_width = shaped_text.Get_Width () + PixelOverlap;
+	const int text_height = shaped_text.Get_Height ();
+	if (text_width <= 0 || text_height <= 0 || text_width > 0x4000 || text_height > 0x4000) {
+		return nullptr;
+	}
+
+	BITMAPINFOHEADER bitmap_info = { 0 };
+	bitmap_info.biSize			= sizeof (BITMAPINFOHEADER);
+	bitmap_info.biWidth			= text_width;
+	bitmap_info.biHeight			= -text_height;
+	bitmap_info.biPlanes			= 1;
+	bitmap_info.biBitCount		= 24;
+	bitmap_info.biCompression	= BI_RGB;
+
+	uint8 *bitmap_bits = nullptr;
+	HBITMAP bitmap = ::CreateDIBSection (MemDC, (const BITMAPINFO *)&bitmap_info, DIB_RGB_COLORS,
+		(void **)&bitmap_bits, nullptr, 0L);
+	if (bitmap == nullptr || bitmap_bits == nullptr) {
+		if (bitmap != nullptr) {
+			::DeleteObject (bitmap);
+		}
+		return nullptr;
+	}
+
+	//
+	//	The layout draws into the device context of this font, so the bitmap of the
+	// glyph cache is swapped out while it draws
+	//
+	const int stride = ((text_width * 3) + 3) & ~3;
+	::memset (bitmap_bits, 0, stride * text_height);
+	HBITMAP old_bitmap = (HBITMAP)::SelectObject (MemDC, bitmap);
+	const bool success = shaped_text.Draw (centered);
+	::SelectObject (MemDC, old_bitmap);
+
+	uint16 *pixels = nullptr;
+	if (success) {
+		pixels = W3DNEWARRAY uint16[text_width * text_height];
+		for (int row = 0; row < text_height; ++row) {
+			const uint8 *source = bitmap_bits + (row * stride);
+			uint16 *destination = pixels + (row * text_width);
+			for (int col = 0; col < text_width; ++col, source += 3) {
+				//
+				//	Store the intensity as 4 bit alpha, like Store_GDI_Char does
+				//
+				const uint8 value = max (source[0], max (source[1], source[2]));
+				destination[col] = (value != 0 ? 0x0FFF : 0) | ((value >> 4) << 12);
+			}
+		}
+		*width = text_width;
+	}
+
+	::DeleteObject (bitmap);
+	return pixels;
+#else
+	return nullptr;
+#endif
 }
 
 

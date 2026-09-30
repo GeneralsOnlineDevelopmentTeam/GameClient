@@ -233,6 +233,13 @@ set(WW3D2_SRC
     ww3dtrig.h
 )
 
+if (WIN32)
+    list(APPEND WW3D2_SRC
+        shapedtext.cpp
+        shapedtext.h
+    )
+endif()
+
 add_library(corei_ww3d2 INTERFACE)
 
 target_sources(corei_ww3d2 INTERFACE ${WW3D2_SRC})

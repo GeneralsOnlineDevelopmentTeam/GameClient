@@ -79,6 +79,8 @@ public:
 	virtual void draw( Int x, Int y, Color color, Color dropColor, Int xDrop, Int yDrop ) override;  ///< render text with the drop shadow being at the offsets passed in
 	virtual void getSize( Int *width, Int *height ) override;		///< get render size
 	virtual Int	getWidth( Int charPos = -1) override;
+	virtual Int getCaretOffset() override;
+	virtual Bool isRightToLeft() override;
 	virtual void setWordWrap( Int wordWrap ) override;						///< set the word wrap width
 	virtual void setWordWrapCentered( Bool isCentered ) override; ///< If this is set to true, the text on a new line is centered
 	virtual void setFont( GameFont *font ) override;							///< set a font for display
@@ -92,11 +94,17 @@ protected:
 	void usingResources( UnsignedInt frame );  /**< call this whenever display
 																						 resources are in use */
 	void computeExtents();  ///< compupte text width and height
+	void computeShapedMetrics();  ///< measure text that is shaped as a whole
 
 	Render2DSentenceClass m_textRenderer;  ///< for drawing text
 	Render2DSentenceClass m_textRendererHotKey;  ///< for drawing text
 	Bool m_textChanged;  ///< when contents of string change this is TRUE
 	Bool m_fontChanged;  ///< when font has changed this is TRUE
+	Bool m_shapedMetricsChanged;  ///< when the shaped metrics need to be measured again
+	Bool m_isShaped;  ///< TRUE if the text is shaped as a whole
+	Bool m_isRightToLeft;  ///< TRUE if shaped text starts with a right-to-left paragraph
+	Int m_shapedWidth;  ///< width of the widest line of shaped text
+	Int m_shapedCaretOffset;  ///< offset of a caret after the last character of shaped text
 	UnicodeString m_hotkey;		///< holds the current hotkey marker.
 	Bool m_useHotKey;
 	ICoord2D m_hotKeyPos;

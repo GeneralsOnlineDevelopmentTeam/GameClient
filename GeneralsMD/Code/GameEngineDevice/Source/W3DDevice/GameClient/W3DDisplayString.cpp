@@ -86,6 +86,11 @@ W3DDisplayString::W3DDisplayString()
 	m_size.x = 0;
 	m_size.y = 0;
 	m_fontChanged = FALSE;
+	m_shapedMetricsChanged = FALSE;
+	m_isShaped = FALSE;
+	m_isRightToLeft = FALSE;
+	m_shapedWidth = 0;
+	m_shapedCaretOffset = 0;
 	m_clipRegion.lo.x = 0;
 	m_clipRegion.lo.y = 0;
 	m_clipRegion.hi.x = 0;
@@ -138,6 +143,7 @@ void W3DDisplayString::notifyTextChanged()
 	// we know we must first build the sentence
 	//
 	m_textChanged = TRUE;
+	m_shapedMetricsChanged = TRUE;
 
 	// reset data for our text renderer
 	m_textRenderer.Reset();
@@ -189,6 +195,9 @@ void W3DDisplayString::draw( Int x, Int y, Color color, Color dropColor, Int xDr
 
 	}
 
+	// TheSuperHackers @feature Shaped text has no hot key position, so its hot key is not highlighted.
+	const Bool drawHotKey = m_useHotKey && !m_textRenderer.Is_Shaped_Sentence();
+
 	//
 	// if our position has changed, or our colors have changed, or our
 	// text data has changed, we need to redo the texture quads
@@ -217,7 +226,7 @@ void W3DDisplayString::draw( Int x, Int y, Color color, Color dropColor, Int xDr
 		m_textRenderer.Set_Location( Vector2( m_textPos.x, m_textPos.y ) );
 		m_textRenderer.Draw_Sentence( m_currTextColor );
 
-		if (m_useHotKey)
+		if (drawHotKey)
 		{
 			m_textRendererHotKey.Reset_Polys();
 			m_textRendererHotKey.Set_Location( Vector2( m_textPos.x + m_hotKeyPos.x , m_textPos.y +m_hotKeyPos.y) );
@@ -228,7 +237,7 @@ void W3DDisplayString::draw( Int x, Int y, Color color, Color dropColor, Int xDr
 
 	TheDisplay->flush();
 
-	if (m_useHotKey)
+	if (drawHotKey)
 	{
 		m_textRendererHotKey.Render();
 	}
@@ -268,6 +277,13 @@ Int W3DDisplayString::getWidth( Int charPos )
 
 	font = m_textRenderer.Peek_Font();
 
+	if ( font && charPos == -1 )
+	{
+		computeShapedMetrics();
+		if ( m_isShaped )
+			return m_shapedWidth;
+	}
+
 	if ( font )
 	{
 		const WideChar *text = m_textString.str();
@@ -284,6 +300,57 @@ Int W3DDisplayString::getWidth( Int charPos )
 	}
 
 	return width;
+}
+
+// W3DDisplayString::getCaretOffset ===========================================
+/** Get the horizontal offset of a caret after the last character. Shaped
+	* text can end on its left side when it reads right-to-left. */
+//=============================================================================
+Int W3DDisplayString::getCaretOffset()
+{
+	computeShapedMetrics();
+	if ( m_isShaped )
+		return m_shapedCaretOffset;
+
+	return getWidth();
+}
+
+// W3DDisplayString::isRightToLeft ============================================
+/** TRUE if the text starts with a right-to-left paragraph */
+//=============================================================================
+Bool W3DDisplayString::isRightToLeft()
+{
+	computeShapedMetrics();
+	return m_isShaped && m_isRightToLeft;
+}
+
+// W3DDisplayString::computeShapedMetrics =====================================
+/** Measure text that is shaped as a whole, once for every change of it */
+//=============================================================================
+void W3DDisplayString::computeShapedMetrics()
+{
+	if ( !m_shapedMetricsChanged )
+		return;
+
+	m_shapedMetricsChanged = FALSE;
+	m_isShaped = FALSE;
+	m_isRightToLeft = FALSE;
+	m_shapedWidth = 0;
+	m_shapedCaretOffset = 0;
+
+	if ( getTextLength() == 0 || m_font == nullptr )
+		return;
+
+	int width = 0;
+	int caretOffset = 0;
+	bool rightToLeft = false;
+	if ( m_textRenderer.Get_Shaped_Text_Metrics( getText().str(), &width, &caretOffset, &rightToLeft ) )
+	{
+		m_isShaped = TRUE;
+		m_isRightToLeft = rightToLeft;
+		m_shapedWidth = width;
+		m_shapedCaretOffset = caretOffset;
+	}
 }
 
 // W3DDisplayString::setFont ==================================================
@@ -315,6 +382,7 @@ void W3DDisplayString::setFont( GameFont *font )
 
 	// set flag telling us the font has changed since last render
 	m_fontChanged = TRUE;
+	m_shapedMetricsChanged = TRUE;
 
 }
 
