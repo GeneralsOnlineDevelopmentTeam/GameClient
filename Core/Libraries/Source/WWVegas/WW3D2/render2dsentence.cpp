@@ -1326,11 +1326,13 @@ Render2DSentenceClass::Build_Shaped_Sentence (const WCHAR *text)
 	TextureOffset.Set (TEXTURE_OFFSET, 0);
 	TextureStartX = TEXTURE_OFFSET;
 
-	for (int line = 0; line < line_count; ++line) {
+	// TheSuperHackers @bugfix Stop when a sentence surface cannot be created or locked.
+	bool success = CurSurface != nullptr;
+	for (int line = 0; success && line < line_count; ++line) {
 		Cursor.Set (0, (float)(line * line_height));
 
 		int source_x = 0;
-		while (source_x < text_width) {
+		while (success && source_x < text_width) {
 			const int chunk_width = min (text_width - source_x, CurrTextureSize - 1 - TextureOffset.I);
 			if (chunk_width <= 0) {
 				//
@@ -1339,6 +1341,7 @@ Render2DSentenceClass::Build_Shaped_Sentence (const WCHAR *text)
 				TextureOffset.J += line_height;
 				if ((TextureOffset.J + line_height) >= CurrTextureSize) {
 					Allocate_New_Surface (text_width * (line_count - line) - source_x);
+					success = CurSurface != nullptr;
 				}
 				TextureOffset.I = TEXTURE_OFFSET;
 				TextureStartX = TEXTURE_OFFSET;
@@ -1347,7 +1350,10 @@ Render2DSentenceClass::Build_Shaped_Sentence (const WCHAR *text)
 
 			if (LockedPtr == nullptr) {
 				LockedPtr = (uint16 *)CurSurface->Lock (&LockedStride);
-				WWASSERT (LockedPtr != nullptr);
+				if (LockedPtr == nullptr) {
+					success = false;
+					break;
+				}
 			}
 
 			const int dest_inc = LockedStride >> 1;
@@ -1366,7 +1372,7 @@ Render2DSentenceClass::Build_Shaped_Sentence (const WCHAR *text)
 	}
 
 	delete [] raster;
-	return true;
+	return success;
 #else
 	return false;
 #endif
