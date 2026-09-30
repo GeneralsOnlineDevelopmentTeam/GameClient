@@ -8,6 +8,7 @@
 #include "../OnlineServices_Init.h"
 #include "../HTTP/HTTPManager.h"
 #include "GameNetwork/GameSpy/PeerDefs.h"
+#include "GameClient/DisplayString.h"
 
 // one clock for every websocket timestamp; utc_clock also loads the time zone database on MSVC
 static int64_t NowMs()
@@ -1023,8 +1024,14 @@ void WebSocket::Tick()
 											SYSTEMTIME systemTime;
 											GetLocalTime(&systemTime);
 
+											// TheSuperHackers @feature Keep the reading order of the name and the message
+											// when either contains right-to-left text. Actions have no brackets to split at.
+											UnicodeString message(from_utf8(chatData.message).c_str());
+											if (!chatData.action)
+												message = IsolateBidiChatLine(message);
+
 											UnicodeString unicodeStr;
-											unicodeStr.format(L"[%2.2d:%2.2d] %s", systemTime.wHour, systemTime.wMinute, from_utf8(chatData.message).c_str());
+											unicodeStr.format(L"[%2.2d:%2.2d] %s", systemTime.wHour, systemTime.wMinute, message.str());
 
 											Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action, chatData.admin, chatData.name_change);
 
@@ -1427,6 +1434,10 @@ void WebSocket::Tick()
 										if (bParsed)
 										{
 											UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
+											// TheSuperHackers @feature Keep the reading order of the name and the message
+											// when either contains right-to-left text.
+											if (!chatData.action && !chatData.announcement)
+												unicodeStr = IsolateBidiChatLine(unicodeStr);
 
 											NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 											if (pLobbyInterface != nullptr)

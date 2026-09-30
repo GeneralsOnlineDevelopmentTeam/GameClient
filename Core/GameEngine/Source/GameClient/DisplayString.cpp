@@ -95,6 +95,31 @@ UnicodeString IsolateBidiText( const UnicodeString &text )
 	return text;
 }
 
+// IsolateBidiChatLine ========================================================
+/** A leading group ends at the first closing bracket that a space follows */
+//=============================================================================
+UnicodeString IsolateBidiChatLine( const UnicodeString &line )
+{
+	UnicodeString result;
+	const WideChar *str = line.str();
+	while( str[0] == L'[' )
+	{
+		const WideChar *close = wcschr( str, L']' );
+		if( close == nullptr || close[1] != L' ' )
+			break;
+
+		UnicodeString name;
+		name.set( str + 1, (Int)(close - str - 1) );
+		result.concat( L'[' );
+		result.concat( IsolateBidiText( name ) );
+		result.concat( L"] " );
+		str = close + 2;
+	}
+
+	result.concat( IsolateBidiText( UnicodeString( str ) ) );
+	return result;
+}
+
 // DisplayString::DisplayString ===============================================
 /** */
 //=============================================================================

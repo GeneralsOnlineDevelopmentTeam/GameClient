@@ -133,3 +133,8 @@ inline DisplayString *DisplayString::next() { return m_next; }
 // first strong isolate if it contains right-to-left characters, so that it keeps its own reading
 // order when it is shown next to other text, as in "[name] message".
 UnicodeString IsolateBidiText( const UnicodeString &text );
+
+// TheSuperHackers @feature Applies IsolateBidiText to the names in the leading brackets of a chat line
+// that was put together elsewhere, such as "[name] message" or "[tag] [name] message", and to the
+// message after them.
+UnicodeString IsolateBidiChatLine( const UnicodeString &line );
