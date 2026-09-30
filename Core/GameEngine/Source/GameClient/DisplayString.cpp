@@ -64,9 +64,36 @@
 
 // PRIVATE FUNCTIONS //////////////////////////////////////////////////////////
 
+// Hebrew, Arabic and the other right-to-left scripts of the Basic Multilingual Plane
+static Bool isRightToLeftChar( WideChar ch )
+{
+	return (ch >= 0x0590 && ch <= 0x08FF) || (ch >= 0xFB1D && ch <= 0xFDFF) || (ch >= 0xFE70 && ch <= 0xFEFC);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // PUBLIC FUNCTIONS ///////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
+
+// IsolateBidiText ============================================================
+/** Text without right-to-left characters is returned as it is, so that it is
+	* still drawn by the glyph cache of the font. */
+//=============================================================================
+UnicodeString IsolateBidiText( const UnicodeString &text )
+{
+	const WideChar *str = text.str();
+	for( Int i = 0; str[i] != 0; ++i )
+	{
+		if( isRightToLeftChar( str[i] ) )
+		{
+			UnicodeString isolated;
+			isolated.concat( (WideChar)0x2068 ); // first strong isolate
+			isolated.concat( text );
+			isolated.concat( (WideChar)0x2069 ); // pop directional isolate
+			return isolated;
+		}
+	}
+	return text;
+}
 
 // DisplayString::DisplayString ===============================================
 /** */

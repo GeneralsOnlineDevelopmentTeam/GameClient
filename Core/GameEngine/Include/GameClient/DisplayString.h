@@ -128,3 +128,8 @@ inline void DisplayString::notifyTextChanged() {}
 inline DisplayString *DisplayString::next() { return m_next; }
 
 // EXTERNALS //////////////////////////////////////////////////////////////////
+
+// TheSuperHackers @feature Wraps text, such as a player name or a chat message, in a Unicode
+// first strong isolate if it contains right-to-left characters, so that it keeps its own reading
+// order when it is shown next to other text, as in "[name] message".
+UnicodeString IsolateBidiText( const UnicodeString &text );

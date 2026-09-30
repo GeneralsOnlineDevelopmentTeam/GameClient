@@ -30,6 +30,7 @@
 
 #include "Common/AudioEventRTS.h"
 #include "Common/INI.h"
+#include "GameClient/DisplayString.h"
 #include "GameClient/GameText.h"
 #include "GameClient/GadgetListBox.h"
 #include "GameClient/LanguageFilter.h"
@@ -301,11 +302,11 @@ void GameSpyInfo::addChat( PlayerInfo p, UnicodeString msg, Bool isPublic, Bool 
 	UnicodeString fullMsg;
 	if (isAction)
 	{
-		fullMsg.format( L"%ls %ls", name.str(), msg.str() );
+		fullMsg.format( L"%ls %ls", IsolateBidiText(name).str(), IsolateBidiText(msg).str() );
 	}
 	else
 	{
-		fullMsg.format( L"[%ls] %ls", name.str(), msg.str() );
+		fullMsg.format( L"[%ls] %ls", IsolateBidiText(name).str(), IsolateBidiText(msg).str() );
 	}
 
 	Int index = addText(fullMsg, GameSpyColor[style], win);

@@ -38,6 +38,7 @@
 #include "Common/QuotedPrintable.h"
 #include "Common/RandomValue.h"
 #include "Common/UserPreferences.h"
+#include "GameClient/DisplayString.h"
 #include "GameClient/GameText.h"
 #include "GameClient/LanguageFilter.h"
 #include "GameClient/MapUtil.h"
@@ -690,9 +691,9 @@ void LANAPI::OnChat( UnicodeString player, UnsignedInt ip, UnicodeString message
 			index =GadgetListBoxAddEntryText(chatWindow, unicodeChat, chatSystemColor, -1, -1);
 			break;
 		case LANAPIInterface::LANCHAT_EMOTE:
-			unicodeChat = player;
+			unicodeChat = IsolateBidiText(player);
 			unicodeChat.concat(L' ');
-			unicodeChat.concat(message);
+			unicodeChat.concat(IsolateBidiText(message));
 			if (ip == m_localIP)
 				index =GadgetListBoxAddEntryText(chatWindow, unicodeChat, chatLocalActionColor, -1, -1);
 			else
@@ -721,9 +722,9 @@ void LANAPI::OnChat( UnicodeString player, UnsignedInt ip, UnicodeString message
 			}
 
 			unicodeChat = L"[";
-			unicodeChat.concat(player);
+			unicodeChat.concat(IsolateBidiText(player));
 			unicodeChat.concat(L"] ");
-			unicodeChat.concat(message);
+			unicodeChat.concat(IsolateBidiText(message));
 			if (ip == m_localIP)
 				index =GadgetListBoxAddEntryText(chatWindow, unicodeChat, chatColor, -1, -1);
 			else
