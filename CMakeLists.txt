@@ -73,6 +73,11 @@ if (IS_VS6_BUILD)
     add_subdirectory(Dependencies/MaxSDK)
 endif()
 add_subdirectory(Dependencies/Utility)
+if (WIN32)
+    add_subdirectory(Dependencies/Usp10)
+else()
+    add_library(deps_usp10 INTERFACE)
+endif()
 
 # To be removed when abandoning VC6
 if (IS_VS6_BUILD)
