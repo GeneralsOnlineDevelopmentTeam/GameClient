@@ -179,12 +179,13 @@ GameClient::~GameClient()
 	delete TheInGameUI;
 	TheInGameUI = nullptr;
 
-	delete TheChallengeGenerals;
-	TheChallengeGenerals = nullptr;
-
-	// delete the shell
+	// delete the shell before TheChallengeGenerals: Shell teardown re-runs
+	// ChallengeMenuInit -> setEnabledButtons(), which requires TheChallengeGenerals to be valid.
 	delete TheShell;
 	TheShell = nullptr;
+
+	delete TheChallengeGenerals;
+	TheChallengeGenerals = nullptr;
 
 	delete TheIMEManager;
 	TheIMEManager = nullptr;
