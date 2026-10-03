@@ -751,7 +751,15 @@ void WebSocket::Tick()
 	// Main thread only; m_pCurlWS/m_vecWSPartialBuffer/m_bConnected are unlocked here.
 	UpdateReconnect();
 
-
+	// longer than the server's 20s backstop; a late reply then finds no callback and is ignored
+	static constexpr int64_t CONNECTIVITY_CHECK_TIMEOUT_MS = 30000;
+	if (m_cbOnConnectivityCheckComplete != nullptr && m_connectivityCheckStartMs != -1 && (NowMs() - m_connectivityCheckStartMs) > CONNECTIVITY_CHECK_TIMEOUT_MS)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[FULL_MESH_CONNECTIVITY_CHECK] No reply from the server, timing out");
+		auto cbTimedOut = std::move(m_cbOnConnectivityCheckComplete);
+		ClearConnectivityCheckCallback();
+		cbTimedOut(false, {}, "timeout");
+	}
 
 	/*
 	if (strSignal.length() == 6)
@@ -885,6 +893,41 @@ void WebSocket::Tick()
         }
 	}
 
+	// drain what the server queued, a signalling burst shouldn't take one frame per tick
+	static constexpr int MAX_WS_FRAMES_PER_TICK = 64;
+	CURLcode ret = CURL_LAST;
+	for (int numFrames = 0; numFrames < MAX_WS_FRAMES_PER_TICK; ++numFrames)
+	{
+		ret = ReceiveOneFrame();
+		if (ret != CURLE_OK || !m_bConnected)
+		{
+			break;
+		}
+	}
+
+	// time since last pong?
+	if (m_lastPong != -1 && (currTime - m_lastPong) >= m_timeForWSTimeout)
+	{
+        // send event to sentry
+#if defined(GENERALS_ONLINE_USE_SENTRY)
+        if (TheNGMPGame != nullptr)
+        {
+            AsciiString sentryMsg;
+            sentryMsg.format("Got websocket disconnect (Timeout: %s), timeout is %lld, last pong was at %lld, current time is %lld, attempting reconnect", curl_easy_strerror(ret), currTime - m_lastPong, m_lastPong, currTime);
+            sentry_capture_event(sentry_value_new_message_event(SENTRY_LEVEL_ERROR, "WEBSOCKET_DISCONNECT_TIMEOUT", sentryMsg.str()));
+        }
+#endif
+
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (Timeout: %s), timeout is %lld, last pong was at %lld, current time is %lld, attempting reconnect", curl_easy_strerror(ret), currTime - m_lastPong, m_lastPong, currTime);
+        m_bConnected = false;
+		BeginReconnect();
+        m_vecWSPartialBuffer.clear();
+	};
+}
+
+// Reads and handles at most one frame, returns the curl_ws_recv result (CURL_LAST if nothing was read)
+CURLcode WebSocket::ReceiveOneFrame()
+{
 	// do recv
 	size_t rlen = 0;
 	const struct curl_ws_frame* meta = nullptr;
@@ -897,7 +940,7 @@ void WebSocket::Tick()
 	if (rlen > sizeof(bufferThisRecv))
 	{
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Received data size %zu exceeds buffer size %zu, discarding", rlen, sizeof(bufferThisRecv));
-		return;
+		return CURL_LAST;
 	}
 
 	if (ret != CURLE_RECV_ERROR && ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
@@ -925,7 +968,7 @@ void WebSocket::Tick()
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Partial buffer overflow, discarding message");
 					m_vecWSPartialBuffer.clear();
-					return;
+					return CURL_LAST;
 				}
 				
 				// SECURITY FIX: Store old size BEFORE resize to avoid off-by-one error in memcpy
@@ -1294,22 +1337,30 @@ void WebSocket::Tick()
 										WebSocketMessage_NetworkStartSignalling startSignallingData;
 										bool bParsed = JSONGetAsObject(jsonObject, &startSignallingData);
 
-										// TODO_NGMP: Better location for this
-										// When we find a new player, get their latest stats. Tooltip and loading screen need it, so we'll grab it now and then use cached data later since it cannot possibly change while in a lobby
-										NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
-										if (pStatsInterface != nullptr)
-										{
-											pStatsInterface->findPlayerStatsByID(startSignallingData.user_id, [=](bool bSuccess, PSPlayerStats stats)
-												{
-
-												}, EStatsRequestPolicy::BYPASS_CACHE_FORCE_REQUEST);
-										}
-
 										if (bParsed)
 										{
 											NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 											if (pLobbyInterface != nullptr)
 											{
+												// -1 while a join is still in flight, when this can legitimately arrive first
+												const int64_t currentLobbyID = pLobbyInterface->GetCurrentLobby().lobbyID;
+												if (currentLobbyID != -1 && currentLobbyID != startSignallingData.lobby_id)
+												{
+													NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_START_SIGNALLING] Ignoring signalling for lobby %lld, we are in lobby %lld", startSignallingData.lobby_id, currentLobbyID);
+													break;
+												}
+
+												// TODO_NGMP: Better location for this
+												// When we find a new player, get their latest stats. Tooltip and loading screen need it, so we'll grab it now and then use cached data later since it cannot possibly change while in a lobby
+												NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
+												if (pStatsInterface != nullptr)
+												{
+													pStatsInterface->findPlayerStatsByID(startSignallingData.user_id, [=](bool bSuccess, PSPlayerStats stats)
+														{
+
+														}, EStatsRequestPolicy::BYPASS_CACHE_FORCE_REQUEST);
+												}
+
 												NetworkMesh* pMesh = pLobbyInterface->GetNetworkMeshForLobby();
 
 												if (pMesh != nullptr)
@@ -1339,7 +1390,7 @@ void WebSocket::Tick()
 
 										if (bParsed)
 										{
-											NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Websocket AC_REGISTER_PLAYER for %lld and %s", acData.user_id, acData.mwid);
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Websocket AC_REGISTER_PLAYER for %lld and %s", acData.user_id, acData.mwid.c_str());
 											if (!AnticheatPlugInterface::RegisterPlayer(acData.mwid, acData.user_id))
 											{
 												NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AnticheatPlugInterface::RegisterPlayer failed");
@@ -1355,7 +1406,7 @@ void WebSocket::Tick()
 
 										if (bParsed)
 										{
-											NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Websocket AC_DEREGISTER_PLAYER for %lld and %s", acData.user_id, acData.mwid);
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Websocket AC_DEREGISTER_PLAYER for %lld and %s", acData.user_id, acData.mwid.c_str());
 											if (!AnticheatPlugInterface::DeregisterPlayer(acData.mwid, acData.user_id))
 											{
 												NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AnticheatPlugInterface::DeregisterPlayer failed");
@@ -1580,9 +1631,14 @@ void WebSocket::Tick()
 												lobbyEntry.lobbyID = mmEvent.lobby_id;
 												lobbyEntry.map_path = "Maps\\Alpine Assault\\Alpine Assault.map";
 
-												pLobbyInterface->JoinLobby(lobbyEntry, std::string());
-
-												pLobbyInterface->InvokeMatchmakingMessageCallback("Joining QuickMatch Lobby");
+												if (pLobbyInterface->JoinLobby(lobbyEntry, std::string()))
+												{
+													pLobbyInterface->InvokeMatchmakingMessageCallback("Joining QuickMatch Lobby");
+												}
+												else
+												{
+													pLobbyInterface->InvokeMatchmakingMessageCallback("Could not join the QuickMatch lobby, another join is still in progress");
+												}
 											}
 											else
 											{
@@ -1795,24 +1851,7 @@ void WebSocket::Tick()
 #endif
 	}
 
-	// time since last pong?
-	if (m_lastPong != -1 && (currTime - m_lastPong) >= m_timeForWSTimeout)
-	{
-        // send event to sentry
-#if defined(GENERALS_ONLINE_USE_SENTRY)
-        if (TheNGMPGame != nullptr)
-        {
-            AsciiString sentryMsg;
-            sentryMsg.format("Got websocket disconnect (Timeout: %s), timeout is %lld, last pong was at %lld, current time is %lld, attempting reconnect", curl_easy_strerror(ret), currTime - m_lastPong, m_lastPong, currTime);
-            sentry_capture_event(sentry_value_new_message_event(SENTRY_LEVEL_ERROR, "WEBSOCKET_DISCONNECT_TIMEOUT", sentryMsg.str()));
-        }
-#endif
-
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (Timeout: %s), timeout is %lld, last pong was at %lld, current time is %lld, attempting reconnect", curl_easy_strerror(ret), currTime - m_lastPong, m_lastPong, currTime);
-        m_bConnected = false;
-		BeginReconnect();
-        m_vecWSPartialBuffer.clear();
-	};
+	return ret;
 }
 
 NGMP_OnlineServices_RoomsInterface::NGMP_OnlineServices_RoomsInterface()

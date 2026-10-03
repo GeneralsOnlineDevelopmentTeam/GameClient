@@ -266,23 +266,16 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 					}
 				}
 
+				// the server started signalling with this peer, so accept it even if our roster is stale
 				if (bPlayerIsInLobby)
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Accepting - Player is in lobby\n", pInfo->m_info.m_szConnectionDescription);
-					SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
 				}
 				else
 				{
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Rejecting - Player is not in lobby\n", pInfo->m_info.m_szConnectionDescription);
-
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection not in lobby %lld", plrConnection.m_userID);
-					SteamNetworkingSockets()->CloseConnection(pInfo->m_hConn, 1000, "Player is not in lobby (Rejected)", false);
-
-					if (TheNetwork != nullptr)
-					{
-						TheNetwork->GetConnectionManager()->disconnectPlayer(plrConnection.m_userID);
-					}
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Accepting - Server started signalling, roster not refreshed yet\n", pInfo->m_info.m_szConnectionDescription);
 				}
+				SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
 			}
 			
 		}

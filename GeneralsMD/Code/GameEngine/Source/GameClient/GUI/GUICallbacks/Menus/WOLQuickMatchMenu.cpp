@@ -1345,6 +1345,14 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 
 				if (!pLobbyInterface->IsInLobby())
 				{
+					Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, UnicodeString(L"Could not join the match lobby, waiting for the matchmaker..."), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+					GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+
+					matchFoundTimeoutStart = 0;
+					matchStartCountdownLastSecond = 0;
+
+					buttonBack->winEnable(TRUE);
+					buttonStop->winEnable(TRUE);
 					return;
 				}
 

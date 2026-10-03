@@ -1223,7 +1223,10 @@ static void StartPressed()
 
 						// who is missing who?
 						//std::list<std::pair<int64_t, int64_t>> missingConnections
-						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Connections: Missing links:"), GameMakeColor(255, 194, 15, 255), -1, -1);
+						if (!missingConnections.empty())
+						{
+							GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Connections: Missing links:"), GameMakeColor(255, 194, 15, 255), -1, -1);
+						}
 						for (auto& missingPair : missingConnections)
 						{
 							bool bFoundPlayer = false;

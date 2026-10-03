@@ -185,12 +185,16 @@ public:
 	// lobby ID the check was started for; a stale reply (different lobby) is ignored
 	int64_t m_connectivityCheckLobbyID = -1;
 
+	// when the check was sent; Tick() gives up on it after a client-side timeout
+	int64_t m_connectivityCheckStartMs = -1;
+
 	void SendData_StartFullMeshConnectivityCheck(std::function<void(bool, std::list<std::pair<int64_t, int64_t>>, std::string)> cbOnConnectivityCheckComplete);
 
 	void ClearConnectivityCheckCallback()
 	{
 		m_cbOnConnectivityCheckComplete = nullptr;
 		m_connectivityCheckLobbyID = -1;
+		m_connectivityCheckStartMs = -1;
 	}
 
 	void Tick();
@@ -215,6 +219,13 @@ public:
 		m_pendingSignals.push(std::move(payload));
 	}
 
+	// signals queued for a lobby we've since left must not reach the next one
+	void ClearPendingSignals()
+	{
+		std::scoped_lock<std::mutex> lock(m_pendingSignalsMutex);
+		m_pendingSignals = std::queue<std::vector<uint8_t>>();
+	}
+
 	std::queue<std::vector<uint8_t>> DrainPendingSignals()
 	{
 		std::scoped_lock<std::mutex> lock(m_pendingSignalsMutex);
@@ -224,6 +235,8 @@ public:
 	}
 
 private:
+	CURLcode ReceiveOneFrame();
+
 	CURL* m_pCurlWS = nullptr;
     CURLM* m_pMulti = nullptr;
 	struct curl_slist* m_pHeaders = nullptr;

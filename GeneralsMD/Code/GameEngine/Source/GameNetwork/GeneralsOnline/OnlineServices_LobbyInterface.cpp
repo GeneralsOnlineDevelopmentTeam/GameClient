@@ -1,5 +1,6 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
+#include "GameNetwork/GeneralsOnline/JsonHelpers.h"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
 #include "GameClient/MapUtil.h"
@@ -552,7 +553,7 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				std::vector<int> vecLatencies;
 				std::map<int64_t, int> mapPlayerLatencies;
 
-				jsonObject["latencies"].get_to(vecLatencies);
+				JsonGetOptional(jsonObject, "latencies", vecLatencies);
 
 				// player latencies
 				for (const auto& playerLatencyEntryIter : jsonObject["playerlatencies"])
@@ -560,8 +561,8 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 					int64_t user_id = -1;
 					int latency = -1;
 
-					playerLatencyEntryIter["user_id"].get_to(user_id);
-					playerLatencyEntryIter["latency"].get_to(latency);
+					JsonGetOptional(playerLatencyEntryIter, "user_id", user_id);
+					JsonGetOptional(playerLatencyEntryIter, "latency", latency);
 
 					if (user_id != -1 && latency != -1)
 					{
@@ -572,41 +573,43 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				int latencyIndex = 0;
 			for (const auto& lobbyEntryIter : jsonObject["lobbies"])
 			{
+				// latencies are indexed by the server's lobby order, so count skipped entries too
+				const size_t entryLatencyIndex = latencyIndex++;
+				try
+				{
 				LobbyEntry lobbyEntry;
-				lobbyEntryIter["LobbyID"].get_to(lobbyEntry.lobbyID);
-				lobbyEntryIter["Owner"].get_to(lobbyEntry.owner);
-				lobbyEntryIter["Name"].get_to(lobbyEntry.name);
-				lobbyEntryIter["MapName"].get_to(lobbyEntry.map_name);
-				lobbyEntryIter["MapPath"].get_to(lobbyEntry.map_path);
+				JsonGetRequired(lobbyEntryIter, "LobbyID", lobbyEntry.lobbyID);
+				JsonGetRequired(lobbyEntryIter, "Owner", lobbyEntry.owner);
+				JsonGetOptional(lobbyEntryIter, "Name", lobbyEntry.name);
+				JsonGetOptional(lobbyEntryIter, "MapName", lobbyEntry.map_name);
+				JsonGetOptional(lobbyEntryIter, "MapPath", lobbyEntry.map_path);
 				lobbyEntry.map_path = utf8_to_local(lobbyEntry.map_path); // local file path from here on
-				lobbyEntryIter["IsMapOfficial"].get_to(lobbyEntry.map_official);
-				lobbyEntryIter["NumCurrentPlayers"].get_to(lobbyEntry.current_players);
-				lobbyEntryIter["MaxPlayers"].get_to(lobbyEntry.max_players);
-				lobbyEntryIter["IsVanillaTeamsOnly"].get_to(lobbyEntry.vanilla_teams);
-				lobbyEntryIter["StartingCash"].get_to(lobbyEntry.starting_cash);
-				lobbyEntryIter["IsLimitSuperweapons"].get_to(lobbyEntry.limit_superweapons);
-				lobbyEntryIter["IsTrackingStats"].get_to(lobbyEntry.track_stats);
-				lobbyEntryIter["IsPassworded"].get_to(lobbyEntry.passworded);
-				lobbyEntryIter["AllowObservers"].get_to(lobbyEntry.allow_observers);
-				lobbyEntryIter["MaximumCameraHeight"].get_to(lobbyEntry.max_cam_height);
-				lobbyEntryIter["ExeCRC"].get_to(lobbyEntry.exe_crc);
-				lobbyEntryIter["IniCRC"].get_to(lobbyEntry.ini_crc);
-				lobbyEntryIter["MatchID"].get_to(lobbyEntry.match_id);
-				lobbyEntryIter["LobbyType"].get_to(lobbyEntry.lobby_type);
-				lobbyEntryIter["Region"].get_to(lobbyEntry.region);
+				JsonGetOptional(lobbyEntryIter, "IsMapOfficial", lobbyEntry.map_official);
+				JsonGetOptional(lobbyEntryIter, "NumCurrentPlayers", lobbyEntry.current_players);
+				JsonGetOptional(lobbyEntryIter, "MaxPlayers", lobbyEntry.max_players);
+				JsonGetOptional(lobbyEntryIter, "IsVanillaTeamsOnly", lobbyEntry.vanilla_teams);
+				JsonGetOptional(lobbyEntryIter, "StartingCash", lobbyEntry.starting_cash);
+				JsonGetOptional(lobbyEntryIter, "IsLimitSuperweapons", lobbyEntry.limit_superweapons);
+				JsonGetOptional(lobbyEntryIter, "IsTrackingStats", lobbyEntry.track_stats);
+				JsonGetOptional(lobbyEntryIter, "IsPassworded", lobbyEntry.passworded);
+				JsonGetOptional(lobbyEntryIter, "AllowObservers", lobbyEntry.allow_observers);
+				JsonGetOptional(lobbyEntryIter, "MaximumCameraHeight", lobbyEntry.max_cam_height);
+				JsonGetOptional(lobbyEntryIter, "ExeCRC", lobbyEntry.exe_crc);
+				JsonGetOptional(lobbyEntryIter, "IniCRC", lobbyEntry.ini_crc);
+				JsonGetOptional(lobbyEntryIter, "MatchID", lobbyEntry.match_id);
+				JsonGetOptional(lobbyEntryIter, "LobbyType", lobbyEntry.lobby_type);
+				JsonGetOptional(lobbyEntryIter, "Region", lobbyEntry.region);
 
 				// attach latency
-				if (latencyIndex < vecLatencies.size())
+				if (entryLatencyIndex < vecLatencies.size())
 				{
-					lobbyEntry.latency = vecLatencies[latencyIndex];
+					lobbyEntry.latency = vecLatencies[entryLatencyIndex];
 				}
 				else
 				{
 					// dummy value
 					lobbyEntry.latency = 9001;
 				}
-				++latencyIndex;
-
 				// correct map path
 				if (lobbyEntry.map_official)
 				{
@@ -620,16 +623,16 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				// NOTE: These fields won't be present becauase they're private properties
 				//memberEntryIter["enc_key"].get_to(strEncKey);
 
-				for (const auto& memberEntryIter : lobbyEntryIter["Members"])
+				for (const auto& memberEntryIter : lobbyEntryIter.at("Members"))
 				{
 					LobbyMemberEntry memberEntry;
 
-					memberEntryIter["UserID"].get_to(memberEntry.user_id);
-					memberEntryIter["DisplayName"].get_to(memberEntry.display_name);
-					memberEntryIter["IsReady"].get_to(memberEntry.m_bIsReady);
-					memberEntryIter["SlotIndex"].get_to(memberEntry.m_SlotIndex);
-					memberEntryIter["SlotState"].get_to(memberEntry.m_SlotState);
-					memberEntryIter["Region"].get_to(memberEntry.region);
+					JsonGetRequired(memberEntryIter, "UserID", memberEntry.user_id);
+					JsonGetOptional(memberEntryIter, "DisplayName", memberEntry.display_name);
+					JsonGetOptional(memberEntryIter, "IsReady", memberEntry.m_bIsReady);
+					JsonGetOptional(memberEntryIter, "SlotIndex", memberEntry.m_SlotIndex);
+					JsonGetOptional(memberEntryIter, "SlotState", memberEntry.m_SlotState);
+					JsonGetOptional(memberEntryIter, "Region", memberEntry.region);
 
 					// store latency
 					if (mapPlayerLatencies.contains(memberEntry.user_id))
@@ -645,6 +648,11 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				}
 
 				parsedLobbies.push_back(std::move(lobbyEntry));
+				}
+				catch (...)
+				{
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Skipping malformed lobby list entry");
+				}
 			}
 					m_vecLobbies = std::move(parsedLobbies);
 					bSearchSucceeded = true;
@@ -772,13 +780,13 @@ void NGMP_OnlineServices_LobbyInterface::Tick()
 		m_pLobbyMesh->Tick();
 	}
 
+	// stays pending until a menu has registered to handle it
 	if (m_bCannotConnectToLobbyPending)
 	{
-		m_bCannotConnectToLobbyPending = false;
-
 		auto callbackCopy = m_OnCannotConnectToLobbyCallback;
 		if (callbackCopy != nullptr)
 		{
+			m_bCannotConnectToLobbyPending = false;
 			callbackCopy();
 		}
 	}
@@ -869,6 +877,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 	if (m_CurrentLobby.lobbyID != -1 && TheNGMPGame != nullptr)
 	{
 		const int64_t requestedLobbyID = m_CurrentLobby.lobbyID;
+		const uint64_t requestSeq = ++m_LobbyUpdateRequestSeq;
 		std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), requestedLobbyID);
 		std::map<std::string, std::string> mapHeaders;
 
@@ -880,11 +889,20 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					// TODO_NGMP: Error handling
 					try
 					{
+						// GETs can overlap, a response older than one already applied would roll the roster/owner back
+						if (requestSeq < m_LobbyUpdateAppliedSeq)
+						{
+							NetworkLog(ELogVerbosity::LOG_DEBUG, "[NGMP] Ignoring out of order lobby response %llu (already applied %llu)", requestSeq, m_LobbyUpdateAppliedSeq.load());
+							if (fnCallback != nullptr)
+							{
+								fnCallback(true); // a newer response has already refreshed the cache
+							}
+							return;
+						}
+						m_LobbyUpdateAppliedSeq = requestSeq;
+
 						if (statusCode == 404) // lobby destroyed, just leave
 						{
-							m_bPendingHostHasLeft = true;
-							// error msg
-
 							// TODO_NGMP: We still want to do this, but we need to send back that it failed and back out, proceeding to lobby crashes because mesh wasn't created
 							if (fnCallback != nullptr)
 							{
@@ -898,7 +916,18 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 								return;
 							}
 
+							// the server requeues quick match players itself, a DELETE would cancel that
+							if (TheNGMPGame->isQMGame() || m_CurrentLobby.lobby_type == ELobbyType::QuickMatch)
+							{
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Quick match lobby lookup returned 404, tearing down locally only");
+								ResetForMatchmakingRequeue();
+								return;
+							}
+
 							LeaveCurrentLobby();
+
+							// after leaving, which clears it, so the setup menu backs out
+							m_bPendingHostHasLeft = true;
 							return;
 						}
 
@@ -910,28 +939,28 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						auto lobbyEntryIter = jsonObjectRoot["lobby"];
 
 						LobbyEntry lobbyEntry;
-						lobbyEntryIter["LobbyID"].get_to(lobbyEntry.lobbyID);
-						lobbyEntryIter["Owner"].get_to(lobbyEntry.owner);
-						lobbyEntryIter["Name"].get_to(lobbyEntry.name);
-						lobbyEntryIter["MapName"].get_to(lobbyEntry.map_name);
-						lobbyEntryIter["MapPath"].get_to(lobbyEntry.map_path);
+						JsonGetRequired(lobbyEntryIter, "LobbyID", lobbyEntry.lobbyID);
+						JsonGetRequired(lobbyEntryIter, "Owner", lobbyEntry.owner);
+						JsonGetOptional(lobbyEntryIter, "Name", lobbyEntry.name);
+						JsonGetOptional(lobbyEntryIter, "MapName", lobbyEntry.map_name);
+						JsonGetOptional(lobbyEntryIter, "MapPath", lobbyEntry.map_path);
 						lobbyEntry.map_path = utf8_to_local(lobbyEntry.map_path); // local file path from here on
-						lobbyEntryIter["IsMapOfficial"].get_to(lobbyEntry.map_official);
-						lobbyEntryIter["NumCurrentPlayers"].get_to(lobbyEntry.current_players);
-						lobbyEntryIter["MaxPlayers"].get_to(lobbyEntry.max_players);
-						lobbyEntryIter["IsVanillaTeamsOnly"].get_to(lobbyEntry.vanilla_teams);
-						lobbyEntryIter["RNGSeed"].get_to(lobbyEntry.rng_seed);
-						lobbyEntryIter["StartingCash"].get_to(lobbyEntry.starting_cash);
-						lobbyEntryIter["IsLimitSuperweapons"].get_to(lobbyEntry.limit_superweapons);
-						lobbyEntryIter["IsTrackingStats"].get_to(lobbyEntry.track_stats);
-						lobbyEntryIter["IsPassworded"].get_to(lobbyEntry.passworded);
-						lobbyEntryIter["AllowObservers"].get_to(lobbyEntry.allow_observers);
-						lobbyEntryIter["MaximumCameraHeight"].get_to(lobbyEntry.max_cam_height);
-						lobbyEntryIter["ExeCRC"].get_to(lobbyEntry.exe_crc);
-						lobbyEntryIter["IniCRC"].get_to(lobbyEntry.ini_crc);
-						lobbyEntryIter["MatchID"].get_to(lobbyEntry.match_id);
-						lobbyEntryIter["LobbyType"].get_to(lobbyEntry.lobby_type);
-						lobbyEntryIter["Region"].get_to(lobbyEntry.region);
+						JsonGetOptional(lobbyEntryIter, "IsMapOfficial", lobbyEntry.map_official);
+						JsonGetOptional(lobbyEntryIter, "NumCurrentPlayers", lobbyEntry.current_players);
+						JsonGetOptional(lobbyEntryIter, "MaxPlayers", lobbyEntry.max_players);
+						JsonGetOptional(lobbyEntryIter, "IsVanillaTeamsOnly", lobbyEntry.vanilla_teams);
+						JsonGetOptional(lobbyEntryIter, "RNGSeed", lobbyEntry.rng_seed);
+						JsonGetOptional(lobbyEntryIter, "StartingCash", lobbyEntry.starting_cash);
+						JsonGetOptional(lobbyEntryIter, "IsLimitSuperweapons", lobbyEntry.limit_superweapons);
+						JsonGetOptional(lobbyEntryIter, "IsTrackingStats", lobbyEntry.track_stats);
+						JsonGetOptional(lobbyEntryIter, "IsPassworded", lobbyEntry.passworded);
+						JsonGetOptional(lobbyEntryIter, "AllowObservers", lobbyEntry.allow_observers);
+						JsonGetOptional(lobbyEntryIter, "MaximumCameraHeight", lobbyEntry.max_cam_height);
+						JsonGetOptional(lobbyEntryIter, "ExeCRC", lobbyEntry.exe_crc);
+						JsonGetOptional(lobbyEntryIter, "IniCRC", lobbyEntry.ini_crc);
+						JsonGetOptional(lobbyEntryIter, "MatchID", lobbyEntry.match_id);
+						JsonGetOptional(lobbyEntryIter, "LobbyType", lobbyEntry.lobby_type);
+						JsonGetOptional(lobbyEntryIter, "Region", lobbyEntry.region);
 
 						if (lobbyEntry.lobby_type == ELobbyType::QuickMatch)
 						{
@@ -995,23 +1024,23 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 								}
 							}
 
-							for (const auto& memberEntryIter : lobbyEntryIter["Members"])
+							for (const auto& memberEntryIter : lobbyEntryIter.at("Members"))
 							{
 								LobbyMemberEntry memberEntry;
 
-								memberEntryIter["UserID"].get_to(memberEntry.user_id);
-								memberEntryIter["DisplayName"].get_to(memberEntry.display_name);
-								memberEntryIter["IsReady"].get_to(memberEntry.m_bIsReady);
-								memberEntryIter["Port"].get_to(memberEntry.preferredPort);
-								memberEntryIter["Side"].get_to(memberEntry.side);
-								memberEntryIter["Color"].get_to(memberEntry.color);
-								memberEntryIter["Team"].get_to(memberEntry.team);
-								memberEntryIter["StartingPosition"].get_to(memberEntry.startpos);
-								memberEntryIter["HasMap"].get_to(memberEntry.has_map);
-								memberEntryIter["SlotState"].get_to(memberEntry.m_SlotState);
-								memberEntryIter["SlotIndex"].get_to(memberEntry.m_SlotIndex);
-								memberEntryIter["Region"].get_to(memberEntry.region);
-								memberEntryIter["MiddlewareUserID"].get_to(memberEntry.middlewareUserID);
+								JsonGetRequired(memberEntryIter, "UserID", memberEntry.user_id);
+								JsonGetOptional(memberEntryIter, "DisplayName", memberEntry.display_name);
+								JsonGetOptional(memberEntryIter, "IsReady", memberEntry.m_bIsReady);
+								JsonGetOptional(memberEntryIter, "Port", memberEntry.preferredPort);
+								JsonGetOptional(memberEntryIter, "Side", memberEntry.side);
+								JsonGetOptional(memberEntryIter, "Color", memberEntry.color);
+								JsonGetOptional(memberEntryIter, "Team", memberEntry.team);
+								JsonGetOptional(memberEntryIter, "StartingPosition", memberEntry.startpos);
+								JsonGetOptional(memberEntryIter, "HasMap", memberEntry.has_map);
+								JsonGetOptional(memberEntryIter, "SlotState", memberEntry.m_SlotState);
+								JsonGetOptional(memberEntryIter, "SlotIndex", memberEntry.m_SlotIndex);
+								JsonGetOptional(memberEntryIter, "Region", memberEntry.region);
+								JsonGetOptional(memberEntryIter, "MiddlewareUserID", memberEntry.middlewareUserID);
 
 								lobbyEntry.members.push_back(memberEntry);
 
@@ -1082,6 +1111,47 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 								TheNGMPGame->StopCountdown();
 							}
 
+							// a player who joined after the connectivity check passed hasn't been checked, so the host must re-run it
+							if (IsHost()
+								&& TheNGMPGame != nullptr
+								&& TheNGMPGame->IsCountdownStarted()
+								&& lobbyEntry.lobby_type != ELobbyType::QuickMatch
+								&& !TheNGMPGame->isQMGame())
+							{
+								bool bPlayerJoined = false;
+								for (const LobbyMemberEntry& newMember : lobbyEntry.members)
+								{
+									if (!newMember.IsHuman())
+									{
+										continue;
+									}
+
+									bool bWasInLobby = false;
+									for (const LobbyMemberEntry& oldMember : m_CurrentLobby.members)
+									{
+										if (oldMember.IsHuman() && oldMember.user_id == newMember.user_id)
+										{
+											bWasInLobby = true;
+											break;
+										}
+									}
+
+									if (!bWasInLobby)
+									{
+										bPlayerJoined = true;
+										break;
+									}
+								}
+
+								if (bPlayerJoined)
+								{
+									TheNGMPGame->StopCountdown();
+
+									UnicodeString strInform = UnicodeString(L"Countdown stopped: a player joined, start again to re-check connections.");
+									SendAnnouncementMessageToCurrentLobby(strInform, true);
+								}
+							}
+
 							// store
 							m_CurrentLobby = lobbyEntry;
 							RecordJoinOrder(lobbyEntry.members);
@@ -1133,12 +1203,12 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 	return;
 }
 
-void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::string strPassword)
+bool NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::string strPassword)
 {
 	if (m_bAttemptingToJoinLobby)
 	{
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "Not attempting to join lobby because a join attempt is already in progress");
-		return;
+		return false;
 	}
 
 	const uint64_t lobbyJoinGeneration = ++m_LobbyJoinGeneration;
@@ -1148,6 +1218,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 	m_bAttemptingToJoinLobby = true;
 	m_CurrentLobby = LobbyEntry();
 	ResetJoinOrder();
+	ResetHostMigrationFlags();
 
 	NGMP_OnlineServicesManager::GetInstance()->GetAndParseServiceConfig([=]()
 		{
@@ -1357,6 +1428,8 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 
 				});
 		});
+
+	return true;
 }
 
 void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
@@ -1375,6 +1448,7 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 	if (pWS != nullptr)
 	{
 		pWS->ClearConnectivityCheckCallback();
+		pWS->ClearPendingSignals();
 	}
 
 	// reset host migration flags
@@ -1424,6 +1498,12 @@ void NGMP_OnlineServices_LobbyInterface::ResetForMatchmakingRequeue()
 	++m_LobbyJoinGeneration;
 	ResetHostMigrationFlags();
 	AnticheatPlugInterface::EndSession();
+
+	std::shared_ptr<WebSocket> pWS = NGMP_OnlineServicesManager::GetWebSocket();
+	if (pWS != nullptr)
+	{
+		pWS->ClearPendingSignals();
+	}
 
 	if (m_pLobbyMesh != nullptr)
 	{
@@ -1491,6 +1571,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 		{
 			m_CurrentLobby = LobbyEntry();
 			ResetJoinOrder();
+			ResetHostMigrationFlags();
 			m_bJoinOrderKnown = true;
 			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies");
 			std::map<std::string, std::string> mapHeaders;
