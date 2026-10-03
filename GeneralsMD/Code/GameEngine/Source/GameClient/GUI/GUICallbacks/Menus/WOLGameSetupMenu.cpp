@@ -68,6 +68,8 @@
 #include "GameNetwork/GameSpy/GSConfig.h"
 
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#include "GameNetwork/RandomAssign.h"
+#include "GameClient/ChallengeGenerals.h"
 #include <ws2ipdef.h>
 #include <format>
 #include <cmath>
@@ -203,6 +205,7 @@ static NameKeyType buttonBackID = NAMEKEY_INVALID;
 static NameKeyType buttonStartID = NAMEKEY_INVALID;
 static NameKeyType buttonEmoteID = NAMEKEY_INVALID;
 static NameKeyType buttonSelectMapID = NAMEKEY_INVALID;
+static NameKeyType buttonRandomizeID = NAMEKEY_INVALID;
 static NameKeyType windowMapID = NAMEKEY_INVALID;
 
 #if defined(GENERALS_ONLINE_ENABLE_MATCH_START_COUNTDOWN)
@@ -220,6 +223,7 @@ static GameWindow *parentWOLGameSetup = NULL;
 static GameWindow *buttonBack = NULL;
 static GameWindow *buttonStart = NULL;
 static GameWindow *buttonSelectMap = NULL;
+static GameWindow *buttonRandomize = NULL;
 static GameWindow *buttonEmote = NULL;
 static GameWindow *textEntryChat = NULL;
 static GameWindow *textEntryMapDisplay = NULL;
@@ -1620,6 +1624,7 @@ void InitWOLGameGadgets()
 	listboxGameSetupChatID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:ListboxChatWindowGameSpyGameSetup" );
 	buttonEmoteID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:ButtonEmote" );
 	buttonSelectMapID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:ButtonSelectMap" );
+	buttonRandomizeID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:ButtonRandomize" );
 	checkBoxUseStatsID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:CheckBoxUseStats" );
 	windowMapID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:MapWindow" );
   checkBoxLimitSuperweaponsID = TheNameKeyGenerator->nameToKey("GameSpyGameOptionsMenu.wnd:CheckboxLimitSuperweapons");
@@ -1633,6 +1638,8 @@ void InitWOLGameGadgets()
 	parentWOLGameSetup = TheWindowManager->winGetWindowFromId( NULL, parentWOLGameSetupID );
 	buttonEmote = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,buttonEmoteID  );
 	buttonSelectMap = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,buttonSelectMapID  );
+	buttonRandomize = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, buttonRandomizeID );
+	DEBUG_ASSERTCRASH(buttonRandomize, ("Could not find the buttonRandomize"));
 	checkBoxUseStats = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, checkBoxUseStatsID );
 	buttonStart = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,buttonStartID  );
 	buttonBack = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,  buttonBackID);
@@ -1679,6 +1686,7 @@ void InitWOLGameGadgets()
   {
     checkBoxLimitSuperweapons->winEnable( false );
     comboBoxStartingCash->winEnable( false );
+    buttonRandomize->winEnable( false );
 		NameKeyType labelID = TheNameKeyGenerator->nameToKey("GameSpyGameOptionsMenu.wnd:StartingCashLabel");
 		TheWindowManager->winGetWindowFromId(parentWOLGameSetup, labelID)->winEnable( FALSE );
   }
@@ -1687,6 +1695,7 @@ void InitWOLGameGadgets()
   {
 	  checkBoxLimitSuperweapons->winEnable(true);
 	  comboBoxStartingCash->winEnable(true);
+	  buttonRandomize->winEnable(true);
   }
 #endif
 
@@ -1699,6 +1708,7 @@ void InitWOLGameGadgets()
 		checkBoxLimitSuperweapons->winEnable( FALSE );
 		comboBoxStartingCash->winEnable( FALSE );
 		checkBoxLimitArmies->winEnable( FALSE );
+		buttonRandomize->winEnable( FALSE );
 		NameKeyType labelID = TheNameKeyGenerator->nameToKey("GameSpyGameOptionsMenu.wnd:StartingCashLabel");
 		TheWindowManager->winGetWindowFromId(parentWOLGameSetup, labelID)->winEnable( FALSE );
 	}
@@ -1840,6 +1850,7 @@ void DeinitWOLGameGadgets()
 	parentWOLGameSetup = NULL;
 	buttonEmote = NULL;
 	buttonSelectMap = NULL;
+	buttonRandomize = NULL;
 	buttonStart = NULL;
 	buttonBack = NULL;
 	listboxGameSetupChat = NULL;
@@ -2240,6 +2251,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		buttonStart->winSetText(TheGameText->fetch("GUI:Accept"));
 		buttonStart->winEnable( FALSE );
 		buttonSelectMap->winEnable( FALSE );
+		buttonRandomize->winEnable( FALSE );
 		initialAcceptEnable = FALSE;
 
 		WOLDisplaySlotList();
@@ -2531,6 +2543,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 							buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
 							buttonStart->winEnable(TRUE);
 							buttonSelectMap->winEnable(TRUE);
+							buttonRandomize->winEnable(TRUE);
 							initialAcceptEnable = TRUE;
 
 							comboBoxStartingCash->winEnable(TRUE);
@@ -4136,6 +4149,21 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 					WOLMapSelectLayout->runInit();
 					WOLMapSelectLayout->hide( FALSE );
 					WOLMapSelectLayout->bringForward();
+				}
+				else if ( controlID == buttonRandomizeID )
+				{
+					NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+					if (pLobbyInterface != nullptr && pLobbyInterface->IsHost())
+					{
+						NGMPGame* game = pLobbyInterface->GetCurrentGame();
+						if (game)
+						{
+							std::vector<Int> lockedTemplates = buildLockedTemplates();
+							performRandomAssign(game, lockedTemplates);
+							pLobbyInterface->UpdateCurrentLobby_BulkSlotUpdate(game);
+							WOLDisplaySlotList();
+						}
+					}
 				}
 				else if ( controlID == buttonStartID )
 				{
