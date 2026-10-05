@@ -932,16 +932,20 @@ protected:
 
 		if (!m_nameAreObjects)
 		{
-			for (DrawModule** dm = obj->getDrawable()->getDrawModules(); *dm; ++dm)
+			Drawable* draw = obj->getDrawable();
+			if (draw)
 			{
-				DebrisDrawInterface* di = (*dm)->getDebrisDrawInterface();
-				if (di)
+				for (DrawModule** dm = draw->getDrawModules(); *dm; ++dm)
 				{
-					di->setModelName(modelName, m_okToChangeModelColor ? obj->getIndicatorColor() : 0, m_shadowType);
-					if (!m_animSets.empty())
+					DebrisDrawInterface* di = (*dm)->getDebrisDrawInterface();
+					if (di)
 					{
-						Int which = GameLogicRandomValue(0, m_animSets.size()-1);
-						di->setAnimNames(m_animSets[which].m_animInitial, m_animSets[which].m_animFlying, m_animSets[which].m_animFinal, m_fxFinal);
+						di->setModelName(modelName, m_okToChangeModelColor ? obj->getIndicatorColor() : 0, m_shadowType);
+						if (!m_animSets.empty())
+						{
+							Int which = GameLogicRandomValue(0, m_animSets.size()-1);
+							di->setAnimNames(m_animSets[which].m_animInitial, m_animSets[which].m_animFlying, m_animSets[which].m_animFinal, m_fxFinal);
+						}
 					}
 				}
 			}
@@ -1328,7 +1332,8 @@ protected:
 				AudioEventRTS fadeAudioEvent(m_fadeSoundName);
 				fadeAudioEvent.setObjectID(sourceObj->getID());
 				TheAudio->addAudioEvent(&fadeAudioEvent);
-				debris->getDrawable()->fadeIn(m_fadeFrames);
+				if (debris->getDrawable())
+					debris->getDrawable()->fadeIn(m_fadeFrames);
 			}
 
 			if (m_fadeOut)
@@ -1336,7 +1341,8 @@ protected:
 				AudioEventRTS fadeAudioEvent(m_fadeSoundName);
 				fadeAudioEvent.setObjectID(sourceObj->getID());
 				TheAudio->addAudioEvent(&fadeAudioEvent);
-				debris->getDrawable()->fadeOut(m_fadeFrames);
+				if (debris->getDrawable())
+					debris->getDrawable()->fadeOut(m_fadeFrames);
 			}
 		}
 
