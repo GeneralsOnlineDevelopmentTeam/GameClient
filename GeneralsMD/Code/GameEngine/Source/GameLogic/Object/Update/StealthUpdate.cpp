@@ -310,15 +310,17 @@ Bool StealthUpdate::allowedToStealth( Object *stealthOwner ) const
 		return FALSE;
 	}
 
-	if( flags & STEALTH_NOT_WHILE_TAKING_DAMAGE && self->getBodyModule()->getLastDamageTimestamp() >= now - 1 )
+	BodyModuleInterface *body = self->getBodyModule();
+	if( flags & STEALTH_NOT_WHILE_TAKING_DAMAGE && body && body->getLastDamageTimestamp() >= now - 1 )
 	{
 #if RETAIL_COMPATIBLE_CRC || PRESERVE_STRUCTURE_STEALTH_DURING_REPAIR
 		//Only if it's not healing damage.
-		if( self->getBodyModule()->getLastDamageInfo()->in.m_damageType != DAMAGE_HEALING )
+		const DamageInfo *lastDamageInfo = body->getLastDamageInfo();
+		if( lastDamageInfo && lastDamageInfo->in.m_damageType != DAMAGE_HEALING )
 #endif
 		{
 			//Can't stealth if we just took damage in the last frame or two.
-			if( self->getBodyModule()->getLastDamageTimestamp() != 0xffffffff )
+			if( body->getLastDamageTimestamp() != 0xffffffff )
 			{
 				//But it's initialized to 0xffffffff so we don't think we took damage on the first frame.
 				return FALSE;
