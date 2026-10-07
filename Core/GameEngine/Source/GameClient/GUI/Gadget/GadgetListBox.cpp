@@ -1294,6 +1294,8 @@ WindowMsgHandledType GadgetListBoxSystem( GameWindow *window, UnsignedInt msg,
 													WindowMsgData mData1, WindowMsgData mData2 )
 {
 	ListboxData *list = (ListboxData *)window->winGetUserData();
+	if( list == nullptr )
+		return MSG_IGNORED;
 	WinInstanceData *instData = window->winGetInstanceData();
 	ICoord2D *pos;
 
