@@ -129,6 +129,7 @@ void W3DDependencyModelDraw::adjustTransformMtx(Matrix3D& mtx) const
 	if( md->m_attachToDrawableBoneInContainer.isNotEmpty()
 		&& me
 		&& me->getContainedBy()
+		&& me->getContainedBy()->getContain()
 		&& !me->getContainedBy()->getContain()->isEnclosingContainerFor(me)
 		)
 	{
