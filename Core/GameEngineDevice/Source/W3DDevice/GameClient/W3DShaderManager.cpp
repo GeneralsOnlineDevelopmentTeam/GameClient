@@ -3417,6 +3417,9 @@ Int FlatTerrainShader2Stage::set(Int pass)
 
 			if (W3DShaderManager::getCurrentShader() == W3DShaderManager::ST_FLAT_TERRAIN_BASE_NOISE12)
 			{
+				if (W3DShaderManager::getShaderTexture(2) == nullptr || W3DShaderManager::getShaderTexture(3) == nullptr)
+					return FALSE;
+
 				//setup cloud pass
 
 				terrainShader2Stage.updateNoise1(&curView,&inv);	//update curView with texture matrix
@@ -3451,6 +3454,8 @@ Int FlatTerrainShader2Stage::set(Int pass)
 				// Now setup the texture pipeline.
 				if (W3DShaderManager::getCurrentShader() == W3DShaderManager::ST_FLAT_TERRAIN_BASE_NOISE1)
 				{	//setup cloud pass
+					if (W3DShaderManager::getShaderTexture(2) == nullptr)
+						return FALSE;
 					DX8Wrapper::_Get_D3D_Device8()->SetTexture(0, W3DShaderManager::getShaderTexture(2)->Peek_D3D_Texture());
 					terrainShader2Stage.updateNoise1(&curView,&inv);	//update curView with texture matrix
 					DX8Wrapper::Set_DX8_Texture_Stage_State(0, D3DTSS_MINFILTER, D3DTEXF_LINEAR);
@@ -3459,6 +3464,8 @@ Int FlatTerrainShader2Stage::set(Int pass)
 				else
 				{
 					//setup noise pass
+					if (W3DShaderManager::getShaderTexture(3) == nullptr)
+						return FALSE;
 					DX8Wrapper::_Get_D3D_Device8()->SetTexture(0, W3DShaderManager::getShaderTexture(3)->Peek_D3D_Texture());
 					terrainShader2Stage.updateNoise2(&curView,&inv);	//update curView with texture matrix
 					DX8Wrapper::Set_DX8_Texture_Stage_State(1, D3DTSS_MINFILTER, D3DTEXF_POINT);
