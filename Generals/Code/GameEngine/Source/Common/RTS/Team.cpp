@@ -364,9 +364,11 @@ Team *TeamFactory::createInactiveTeam(const AsciiString& name)
 // ------------------------------------------------------------------------
 Team *TeamFactory::createTeam(const AsciiString& name)
 {
-	Team *t = NULL;
-	t = createInactiveTeam(name);
-	t->setActive();
+	Team *t = createInactiveTeam(name);
+
+	if (t)
+		t->setActive();
+
 	return t;
 }
 
