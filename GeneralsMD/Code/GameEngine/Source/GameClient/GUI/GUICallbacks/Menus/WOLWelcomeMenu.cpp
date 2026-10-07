@@ -938,7 +938,10 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 
 #if defined(GENERALS_ONLINE)
 					// NGMP: Don't need to logout here, just kill the WS connection, that triggers a log out
-					NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
+					if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+					{
+						NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
+					}
 
 					DEBUG_LOG(("Tearing down GeneralsOnline from WOLWelcomeMenuSystem(GBM_SELECTED)\n"));
 #else
