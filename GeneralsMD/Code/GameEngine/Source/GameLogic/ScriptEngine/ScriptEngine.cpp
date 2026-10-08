@@ -466,6 +466,10 @@ ScriptEngine::ScriptEngine() :
 {
 	st_CanAppCont = true;
 	st_LastCurrentFrame = st_CurrentFrame = 0;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_lastTimerFrame = 0;
+	m_timerTicksOnFrame = 0;
+#endif
 	// By default, difficulty should be normal.
 	setGlobalDifficulty(DIFFICULTY_NORMAL);
 
@@ -5314,6 +5318,10 @@ void ScriptEngine::reset()
 	m_breezeInfo.m_breezeVersion = 0;
 
 	m_freezeByScript = FALSE;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_lastTimerFrame = 0;
+	m_timerTicksOnFrame = 0;
+#endif
 	m_objectsShouldReceiveDifficultyBonus = TRUE;
 	m_ChooseVictimAlwaysUsesNormal = false;
 
@@ -5498,6 +5506,22 @@ void ScriptEngine::newMap()
 
 }
 
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+//-------------------------------------------------------------------------------------------------
+Bool ScriptEngine::hasLegacyTimerTickPassed()
+{
+	const UnsignedInt frame = TheGameLogic->getFrame();
+	if (frame != m_lastTimerFrame) {
+		m_lastTimerFrame = frame;
+		m_timerTicksOnFrame = 0;
+		return TheGameLogic->HasLegacyFrameAdvanced();
+	}
+
+	++m_timerTicksOnFrame;
+	return (m_timerTicksOnFrame % 2) == 0;
+}
+#endif
+
 //-------------------------------------------------------------------------------------------------
 /** Update */
 //-------------------------------------------------------------------------------------------------
@@ -5525,7 +5549,7 @@ void ScriptEngine::update()
 #endif
     
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-    const bool legacyFrameAdvanced = TheGameLogic->HasLegacyFrameAdvanced();
+    const bool legacyFrameAdvanced = hasLegacyTimerTickPassed();
 #else
     const bool legacyFrameAdvanced = true;
 #endif

@@ -407,6 +407,9 @@ protected:
 
     void particleEditorUpdate();
     void updateFades();
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+    Bool hasLegacyTimerTickPassed();
+#endif
 
     AttackPriorityInfo* findAttackInfo(const AsciiString& name, Bool addIfNotFound);
 
@@ -481,6 +484,10 @@ protected:
     GameDifficulty		m_gameDifficulty;
 
     Bool							m_freezeByScript;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+    UnsignedInt				m_lastTimerFrame;
+    UnsignedInt				m_timerTicksOnFrame;
+#endif
     AllObjectTypes		m_allObjectTypeLists;
     Bool							m_objectsShouldReceiveDifficultyBonus;
     Bool							m_ChooseVictimAlwaysUsesNormal;
