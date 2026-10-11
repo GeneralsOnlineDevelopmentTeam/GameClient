@@ -174,6 +174,13 @@ void Thing::setPositionZ( Real z )
 //=============================================================================
 void Thing::setPosition( const Coord3D *pos )
 {
+	// Validate position pointer to prevent null pointer dereference
+	if( pos == NULL )
+	{
+		DEBUG_CRASH(( "Thing::setPosition called with NULL position pointer" ));
+		return;
+	}
+
 	//USE_PERF_TIMER(ThingMatrixStuff)
 	if( !m_template->isKindOf( KINDOF_STICK_TO_TERRAIN_SLOPE) )
 	{
