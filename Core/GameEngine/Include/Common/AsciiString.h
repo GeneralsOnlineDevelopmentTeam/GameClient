@@ -124,8 +124,12 @@ public:
 		This is a convenient global used to indicate the empty
 		string, so we don't need to construct temporaries
 		for such a common thing.
+		
+		Note: This is implemented as a reference to an intentionally leaked
+		static instance to avoid static destruction order problems with
+		system libraries like ICU during application exit.
 	*/
-	static const AsciiString TheEmptyString;
+	static const AsciiString& TheEmptyString;
 
 	/**
 		Default constructor -- construct a new, empty AsciiString.
