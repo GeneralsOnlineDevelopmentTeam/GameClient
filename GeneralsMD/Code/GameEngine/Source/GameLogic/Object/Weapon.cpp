@@ -1177,7 +1177,7 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 		}
 
 		//If we're launching a missile at a unit with valid countermeasures, then communicate it
-		if( projectile->isKindOf( KINDOF_SMALL_MISSILE ) && victimObj && victimObj->hasCountermeasures() )
+		if( projectile->isKindOf( KINDOF_SMALL_MISSILE ) && victimObj && !victimObj->isDestroyed() && victimObj->hasCountermeasures() )
 		{
 			const AIUpdateInterface *ai = victimObj->getAI();
 			//Only allow jets not currently supersonic to launch countermeasures
@@ -3659,6 +3659,9 @@ void WeaponBonusSet::appendBonuses(WeaponBonusConditionFlags flags, WeaponBonus&
 		this->m_bonus[i].appendBonuses(bonus);
 	}
 }
+
+
+
 
 
 
