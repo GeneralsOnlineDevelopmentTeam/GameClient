@@ -89,6 +89,20 @@ struct LobbyEntry
 	int latency = 0;
 };
 
+// TheSuperHackers @feature bill-rich 11/10/2026 One slot of a HOST_ACTION_ALIGN_SLOTS request: what the
+// slot must hold once the service has applied the whole arrangement. A human is named by user id, an
+// AI by its difficulty state; open and closed slots carry nothing else.
+struct LobbySlotSpec
+{
+	int slotIndex = -1;
+	int slotState = SlotState::SLOT_OPEN;
+	int64_t userID = -1;
+	int side = -1;
+	int color = -1;
+	int startPos = -1;
+	int team = -1;
+};
+
 enum class EJoinLobbyResult
 {
 	JoinLobbyResult_Success, // The room was joined.
@@ -217,9 +231,11 @@ public:
 	
 
 	// updates
-	void UpdateCurrentLobby_Map(UnicodeString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers);
-	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons);
-	void UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue);
+	// TheSuperHackers @feature bill-rich 11/10/2026 The three settings a resume has to align carry an optional
+	// completion callback, so the arm can run them one after another and only then send the arm.
+	void UpdateCurrentLobby_Map(UnicodeString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers, std::function<void(bool bSuccess)> onDone = nullptr);
+	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons, std::function<void(bool bSuccess)> onDone = nullptr);
+	void UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue, std::function<void(bool bSuccess)> onDone = nullptr);
 
 	void UpdateCurrentLobby_HasMap();
 
@@ -235,6 +251,10 @@ public:
 	void UpdateCurrentLobby_AIStartPos(int slot, int startpos);
 
 	void UpdateCurrentLobby_BulkSlotUpdate(NGMPGame* game);
+
+	// TheSuperHackers @feature bill-rich 11/10/2026 Resume-from-replay: place every slot the way the recording
+	// had it, in one host action the service applies whole or not at all. On refusal `error` says why.
+	void UpdateCurrentLobby_AlignSlots(const std::vector<LobbySlotSpec>& slots, std::function<void(bool bSuccess, const std::string& error)> onDone);
 
 	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay (see ResumeFromReplay). The host uploads
 	// the resume source, then arms with the handoff frame and the replay's seed (handoff 0 disarms);
