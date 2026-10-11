@@ -63,6 +63,54 @@ char g_generalsSerial[1024];
 #define DLL_REG_KEY_BOTTOM DLL_REG_KEY_PATH "\\"											///< WOLAPI registry key with trailing backslashes
 #define DLL_REG_KEY_LOCATION ""																		///< Version registry key
 
+// Define ProgID keys for WOLAPI COM registration
+#define WOLAPI_CLSID_PATH "CLSID\\{4DD3BAF5-7579-11D1-B1C6-0060971765566}"		///< CLSID for Chat interface
+#define WOLAPI_PROGID_NAME "WOLAPI.Chat"																		///< ProgID for WOLAPI Chat
+
+/**
+ * ensureWOLAPIProgIDRegistration - Ensures that the WOLAPI COM object has proper ProgID registration
+ * This prevents null pointer crashes in Windows when the OS tries to look up ProgIDs for COM objects
+ */
+void ensureWOLAPIProgIDRegistration( void )
+{
+	HKEY handle;
+	char lpClass[] = "REG_NONE";
+	unsigned long type = REG_SZ;
+	
+	// Register ProgID entry under HKEY_CLASSES_ROOT\WOLAPI.Chat
+	if (RegCreateKeyEx( HKEY_CLASSES_ROOT, WOLAPI_PROGID_NAME, 0, lpClass, REG_OPTION_NON_VOLATILE, 
+		KEY_ALL_ACCESS, NULL, &handle, NULL ) == ERROR_SUCCESS) 
+	{
+		// Set the default value to a description
+		const char* description = "WOLAPI Chat Object";
+		RegSetValueEx(handle, NULL, 0, type, (unsigned char *) description, strlen(description)+1);
+		RegCloseKey( handle );
+	}
+	
+	// Register CLSID key under the ProgID: HKEY_CLASSES_ROOT\WOLAPI.Chat\CLSID
+	char progidClsidPath[MAX_PATH];
+	sprintf(progidClsidPath, "%s\\CLSID", WOLAPI_PROGID_NAME);
+	if (RegCreateKeyEx( HKEY_CLASSES_ROOT, progidClsidPath, 0, lpClass, REG_OPTION_NON_VOLATILE, 
+		KEY_ALL_ACCESS, NULL, &handle, NULL ) == ERROR_SUCCESS) 
+	{
+		// Set the CLSID value
+		const char* clsid = "{4DD3BAF5-7579-11D1-B1C6-006097176556}";
+		RegSetValueEx(handle, NULL, 0, type, (unsigned char *) clsid, strlen(clsid)+1);
+		RegCloseKey( handle );
+	}
+	
+	// Register ProgID entry under the CLSID: HKEY_CLASSES_ROOT\CLSID\{...}\ProgID
+	char clsidProgidPath[MAX_PATH];
+	sprintf(clsidProgidPath, "%s\\ProgID", WOLAPI_CLSID_PATH);
+	if (RegCreateKeyEx( HKEY_CLASSES_ROOT, clsidProgidPath, 0, lpClass, REG_OPTION_NON_VOLATILE, 
+		KEY_ALL_ACCESS, NULL, &handle, NULL ) == ERROR_SUCCESS) 
+	{
+		// Set the ProgID value
+		RegSetValueEx(handle, NULL, 0, type, (unsigned char *) WOLAPI_PROGID_NAME, strlen(WOLAPI_PROGID_NAME)+1);
+		RegCloseKey( handle );
+	}
+}
+
 void getPathsFromRegistry( void )
 {
 	HKEY handle;
@@ -188,6 +236,10 @@ IChat *g_pChat = nullptr;
 	*/
 void checkInstalledWolapiVersion( void )
 {
+	// Ensure proper ProgID registration before attempting COM operations
+	// This prevents crashes on newer Windows versions that strictly validate COM registry entries
+	ensureWOLAPIProgIDRegistration();
+
 	// Initialize this instance
 	_Module.Init(nullptr, g_hInst);
 
