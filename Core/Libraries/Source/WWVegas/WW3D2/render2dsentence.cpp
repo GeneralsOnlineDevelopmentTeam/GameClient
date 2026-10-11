@@ -1229,7 +1229,13 @@ FontCharsClass::Get_Char_Data (WCHAR ch)
 	else
 	{
 		Grow_Unicode_Array( ch );
-		retval = UnicodeCharArray[ch - FirstUnicodeChar];
+		
+		//
+		//	Validate that the UnicodeCharArray is properly allocated and the index is valid
+		//
+		if ( UnicodeCharArray != NULL && ch >= FirstUnicodeChar && ch <= LastUnicodeChar ) {
+			retval = UnicodeCharArray[ch - FirstUnicodeChar];
+		}
 	}
 
 	//
@@ -1347,7 +1353,20 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 	//	Get a pointer to the surface that this character should use
 	//
 	Update_Current_Buffer( char_size.cx );
-	uint16* curr_buffer_p = BufferList[BufferList.Count () - 1]->Buffer;
+	
+	//
+	//	Validate that we have a valid buffer before proceeding
+	//
+	if ( BufferList.Count () == 0 || BufferList[BufferList.Count () - 1] == NULL ) {
+		return NULL;
+	}
+	
+	//
+	//	Cache the buffer pointer immediately after Update_Current_Buffer()
+	//	to prevent race conditions if BufferList is modified
+	//
+	FontCharsBuffer* current_buffer = BufferList[BufferList.Count () - 1];
+	uint16* curr_buffer_p = current_buffer->Buffer;
 	curr_buffer_p += CurrPixelOffset;
 
 	//
@@ -1421,7 +1440,7 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 	FontCharsClassCharDataStruct *char_data	= W3DNEW FontCharsClassCharDataStruct;
 	char_data->Value				= ch;
 	char_data->Width				= char_size.cx;
-	char_data->Buffer				= BufferList[BufferList.Count () - 1]->Buffer + CurrPixelOffset;
+	char_data->Buffer				= current_buffer->Buffer + CurrPixelOffset;
 
 	//
 	//	Insert this character into our array
@@ -1429,7 +1448,18 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 	if ( ch < 256 ) {
 		ASCIICharArray[ch] = char_data;
 	} else {
-		UnicodeCharArray[ch - FirstUnicodeChar] = char_data;
+		//
+		//	Ensure the Unicode array is allocated and the index is valid
+		//
+		if ( UnicodeCharArray != NULL && ch >= FirstUnicodeChar && ch <= LastUnicodeChar ) {
+			UnicodeCharArray[ch - FirstUnicodeChar] = char_data;
+		} else {
+			//
+			//	Failed to allocate Unicode array - clean up and return NULL
+			//
+			delete char_data;
+			return NULL;
+		}
 	}
 
 	//
