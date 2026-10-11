@@ -490,6 +490,10 @@ Bool ScriptConditions::evaluatePlayerHasUnitTypeInArea(Condition *pCondition, Pa
 					continue;
 				}
 
+				if (!pObj->getTemplate()) {
+					continue;
+				}
+
 				if (types.m_types->isInSet(pObj->getTemplate())) {
 					if (pObj->isInside(pTrig)) {
 
