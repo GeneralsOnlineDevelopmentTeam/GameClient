@@ -138,6 +138,7 @@ int TerrainTextureClass::update(WorldHeightMap *htMap)
 			Int i,j;
 			for (j=0; j<tilePixelExtent; j++) {
 				UnsignedByte *pBGR = pTile->getRGBDataForWidth(tilePixelExtent);
+				if (!pBGR) continue; // Skip if tile data is not available
 				pBGR += (tilePixelExtent-1-j)*TILE_BYTES_PER_PIXEL*tilePixelExtent; // invert to match.
 				Int row = position.y+j;
 				UnsignedByte *pBGRX = ((UnsignedByte*)locked_rect.pBits) +
@@ -810,6 +811,7 @@ int AlphaEdgeTextureClass::update(WorldHeightMap *htMap)
 			for (j=0; j<tilePixelExtent; j++) {
 				Int row = position.y+j;
 				UnsignedByte *pBGR = htMap->getEdgeTile(tileNdx)->getRGBDataForWidth(tilePixelExtent);
+				if (!pBGR) continue; // Skip if tile data is not available
 				pBGR += (tilePixelExtent-1-j)*TILE_BYTES_PER_PIXEL*tilePixelExtent; // invert to match.
 				UnsignedByte *pBGRX = ((UnsignedByte*)locked_rect.pBits) +
 							(row)*surface_desc.Width*pixelBytes;
