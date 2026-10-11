@@ -150,6 +150,7 @@ static Bool buttonPushed = false;
 static const char *nextScreen = NULL;
 static Bool raiseMessageBoxes = false;
 static Bool launchGameNext = FALSE;
+static Bool isHandlingDisconnect = false;
 
 // window ids ------------------------------------------------------------------------------
 static NameKeyType parentWOLGameSetupID = NAMEKEY_INVALID;
@@ -1878,6 +1879,13 @@ Bool initialAcceptEnable = FALSE;
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 {
+	// Prevent infinite recursion if we're already handling a disconnect
+	if (isHandlingDisconnect)
+	{
+		DEBUG_LOG(("WOLGameSetupMenuInit() - already handling disconnect, returning to prevent recursion"));
+		return;
+	}
+
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface == nullptr)
 	{
@@ -2057,6 +2065,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			GSMessageBoxOk( title, body );
 			TheGameSpyInfo->reset();
 			DEBUG_LOG(("WOLGameSetupMenuInit() - game was in progress, and we were disconnected, so pop immediate back to main menu"));
+			isHandlingDisconnect = true;
 			TheShell->popImmediate();
 			return;
 		}
@@ -2065,6 +2074,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		// If we init while the game is in progress, we are really returning to the menu
 		// after the game.  So, we pop the menu and go back to the lobby.  Whee!
 		DEBUG_LOG(("WOLGameSetupMenuInit() - game was in progress, so pop immediate back to lobby"));
+		isHandlingDisconnect = true;
 		TheShell->popImmediate();
 
 		// TODO_NGMP: Only do this if still connected to service
@@ -2393,6 +2403,9 @@ static void shutdownComplete( WindowLayout *layout )
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuShutdown( WindowLayout *layout, void *userData )
 {
+	// Reset the disconnect handling flag to allow the menu to reinitialize properly
+	isHandlingDisconnect = false;
+
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 
 	if (pLobbyInterface != nullptr)
