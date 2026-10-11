@@ -3199,6 +3199,11 @@ void Player::expressSpecialPowerReadyFrame( const SpecialPowerTemplate *temp, Un
 //-------------------------------------------------------------------------------------------------
 UnsignedInt Player::getOrStartSpecialPowerReadyFrame( const SpecialPowerTemplate *temp)
 {
+	// Null check to prevent crash when temp is NULL or invalid
+	if (temp == NULL)
+	{
+		return 0xffffffff; // Return a "never ready" value
+	}
 
 	UnsignedInt lookupID = temp->getID();
 	UnsignedInt now = TheGameLogic->getFrame();
