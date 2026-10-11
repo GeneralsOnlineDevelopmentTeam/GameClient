@@ -158,7 +158,11 @@ Int GameSlot::getApparentPlayerTemplate() const
 Int GameSlot::getApparentColor() const
 {
 	if (TheMultiplayerSettings && m_origPlayerTemplate == PLAYERTEMPLATE_OBSERVER)
-		return TheMultiplayerSettings->getColor(PLAYERTEMPLATE_OBSERVER)->getColor();
+	{
+		MultiplayerColorDefinition* observerColor = TheMultiplayerSettings->getColor(PLAYERTEMPLATE_OBSERVER);
+		if (observerColor)
+			return observerColor->getColor();
+	}
 
 	if (TheMultiplayerSettings && TheMultiplayerSettings->showRandomColor() &&
 		!isSlotLocalAlly(this))
