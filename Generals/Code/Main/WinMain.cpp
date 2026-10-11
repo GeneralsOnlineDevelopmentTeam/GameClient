@@ -38,6 +38,9 @@
 #include <eh.h>
 #include <ole2.h>
 #include <dbt.h>
+#include <shobjidl.h>
+#include <propkey.h>
+#include <propvarutil.h>
 
 // USER INCLUDES //////////////////////////////////////////////////////////////
 #include "WinMain.h"
@@ -790,6 +793,51 @@ static LONG WINAPI UnHandledExceptionFilter( struct _EXCEPTION_POINTERS* e_info 
 	return EXCEPTION_EXECUTE_HANDLER;
 }
 
+// DisableWindowsJumpLists ====================================================
+/** Disable Windows Jump Lists to prevent corrupted Jump List cache files
+ *  from causing crashes in Windows Shell code (CAutomaticDestinationList).
+ *  This function clears automatic destinations and sets a unique AppUserModelID
+ *  to prevent Windows from managing Jump Lists for this application.
+ */
+//=============================================================================
+static void DisableWindowsJumpLists()
+{
+	// Set a unique AppUserModelID to prevent Windows from automatically managing Jump Lists
+	// Using the application name to make it specific to this game
+	HRESULT hr = SetCurrentProcessExplicitAppUserModelID(L"GeneralsOnline.Game.ZeroHour");
+	if (FAILED(hr))
+	{
+		DEBUG_LOG(("Failed to set AppUserModelID, HRESULT: 0x%08X", hr));
+		return;
+	}
+
+	// Clear any existing automatic destinations (Recent/Frequent items) to prevent
+	// corrupted cache files from being accessed by Windows Shell
+	IApplicationDestinations* pAppDest = NULL;
+	hr = CoCreateInstance(CLSID_ApplicationDestinations, NULL, CLSCTX_INPROC_SERVER,
+		IID_PPV_ARGS(&pAppDest));
+	
+	if (SUCCEEDED(hr) && pAppDest != NULL)
+	{
+		// Clear all automatic destinations for this application
+		hr = pAppDest->RemoveAllDestinations();
+		if (FAILED(hr))
+		{
+			DEBUG_LOG(("Failed to clear automatic destinations, HRESULT: 0x%08X", hr));
+		}
+		else
+		{
+			DEBUG_LOG(("Successfully disabled Windows Jump Lists"));
+		}
+		
+		pAppDest->Release();
+	}
+	else
+	{
+		DEBUG_LOG(("Failed to create IApplicationDestinations, HRESULT: 0x%08X", hr));
+	}
+}
+
 // WinMain ====================================================================
 /** Application entry point */
 //=============================================================================
@@ -851,6 +899,24 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		// Initialize minidump facilities - requires TheGlobalData so performed after parseCommandLineForStartup
 		MiniDumper::initMiniDumper(TheGlobalData->getPath_UserData());
 #endif
+
+		// Initialize COM early to enable Windows Shell API calls
+		// This is required for Jump List management and other COM-based Windows features
+		HRESULT hrCom = CoInitialize(NULL);
+		if (FAILED(hrCom))
+		{
+			DEBUG_LOG(("Failed to initialize COM, HRESULT: 0x%08X", hrCom));
+		}
+		else
+		{
+			DEBUG_LOG(("COM initialized successfully"));
+			
+			// Disable Windows Jump Lists to prevent crashes from corrupted Jump List cache files
+			// This prevents Windows Shell's CAutomaticDestinationList from accessing potentially
+			// corrupted automatic destination files that can cause access violations
+			DisableWindowsJumpLists();
+		}
+
 		// register windows class and create application window
 		if(!TheGlobalData->m_headless && initializeAppWindows(hInstance, nCmdShow, TheGlobalData->m_windowed) == false)
 		{
@@ -912,8 +978,8 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 		shutdownMemoryManager();
 
-		// BGC - shut down COM
-	//	OleUninitialize();
+		// Uninitialize COM to clean up resources
+		CoUninitialize();
 	}
 	catch (...)
 	{
