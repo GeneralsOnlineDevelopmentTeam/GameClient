@@ -616,6 +616,13 @@ void ThingTemplate::parseModuleName(INI* ini, void *instance, void* store, const
 
 	ModuleData* data = TheModuleFactory->newModuleDataFromINI(ini, tokenStr, type, moduleTagStr);
 
+	if (data == nullptr)
+	{
+		DEBUG_CRASH(("[LINE: %d - FILE: '%s'] Module '%s' not found in ModuleFactory for Object '%s'. The module name may be invalid or the ModuleFactory may not be properly initialized.",
+			ini->getLineNum(), ini->getFilename().str(), tokenStr.str(), self->getName().str()));
+		throw INI_INVALID_DATA;
+	}
+
 	if (data->isAiModuleData())
 	{
 		Bool replaced = mi->clearAiModuleInfo();
