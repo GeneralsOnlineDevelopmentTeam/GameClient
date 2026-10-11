@@ -463,6 +463,7 @@ static void startPressed()
 	{
 		buttonPushed = FALSE;
 		MessageBoxOk(TheGameText->fetch("GUI:ErrorStartingGame"), TheGameText->fetch("GUI:CantFindMap"), nullptr);
+		return;
 	}
 	MapMetaData mmd = it->second;
 	if(playerCount > mmd.m_numPlayers)
