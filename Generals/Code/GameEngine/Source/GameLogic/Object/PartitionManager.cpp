@@ -3026,6 +3026,12 @@ void PartitionManager::unRegisterGhostObject( GhostObject* object )
 */
 void PartitionManager::revealMapForPlayer( Int playerIndex )
 {
+	// Safety check: ensure partition manager is properly initialized
+	if (m_cells == NULL || m_totalCellCount <= 0)
+	{
+		return;
+	}
+
 	// By looking and then stopping on every cell, I clear all Passive Shroud
 	// By adding a looker directly I don't hit the Ally logic of the normal look/doShroudReveal
 	for (int i = 0; i < m_totalCellCount; ++i)
@@ -3040,6 +3046,12 @@ void PartitionManager::revealMapForPlayer( Int playerIndex )
 	*/
 void PartitionManager::revealMapForPlayerPermanently( Int playerIndex )
 {
+	// Safety check: ensure partition manager is properly initialized
+	if (m_cells == NULL || m_totalCellCount <= 0)
+	{
+		return;
+	}
+
 	// By skipping the removeLooker, I consider myself as actively looking at everything,
 	// so Shroud generation will no longer function
 	// By adding a looker directly I don't hit the Ally logic of the normal look/doShroudReveal
@@ -3054,6 +3066,12 @@ void PartitionManager::revealMapForPlayerPermanently( Int playerIndex )
 	*/
 void PartitionManager::undoRevealMapForPlayerPermanently( Int playerIndex )
 {
+	// Safety check: ensure partition manager is properly initialized
+	if (m_cells == NULL || m_totalCellCount <= 0)
+	{
+		return;
+	}
+
 	//First make sure no lingering looks will leave holes when they aren't wanted.
 	processEntirePendingUndoShroudRevealQueue();
 
@@ -3070,6 +3088,12 @@ void PartitionManager::undoRevealMapForPlayerPermanently( Int playerIndex )
 	*/
 void PartitionManager::shroudMapForPlayer( Int playerIndex )
 {
+	// Safety check: ensure partition manager is properly initialized
+	if (m_cells == NULL || m_totalCellCount <= 0)
+	{
+		return;
+	}
+
 	//First make sure no lingering looks will leave holes when they aren't wanted.
 	processEntirePendingUndoShroudRevealQueue();
 
@@ -3084,6 +3108,12 @@ void PartitionManager::shroudMapForPlayer( Int playerIndex )
 //-----------------------------------------------------------------------------
 void PartitionManager::refreshShroudForLocalPlayer()
 {
+	// Safety check: ensure partition manager is properly initialized
+	if (m_cells == NULL || m_totalCellCount <= 0)
+	{
+		return;
+	}
+
 	// This is a drawing refresh only, and so is allowed to use the Local Player.
 	TheDisplay->clearShroud();
 	TheRadar->clearShroud();
