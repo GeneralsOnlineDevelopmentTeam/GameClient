@@ -1254,12 +1254,16 @@ HLodClass & HLodClass::operator = (const HLodClass & that)
 
 			for (model = 0; model < that.Lod[lod].Count(); model++) {
 
+				if (that.Lod[lod][model].Model == nullptr) continue;
+
 				ModelNodeClass newnode;
 				newnode.Model = that.Lod[lod][model].Model->Clone();
 				newnode.BoneIndex = that.Lod[lod][model].BoneIndex;
-				newnode.Model->Set_Container(this);
-				if (Is_In_Scene()) {
-					newnode.Model->Notify_Added(Scene);
+				if (newnode.Model != nullptr) {
+					newnode.Model->Set_Container(this);
+					if (Is_In_Scene()) {
+						newnode.Model->Notify_Added(Scene);
+					}
 				}
 
 				Lod[lod].Add(newnode);
@@ -1269,12 +1273,16 @@ HLodClass & HLodClass::operator = (const HLodClass & that)
 		AdditionalModels.Resize(that.AdditionalModels.Count());
 		for (model = 0; model < that.AdditionalModels.Count(); model++) {
 
+			if (that.AdditionalModels[model].Model == nullptr) continue;
+
 			ModelNodeClass newnode;
 			newnode.Model = that.AdditionalModels[model].Model->Clone();
 			newnode.BoneIndex = that.AdditionalModels[model].BoneIndex;
-			newnode.Model->Set_Container(this);
-			if (Is_In_Scene()) {
-				newnode.Model->Notify_Added(Scene);
+			if (newnode.Model != nullptr) {
+				newnode.Model->Set_Container(this);
+				if (Is_In_Scene()) {
+					newnode.Model->Notify_Added(Scene);
+				}
 			}
 
 			AdditionalModels.Add(newnode);
