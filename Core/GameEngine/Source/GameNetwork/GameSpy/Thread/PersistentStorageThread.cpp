@@ -508,7 +508,7 @@ void GameSpyPSMessageQueue::addRequest( const PSRequest& req )
 
 Bool GameSpyPSMessageQueue::getRequest( PSRequest& req )
 {
-	MutexClass::LockClass m(m_requestMutex, 0);
+	MutexClass::LockClass m(m_requestMutex, 100);
 	if (m.Failed())
 		return false;
 
@@ -530,7 +530,7 @@ void GameSpyPSMessageQueue::addResponse( const PSResponse& resp )
 
 Bool GameSpyPSMessageQueue::getResponse( PSResponse& resp )
 {
-	MutexClass::LockClass m(m_responseMutex, 0);
+	MutexClass::LockClass m(m_responseMutex, 100);
 	if (m.Failed())
 		return false;
 

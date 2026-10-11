@@ -159,7 +159,7 @@ void Pinger::addRequest( const PingRequest& req )
 
 Bool Pinger::getRequest( PingRequest& req )
 {
-	MutexClass::LockClass m(m_requestMutex, 0);
+	MutexClass::LockClass m(m_requestMutex, 100);
 	if (m.Failed())
 		return false;
 
@@ -187,7 +187,7 @@ void Pinger::addResponse( const PingResponse& resp )
 
 Bool Pinger::getResponse( PingResponse& resp )
 {
-	MutexClass::LockClass m(m_responseMutex, 0);
+	MutexClass::LockClass m(m_responseMutex, 100);
 	if (m.Failed())
 		return false;
 
