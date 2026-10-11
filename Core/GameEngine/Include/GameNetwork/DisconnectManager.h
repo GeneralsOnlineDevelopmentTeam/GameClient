@@ -49,6 +49,9 @@ public:
 
 	void init();
 	void update(ConnectionManager *conMgr);
+#if defined(GENERALS_ONLINE)
+	time_t getTimeOfDisconnectScreenOn() const { return m_timeOfDisconnectScreenOn; }
+#endif
 
 	void processDisconnectCommand(NetCommandRef *ref, ConnectionManager *conMgr);
 	void allCommandsReady(UnsignedInt frame, ConnectionManager *conMgr, Bool waitForPacketRouter = TRUE);

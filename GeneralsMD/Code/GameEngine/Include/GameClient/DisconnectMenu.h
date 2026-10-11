@@ -60,6 +60,9 @@ public:
 	void removePlayer(Int slot, UnicodeString playerName);
 	void voteForPlayer(Int slot);
 	void updateVotes(Int slot, Int votes);
+#if defined(GENERALS_ONLINE)
+	void updateTwoPlayerVoteButtonState(ConnectionManager* conMgr);
+#endif
 
 protected:
 	DisconnectManager *m_disconnectManager;		///< For retrieving status updates from the disconnect manager.

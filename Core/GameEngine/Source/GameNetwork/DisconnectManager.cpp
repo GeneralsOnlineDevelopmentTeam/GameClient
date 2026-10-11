@@ -198,6 +198,9 @@ Int DisconnectManager::getPingsReceived()
 
 
 void DisconnectManager::updateDisconnectStatus(ConnectionManager *conMgr) {
+#if defined(GENERALS_ONLINE)
+	TheDisconnectMenu->updateTwoPlayerVoteButtonState(conMgr);
+#endif
 	for (Int i = 0; i < MAX_SLOTS; ++i) {
 		if (conMgr->isPlayerConnected(i)) {
 			Int slot = translatedSlotPosition(i, conMgr->getLocalPlayerID());
