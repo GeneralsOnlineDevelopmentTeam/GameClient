@@ -4990,9 +4990,9 @@ Bool GameLogic::findControlBarOverride(const AsciiString& commandSetName, Int sl
 	strcpy(&buf[1], commandSetName.str());
 
 	ControlBarOverrideMap::const_iterator it = m_controlBarOverrides.find(buf);
-	if (it != m_controlBarOverrides.end())
+	if (it != m_controlBarOverrides.end() && it->second != nullptr)
 	{
-		commandButton = it->second;	// could be null.
+		commandButton = it->second;
 		return true;
 	}
 
