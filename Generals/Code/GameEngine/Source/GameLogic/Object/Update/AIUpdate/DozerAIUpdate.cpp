@@ -299,6 +299,11 @@ StateReturnType DozerActionMoveToActionPosState::update()
 		return STATE_FAILURE;
 
 	AIUpdateInterface *ai = dozer->getAIUpdateInterface();
+	
+	// Re-check goalObject before dereferencing it (object could have been destroyed)
+	if( goalObject == NULL )
+		return STATE_FAILURE;
+	
 	ObjectID currentRepairer = goalObject->getSoleHealingBenefactor();
 	if( m_task==DOZER_TASK_REPAIR && currentRepairer != INVALID_ID && currentRepairer != dozer->getID() )//oops I guess someone beat me to it!
 	{
@@ -321,6 +326,11 @@ StateReturnType DozerActionMoveToActionPosState::update()
 	// First will register, and idle for a frame, second will see first as not active and say yes
 	// Next frame, first will start the build task, without reasking validity
 	// Infinite number of workers can be told to build something with just two in progress buildings
+	
+	// Re-check goalObject before dereferencing it (object could have been destroyed)
+	if( goalObject == NULL )
+		return STATE_FAILURE;
+	
 	if( (m_task == DOZER_TASK_BUILD) && goalObject && (goalObject->getBuilderID() != dozer->getID()) )
 	{
 		// Geebus.  Returning failure is ignored, so you have to explicitly make the ai stop trying to restart the machine
@@ -345,6 +355,9 @@ StateReturnType DozerActionMoveToActionPosState::update()
 	{
 		if( m_task == DOZER_TASK_BUILD )
 		{
+			// Re-check goalObject before dereferencing it (object could have been destroyed)
+			if( goalObject == NULL )
+				return STATE_FAILURE;
 
 			//
 			// the object is now no longer awaiting construction, it is being constructed ... note
@@ -492,6 +505,13 @@ StateReturnType DozerActionDoActionState::update()
 		//---------------------------------------------------------------------------------------------
 		case DOZER_TASK_BUILD:
 		{
+			// Re-check goalObject before dereferencing it (object could have been destroyed)
+			if( goalObject == NULL )
+			{
+				getMachine()->setGoalObject( NULL );
+				return STATE_FAILURE;
+			}
+			
 			//GS Moved this inside Build, since you are allowed to Repair things that are not your player (canRepairObject handles it)
 			if (dozer->getControllingPlayer() != goalObject->getControllingPlayer())//Yipes, SOmehow I have changed sides in mid build!
 				return STATE_FAILURE;
@@ -513,6 +533,13 @@ StateReturnType DozerActionDoActionState::update()
 			{
 				if( ai->isIdle() )
 				{
+					// Re-check goalObject before dereferencing it (object could have been destroyed)
+					if( goalObject == NULL )
+					{
+						getMachine()->setGoalObject( NULL );
+						return STATE_FAILURE;
+					}
+					
 					dozerAI->setBuildSubTask( DOZER_DO_BUILD_AT_DOCK );
 					// Get the audio sound and start playing the construction sound (get the sound
 					// from the building itself)
@@ -523,6 +550,12 @@ StateReturnType DozerActionDoActionState::update()
 			// only do the build if we've moved into the dock position
 			if( dozerAI->getBuildSubTask() == DOZER_DO_BUILD_AT_DOCK )
 			{
+				// Re-check goalObject before dereferencing it (object could have been destroyed)
+				if( goalObject == NULL )
+				{
+					getMachine()->setGoalObject( NULL );
+					return STATE_FAILURE;
+				}
 
 				// the builder is now actively constructing something
 				dozer->setModelConditionState( MODELCONDITION_ACTIVELY_CONSTRUCTING );
@@ -657,6 +690,13 @@ StateReturnType DozerActionDoActionState::update()
 		//---------------------------------------------------------------------------------------------
 		case DOZER_TASK_REPAIR:
 		{
+			// Re-check goalObject before dereferencing it (object could have been destroyed)
+			if( goalObject == NULL )
+			{
+				getMachine()->setGoalObject( NULL );
+				return STATE_FAILURE;
+			}
+			
 			BodyModuleInterface *body = goalObject->getBodyModule();
 
 			// check for fully "repaired"
