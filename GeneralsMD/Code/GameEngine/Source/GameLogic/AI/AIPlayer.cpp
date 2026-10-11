@@ -112,6 +112,10 @@ AIPlayer::~AIPlayer()
 // ------------------------------------------------------------------------------------------------
 void AIPlayer::onStructureProduced( Object *factory, Object *bldg )
 {
+	// Safety check for null building pointer
+	if( !bldg )
+		return;
+
 	m_teamDelay = 0; // Cause the update queues & selection to happen immediately.
 	m_buildDelay = 0; // Cause
 	/* Find the info building this. */
