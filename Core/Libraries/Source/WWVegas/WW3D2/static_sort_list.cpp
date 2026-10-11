@@ -43,6 +43,7 @@
 
 #include "rendobj.h"
 #include "dx8renderer.h"
+#include <vector>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Initialization Functions ////////////////////////////////////////////////////////////////////////
@@ -76,9 +77,19 @@ void DefaultStaticSortListClass::Render_And_Clear(RenderInfoClass & rinfo)
 	// We go from higher sort level to lower, since lower sort level means higher priority (in
 	// front), so lower sort level meshes need to be rendered later.
 	for(unsigned int sort_level = MaxSort; sort_level >= MinSort; sort_level--) {
-		bool render=false;
-		for (	RenderObjClass *robj = SortLists[sort_level].Remove_Head(); robj;
-				robj->Release_Ref(), robj = SortLists[sort_level].Remove_Head())
+		// Snapshot all objects from the list into a local vector before rendering.
+		// This prevents render hook callbacks (Pre_Render/Post_Render) from corrupting
+		// the list's internal linked structure while we are iterating it, which would
+		// cause an access violation in Internal_Remove_List_Head.
+		std::vector<RenderObjClass *> render_list;
+		for (RenderObjClass *robj = SortLists[sort_level].Remove_Head(); robj;
+				robj = SortLists[sort_level].Remove_Head())
+		{
+			render_list.push_back(robj);
+		}
+
+		bool render = false;
+		for (RenderObjClass *robj : render_list)
 		{
 			if (robj->Get_Render_Hook()) {
 				if (robj->Get_Render_Hook()->Pre_Render(robj, rinfo)) {
@@ -90,6 +101,7 @@ void DefaultStaticSortListClass::Render_And_Clear(RenderInfoClass & rinfo)
 				robj->Render(rinfo);
 				render = true;
 			}
+			robj->Release_Ref();
 		}
 		if (render) TheDX8MeshRenderer.Flush();
 	}
