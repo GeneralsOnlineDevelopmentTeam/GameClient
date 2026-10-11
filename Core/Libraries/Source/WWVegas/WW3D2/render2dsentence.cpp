@@ -358,7 +358,7 @@ Render2DSentenceClass::Build_Textures ()
 		//
 		//	Create the new texture
 		//
-		TextureClass *new_texture = W3DNEW TextureClass (desc.Width, desc.Width, WW3D_FORMAT_A4R4G4B4, MIP_LEVELS_1);
+		TextureClass *new_texture = W3DNEW TextureClass (desc.Width, desc.Height, WW3D_FORMAT_A4R4G4B4, MIP_LEVELS_1);
 		SurfaceClass *texture_surface = new_texture->Get_Surface_Level ();
 
 		new_texture->Get_Filter().Set_U_Addr_Mode(TextureFilterClass::TEXTURE_ADDRESS_CLAMP);
