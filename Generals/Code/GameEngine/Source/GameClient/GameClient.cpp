@@ -613,6 +613,20 @@ void GameClient::update()
 				Object *object=draw->getObject();
 				if (object)
 				{
+					ObjectShroudStatus ss=object->getShroudedStatus(localPlayerIndex);
+					if (ss >= OBJECTSHROUD_FOGGED && draw->getShroudClearFrame() != InvalidShroudClearFrame) {
+						UnsignedInt limit = 2*LOGICFRAMES_PER_SECOND;
+						if (object->isEffectivelyDead()) {
+							// extend the time, so we can see the dead plane blow up & crash.
+							limit += 3*LOGICFRAMES_PER_SECOND;
+						}
+						if (TheGameLogic->getFrame() < limit + draw->getShroudClearFrame()) {
+							// It's been less than 2 seconds since we could see them clear, so keep showing them.
+							ss = OBJECTSHROUD_CLEAR;
+						}
+					}
+					draw->setFullyObscuredByShroud(ss >= OBJECTSHROUD_FOGGED);
+
 					if (TheGhostObjectManager->trackAllPlayers())
 					{
 						// TheSuperHackers @info Update the shrouded status for all objects
@@ -627,20 +641,6 @@ void GameClient::update()
 							}
 						}
 					}
-
-					ObjectShroudStatus ss=object->getShroudedStatus(localPlayerIndex);
-					if (ss >= OBJECTSHROUD_FOGGED && draw->getShroudClearFrame() != InvalidShroudClearFrame) {
-						UnsignedInt limit = 2*LOGICFRAMES_PER_SECOND;
-						if (object->isEffectivelyDead()) {
-							// extend the time, so we can see the dead plane blow up & crash.
-							limit += 3*LOGICFRAMES_PER_SECOND;
-						}
-						if (TheGameLogic->getFrame() < limit + draw->getShroudClearFrame()) {
-							// It's been less than 2 seconds since we could see them clear, so keep showing them.
-							ss = OBJECTSHROUD_CLEAR;
-						}
-					}
-					draw->setFullyObscuredByShroud(ss >= OBJECTSHROUD_FOGGED);
 				}
 			}
 			draw->updateDrawable();
