@@ -85,6 +85,15 @@ void HTTPManager::Shutdown()
 
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTPManager] Waiting for %d in-flight requests to complete...", (int)m_vecRequestsInFlight.size());
 
+	// Clear all callbacks on in-flight requests to prevent accessing destroyed objects
+	for (HTTPRequest* pRequest : m_vecRequestsInFlight)
+	{
+		if (pRequest != nullptr)
+		{
+			pRequest->ClearCallbacks();
+		}
+	}
+
 	// Wait for all in-flight requests to complete
 	if (m_pCurl != nullptr)
 	{
