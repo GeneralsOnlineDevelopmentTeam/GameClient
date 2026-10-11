@@ -1630,6 +1630,11 @@ bool TextureLoadTaskClass::Begin_Uncompressed_Load()
 
 void TextureLoadTaskClass::Lock_Surfaces()
 {
+	if (!D3DTexture)
+	{
+		return;
+	}
+
 	MipLevelCount = D3DTexture->GetLevelCount();
 
 	for (unsigned int i = 0; i < MipLevelCount; ++i)
@@ -2003,6 +2008,11 @@ void CubeTextureLoadTaskClass::Deinit()
 
 void CubeTextureLoadTaskClass::Lock_Surfaces()
 {
+	if (!D3DTexture)
+	{
+		return;
+	}
+
 	for (unsigned int f=0; f<6; f++)
 	{
 		for (unsigned int i=0; i<MipLevelCount; i++)
@@ -2321,6 +2331,11 @@ void VolumeTextureLoadTaskClass::Init(TextureBaseClass* tc, TaskType type, Prior
 
 void VolumeTextureLoadTaskClass::Lock_Surfaces()
 {
+	if (!D3DTexture)
+	{
+		return;
+	}
+
 	for (unsigned int i=0; i<MipLevelCount; i++)
 	{
 		D3DLOCKED_BOX locked_box;
