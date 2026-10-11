@@ -652,6 +652,10 @@ void ParkingPlaceBehavior::killAllParkedUnits()
 	buildInfo();
 	purgeDead();
 
+	// First pass: collect all ObjectIDs that need to be killed
+	// This prevents iterator invalidation and use-after-free when obj->kill() triggers
+	// recursive killAllParkedUnits() calls or other object destruction
+	std::vector<ObjectID> objectsToKill;
 	for (std::vector<ParkingPlaceInfo>::iterator it = m_spaces.begin(); it != m_spaces.end(); ++it)
 	{
 		if (it->m_objectInSpace != INVALID_ID)
@@ -668,6 +672,16 @@ void ParkingPlaceBehavior::killAllParkedUnits()
 			if (obj->isAboveTerrain() && !takeoffOrLanding)
 				continue;
 
+			objectsToKill.push_back(it->m_objectInSpace);
+		}
+	}
+
+	// Second pass: kill all collected objects
+	for (std::vector<ObjectID>::iterator it = objectsToKill.begin(); it != objectsToKill.end(); ++it)
+	{
+		Object* obj = TheGameLogic->findObjectByID(*it);
+		if (obj != nullptr && !obj->isEffectivelyDead())
+		{
 			obj->kill();
 		}
 	}
