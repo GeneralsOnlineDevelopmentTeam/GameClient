@@ -2613,9 +2613,6 @@ MemoryPoolFactory::MemoryPoolFactory() :
 		m_physBytesSpecial[i] = 0;
 		m_physBytesSpecialPeak[i] = 0;
 	}
-	#ifdef USE_FILLER_VALUE
-	calcFillerValue(GameClientRandomValue(0, MAX_INIT_FILLER_COUNT-1));
-	#endif
 #endif
 }
 //-----------------------------------------------------------------------------
@@ -2624,7 +2621,11 @@ MemoryPoolFactory::MemoryPoolFactory() :
 */
 void MemoryPoolFactory::init()
 {
-	// my, that was easy
+#ifdef MEMORYPOOL_DEBUG
+	#ifdef USE_FILLER_VALUE
+	calcFillerValue(GameClientRandomValue(0, MAX_INIT_FILLER_COUNT-1));
+	#endif
+#endif
 }
 
 //-----------------------------------------------------------------------------
