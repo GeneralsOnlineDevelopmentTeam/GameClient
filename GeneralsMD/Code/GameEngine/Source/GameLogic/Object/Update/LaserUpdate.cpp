@@ -386,6 +386,11 @@ void LaserUpdate::initLaser( const Object *parent, const Object *target, const C
 		{
 			system->setPosition( &m_startPos );
 		}
+		else
+		{
+			// Particle system no longer exists; clear the stale ID to prevent future access violations.
+			m_particleSystemID = INVALID_PARTICLE_SYSTEM_ID;
+		}
 	}
 
 	//PLEASE NOTE You cannot check an ID for nullptr.  This should be a check against INVALID_PARTICLE_SYSTEM_ID.  Can't change it on the last day without a bug though.
@@ -395,6 +400,11 @@ void LaserUpdate::initLaser( const Object *parent, const Object *target, const C
 		if( system )
 		{
 			system->setPosition( &m_endPos );
+		}
+		else
+		{
+			// Particle system no longer exists; clear the stale ID to prevent future access violations.
+			m_targetParticleSystemID = INVALID_PARTICLE_SYSTEM_ID;
 		}
 	}
 
