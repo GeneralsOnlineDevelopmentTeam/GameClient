@@ -1492,7 +1492,11 @@ Relationship Team::getRelationship(const Team *that) const
 	}
 
 	// nope -- go with our Player's view on the matter.
-	return getControllingPlayer()->getRelationship(that);
+	// TheSuperHackers @bugfix Mauller 16/03/2026 Guard against null controlling player to prevent access violation
+	const Player* controllingPlayer = getControllingPlayer();
+	if (controllingPlayer == nullptr)
+		return NEUTRAL;
+	return controllingPlayer->getRelationship(that);
 }
 
 // ------------------------------------------------------------------------
