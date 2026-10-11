@@ -329,7 +329,13 @@ TurretAI::~TurretAI()
 	stopRotOrPitchSound();
 
 	if (m_turretStateMachine)
+	{
+		// TheSuperHackers @bugfix xezon 2025 Halt the state machine before deleting it to prevent
+		// StateMachine::~StateMachine() from calling onExit() on the current state, which may
+		// access the owning object's AI interface (already nulled in Object::~Object()) and crash.
+		m_turretStateMachine->halt();
 		deleteInstance(m_turretStateMachine);
+	}
 }
 
 // ------------------------------------------------------------------------------------------------
