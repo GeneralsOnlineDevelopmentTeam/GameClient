@@ -215,7 +215,7 @@ AudioEventRTS::AudioEventRTS( const AsciiString& eventName, const Coord3D *posit
 AudioEventRTS::AudioEventRTS( const AudioEventRTS& right )
 {
 	m_filenameToLoad			= right.m_filenameToLoad;
-	m_eventInfo						= right.m_eventInfo;
+	m_eventInfo						= NULL;  // Don't copy the cached event info pointer - it may become stale
 	m_playingHandle				= right.m_playingHandle;
 	m_killThisHandle			= right.m_killThisHandle;
 	m_eventName						= right.m_eventName;
@@ -256,7 +256,7 @@ AudioEventRTS::AudioEventRTS( const AudioEventRTS& right )
 AudioEventRTS& AudioEventRTS::operator=( const AudioEventRTS& right )
 {
 	m_filenameToLoad			= right.m_filenameToLoad;
-	m_eventInfo						= right.m_eventInfo;
+	m_eventInfo						= NULL;  // Don't copy the cached event info pointer - it may become stale
 	m_playingHandle				= right.m_playingHandle;
 	m_killThisHandle			= right.m_killThisHandle;
 	m_eventName						= right.m_eventName;
