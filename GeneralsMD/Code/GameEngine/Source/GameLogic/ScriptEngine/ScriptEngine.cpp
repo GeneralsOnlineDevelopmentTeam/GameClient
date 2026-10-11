@@ -6038,7 +6038,13 @@ Object* ScriptEngine::getUnitNamed(const AsciiString& unitName)
 
 	for (VecNamedRequestsIt it = m_namedObjects.begin(); it != m_namedObjects.end(); ++it) {
 		if (unitName == (it->first)) {
-			return it->second;
+			// Check if the object pointer is valid before returning it
+			// Objects can be deleted but remain in cache with NULL pointer
+			if (it->second != NULL) {
+				return it->second;
+			}
+			// Object was deleted, return NULL
+			return NULL;
 		}
 	}
 	return NULL;
