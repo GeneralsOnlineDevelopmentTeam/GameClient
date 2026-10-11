@@ -53,6 +53,7 @@
 #include "Common/AsciiString.h"
 #include "Common/FileSystem.h" // for typedefs, etc.
 #include "Common/STLTypedefs.h"
+#include "mutex.h"
 
 //----------------------------------------------------------------------------
 //           Forward References
@@ -166,6 +167,7 @@ protected:
 
 	ArchiveFileMap m_archiveFileMap;
 	ArchivedDirectoryInfo m_rootDirectory;
+	mutable FastCriticalSectionClass m_archiveDirectoryMutex; ///< Protects access to m_rootDirectory and all nested directory/file structures
 };
 
 
