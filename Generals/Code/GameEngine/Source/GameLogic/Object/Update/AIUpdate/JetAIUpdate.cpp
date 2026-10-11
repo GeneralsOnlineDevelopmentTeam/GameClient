@@ -685,10 +685,13 @@ public:
 				pp->transferRunwayReservationToNextInLineForTakeoff(jet->getID());
 
 			PhysicsBehavior* physics = jet->getPhysics();
-			Real ratio = physics->getVelocityMagnitude() / (m_maxSpeed * jetAI->friend_getTakeoffSpeedForMaxLift());
-			if (ratio < 0.0f) ratio = 0.0f;
-			if (ratio > 1.0f) ratio = 1.0f;
-			jetAI->getCurLocomotor()->setMaxLift(m_maxLift * ratio);
+			if (physics)
+			{
+				Real ratio = physics->getVelocityMagnitude() / (m_maxSpeed * jetAI->friend_getTakeoffSpeedForMaxLift());
+				if (ratio < 0.0f) ratio = 0.0f;
+				if (ratio > 1.0f) ratio = 1.0f;
+				jetAI->getCurLocomotor()->setMaxLift(m_maxLift * ratio);
+			}
 		}
 
 		StateReturnType ret = AIFollowPathState::update();
@@ -1881,7 +1884,7 @@ UpdateSleepTime JetAIUpdate::update()
 	}
 
 	PhysicsBehavior* physics = jet->getPhysics();
-	if (physics->getVelocityMagnitude() > 0 && getFlag(ALLOW_AIR_LOCO))
+	if (physics && physics->getVelocityMagnitude() > 0 && getFlag(ALLOW_AIR_LOCO))
 		jet->setModelConditionState(MODELCONDITION_JETEXHAUST);
 	else
 		jet->clearModelConditionState(MODELCONDITION_JETEXHAUST);

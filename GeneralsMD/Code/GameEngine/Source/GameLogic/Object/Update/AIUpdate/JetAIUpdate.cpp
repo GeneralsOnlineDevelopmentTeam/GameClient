@@ -2108,7 +2108,7 @@ UpdateSleepTime JetAIUpdate::update()
 	}
 
 	PhysicsBehavior* physics = jet->getPhysics();
-	if (physics->getVelocityMagnitude() > 0 && getFlag(ALLOW_AIR_LOCO))
+	if (physics && physics->getVelocityMagnitude() > 0 && getFlag(ALLOW_AIR_LOCO))
 		jet->setModelConditionState(MODELCONDITION_JETEXHAUST);
 	else
 		jet->clearModelConditionState(MODELCONDITION_JETEXHAUST);
