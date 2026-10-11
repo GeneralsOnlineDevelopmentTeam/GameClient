@@ -2002,6 +2002,9 @@ Bool PartitionData::collidesWith(const PartitionData *that, CollideLocAndNormal 
 	const Object *thisObj = this->getObject();
 	const Object *thatObj = that->getObject();
 
+	if( thisObj == nullptr || thatObj == nullptr )
+		return FALSE; // One or both objects have been destroyed/unregistered; avoid null dereference.
+
 	if( thisObj->isKindOf( KINDOF_NO_COLLIDE )  ||  thatObj->isKindOf( KINDOF_NO_COLLIDE ) )
 		return FALSE; // A collision extent of zero size is still a point and can collide, but we don't always want to.
 
