@@ -952,7 +952,16 @@ void TextureClass::Apply(unsigned int stage)
 	// Set texture itself
 	if (WW3D::Is_Texturing_Enabled())
 	{
-		DX8Wrapper::Set_DX8_Texture(stage, Peek_D3D_Base_Texture());
+		IDirect3DBaseTexture8* texture = Peek_D3D_Base_Texture();
+		// Guard against NULL texture pointer to prevent crashes in DirectX
+		if (texture)
+		{
+			DX8Wrapper::Set_DX8_Texture(stage, texture);
+		}
+		else
+		{
+			DX8Wrapper::Set_DX8_Texture(stage, NULL);
+		}
 	}
 	else
 	{
@@ -1248,7 +1257,16 @@ ZTextureClass::ZTextureClass
 */
 void ZTextureClass::Apply(unsigned int stage)
 {
-	DX8Wrapper::Set_DX8_Texture(stage, Peek_D3D_Base_Texture());
+	IDirect3DBaseTexture8* texture = Peek_D3D_Base_Texture();
+	// Guard against NULL texture pointer to prevent crashes in DirectX
+	if (texture)
+	{
+		DX8Wrapper::Set_DX8_Texture(stage, texture);
+	}
+	else
+	{
+		DX8Wrapper::Set_DX8_Texture(stage, NULL);
+	}
 }
 
 //**********************************************************************************************
