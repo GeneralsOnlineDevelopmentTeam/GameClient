@@ -832,6 +832,14 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 		return;
 	}
 
+	// TheSuperHackers @bugfix Prevent division by zero crash from 0-byte file transfers
+	Int len = msg->getFileLength();
+	if (len <= 0)
+	{
+		DEBUG_LOG(("File '%s' has invalid length %d, rejecting transfer.", realFileName.str(), len));
+		return;
+	}
+
 	if (TheFileSystem->doesFileExist(realFileName.str()))
 	{
 		DEBUG_LOG(("File exists already!"));
@@ -839,7 +847,6 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 	}
 
 	UnsignedByte *buf = msg->getFileData();
-	Int len = msg->getFileLength();
 
 	// uncompress Targas
 #ifdef COMPRESS_TARGAS
@@ -2574,6 +2581,18 @@ void ConnectionManager::sendFile(AsciiString path, UnsignedByte playerMask, Unsi
 		return;
 	}
 	NetCommandDataChunk rawDataChunk(buf, len);
+
+	// TheSuperHackers @bugfix Prevent division by zero crash when file becomes 0 bytes after initial check
+	if (len <= 0 || buf == NULL)
+	{
+		UnicodeString log;
+		log.format(L"File '%hs' has invalid size (%d bytes) after reading, not sending to %X", path.str(), len, playerMask);
+		DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("%ls", log.str()));
+		if (TheLAN)
+			TheLAN->OnChat(L"sendFile", 0, log, LANAPI::LANCHAT_SYSTEM);
+		delete[] buf;
+		return;
+	}
 
 	// compress Targas
 #ifdef COMPRESS_TARGAS
