@@ -514,7 +514,12 @@ void SpecialPowerModule::createViewObject( const Coord3D *location )
 	if( viewObjectTemplate == nullptr )
 		return;
 
-	Object *viewObject = TheThingFactory->newObject( viewObjectTemplate, getObject()->getControllingPlayer()->getDefaultTeam() );
+	// Get the team to use for the view object - use controlling player's default team if available,
+	// otherwise fall back to the object's team
+	Player *controllingPlayer = getObject()->getControllingPlayer();
+	Team *team = controllingPlayer ? controllingPlayer->getDefaultTeam() : getObject()->getTeam();
+
+	Object *viewObject = TheThingFactory->newObject( viewObjectTemplate, team );
 
 	if( viewObject == nullptr )
 		return;
@@ -542,9 +547,14 @@ void SpecialPowerModule::markSpecialPowerTriggered( const Coord3D *location )
 //-------------------------------------------------------------------------------------------------
 void SpecialPowerModule::aboutToDoSpecialPower( const Coord3D *location )
 {
+	// Check if controlling player is null - if so, we can't proceed with some operations
+	Player *controllingPlayer = getObject()->getControllingPlayer();
+	if (!controllingPlayer)
+		return;
+
 	// Tell the scripting engine!
 	TheScriptEngine->notifyOfTriggeredSpecialPower(
-		getObject()->getControllingPlayer()->getPlayerIndex(),
+		controllingPlayer->getPlayerIndex(),
 		getSpecialPowerModuleData()->m_specialPowerTemplate->getName(),
 		getObject()->getID());
 
@@ -562,7 +572,7 @@ void SpecialPowerModule::aboutToDoSpecialPower( const Coord3D *location )
   {
 		if( type == SPECIAL_PARTICLE_UPLINK_CANNON || type == SUPW_SPECIAL_PARTICLE_UPLINK_CANNON || type == LAZR_SPECIAL_PARTICLE_UPLINK_CANNON )
     {
-      if ( localPlayer == getObject()->getControllingPlayer() )
+      if ( localPlayer == controllingPlayer )
       {
         TheEva->setShouldPlay(EVA_SuperweaponLaunched_Own_ParticleCannon);
       }
@@ -578,7 +588,7 @@ void SpecialPowerModule::aboutToDoSpecialPower( const Coord3D *location )
     }
     else if( type == SPECIAL_NEUTRON_MISSILE || type == NUKE_SPECIAL_NEUTRON_MISSILE || type == SUPW_SPECIAL_NEUTRON_MISSILE )
     {
-      if ( localPlayer == getObject()->getControllingPlayer() )
+      if ( localPlayer == controllingPlayer )
       {
         TheEva->setShouldPlay(EVA_SuperweaponLaunched_Own_Nuke);
       }
@@ -594,7 +604,7 @@ void SpecialPowerModule::aboutToDoSpecialPower( const Coord3D *location )
     }
 		else if (type == SPECIAL_SCUD_STORM)
     {
-      if ( localPlayer == getObject()->getControllingPlayer() )
+      if ( localPlayer == controllingPlayer )
       {
         TheEva->setShouldPlay(EVA_SuperweaponLaunched_Own_ScudStorm);
       }
@@ -612,7 +622,7 @@ void SpecialPowerModule::aboutToDoSpecialPower( const Coord3D *location )
     {
 			// This is Ghetto.  Voices should be ini lines in the special power entry.  You shouldn't have to
 			// add to an enum to get a new voice
-      if ( localPlayer == getObject()->getControllingPlayer() )
+      if ( localPlayer == controllingPlayer )
       {
         TheEva->setShouldPlay(EVA_SuperweaponLaunched_Own_GPS_Scrambler);
       }
@@ -628,7 +638,7 @@ void SpecialPowerModule::aboutToDoSpecialPower( const Coord3D *location )
     }
 		else if (type == SPECIAL_SNEAK_ATTACK)
     {
-      if ( localPlayer == getObject()->getControllingPlayer() )
+      if ( localPlayer == controllingPlayer )
       {
         TheEva->setShouldPlay(EVA_SuperweaponLaunched_Own_Sneak_Attack);
       }
@@ -667,7 +677,7 @@ void SpecialPowerModule::aboutToDoSpecialPower( const Coord3D *location )
 
 		AudioEventRTS soundAtLocation = *modData->m_specialPowerTemplate->getInitiateAtTargetSound();
 		soundAtLocation.setPosition( location );
-		soundAtLocation.setPlayerIndex(getObject()->getControllingPlayer()->getPlayerIndex());
+		soundAtLocation.setPlayerIndex(controllingPlayer->getPlayerIndex());
 		TheAudio->addAudioEvent( &soundAtLocation );
 
 	}
