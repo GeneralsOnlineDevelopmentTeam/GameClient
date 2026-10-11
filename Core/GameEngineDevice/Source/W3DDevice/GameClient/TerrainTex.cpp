@@ -135,9 +135,11 @@ int TerrainTextureClass::update(WorldHeightMap *htMap)
 			ICoord2D position = pTile->m_tileLocationInTexture;
 			if (position.x<=0) continue; // all real tile offsets start at 2.  jba.
 
+			UnsignedByte *pTileRGB = pTile->getRGBDataForWidth(tilePixelExtent);
+			if (!pTileRGB) continue;
 			Int i,j;
 			for (j=0; j<tilePixelExtent; j++) {
-				UnsignedByte *pBGR = pTile->getRGBDataForWidth(tilePixelExtent);
+				UnsignedByte *pBGR = pTileRGB;
 				pBGR += (tilePixelExtent-1-j)*TILE_BYTES_PER_PIXEL*tilePixelExtent; // invert to match.
 				Int row = position.y+j;
 				UnsignedByte *pBGRX = ((UnsignedByte*)locked_rect.pBits) +
@@ -805,11 +807,13 @@ int AlphaEdgeTextureClass::update(WorldHeightMap *htMap)
 			if (!pTile) continue;
 			ICoord2D position = pTile->m_tileLocationInTexture;
 			if (position.x<=0) continue; // all real edge offsets start at 4.  jba.
+			UnsignedByte *pEdgeRGB = pTile->getRGBDataForWidth(tilePixelExtent);
+			if (!pEdgeRGB) continue;
 			Int i,j;
 			Int column = position.x;
 			for (j=0; j<tilePixelExtent; j++) {
 				Int row = position.y+j;
-				UnsignedByte *pBGR = htMap->getEdgeTile(tileNdx)->getRGBDataForWidth(tilePixelExtent);
+				UnsignedByte *pBGR = pEdgeRGB;
 				pBGR += (tilePixelExtent-1-j)*TILE_BYTES_PER_PIXEL*tilePixelExtent; // invert to match.
 				UnsignedByte *pBGRX = ((UnsignedByte*)locked_rect.pBits) +
 							(row)*surface_desc.Width*pixelBytes;
