@@ -1669,7 +1669,7 @@ static Bool wolArmedResumeStillMatches(NGMPGame *game)
 			{
 				UnicodeString name(from_utf8(member.display_name).c_str());
 				wolLobbySystemChat(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeWaitingForDownload",
-					L"Resume: waiting for %ls to download the replay", name.str()));
+					L"Resume: waiting for %ls to download the replay. If it never arrives, they should leave and rejoin, then the host presses Resume again", name.str()));
 				return FALSE;
 			}
 		}
@@ -1706,8 +1706,14 @@ static WolResumeArmJob s_wolResumeJob;
 static void wolResumeArmFailed(const UnicodeString &what, const UnicodeString &fix)
 {
 	s_wolResumeArmInProgress = FALSE;
+	// Some reasons already end in a period; do not double it.
+	UnicodeString reason = what;
+	if (!reason.isEmpty() && reason.getCharAt(reason.getLength() - 1) == L'.')
+	{
+		reason.removeLastChar();
+	}
 	UnicodeString msg;
-	msg.format(L"Resume: %ls. %ls", what.str(), fix.str());
+	msg.format(L"Resume: %ls. %ls", reason.str(), fix.str());
 	wolLobbySystemChat(msg);
 }
 
@@ -1884,8 +1890,13 @@ static void wolTryArmResumeFromReplay(Bool disarm)
 	if (!ResumeFromReplay::prepareHostSource(replay, handoff, why))
 	{
 		// The recording itself is unusable (or there is none): nothing in the lobby can fix that.
+		UnicodeString reason = why;
+		if (!reason.isEmpty() && reason.getCharAt(reason.getLength() - 1) == L'.')
+		{
+			reason.removeLastChar(); // the sentence continues
+		}
 		UnicodeString msg;
-		msg.format(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeSourceRefused", L"Resume: %ls. The host's last recording is what gets resumed, and it must come from this build."), why.str());
+		msg.format(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeSourceRefused", L"Resume: %ls. The host's last recording is what gets resumed, and it must come from this build."), reason.str());
 		wolLobbySystemChat(msg);
 		return;
 	}
