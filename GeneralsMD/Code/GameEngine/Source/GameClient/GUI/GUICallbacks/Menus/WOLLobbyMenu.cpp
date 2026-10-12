@@ -176,6 +176,191 @@ int getQR2HostingStatus();
 }
 extern int isThreadHosting;
 
+// /net: the relay and connection engine settings for the next lobby mesh, and the route to each player of the current one
+static const wchar_t* netRelaySetting()
+{
+	extern int g_relayOverride;
+	if (g_relayOverride == 1)
+	{
+		return L"force (relay only)";
+	}
+	NGMP_OnlineServicesManager* manager = NGMP_OnlineServicesManager::GetInstance();
+	if (manager == nullptr)
+	{
+		return L"auto (service setting unavailable)";
+	}
+	return manager->GetServiceConfig().connection.relay_only
+		? L"auto (service requires relay)" : L"auto (service allows direct connections)";
+}
+
+static const wchar_t* netEngineSetting()
+{
+	extern int g_iceImplementationOverride;
+	if (g_iceImplementationOverride == 1)
+	{
+		return L"native";
+	}
+	if (g_iceImplementationOverride == 2)
+	{
+		return L"webrtc";
+	}
+	NGMP_OnlineServicesManager* manager = NGMP_OnlineServicesManager::GetInstance();
+	if (manager == nullptr)
+	{
+		return L"auto (service setting unavailable)";
+	}
+	switch (manager->GetServiceConfig().connection.ice_engine)
+	{
+	case 0: return L"auto (service selects the library default)";
+	case 1: return L"auto (service selects native)";
+	default: return L"auto (service selects webrtc)";
+	}
+}
+
+static void setNetRelayOverride(int wanted)
+{
+	extern int g_relayOverride;
+	extern UnsignedInt m_exeCRCOriginal;
+	// Keep relay-only lobbies separate without losing the real build CRC.
+	if (wanted == 1 && g_relayOverride != 1)
+	{
+		m_exeCRCOriginal = TheWritableGlobalData->m_exeCRC;
+		TheWritableGlobalData->m_exeCRC = m_exeCRCOriginal ^ 0x52454C59;
+	}
+	else if (wanted != 1 && g_relayOverride == 1)
+	{
+		TheWritableGlobalData->m_exeCRC = m_exeCRCOriginal;
+		m_exeCRCOriginal = 0;
+	}
+	g_relayOverride = wanted;
+}
+
+void handleNetSlashCommand(AsciiString subcommand, AsciiString value, GameWindow* listbox)
+{
+	extern int g_iceImplementationOverride;
+
+	const Color netColor = GameMakeColor(255, 255, 0, 255);
+	UnicodeString line;
+
+	if (subcommand == "reset" && value.isEmpty())
+	{
+		setNetRelayOverride(-1);
+		g_iceImplementationOverride = -1;
+		line.format(L"Next lobby: relay %ls; engine %ls. Existing connections are unchanged.", netRelaySetting(), netEngineSetting());
+		GadgetListBoxAddEntryText(listbox, line, netColor, -1, -1);
+		return;
+	}
+
+	if (subcommand == "relay")
+	{
+		int wanted = -2;
+		if (value == "force")
+		{
+			wanted = 1;
+		}
+		else if (value == "auto")
+		{
+			wanted = -1;
+		}
+
+		if (wanted == -2)
+		{
+			line.format(L"Next lobby relay: %ls. Usage: /net relay force | auto", netRelaySetting());
+			GadgetListBoxAddEntryText(listbox, line, netColor, -1, -1);
+			return;
+		}
+
+		setNetRelayOverride(wanted);
+		line.format(L"Next lobby: relay %ls. Existing connections are unchanged.%ls", netRelaySetting(),
+			(wanted == 1) ? L" You can only join lobbies of players who also force relay. Use /net relay auto to undo this." : L"");
+		GadgetListBoxAddEntryText(listbox, line, netColor, -1, -1);
+		return;
+	}
+
+	if (subcommand == "engine")
+	{
+		int wanted = -2;
+		if (value == "native")
+		{
+			wanted = 1;
+		}
+		else if (value == "webrtc")
+		{
+			wanted = 2;
+		}
+		else if (value == "auto")
+		{
+			wanted = -1;
+		}
+
+		if (wanted == -2)
+		{
+			line.format(L"Next lobby engine: %ls. Usage: /net engine native | webrtc | auto", netEngineSetting());
+			GadgetListBoxAddEntryText(listbox, line, netColor, -1, -1);
+			return;
+		}
+
+		g_iceImplementationOverride = wanted;
+
+		line.format(L"Next lobby engine: %ls. Existing connections are unchanged.%ls", netEngineSetting(),
+			(wanted == -1) ? L"" : L" Use /net engine auto to undo this.");
+		GadgetListBoxAddEntryText(listbox, line, netColor, -1, -1);
+		return;
+	}
+
+	if (subcommand.isNotEmpty())
+	{
+		GadgetListBoxAddEntryText(listbox, UnicodeString(L"Usage: /net, /net relay force | auto, /net engine native | webrtc | auto, /net reset"), netColor, -1, -1);
+		return;
+	}
+
+	line.format(L"Next lobby: relay %ls; engine %ls. Existing connections are unchanged.", netRelaySetting(), netEngineSetting());
+	GadgetListBoxAddEntryText(listbox, line, netColor, -1, -1);
+
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pMesh == nullptr || pMesh->GetAllConnections().empty())
+	{
+		GadgetListBoxAddEntryText(listbox, UnicodeString(L"You are not connected to any players. Join or host a lobby to see how you reach each player."), netColor, -1, -1);
+	}
+	else
+	{
+		for (auto& kvPair : pMesh->GetAllConnections())
+		{
+			PlayerConnection& conn = kvPair.second;
+
+			std::wstring strName = L"Unknown player";
+			if (pLobbyInterface != nullptr)
+			{
+				for (const LobbyMemberEntry& member : pLobbyInterface->GetCurrentLobby().members)
+				{
+					if (member.user_id == kvPair.first)
+					{
+						strName = from_utf8(member.display_name);
+						break;
+					}
+				}
+			}
+
+			if (conn.GetState() == EConnectionState::CONNECTED_DIRECT)
+			{
+				line.format(L"%ls: %ls, ping %d ms", strName.c_str(), conn.IsDirect() ? L"direct" : L"via relay", conn.GetLatency());
+			}
+			else if (conn.GetState() == EConnectionState::CONNECTING_DIRECT || conn.GetState() == EConnectionState::FINDING_ROUTE)
+			{
+				line.format(L"%ls: connecting", strName.c_str());
+			}
+			else
+			{
+				line.format(L"%ls: not connected", strName.c_str());
+			}
+			GadgetListBoxAddEntryText(listbox, line, netColor, -1, -1);
+		}
+	}
+
+	GadgetListBoxAddEntryText(listbox, UnicodeString(L"Change with /net relay force | auto and /net engine native | webrtc | auto. /net reset clears both overrides."), netColor, -1, -1);
+}
+
 Bool handleLobbySlashCommands(UnicodeString uText, Bool *wasRateLimited)
 {
 	if (wasRateLimited != nullptr)
@@ -228,8 +413,7 @@ Bool handleLobbySlashCommands(UnicodeString uText, Bool *wasRateLimited)
 		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"/me <message> - Send an emote."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"/name <value> - Changes your display name - Example: /name General Granger. You can also use /nick."), helpColor, -1, -1);
 		// GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"/refresh - Refresh the game and player lists."), helpColor, -1, -1);
-		// GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"/forcerelay - Use relay connections only."), helpColor, -1, -1);
-		// GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"/allowrelay - Allow direct connections again."), helpColor, -1, -1);
+		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"/net - Show your connection settings. /net relay and /net engine change them."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"/support - Open the GeneralsOnline Discord."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"/help - Show these commands. You can also use /commands."), helpColor, -1, -1);
 		return TRUE; // was a slash command
@@ -259,24 +443,21 @@ Bool handleLobbySlashCommands(UnicodeString uText, Bool *wasRateLimited)
 		
 		return TRUE; // was a slash command
 	}
-	else if (token == "forcerelay")
+	else if (token == "net")
 	{
-		extern bool g_bForceRelay;
-		extern UnsignedInt m_exeCRCOriginal;
-		g_bForceRelay = true;
-		m_exeCRCOriginal = TheWritableGlobalData->m_exeCRC;
-		TheWritableGlobalData->m_exeCRC = 123456;
-		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Relays are now forced on. You will only be able to join lobbies where the same option has been set. Use /allowrelay to reset this"), GameMakeColor(255, 0, 0, 255), -1, -1);
+		AsciiString subcommand;
+		AsciiString value;
+		remainder.nextToken(&subcommand);
+		remainder.nextToken(&value);
+		subcommand.toLower();
+		value.toLower();
+		handleNetSlashCommand(subcommand, value, listboxLobbyChat);
 		return TRUE; // was a slash command
 	}
-	else if (token == "allowrelay")
+	else if (token == "forcerelay" || token == "allowrelay")
 	{
-		extern bool g_bForceRelay;
-		extern UnsignedInt m_exeCRCOriginal;
-		g_bForceRelay = false;
-		TheWritableGlobalData->m_exeCRC = m_exeCRCOriginal;
-		m_exeCRCOriginal = 0;
-		GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Relays are now optional again. You will only be able to join lobbies where the same option has been set. Use /forcerelay to reset this"), GameMakeColor(255, 0, 0, 255), -1, -1);
+		// the old names of /net relay force and /net relay auto
+		handleNetSlashCommand("relay", (token == "forcerelay") ? "force" : "auto", listboxLobbyChat);
 		return TRUE; // was a slash command
 	}
 	else if (token == "refresh")

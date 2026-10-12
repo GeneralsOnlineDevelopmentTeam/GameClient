@@ -3642,6 +3642,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/maxcameraheight <value> - Set the camera height limit (host only)."), helpColor, -1, -1);
 		// GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/leave - Return to the main lobby."), helpColor, -1, -1);
 		// GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/quit - Exit the game."), helpColor, -1, -1);
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/net - Show how you reach each player. /net relay and /net engine change your settings."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/support - Open the GeneralsOnline Discord."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/help - Show these commands. You can also use /commands."), helpColor, -1, -1);
 		return TRUE; // was a slash command
@@ -3650,6 +3651,18 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	{
 		ShellExecuteA(NULL, "open", "https://discord.playgenerals.online", NULL, NULL, SW_SHOWNORMAL);
 		return TRUE;
+	}
+	else if (token == "net")
+	{
+		void handleNetSlashCommand(AsciiString subcommand, AsciiString value, GameWindow* listbox);
+		AsciiString subcommand;
+		AsciiString value;
+		remainder.nextToken(&subcommand);
+		remainder.nextToken(&value);
+		subcommand.toLower();
+		value.toLower();
+		handleNetSlashCommand(subcommand, value, listboxGameSetupChat);
+		return TRUE; // was a slash command
 	}
 	else if (token == "friendsonly")
     {

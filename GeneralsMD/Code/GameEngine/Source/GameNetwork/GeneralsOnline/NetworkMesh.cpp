@@ -21,8 +21,11 @@
 #include <steam/isteamnetworkingsockets.h>
 #include <steam/steamnetworkingsockets.h>
 
-bool g_bForceRelay = false;
 UnsignedInt m_exeCRCOriginal = 0;
+
+// set by the /net relay and /net engine chat commands, -1 follows the service config
+int g_relayOverride = -1;             // 1 = relay only, -1 = service policy
+int g_iceImplementationOverride = -1; // 1 = native, 2 = WebRTC
 
 static int64_t NowSteadyMs()
 {
@@ -796,12 +799,14 @@ NetworkMesh::NetworkMesh()
 	m_strTurnTokenString = std::format("{},{}", m_strTurnToken.c_str(), m_strTurnToken.c_str());
 
 	ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
-	m_iceEnable = (g_bForceRelay || serviceConf.connection.relay_only)
+	const bool relayOnly = (g_relayOverride == 1) || serviceConf.connection.relay_only;
+	m_iceEnable = relayOnly
 		? k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Relay
 		: k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All;
 
 	// 0 = library default, 1 = native, 2 = WebRTC
-	m_iceImplementation = (serviceConf.connection.ice_engine >= 0 && serviceConf.connection.ice_engine <= 2) ? serviceConf.connection.ice_engine : 2;
+	const int iceImplementation = (g_iceImplementationOverride >= 0) ? g_iceImplementationOverride : serviceConf.connection.ice_engine;
+	m_iceImplementation = (iceImplementation >= 0 && iceImplementation <= 2) ? iceImplementation : 2;
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh: using ICE implementation %d (0=default, 1=native, 2=WebRTC)", m_iceImplementation);
 
 	m_pSignaling = new CSignalingClient(SteamNetworkingSockets());
