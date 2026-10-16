@@ -334,6 +334,7 @@ struct ServiceConfig
 		bool anticheat_transport = false; // game traffic through the anticheat plugin's transport
 		int probe_lobby_interval_ms = 250; // time between latency probes sent to each peer while not in a match
 		int probe_match_interval_ms = 1000; // the same in a match, the command acks already measure the round trip
+		bool wifi_low_latency = true;   // Wi-Fi media streaming mode while a match runs, stops background scans from stalling the game
 	} connection;
 
 	using Send = NetworkSettings::Send;
@@ -419,6 +420,7 @@ inline void ReadServiceConfig(const nlohmann::json& j, ServiceConfig& c)
 		ReadServiceConfigValue(s, "anticheat_transport", c.connection.anticheat_transport);
 		ReadServiceConfigValue(s, "probe_lobby_interval_ms", c.connection.probe_lobby_interval_ms);
 		ReadServiceConfigValue(s, "probe_match_interval_ms", c.connection.probe_match_interval_ms);
+		ReadServiceConfigValue(s, "wifi_low_latency", c.connection.wifi_low_latency);
 	}
 	if (j.contains("send"))
 	{

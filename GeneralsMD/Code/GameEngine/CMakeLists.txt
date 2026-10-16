@@ -1164,6 +1164,7 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h
     Include/GameNetwork/GeneralsOnline/NextGenTransport.h
     Include/GameNetwork/GeneralsOnline/PluginInterfaces.h
+    Include/GameNetwork/GeneralsOnline/WifiLowLatency.h
     Source/GameNetwork/GeneralsOnline/DiscordRichPresence.cpp
     Source/GameNetwork/GeneralsOnline/NGMP_Helpers.cpp
     Source/GameNetwork/GeneralsOnline/NGMPGame.cpp
@@ -1185,6 +1186,7 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/GeneralsOnline/NextGenTransport.cpp
     Source/GameNetwork/GeneralsOnline/NetworkBitstream.cpp
     Source/GameNetwork/GeneralsOnline/PluginInterfaces.cpp
+    Source/GameNetwork/GeneralsOnline/WifiLowLatency.cpp
 )
 
 if(RTS_GAMEMEMORY_ENABLE)

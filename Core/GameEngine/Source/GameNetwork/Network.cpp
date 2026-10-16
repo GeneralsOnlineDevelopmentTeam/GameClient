@@ -53,6 +53,9 @@
 #include "GameClient/MessageBox.h"
 #include "../NGMP_include.h"
 #include "../ngmp_interfaces.h"
+#if defined(GENERALS_ONLINE)
+#include "GameNetwork/GeneralsOnline/WifiLowLatency.h"
+#endif
 
 
 #if defined(DEBUG_CRC) && !RETAIL_COMPATIBLE_NETWORKING
@@ -336,6 +339,10 @@ Network::Network()
 Network::~Network()
 {
 	deinit();
+#if defined(GENERALS_ONLINE)
+	// the match is over, release the Wi-Fi tuning
+	WifiLowLatency::End();
+#endif
 }
 
 /**
