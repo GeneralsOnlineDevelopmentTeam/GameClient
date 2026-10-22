@@ -405,6 +405,16 @@ Bool NextGenTransport::doRecv(void)
                         msg->Release();
                         continue;
                     }
+                    else if (netChannel == ENetworkChannel::NETWORK_CHANNEL_START)
+                    {
+                        NetworkMesh* pStartMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+                        if (pStartMesh != nullptr)
+                        {
+                            pStartMesh->OnStartRunAheadMessage(kvPair.second.m_userID, reinterpret_cast<const uint8_t*>(vecPacketDataWithoutHeader.data()), vecPacketDataWithoutHeader.size());
+                        }
+                        msg->Release();
+                        continue;
+                    }
                     else if (netChannel == ENetworkChannel::NETWORK_CHANNEL_PING)
                     {
                         kvPair.second.HandleProbe(reinterpret_cast<const uint8_t*>(vecPacketDataWithoutHeader.data()), vecPacketDataWithoutHeader.size(), PlayerConnection::GetArrivalMs(msg));

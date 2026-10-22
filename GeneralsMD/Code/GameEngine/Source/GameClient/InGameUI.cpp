@@ -7181,9 +7181,10 @@ namespace
 
 	const Int k_playerViewTop = 500;
 	const Real k_devViewTopFraction = 0.10f;	// the dev table sits higher to clear the control bar
+	const Int k_changeShownMs = 10000;
 	const Int k_nameMaxChars = 14;
 	const Int k_devViewHeaderLines = 2;
-	const Int k_devViewFooterLines = 1;
+	const Int k_devViewFooterLines = 3;
 
 	const wchar_t *const s_overlayHeaders[COL_COUNT] =
 	{
@@ -7191,6 +7192,8 @@ namespace
 		L"Cush5/50", L"n", L"Stalls", L"Depth", L"OutL%", L"InL%"
 	};
 
+	const wchar_t *const s_overlayChangeNames[] = { L"", L"start", L"lag spike", L"stall", L"clean" };
+	const wchar_t *const s_overlayControllerNames[] = { L"n/a", L"seed", L"hold", L"baseline", L"cover", L"uncover", L"congestion", L"outage", L"formula" };
 
 	struct OverlayRow
 	{
@@ -7505,7 +7508,7 @@ void InGameUI::drawNetworkOverlay(Int mode)
 			if (row.info.cushionSamples > 0)
 			{
 				cell[COL_CUSHION].format(L"%d/%d", row.info.cushionP5, row.info.cushionP50);
-				sev[COL_CUSHION] = (row.info.cushionP5 <= 0) ? ConnectionRating::SEVERITY_BAD : ConnectionRating::SEVERITY_OK;
+				sev[COL_CUSHION] = (row.info.cushionP5 <= 0) ? ConnectionRating::SEVERITY_BAD : ((row.info.cushionP5 <= row.info.marginFrames) ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK);
 			}
 			else
 			{
@@ -7562,6 +7565,28 @@ void InGameUI::drawNetworkOverlay(Int mode)
 		UnicodeString text;
 		text.format(L"Input delay %d ms, logic rate %u Hz", delayMs, cache.logicRate);
 		x += overlayDrawText(k_strHeaderBase + 0, x, y, text, header.stalledNow ? overlayColor(ConnectionRating::SEVERITY_BAD) : neutral, dropColor) + segmentGap;
+
+		const Bool moving = (header.changeAgoMs >= 0 && header.changeAgoMs < k_changeShownMs);
+		if (moving && header.changeDir > 0)
+		{
+			text = L"rising";
+			x += overlayDrawText(k_strHeaderBase + 1, x, y, text, overlayColor(ConnectionRating::SEVERITY_WARN), dropColor) + segmentGap / 2;
+		}
+		else if (moving && header.changeDir < 0)
+		{
+			text = L"lowering";
+			x += overlayDrawText(k_strHeaderBase + 1, x, y, text, GameMakeColor(120, 220, 120, 255), dropColor) + segmentGap / 2;
+		}
+		else
+		{
+			text = L"steady";
+			x += overlayDrawText(k_strHeaderBase + 1, x, y, text, dim, dropColor) + segmentGap / 2;
+		}
+		if (header.changeReason > NetworkOverlayInfo::CHANGE_NONE)
+		{
+			text.format(L"(%ls)", s_overlayChangeNames[header.changeReason]);
+			x += overlayDrawText(k_strHeaderBase + 2, x, y, text, dim, dropColor) + segmentGap;
+		}
 
 		if (header.stalledNow && !waitingOn.isEmpty())
 		{
@@ -7709,9 +7734,54 @@ void InGameUI::drawNetworkOverlay(Int mode)
 	y += lineH / 2;
 
 	{
+		Int x = left;
 		UnicodeString text;
 		text.format(L"R %d frames (%d ms)  send interval %d ms", header.runAhead, delayMs, header.frameGroupingMs);
-		overlayDrawText(k_strFooterBase + 0, left, y, text, neutral, dropColor);
+		x += overlayDrawText(k_strFooterBase + 0, x, y, text, neutral, dropColor) + segmentGap;
+
+		if (header.isRouter && header.controllerOn)
+		{
+			const Int reasonSeverity = (header.ctlReason == NetworkOverlayInfo::CTL_CONGESTION || header.ctlReason == NetworkOverlayInfo::CTL_OUTAGE) ? ConnectionRating::SEVERITY_BAD : ((header.ctlReason == NetworkOverlayInfo::CTL_COVER || header.ctlInSpike) ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK);
+			text.format(L"reason %ls", s_overlayControllerNames[header.ctlReason]);
+			x += overlayDrawText(k_strFooterBase + 1, x, y, text, overlayColor(reasonSeverity), dropColor) + segmentGap;
+
+			const Int minSumNeeded = 2 * header.marginFrames;
+			if (header.ctlMinSum < NetworkOverlayInfo::NO_PAIR_SUM)
+			{
+				text.format(L"minS %d of %d (pair %d-%d)", header.ctlMinSum, minSumNeeded, header.ctlPairA, header.ctlPairB);
+				x += overlayDrawText(k_strFooterBase + 2, x, y, text, overlayColor(header.ctlMinSum <= 0 ? ConnectionRating::SEVERITY_BAD : (header.ctlMinSum < minSumNeeded ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK)), dropColor) + segmentGap;
+			}
+			else
+			{
+				text = L"minS - (no pair)";
+				x += overlayDrawText(k_strFooterBase + 2, x, y, text, dim, dropColor) + segmentGap;
+			}
+			if (header.ctlReason == NetworkOverlayInfo::CTL_NONE)
+			{
+				text = L"base n/a  cover n/a";
+			}
+			else
+			{
+				text.format(L"base %d  cover %d%ls", header.ctlBase, header.ctlCover, header.ctlInSpike ? L"  in spike" : L"");
+			}
+			overlayDrawText(k_strFooterBase + 3, x, y, text, neutral, dropColor);
+			y += lineH;
+
+			text.format(L"spikes %d.%d/min  size %d ms  since_change %d ms", header.ctlSpikesPerMin10 / 10, header.ctlSpikesPerMin10 % 10, header.ctlSpikeSizeMs, header.ctlSinceChangeMs);
+			overlayDrawText(k_strFooterBase + 4, left, y, text, neutral, dropColor);
+			y += lineH;
+		}
+		else
+		{
+			if (header.changeReason > NetworkOverlayInfo::CHANGE_NONE)
+			{
+				text.format(L"last change %ls %d s ago", s_overlayChangeNames[header.changeReason], header.changeAgoMs / 1000);
+				x += overlayDrawText(k_strFooterBase + 5, x, y, text, neutral, dropColor) + segmentGap;
+			}
+			text = header.isRouter ? L"controller off" : L"host decides";
+			overlayDrawText(k_strFooterBase + 6, x, y, text, dim, dropColor);
+			y += lineH;
+		}
 	}
 #endif
 }

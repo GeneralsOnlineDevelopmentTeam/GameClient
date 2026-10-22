@@ -436,7 +436,11 @@ inline void ReadServiceConfig(const nlohmann::json& j, ServiceConfig& c)
 	if (j.contains("input_delay"))
 	{
 		const nlohmann::json& s = j["input_delay"];
+		ReadServiceConfigValue(s, "controller", c.input_delay.controller);
+		ReadServiceConfigValue(s, "margin_frames", c.input_delay.margin_frames);
 		ReadServiceConfigValue(s, "min_frames", c.input_delay.min_frames);
+		ReadServiceConfigValue(s, "max_frames", c.input_delay.max_frames);
+		ReadServiceConfigValue(s, "fast_recovery", c.input_delay.fast_recovery);
 		ReadServiceConfigValue(s, "decision_interval_ms", c.input_delay.decision_interval_ms);
 		ReadServiceConfigValue(s, "fps_history_samples", c.input_delay.fps_history_samples);
 		ReadServiceConfigValue(s, "catch_up_frames", c.input_delay.catch_up_frames);
@@ -483,6 +487,7 @@ inline void ClampServiceConfig(ServiceConfig& c)
 	c.input_delay.formula.decrease_after_decisions = std::clamp(c.input_delay.formula.decrease_after_decisions, 0, 20);
 	c.input_delay.catch_up_frames = std::clamp(c.input_delay.catch_up_frames, 1, 4);
 	c.input_delay.min_frames = std::clamp(c.input_delay.min_frames, 0, 30); // the start run ahead is at least 30, a higher floor would make configs disagree
+	c.input_delay.max_frames = std::clamp(c.input_delay.max_frames, (std::max)(30, c.input_delay.min_frames), 128);
 	c.input_delay.slack_percent = std::clamp(c.input_delay.slack_percent, 0, 200);
 	c.input_delay.decision_interval_ms = std::clamp(c.input_delay.decision_interval_ms, 100, 60000);
 	c.input_delay.fps_history_samples = std::clamp(c.input_delay.fps_history_samples, 1, 128);
@@ -491,6 +496,7 @@ inline void ClampServiceConfig(ServiceConfig& c)
 		c.input_delay.formula.latency_window_ms = std::clamp(c.input_delay.formula.latency_window_ms, 30 * 1000 / GENERALS_ONLINE_HIGH_FPS_LIMIT + 1, 60000);
 	}
 	c.send.frames_per_packet = std::clamp(c.send.frames_per_packet, 1, 16);
+	c.input_delay.margin_frames = std::clamp(c.input_delay.margin_frames, 0, 10);
 
 	c.disconnect.freeze_before_screen_ms = std::clamp(c.disconnect.freeze_before_screen_ms, 1000, 30000);
 	c.disconnect.remove_after_ms = std::clamp(c.disconnect.remove_after_ms, 10000, 180000);

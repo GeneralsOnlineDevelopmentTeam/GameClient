@@ -84,6 +84,9 @@ struct ConnectionMessage
 #pragma pack(pop)
 
 static const int CmdMsgLen = 6; //< Minimum size of a command packet (Int + Unsigned Short)
+#if defined(GENERALS_ONLINE)
+static const time_t START_RUNAHEAD_TIMEOUT_MS = 15000;	//< A router that stays connected has this long after the load to send the start run ahead.
+#endif
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////
 
@@ -117,6 +120,8 @@ public:
 	virtual void SeedLatencyData(int latency);
 	virtual void requireMatchKeys() override { m_matchKeysRequired = TRUE; }
 	virtual Bool matchKeysRequired() const override { return m_matchKeysRequired; }
+	virtual void setStartRunAheadRequired(Bool required) override { m_startRunAheadRequired = required; }
+	virtual void applyStartRunAhead(Int runAhead, Int maxRttMs, Int pairs) override;
 #endif
 
 	void setLocalAddress(UnsignedInt ip, UnsignedInt port);
@@ -256,7 +261,15 @@ protected:
 	Bool m_matchKeysRequired;
 	Bool m_matchStartFailed;
 	Bool startPrerequisitesReady() const;
-	void failMatchStart();		///< Leaves rather than starting without authentication.
+	Bool m_startRunAheadRequired;	///< The router sends the start run ahead, the load is not complete until it arrived.
+	Bool m_startRunAheadApplied;
+	Bool m_loggedRejectedRunAhead;	///< A run ahead outside the floor and cap was ignored and logged.
+	Bool m_loadCompletePending;	///< The load finished before all start prerequisites arrived.
+	time_t m_loadCompletePendingSince;
+	void failMatchStart();		///< Leaves rather than starting without authentication or the router decision.
+
+	void updatePace();				///< Sets the speed of the next frame from how far ahead the remote commands are.
+	Real m_paceSpeed;				///< Share of the full frame rate the next frame runs at, 1 = full.
 #endif
 };
 
@@ -376,7 +389,11 @@ void Network::init()
 
 	m_lastFrame = 0;
 	m_runAhead = min(max(30, MIN_RUNAHEAD), MAX_FRAMES_AHEAD / 2); ///< @todo: don't hard-code the run-ahead.
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_frameRate = GENERALS_ONLINE_HIGH_FPS_LIMIT; // the logic rate update() sets once the match runs
+#else
 	m_frameRate = 30;
+#endif
 	m_lastExecutionFrame = m_runAhead - 1; // subtract 1 since we're starting on frame 0
 	m_lastFrameCompleted = m_runAhead - 1; // subtract 1 since we're starting on frame 0
 	m_frameDataReady = FALSE;
@@ -391,6 +408,12 @@ void Network::init()
 	m_rateSampleMs = 0;
 	m_rateSampleFrame = 0;
 	m_measuredLogicRate = 0;
+	m_startRunAheadRequired = FALSE;
+	m_startRunAheadApplied = FALSE;
+	m_loggedRejectedRunAhead = FALSE;
+	m_loadCompletePending = FALSE;
+	m_loadCompletePendingSince = 0;
+	m_paceSpeed = 1.0f;
 #endif
 
 	QueryPerformanceFrequency((LARGE_INTEGER*)&m_perfCountFreq);
@@ -421,11 +444,39 @@ void Network::init()
 #if defined(GENERALS_ONLINE)
 void Network::SeedLatencyData(int highestLatency)
 {
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[PRESEED] Seeding with highest latency %d", highestLatency);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[PRESEED] Seeding with the lobby round trip %d ms (p75 of the probes)", highestLatency);
 
 	m_conMgr->SeedLatencyData(highestLatency);
 }
 
+void Network::applyStartRunAhead(Int runAhead, Int maxRttMs, Int pairs)
+{
+	if (m_conMgr == nullptr || m_startRunAheadApplied || m_localStatus == NETLOCALSTATUS_POSTGAME)
+	{
+		return;
+	}
+
+	runAhead = clamp<Int>(m_conMgr->getRunAheadFloor(), runAhead, m_conMgr->getRunAheadCap());
+	const Int previousRunAhead = m_runAhead;
+
+	// no frame of the match has run and no peer sent commands for one, every peer waits for our load complete first
+	m_conMgr->applyStartRunAhead(previousRunAhead, runAhead);
+	m_runAhead = runAhead;
+	m_lastExecutionFrame = m_runAhead - 1;
+	m_lastFrameCompleted = m_runAhead - 1;
+	if (maxRttMs > 0)
+	{
+		m_conMgr->SeedLatencyData(maxRttMs);
+	}
+	m_startRunAheadApplied = TRUE;
+
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[RUNAHEAD] start R=%d (pairs=%d, max rtt=%dms)", m_runAhead, pairs, maxRttMs);
+
+	if (m_loadCompletePending)
+	{
+		loadProgressComplete();
+	}
+}
 #endif
 
 #if defined(GENERALS_ONLINE)
@@ -585,6 +636,11 @@ Bool Network::processCommand(GameMessage* msg)
 #endif
 #if defined(GENERALS_ONLINE)
 				// Pregame updates drive loading; only entering gameplay requires completed setup.
+				// A load that was forced on because the router went silent has no start run ahead, every player that got here starts at the retail one.
+				if (m_startRunAheadRequired && !m_startRunAheadApplied) {
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[RUNAHEAD] the load was forced on without the router's decision, start R=%d as in retail", (Int)m_runAhead);
+					applyStartRunAhead(m_runAhead, 0, 0);
+				}
 				if (!startPrerequisitesReady()) {
 					failMatchStart();
 					return TRUE;
@@ -742,6 +798,13 @@ void Network::processFrameSynchronizedNetCommand(NetCommandRef* msg) {
 
 void Network::processRunAheadCommand(NetRunAheadCommandMsg* msg) {
 #if defined(GENERALS_ONLINE)
+	if (!m_conMgr->acceptsRunAhead(msg->getRunAhead())) {
+		if (!m_loggedRejectedRunAhead) {
+			m_loggedRejectedRunAhead = TRUE;
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] ignored a run ahead of %d, outside %d..%d", (Int)msg->getRunAhead(), m_conMgr->getRunAheadFloor(), m_conMgr->getRunAheadCap());
+		}
+		return;
+	}
 	const Int previousRunAhead = m_runAhead;
 #endif
 	m_runAhead = msg->getRunAhead();
@@ -891,6 +954,14 @@ void Network::liteupdate() {
 	if (m_matchStartFailed) {
 		return;
 	}
+	if (m_loadCompletePending) {
+		if (startPrerequisitesReady()) {
+			loadProgressComplete();
+		} else if ((timeGetTime() - m_loadCompletePendingSince) >= START_RUNAHEAD_TIMEOUT_MS) {
+			failMatchStart();
+			return;
+		}
+	}
 #endif
 
 #if defined(RTS_DEBUG)
@@ -936,14 +1007,16 @@ Bool Network::timeForNewFrame() {
 	 * to avoid being frozen by spikes in network lag.  This will happen if another user's computer is
 	 * running too far behind us, so we need to slow down to let them catch up.
 	 */
+#if defined(GENERALS_ONLINE)
+	// stretch the next frame while a remote player's commands are short
+	if (m_conMgr != NULL && curTime >= m_nextFrameTime) {
+		updatePace();
+		frameDelay = (__int64)((double)frameDelay / (double)m_paceSpeed);
+	}
+#else
 	if (m_conMgr != NULL) {
 		Real cushion = m_conMgr->getMinimumCushion();
-#if defined(GENERALS_ONLINE)
-		// the controller keeps a margin of one frame, slow down when the commands of the slowest player arrive less than that early
-		Real runAheadPercentage = 1.0f;
-#else
 		Real runAheadPercentage = m_runAhead * (TheGlobalData->m_networkRunAheadSlack / (Real)100.0); // If we are at least 50% into our slack, we need to slow down.
-#endif
 		if (cushion < runAheadPercentage) {
 			__int64 oldFrameDelay = frameDelay;
 			frameDelay += oldFrameDelay / 10; // temporarily decrease the frame rate by 20%.
@@ -953,6 +1026,7 @@ Bool Network::timeForNewFrame() {
 //			DEBUG_LOG(("Average cushion = %f, run ahead percentage = %f", cushion, runAheadPercentage));
 		}
 	}
+#endif
 
 	// Check to see if we can run another frame.
 	if (curTime >= m_nextFrameTime) {
@@ -966,7 +1040,12 @@ Bool Network::timeForNewFrame() {
 #endif
 		if (m_nextFrameTime + catchUpFrames * frameDelay < curTime) {
 			// If we get too far behind on our framerate we need to reset the nextFrameTime thing.
+#if defined(GENERALS_ONLINE)
+			// after a stall the lost time is not caught up
+			m_nextFrameTime = curTime + frameDelay;
+#else
 			m_nextFrameTime = curTime;
+#endif
 			NetworkLog(ELogVerbosity::LOG_DEBUG, "Initializing m_nextFrameTime to %I64d", m_nextFrameTime);
 		} else {
 			// Set the soonest possible starting time for the next frame.
@@ -979,6 +1058,37 @@ Bool Network::timeForNewFrame() {
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "Slowing down frame rate. frame rate = %d, frame delay = %I64d, curTime - m_nextFrameTime = %I64d", m_frameRate, frameDelay, curTime - m_nextFrameTime);
 	return FALSE;
 }
+
+#if defined(GENERALS_ONLINE)
+/** Slows the next frame while a remote player's commands run short; 90% floor, ramps down over 4 frames and up over 10. */
+void Network::updatePace() {
+	static const Real PACE_FLOOR_SPEED = 0.9f;
+	enum { PACE_SLOW_FRAMES = 4, PACE_RECOVER_FRAMES = 10 };
+
+	const Int margin = m_conMgr->getNetworkSettings().input_delay.margin_frames;
+	const Int lowFrames = margin + 1;
+
+	Bool overdue = FALSE;
+	const Int ahead = m_conMgr->getRemoteLookAhead(TheGameLogic->getFrame(), lowFrames, overdue);
+	Int shortFrames = 0;
+	if (ahead >= 0) {
+		if (overdue) {
+			shortFrames = lowFrames - ahead;
+		} else if (ahead == 0) {
+			shortFrames = 1;
+		}
+	}
+	shortFrames = clamp<Int>(0, shortFrames, lowFrames);
+
+	const Real share = (1.0f - PACE_FLOOR_SPEED) / (Real)lowFrames;
+	const Real target = 1.0f - share * (Real)shortFrames;
+	if (target < m_paceSpeed) {
+		m_paceSpeed = max(target, m_paceSpeed - (1.0f - PACE_FLOOR_SPEED) / (Real)PACE_SLOW_FRAMES);
+	} else {
+		m_paceSpeed = min(target, m_paceSpeed + (1.0f - PACE_FLOOR_SPEED) / (Real)PACE_RECOVER_FRAMES);
+	}
+}
+#endif
 
 /**
  * Returns true if the game commands for the next frame have been put on the command list.
@@ -1159,7 +1269,7 @@ void Network::updateLoadProgress(Int percent)
 #if defined(GENERALS_ONLINE)
 Bool Network::startPrerequisitesReady() const
 {
-	if (m_matchStartFailed) {
+	if (m_matchStartFailed || (m_startRunAheadRequired && !m_startRunAheadApplied)) {
 		return FALSE;
 	}
 	if (m_matchKeysRequired) {
@@ -1175,7 +1285,8 @@ void Network::failMatchStart()
 		return;
 	}
 	NetworkMesh* mesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[START] Missing match keys, leaving (keys=%zu/%zu)",
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[START] Missing start run ahead of a connected router, leaving (router=%d, keys=%zu/%zu)",
+		!m_startRunAheadRequired || m_startRunAheadApplied,
 		mesh != nullptr ? mesh->GetMatchKeys().GetPeerKeyCount() : 0,
 		mesh != nullptr ? mesh->GetMatchKeys().GetExpectedPeers() : 0);
 	m_matchStartFailed = TRUE;
@@ -1192,6 +1303,16 @@ void Network::loadProgressComplete()
 	if (m_matchStartFailed) {
 		return;
 	}
+	// load complete waits for the peer keys and the start run ahead of the router
+	if (!startPrerequisitesReady()) {
+		if (!m_loadCompletePending) {
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[START] Load complete, waiting for authenticated peers and router decision");
+			m_loadCompletePendingSince = timeGetTime();
+		}
+		m_loadCompletePending = TRUE;
+		return;
+	}
+	m_loadCompletePending = FALSE;
 #endif
 	if (m_conMgr != nullptr) {
 		m_conMgr->loadProgressComplete();

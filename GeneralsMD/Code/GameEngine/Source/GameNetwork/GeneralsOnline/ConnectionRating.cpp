@@ -35,30 +35,23 @@ static Real PredictStallsPerMinute(const ConnectionStats &stats, Real lossPercen
 	return 2.1f * loss * 110.0f / (stats.getLatency() + 60.0f) + 0.1f * excess;
 }
 
-static Real EstimateDelayMs(Real roundTripMs, Int slackPercent, Int sendIntervalMs)
-{
-	return roundTripMs * (1.0f + slackPercent / 100.0f) + sendIntervalMs;
-}
-
 ConnectionRating::Inputs::Inputs()
 	: delayMs(0.0f), stallsPerMinute(0.0f), measuredStallsPerMinute(-1.0f), lossPercent(-1.0f), silentMs(-1), silentLimitMs(k_redSilentMs), stallInWindow(FALSE), slowPc(FALSE)
 {
 }
 
-ConnectionRating::Inputs ConnectionRating::InputsFromProbe(const ConnectionStats &probe, Int slackPercent, Int sendIntervalMs, Real lossPercent)
+ConnectionRating::Inputs ConnectionRating::InputsFromProbe(const ConnectionStats &probe, Real lossPercent, Real expectedDelayMs)
 {
 	Inputs inputs;
-	// the p75 round trip, not the smoothed one a few spikes pull up
-	inputs.delayMs = EstimateDelayMs(probe.getLatencyPercentile(75), slackPercent, sendIntervalMs);
+	inputs.delayMs = expectedDelayMs;
 	inputs.stallsPerMinute = PredictStallsPerMinute(probe, lossPercent);
 	return inputs;
 }
 
-ConnectionRating::Inputs ConnectionRating::InputsFromMatch(const ConnectionStats &cmd, const NetworkOverlayInfo &info, Int slackPercent, Int sendIntervalMs, Real lossPercent)
+ConnectionRating::Inputs ConnectionRating::InputsFromMatch(const ConnectionStats &cmd, const NetworkOverlayInfo &info, Real lossPercent, Real expectedDelayMs)
 {
 	Inputs inputs;
-	const Real roundTripMs = (info.slotInBandMs >= 0) ? (Real)info.slotInBandMs : cmd.getLatency();
-	inputs.delayMs = EstimateDelayMs(roundTripMs, slackPercent, sendIntervalMs);
+	inputs.delayMs = expectedDelayMs;
 
 	Real stallsPerMinute = PredictStallsPerMinute(cmd, lossPercent);
 	if ((Real)info.stallsMinute >= k_slowPcMinStalls && stallsPerMinute < k_slowPcMaxLinkStalls)

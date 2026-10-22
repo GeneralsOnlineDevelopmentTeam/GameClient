@@ -538,7 +538,12 @@ static void playerTooltip(GameWindow *window,
 					bIsConnected = false;
 				}
 				connectionBars = pConnection->ComputeConnectionRating();
-				connectionLatency = pConnection->GetLatency();
+				// the same values the rating uses
+				connectionLatency = pConnection->GetSeedLatency();
+				if (connectionLatency < 0)
+				{
+					connectionLatency = pConnection->GetLatency();
+				}
 				connectionJitter = pConnection->GetJitter();
 				const float sustainedLoss = pConnection->GetSustainedLossPercent(60000);
 				connectionLossPct = (sustainedLoss >= 0.0f) ? static_cast<int>(sustainedLoss + 0.5f) : -1;

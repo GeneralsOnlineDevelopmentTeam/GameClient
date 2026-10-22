@@ -111,6 +111,8 @@ public:
 	virtual void SeedLatencyData(int highestLatency) = 0;
 	virtual void requireMatchKeys() {}
 	virtual Bool matchKeysRequired() const { return FALSE; }
+	virtual void setStartRunAheadRequired(Bool required) {}	///< The load complete waits for the router's start run ahead.
+	virtual void applyStartRunAhead(Int runAhead, Int maxRttMs, Int pairs) {}	///< Sets the run ahead of frame 1, before any peer runs a frame.
 	virtual bool IsSlugging() = 0;
 #endif
 

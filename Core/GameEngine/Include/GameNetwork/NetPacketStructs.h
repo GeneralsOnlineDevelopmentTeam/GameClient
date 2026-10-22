@@ -500,6 +500,11 @@ struct NetPacketRunAheadMetricsCommandData
 	{
 		Real averageLatency;
 		UnsignedShort averageFps;
+#if defined(GENERALS_ONLINE)
+		Byte cushionMin[MAX_SLOTS];	///< -128 when the player has no sample of that sender
+		UnsignedByte late[MAX_SLOTS];
+		UnsignedShort stallMs;		///< bit 15 flags a screenshot capture during the report, the low 15 bits are the ms
+#endif
 	};
 
 	static size_t getSize(const NetCommandMsg &msg) { return sizeof(FixedData); }

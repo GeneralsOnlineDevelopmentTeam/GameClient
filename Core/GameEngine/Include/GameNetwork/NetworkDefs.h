@@ -35,7 +35,12 @@ static constexpr const Int MAX_COMMANDS = 256;
 // TheSuperHackers @tweak Mauller 26/08/2025 reduce the minimum runahead from 10
 // This lets network games run at latencies down to 133ms when the network conditions allow
 static constexpr const Int MIN_LOGIC_FRAMES = 5;
+#if defined(GENERALS_ONLINE)
+// The run ahead is capped at half of this: 128 frames is 2.1 s at 60 Hz, retail's limit.
+static constexpr const Int MAX_FRAMES_AHEAD = 256;
+#else
 static constexpr const Int MAX_FRAMES_AHEAD = 128;
+#endif
 
 #if defined(GENERALS_ONLINE)
 extern Int MIN_RUNAHEAD;

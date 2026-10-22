@@ -168,13 +168,98 @@ private:
 	TimedRing<Event, MAX_EVENTS> m_events;
 };
 
+// Run ahead from the per window need: a forgetting quantile of normal windows is the baseline; spike episodes are bought only
+// when they recur faster than one per lambda. Rules use window time, so the decision interval does not matter.
+class RunAheadSpikeController
+{
+public:
+	enum Reason { REASON_HOLD, REASON_BASELINE, REASON_COVER, REASON_UNCOVER, REASON_CONGESTION };
+
+	struct Decision
+	{
+		Int runAhead;
+		Int reason;				///< Reason.
+		Int base;				///< Frames, the q quantile of the normal windows.
+		Int cover;				///< Frames bought on top of the baseline for spikes.
+		Int spikesPerMin10;		///< Spike episodes per minute over the horizon, times 10.
+		Int spikeSizeMs;		///< The median spike height over the baseline in the horizon.
+		Bool inSpike;
+		Bool fastDrop;			///< The target is the recent need, the next decision does not wait for the long dead time.
+	};
+
+	RunAheadSpikeController();
+
+	void reset();
+	void dropEpisode();		///< An outage: the open episode is not the network's trend.
+	Decision onWindow(time_t now, Int windowMs, Int need, Bool stalled, Int stallMs, Real jitterMs, Int runAhead, Int marginFrames, Real frameMs, Int floorFrames, Int capFrames, Bool safeFastDrop, Bool boundRaise);
+
+private:
+	enum
+	{
+		BUCKETS = 128,			// one frame each, the need is 0 to 127 frames
+		SAMPLE_RING = 16,		// need samples of the open episode
+		RECENT_RING = 8,		// the last windows, for the median need of a fast drop
+		EPISODE_RING = 32		// more than the HORIZON_MS / LAMBDA_MS + 1 the cost rule looks at
+	};
+
+	struct Episode
+	{
+		time_t start;
+		Int height;
+	};
+
+	Real m_hist[BUCKETS];		///< The normal windows, forgetting.
+	Real m_mass;
+	Real m_timeMs;				///< The time the normal windows cover, forgetting the same way.
+	Real m_saved[BUCKETS];		///< The baseline before a level shift was adopted, for the undo.
+	Real m_savedMass;
+	Real m_savedTimeMs;
+	Int m_savedBase;
+	Int m_undoMs;				///< Window time left in which a return to the saved baseline undoes the adopted level.
+	Int m_undoCalmMs;
+	Episode m_pending;			///< The episode an adoption came from, a spike after all if it is undone.
+
+	Bool m_inSpike;
+	time_t m_spikeStart;
+	Int m_peakNeed;
+	Int m_episodeStallMs;
+	Int m_episodeMs;			///< Window time of the open episode after the window that opened it.
+	Int m_calmMs;
+	time_t m_sampleTime[SAMPLE_RING];
+	Int m_sampleNeed[SAMPLE_RING];
+	Int m_sampleMs[SAMPLE_RING];
+	Int m_sampleCount;
+
+	Episode m_episodes[EPISODE_RING];
+	Int m_episodeCount;			///< Recorded so far, the ring holds the last EPISODE_RING.
+	Int m_lastCover;
+	Int m_recentNeed[RECENT_RING];
+	Int m_recentMs[RECENT_RING];
+	Int m_recentCount;
+	Int m_gateCleanMs;			///< Window time in a row the need stayed within the target + 1.
+	time_t m_gateClusterStart;	///< Start of the current spike cluster.
+	time_t m_gatePrevClusterStart;	///< Start of the cluster before it.
+
+	static void forget(Real *hist, Real &mass, Real factor);
+	static void addSample(Real *hist, Real &mass, Int need);
+	static Int quantile(const Real *hist, Real mass, Real q);
+	Int baseline(Int runAhead, Int marginFrames) const;
+	void recordEpisode(const Episode &episode);
+};
+
 // What the network overlay and the connection rating need to know about one slot beyond its ConnectionStats.
 struct NetworkOverlayInfo
 {
 	NetworkOverlayInfo()
 		: cushionSamples(0), cushionP5(0), cushionP50(0)
 		, stallsWindow(0), stallsMinute(0), stalledNow(FALSE), waitingOnSlot(FALSE)
-		, slotInBandMs(-1), runAhead(0), frameGroupingMs(0) {}
+		, runAhead(0), frameGroupingMs(0)
+		, isRouter(FALSE), controllerOn(FALSE), marginFrames(1), changeDir(0), changeReason(CHANGE_NONE), changeAgoMs(-1)
+		, ctlReason(CTL_NONE), ctlMinSum(NO_PAIR_SUM), ctlPairA(-1), ctlPairB(-1), ctlBase(0), ctlCover(0), ctlSpikesPerMin10(0), ctlSpikeSizeMs(0), ctlInSpike(FALSE), ctlSinceChangeMs(0) {}
+
+	enum ChangeReason { CHANGE_NONE, CHANGE_START, CHANGE_LAG_SPIKE, CHANGE_STALL, CHANGE_CLEAN };
+	enum { NO_PAIR_SUM = 999 };	///< ctlMinSum when no pair reported
+	enum ControllerReason { CTL_NONE, CTL_SEED, CTL_HOLD, CTL_BASELINE, CTL_COVER, CTL_UNCOVER, CTL_CONGESTION, CTL_OUTAGE, CTL_FORMULA };
 
 	Int cushionSamples;		///< Frames before execution that the frame commands of this slot arrived, over the stats window.
 	Int cushionP5;
@@ -183,8 +268,24 @@ struct NetworkOverlayInfo
 	Int stallsMinute;			///< The same over the last minute.
 	Bool stalledNow;			///< The local game is waiting for commands right now.
 	Bool waitingOnSlot;		///< ... and this slot is one it is waiting on.
-	Int slotInBandMs;			///< In-band round trip this slot contributes to the run ahead, -1 if unknown.
 
 	Int runAhead;				///< Frames.
 	Int frameGroupingMs;		///< The send interval.
+
+	Bool isRouter;				///< This machine decides the run ahead, the controller fields are valid only here.
+	Bool controllerOn;
+	Int marginFrames;			///< Cushion frames each direction of a pair keeps spare.
+	Int changeDir;				///< Direction of the last applied run ahead change, 1 up, -1 down, 0 none yet.
+	Int changeReason;			///< ChangeReason, known on every client.
+	Int changeAgoMs;			///< Since that change took effect, -1 if none.
+	Int ctlReason;				///< ControllerReason of the last decision.
+	Int ctlMinSum;				///< Lowest sum of the two cushion directions of a pair, NO_PAIR_SUM if no pair reported.
+	Int ctlPairA;
+	Int ctlPairB;
+	Int ctlBase;				///< Frames, the baseline quantile of the normal windows.
+	Int ctlCover;				///< Frames bought for spikes on top of the baseline.
+	Int ctlSpikesPerMin10;		///< Spike episodes per minute, times 10.
+	Int ctlSpikeSizeMs;			///< The median spike height over the baseline.
+	Bool ctlInSpike;			///< A spike episode is open, the run ahead holds.
+	Int ctlSinceChangeMs;
 };

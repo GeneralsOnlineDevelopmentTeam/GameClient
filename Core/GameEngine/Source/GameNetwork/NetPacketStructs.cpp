@@ -392,6 +392,14 @@ size_t NetPacketRunAheadMetricsCommandData::copyBytes(UnsignedByte *buffer, cons
 	FixedData data;
 	data.averageLatency = cmdMsg->getAverageLatency();
 	data.averageFps = cmdMsg->getAverageFps();
+#if defined(GENERALS_ONLINE)
+	for (Int slot = 0; slot < MAX_SLOTS; ++slot) {
+		const Int lowest = cmdMsg->getCushionMin(slot);
+		data.cushionMin[slot] = (lowest == CommandMsg::NO_CUSHION) ? (Byte)-128 : (Byte)clamp<Int>(-127, lowest, 127);
+		data.late[slot] = (UnsignedByte)clamp<Int>(0, cmdMsg->getLate(slot), 255);
+	}
+	data.stallMs = (UnsignedShort)clamp<Int>(0, cmdMsg->getStallMs(), 0x7FFF) | (cmdMsg->getScreenshot() ? 0x8000 : 0);
+#endif
 
 	return network::writeObject(buffer, data);
 }
@@ -402,10 +410,25 @@ size_t NetPacketRunAheadMetricsCommandData::readMessage(NetCommandRef &ref, NetP
 	FixedData data;
 	data.averageLatency = 0.2f;
 	data.averageFps = 30;
+#if defined(GENERALS_ONLINE)
+	for (Int slot = 0; slot < MAX_SLOTS; ++slot) {
+		data.cushionMin[slot] = (Byte)-128;
+		data.late[slot] = 0;
+	}
+	data.stallMs = 0;
+#endif
 
 	size_t size = network::readObject(data, buf);
 	cmdMsg->setAverageLatency(data.averageLatency);
 	cmdMsg->setAverageFps(data.averageFps);
+#if defined(GENERALS_ONLINE)
+	for (Int slot = 0; slot < MAX_SLOTS; ++slot) {
+		cmdMsg->setCushionMin(slot, (data.cushionMin[slot] == -128) ? (Int)CommandMsg::NO_CUSHION : (Int)data.cushionMin[slot]);
+		cmdMsg->setLate(slot, data.late[slot]);
+	}
+	cmdMsg->setStallMs(data.stallMs & 0x7FFF);
+	cmdMsg->setScreenshot((data.stallMs & 0x8000) != 0);
+#endif
 
 	return size;
 }

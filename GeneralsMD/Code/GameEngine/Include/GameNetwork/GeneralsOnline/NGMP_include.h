@@ -12,7 +12,8 @@ enum class ENetworkChannel : BYTE
 	NETWORK_CHANNEL_GAME = 0,
 	NETWORK_CHANNEL_AC = 1,
 	NETWORK_CHANNEL_PING = 2,
-	NETWORK_CHANNEL_KEYS = 3	// match signing keys, sent reliably
+	NETWORK_CHANNEL_KEYS = 3,	// match signing keys, sent reliably
+	NETWORK_CHANNEL_START = 4	// lobby round trips to the router and its start run ahead back, sent reliably at match start
 };
 
 #define CHECK_MAIN_THREAD assert(std::this_thread::get_id() == NGMP_OnlineServicesManager::g_MainThreadID);

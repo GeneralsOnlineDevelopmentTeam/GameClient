@@ -447,6 +447,14 @@ NetCommandMsg::Select NetPlayerLeaveCommandMsg::getSmallNetPacketSelect() const 
 NetRunAheadMetricsCommandMsg::NetRunAheadMetricsCommandMsg() {
 	m_averageLatency = 0.0;
 	m_averageFps = 0;
+#if defined(GENERALS_ONLINE)
+	for (Int slot = 0; slot < MAX_SLOTS; ++slot) {
+		m_cushionMin[slot] = NO_CUSHION;
+		m_late[slot] = 0;
+	}
+	m_stallMs = 0;
+	m_screenshot = FALSE;
+#endif
 	m_commandType = NETCOMMANDTYPE_RUNAHEADMETRICS;
 }
 

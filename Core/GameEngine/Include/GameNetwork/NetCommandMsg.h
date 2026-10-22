@@ -312,11 +312,30 @@ public:
 	Int  getAverageFps() const;
 	void setAverageFps(Int fps);
 
+#if defined(GENERALS_ONLINE)
+	enum { NO_CUSHION = 32767 };	///< cushion value when the player has no sample of a sender
+
+	Int getCushionMin(Int sender) const { return m_cushionMin[sender]; }
+	void setCushionMin(Int sender, Int cushion) { m_cushionMin[sender] = cushion; }
+	Int getLate(Int sender) const { return m_late[sender]; }
+	void setLate(Int sender, Int count) { m_late[sender] = count; }
+	Int getStallMs() const { return m_stallMs; }
+	void setStallMs(Int ms) { m_stallMs = ms; }
+	Bool getScreenshot() const { return m_screenshot; }
+	void setScreenshot(Bool screenshot) { m_screenshot = screenshot; }
+#endif
+
 	virtual Select getSmallNetPacketSelect() const override;
 
 protected:
 	Real m_averageLatency;
 	Int  m_averageFps;
+#if defined(GENERALS_ONLINE)
+	Int m_cushionMin[MAX_SLOTS];	///< per sender, the lowest arrival cushion of the commands issued under the current run ahead since the last report, in frames
+	Int m_late[MAX_SLOTS];		///< per sender, commands that arrived late since the last metrics message
+	Int m_stallMs;				///< ms spent waiting for commands since the last metrics message
+	Bool m_screenshot;			///< the player captured a screenshot on its main thread during this report, its stall is not the network's
+#endif
 };
 
 //-----------------------------------------------------------------------------

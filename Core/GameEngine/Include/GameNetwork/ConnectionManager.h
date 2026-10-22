@@ -162,6 +162,9 @@ public:
 	Int getSlotAverageFPS(Int slot);
 #if defined(GENERALS_ONLINE)
 	void noteStalling(Bool stalling, UnsignedInt frame);	///< Called every network update with whether the game is waiting for commands.
+	void noteScreenshotCapture(Bool uploadFollows);	///< The main thread captures a screenshot, the stalls until its upload is done are not the network's.
+	void noteScreenshotDone();	///< The upload of the screenshot ended, the stalls of the next 2 s are still not the network's.
+	Int getRemoteLookAhead(UnsignedInt frame, Int maxFrames, Bool &overdue);	///< Fewest frames after this one a remote player's commands are complete for, -1 without a remote player.
 #endif
 	const ConnectionStats* getConnectionStats(Int slot) const;	///< Returns nullptr when there is no connection for the slot.
 
@@ -204,6 +207,7 @@ private:
 	//	void doPerFrameMetrics(UnsignedInt frame);
 	void getMinimumFps(Int &minFps, Int &minFpsPlayer);			///< Returns the smallest FPS in the m_fpsAverages list.
 	Real getMaximumLatency(); ///< Returns the average of the two highest average latencies between players.
+	Real getLiveProbeLatency(); ///< Seconds, the highest probe round trip to a player still in the game, 0 if none is known.
 
 	void requestFrameDataResend(Int playerID, UnsignedInt frame); ///< request of this player that he send the specified frame's data.
 	Int getSlotOfAddress(UnsignedInt addr, UnsignedShort port);
@@ -251,6 +255,7 @@ private:
 	Int  m_minFpsPlayer;
 	Int  m_minFps;
 	UnsignedInt m_smallestPacketArrivalCushion;
+	time_t m_lastRunAheadDecisionTime;	///< The last run ahead decision of this match, 0 before the first.
 	Bool m_didSelfSlug;
 
 #if defined(GENERALS_ONLINE)
@@ -272,7 +277,6 @@ private:
 	Bool isPeerActive(Int slot) const;
 	void onDirectFrameAck(UnsignedInt frame, Int peerSlot);
 	std::map<UnsignedInt, UnsignedInt> m_frameAckedMasks;	///< Frame -> the peers that acked its frame info so far.
-	Bool isDirectSendActive();
 	Bool m_directSendActive;
 	time_t m_directSendCheckedAt;
 	UnsignedInt m_formerRouterMask;	///< Slots that were the packet router in this match, their last packets can still be on the way.
@@ -354,19 +358,74 @@ private:
 	Bool m_stallActive;
 	time_t m_stallStartTime;
 	UnsignedInt m_stallMissingMask;
+	Bool m_stallWaitedOnRemote;	///< The current stall had a remote player's commands missing
 	Int m_lastKnownRunAhead;
+
+	// cushion controller (input_delay.controller), every player measures per sender, the packet router sums the cushions of each pair
+	Int m_ctlWindowMin[MAX_SLOTS];		///< Lowest cushion per sender of the commands issued under the current run ahead since the last report, NO_CUSHION if none.
+	UnsignedInt m_ctlValidFromExec[MAX_SLOTS];	///< Commands of a sender for an earlier execution frame were issued under the previous run ahead.
+	Int m_ctlLateCount[MAX_SLOTS];		///< Late commands (cushion <= 0) per sender since the last report.
+	Int m_ctlStallMs;					///< Ms of the waits of at least a frame for a remote player's commands since the last report.
+	time_t m_ctlStallMark;				///< Stall time before this was reported already.
+	time_t m_ctlScreenshotUntil;		///< Reports are flagged as holding a local screenshot capture until one is taken at or after this, 0 if none.
+	time_t m_screenshotStallUntil;		///< A stall that starts before this follows a local screenshot capture
+	Bool m_ctlScreenshotSeen;			///< Router: a report since the last decision was flagged as holding a screenshot capture.
+	Bool m_ctlSeeded;
+	Int m_ctlSeedWait;
+	Int m_ctlMin[MAX_SLOTS][MAX_SLOTS];	///< Router: lowest cushion of the reports since the last decision, [reporting player][sender].
+	Int m_ctlReportLate[MAX_SLOTS];		///< Router: late commands per reporting player since the last decision.
+	Int m_ctlReportStall[MAX_SLOTS];	///< Router: the same stall ms per reporting player since the last decision, the decision uses the largest of them.
+	time_t m_ctlIgnoreUntil;			///< Router: reports arriving before this were measured under the previous run ahead, D after a change.
+	time_t m_ctlChangeTime;				///< Router: when the last run ahead change was decided.
+	time_t m_ctlReportTime[MAX_SLOTS];	///< Router: when the last report counted since the change arrived per player, 0 = none yet.
+	time_t m_lastHeardMs[MAX_SLOTS];	///< When the last packet of a player arrived, 0 = none yet.
+	time_t m_paceLastFreshMs[MAX_SLOTS];	///< When the last new frame info of a player arrived, 0 = none yet.
+	Real m_paceGapAvgMs[MAX_SLOTS];		///< Smoothed gap between the arrivals of new frame infos per player.
+	Real m_paceGapDevMs[MAX_SLOTS];		///< Smoothed deviation of that gap.
+	time_t m_ctlOutageSince;			///< Router: since when a connected player is silent, 0 = no outage.
+	Int m_ctlSlowSlot;					///< Router: the slow producer whose stalls the last decision left out, -1 = none.
+	void updateControllerOutage(time_t now);	///< Router: starts or ends an outage, the controller holds through it.
+	time_t m_ctlLastPairTime;			///< Router: when a decision last saw a complete pair, the latency formula takes over without one.
+	time_t m_ctlLastWindowTime;			///< Router: when the last report window was taken in, its length is the time since.
+	RunAheadSpikeController m_spikeController;	///< Router: the baseline quantile, spike episodes and the cost rule.
 	Bool m_runAheadStillInitial;		///< No run ahead change has taken effect yet, the first decisions apply without the decrease hold.
 	Int m_pendingRunAhead;				///< Router: the run ahead of the last command it issued.
 	UnsignedInt m_pendingExecFrame;		///< Router: the execution frame of that command.
+	void collectControllerReport(Int *lowest, Int *late, Int &stallMs, Bool &screenshot);	///< The lowest cushion per sender, the late commands and the stall ms since the last report.
+	void resetControllerWindow(Bool sinceChange);	///< Drops the reports of the window, and with sinceChange which players reported since the change.
+	Int decideControllerRunAhead(Int oldRunAhead, Int formulaRunAhead, Int floorRunAhead, time_t now, Int decreaseAfter);
+	Int discardControllerReport();	///< Takes the own report of the window and drops it, returns its stall ms.
+	Bool m_fastDropStep;			///< Router: the last decision was a fast drop step, the next one waits the short dead time.
 	Int applyDecreaseHold(Int oldRunAhead, Int askedRunAhead, Int decreaseAfter);
 public:
 	void noteRunAheadApplied(Int oldRunAhead, Int newRunAhead);	///< The run ahead command took effect on this frame.
+	Int getRunAheadFloor() const;		///< The configured minimum, or the send interval frames + 3
+	Int getRunAheadCap() const;	///< The run ahead cap in frames, input_delay.max_frames.
+	Bool acceptsRunAhead(Int runAhead) const;	///< An online match takes a run ahead between its floor and cap (0 only while alone).
+	Int computeStartRunAhead(Real roundTripMs, Bool oneWay) const;	///< The run ahead in frames estimateRunAheadMs asks for, between the floor and the cap.
+	Bool isDirectSendActive(Bool atStart = FALSE);		///< send.direct is on and every peer connection is up; atStart looks at the links right now and counts every peer in, before the match runs nobody is out
+	Bool isLinkUp(Int slot);		///< The mesh connection to the slot is up, a pair that fell back to the packet router is not.
+	Bool usesOneWayRunAhead(Bool atStart = FALSE);	///< The controller is on and direct sending is active right now: a command travels one way, not through the router.
+	Bool usesOneWayRunAheadForUser(Int64 userID);	///< The same for the link to one user: its connection is up and direct sending is on.
+	static Real estimateRunAheadMs(Real roundTripMs, const NetworkSettings::Send &sendSettings, const NetworkSettings::InputDelay &inputDelay, Bool oneWay);	///< The input delay a round trip needs, shared by the start run ahead, the controller seed and the connection rating.
+	void applyStartRunAhead(Int oldRunAhead, Int newRunAhead);	///< Frames 1 to the new run ahead - 1 have no commands, the frames after it wait for theirs.
 private:
 
 	Bool m_shortGrouping;				///< The run ahead is within 2 frames of its floor, connections send at one frame
-	Int getRunAheadFloor() const;
 	time_t getEffectiveDecisionIntervalMs(Int runAhead) const;	///< The longer of the configured floor and 2 x the run ahead in ms
 	void updateShortGrouping();
+	Int m_ctlLastReason;				///< Router: NetworkOverlayInfo::ControllerReason of the last controller decision.
+	Int m_ctlLastMinSum;				///< Router: what that decision saw, for the overlay.
+	Int m_ctlLastPairA;
+	Int m_ctlLastPairB;
+	Int m_ctlLastBase;
+	Int m_ctlLastCover;
+	Int m_ctlLastSpikesPerMin10;
+	Int m_ctlLastSpikeSizeMs;
+	Bool m_ctlLastInSpike;
+	Int m_changeDir;					///< Direction of the last run ahead change that took effect, 1 up, -1 down.
+	Int m_changeReason;					///< NetworkOverlayInfo::ChangeReason of that change.
+	time_t m_changeAppliedTime;			///< When it took effect on this machine, 0 = none yet.
 	Int m_frameGroupingMs;
 public:
 	Bool getOverlayInfo(Int slot, NetworkOverlayInfo &info);	///< Fills what the overlay and the connection rating need about one slot.

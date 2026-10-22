@@ -23,7 +23,11 @@ struct NetworkSettings
 	} send;
 	struct InputDelay
 	{
+		bool controller = true;         // run ahead follows the arrival cushion of each player pair instead of the latency formula
+		int margin_frames = 1;          // cushion frames each direction of a pair keeps spare
 		int min_frames = 0;             // lowest run ahead, 0 = send interval frames + 3
+		int max_frames = 64;            // run ahead cap in frames (128 = retail)
+		bool fast_recovery = true;      // the run ahead falls a third of the excess per step, after an isolated spike to the recent need
 		int decision_interval_ms = 1000;
 		int fps_history_samples = 30;   // median of this many per-second FPS samples
 		int catch_up_frames = 1;        // a frame later than this many frame times resets the clock, retail catches up from 2

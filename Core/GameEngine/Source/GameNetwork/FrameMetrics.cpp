@@ -100,15 +100,21 @@ void FrameMetrics::init() {
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
 	if (TheNGMPGame != nullptr && pMesh != nullptr)
 	{
+		// average ping of the connections that have one, else the retail 200 ms
 		int totalLatency = 0;
+		int latencyCount = 0;
 		std::map<int64_t, PlayerConnection>& connections = pMesh->GetAllConnections();
 		for (auto& kvPair : connections)
 		{
-			PlayerConnection& conn = kvPair.second;
-			totalLatency += conn.GetLatency();
+			const int latency = kvPair.second.GetLatency();
+			if (latency >= 0)
+			{
+				totalLatency += latency;
+				++latencyCount;
+			}
 		}
 
-		m_averageLatency = (Real)((Real)totalLatency / 1000.f) / (Real)connections.size();
+		m_averageLatency = (latencyCount > 0) ? (Real)totalLatency / 1000.f / (Real)latencyCount : (Real)0.2;
 	}
 	else
 	{
