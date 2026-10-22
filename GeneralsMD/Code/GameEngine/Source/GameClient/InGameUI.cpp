@@ -1179,6 +1179,7 @@ InGameUI::InGameUI()
 	m_networkLatencyColor = GameMakeColor(173, 216, 255, 255);
 	m_networkLatencyDropColor = GameMakeColor(0, 0, 0, 255);
 	m_lastNetworkLatencyFrames = ~0u;
+	m_lastNetworkLogicRate = ~0u;
 
 	m_renderFpsString = nullptr;
 	m_renderFpsLimitString = nullptr;
@@ -6893,7 +6894,8 @@ void InGameUI::refreshNetworkLatencyResources()
 	{
 		m_networkLatencyString = TheDisplayStringManager->newDisplayString();
 		m_lastNetworkLatencyFrames = ~0u;
-	}
+		m_lastNetworkLogicRate = ~0u;
+		}
 
 	m_networkLatencyPointSize = TheGlobalData->m_networkLatencyFontSize;
 	Int adjustedNetworkLatencyFontSize = TheGlobalLanguageData->adjustFontSize(m_networkLatencyPointSize);
@@ -7037,26 +7039,16 @@ void InGameUI::updateRenderFpsString()
 void InGameUI::drawNetworkLatency(Int& x, Int& y)
 {
 #if defined(GENERALS_ONLINE)
-	const UnsignedInt actualLatencyInMS = TheNetwork->getRunAhead() * (1000 / GENERALS_ONLINE_HIGH_FPS_LIMIT);
-	const UnsignedInt actualFrames = ConvertMSLatencyToFrames(actualLatencyInMS);
-	const UnsignedInt gentoolFrames = ConvertMSLatencyToGenToolFrames(actualLatencyInMS);
+	const UnsignedInt networkLatencyFrames = TheNetwork->getRunAhead();
+	const UnsignedInt logicRate = TheNetwork->getMeasuredLogicRate();
 
-	//bool bIsSelfSlugged = TheNetwork->IsSlugging();
-
-	if (gentoolFrames != m_lastNetworkLatencyFrames)
+	if (networkLatencyFrames != m_lastNetworkLatencyFrames || logicRate != m_lastNetworkLogicRate)
 	{
 		UnicodeString latencyStr;
-
-		if (actualFrames != gentoolFrames)
-		{
-			latencyStr.format(L"[%u] - [%ums - %u]", TheNetwork->getFrameRate(), actualLatencyInMS, actualFrames);
-		}
-		else
-		{
-			latencyStr.format(L"%u [%ums][L: %u]", gentoolFrames, actualLatencyInMS, TheNetwork->getFrameRate());
-		}
+		latencyStr.format(L"%u [%ums] [L%u]", networkLatencyFrames, (networkLatencyFrames * 1000 + GENERALS_ONLINE_HIGH_FPS_LIMIT / 2) / GENERALS_ONLINE_HIGH_FPS_LIMIT, logicRate);
 		m_networkLatencyString->setText(latencyStr);
-		m_lastNetworkLatencyFrames = gentoolFrames;
+		m_lastNetworkLatencyFrames = networkLatencyFrames;
+		m_lastNetworkLogicRate = logicRate;
 	}
 #else
 	const UnsignedInt networkLatencyFrames = TheNetwork->getRunAhead();
@@ -7069,8 +7061,6 @@ void InGameUI::drawNetworkLatency(Int& x, Int& y)
 		m_lastNetworkLatencyFrames = networkLatencyFrames;
 	}
 #endif
-
-
 
 	// TheSuperHackers @info at the HUD anchor this draws inline and advances x otherwise uses configured position
 	if (isAtHudAnchorPos(m_networkLatencyPosition))
@@ -7272,7 +7262,7 @@ namespace
 
 	struct OverlayCache
 	{
-		OverlayCache() : valid(FALSE), mode(0), refreshedMs(0), lineH(12), rowCount(0)
+		OverlayCache() : valid(FALSE), mode(0), refreshedMs(0), lineH(12), logicRate(0), rowCount(0)
 		{
 			for (Int i = 0; i < k_strTotal; ++i)
 			{
@@ -7288,6 +7278,7 @@ namespace
 		Int mode;
 		UnsignedInt refreshedMs;
 		Int lineH;
+		UnsignedInt logicRate;
 		Int rowCount;
 		NetworkOverlayInfo header;
 		UnicodeString waitingOn;
@@ -7406,6 +7397,7 @@ void InGameUI::drawNetworkOverlay(Int mode)
 		overlaySetText(pMeasure, UnicodeString(L"Wg"));
 		pMeasure->getSize(&lineW, &lineH);
 		cache.lineH = (std::max)(lineH, 12);
+		cache.logicRate = TheNetwork->getMeasuredLogicRate();
 		TheNetwork->getOverlayInfo(-1, cache.header);
 
 		for (Int slot = 0; slot < MAX_SLOTS; ++slot)
@@ -7568,7 +7560,7 @@ void InGameUI::drawNetworkOverlay(Int mode)
 	{
 		Int x = left;
 		UnicodeString text;
-		text.format(L"Input delay %d ms", delayMs);
+		text.format(L"Input delay %d ms, logic rate %u Hz", delayMs, cache.logicRate);
 		x += overlayDrawText(k_strHeaderBase + 0, x, y, text, header.stalledNow ? overlayColor(ConnectionRating::SEVERITY_BAD) : neutral, dropColor) + segmentGap;
 
 		if (header.stalledNow && !waitingOn.isEmpty())

@@ -23,14 +23,17 @@ struct NetworkSettings
 	} send;
 	struct InputDelay
 	{
-		int min_frames = 4;
-		int decision_interval_ms = 5000;
-		int fps_history_samples = 30;   // per-second FPS samples averaged
+		int min_frames = 0;             // lowest run ahead, 0 = send interval frames + 3
+		int decision_interval_ms = 1000;
+		int fps_history_samples = 30;   // median of this many per-second FPS samples
+		int catch_up_frames = 1;        // a frame later than this many frame times resets the clock, retail catches up from 2
 		int slack_percent = 30;         // percent added to the measured round trip, also sets the start run ahead and the rating
 
 		struct Formula
 		{
-			int latency_history_samples = 200; // in-band ping samples averaged
+			int latency_window_ms = 0;  // in-band round trip averaging window in ms, 0 = since the last decision
+			int decrease_after_decisions = 20; // decisions in a row that must ask for less before the run ahead falls; 0 = follow at once (retail)
+			bool repair_budget = true;  // add a send interval while a connection repeats commands
 		} formula;
 	} input_delay;
 

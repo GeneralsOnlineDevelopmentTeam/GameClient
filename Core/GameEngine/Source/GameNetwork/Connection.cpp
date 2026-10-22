@@ -57,6 +57,7 @@ Connection::Connection() {
 	m_lastTimeSent = 0;
 	m_frameGrouping = 1;
 	m_configuredFrameGrouping = 1;
+	m_shortGrouping = FALSE;
 	m_isQuitting = false;
 	m_quitTime = 0;
 	resetRedundancy();
@@ -96,6 +97,7 @@ void Connection::init() {
 	m_lastTimeSent = 0;
 	m_frameGrouping = 1;
 	m_configuredFrameGrouping = 1;
+	m_shortGrouping = FALSE;
 	m_stats.reset();
 	resetRedundancy();
 	m_isQuitting = FALSE;
@@ -304,6 +306,12 @@ void Connection::applyFrameGrouping() {
 			if (lossy < grouping) {
 				grouping = lossy;
 			}
+		}
+	}
+	if (m_shortGrouping) {
+		const time_t oneFrame = (time_t)(1000 / GENERALS_ONLINE_HIGH_FPS_LIMIT);
+		if (oneFrame < grouping) {
+			grouping = oneFrame;
 		}
 	}
 #endif
@@ -737,6 +745,13 @@ NetCommandRef * Connection::processAck(UnsignedShort commandID, UnsignedByte ori
 #endif
 	m_netCommandList->removeMessage(temp);
 	return temp;
+}
+
+void Connection::setShortGrouping(Bool shortGrouping) {
+	if (shortGrouping != m_shortGrouping) {
+		m_shortGrouping = shortGrouping;
+		applyFrameGrouping();
+	}
 }
 
 void Connection::setFrameGrouping(time_t frameGrouping) {

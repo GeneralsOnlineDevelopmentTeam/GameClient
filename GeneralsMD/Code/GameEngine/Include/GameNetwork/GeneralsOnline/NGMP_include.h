@@ -36,7 +36,6 @@ std::wstring WidenFormatSpecifiers(const std::wstring& format);
 
 int RoundUpLatencyToFrameInterval(int latency, int frameInterval);
 int ConvertMSLatencyToFrames(int ms);
-int ConvertMSLatencyToGenToolFrames(int ms);
 // NGMP_NOTE: Plr Templates look like this:
 /*
 | NAME							|	GAME INDEX	|	SERVICE INDEX	|	PLAYABLE	|

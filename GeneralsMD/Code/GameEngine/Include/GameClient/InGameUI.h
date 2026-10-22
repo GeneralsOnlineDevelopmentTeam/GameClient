@@ -834,6 +834,7 @@ protected:
 	Color												m_networkLatencyColor;
 	Color												m_networkLatencyDropColor;
 	UnsignedInt									m_lastNetworkLatencyFrames;
+	UnsignedInt									m_lastNetworkLogicRate;
 
 	// Render FPS Counter
 	DisplayString* m_renderFpsString;

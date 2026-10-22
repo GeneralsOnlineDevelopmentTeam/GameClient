@@ -55,8 +55,6 @@ public:
 
 	void SendACPacket(const void* pData, uint32_t dataLen);
 
-	void UpdateLatencyHistogram();
-
 	void TickProbe(int64_t nowMs);
 	void HandleProbe(const uint8_t* payload, size_t len, int64_t arrivalMs);
 	void ResetProbe();
@@ -81,21 +79,17 @@ public:
 
 	int Recv(SteamNetworkingMessage_t** pMsg, int maxMessages = 255);
 
-	int GetHighestHistoricalLatency()
+	// the p75 probe round trip of the stats window, -1 with too few samples: a spike or a lossy spell must not set the start run ahead
+	int GetSeedLatency(int minSamples = k_seedMinSamples) const
 	{
-		int highestLatency = 0;
-		for (int latencyHistory : m_vecLatencyHistory)
+		if (m_probeStats.getSampleCount() < minSamples)
 		{
-			if (latencyHistory > highestLatency)
-			{
-				highestLatency = latencyHistory;
-			}
+			return -1;
 		}
-
-		return highestLatency;
+		return static_cast<int>(m_probeStats.getLatencyPercentile(k_seedPercentile) + 0.5f);
 	}
-
-	std::vector<int> m_vecLatencyHistory;
+	static constexpr int k_seedMinSamples = 10;	// the probes a lobby round trip, a jitter or a rating needs, 2.5 s at the lobby interval
+	static constexpr int k_seedPercentile = 75;
 	float GetSustainedLossPercent(int windowMs);	///< The worse direction of the packet feedback loss from at least 3 reports, -1 if unknown.
 
 	std::string GetStats();
@@ -221,22 +215,6 @@ public:
 		m_cbOnConnected = nullptr;
 	}
 
-	int getMaximumLatency()
-	{
-		int highestLatency = 0;
-
-		for (auto& kvPair : m_mapConnections)
-		{
-			PlayerConnection& conn = kvPair.second;
-			if (conn.GetLatency() > highestLatency)
-			{
-				highestLatency = conn.GetLatency();
-			}
-		}
-
-		return highestLatency;
-	}
-
 	// The signing keys, see MatchKeys.h
 	bool BeginLobbyKeys();	///< Makes this client's key, call when it joins or creates a lobby.
 	void TickLobbyKeys(int64_t nowMs);	///< Announces the key to the peers that lack it and tells them which keys we hold.
@@ -254,20 +232,21 @@ public:
 	const MatchKeys& GetMatchKeys() const { return m_matchKeys; }
 	MatchKeys& GetMatchKeys() { return m_matchKeys; }
 
-	Real getMaximumHistoricalLatency()
+	// the highest p75 probe round trip of any connection over the probe stats window, 0 if none has enough samples
+	int getSeedProbeLatency()
 	{
 		int highestLatency = 0;
 
 		for (auto& kvPair : m_mapConnections)
 		{
-			PlayerConnection& conn = kvPair.second;
-			if (conn.GetHighestHistoricalLatency() > highestLatency)
+			const int seed = kvPair.second.GetSeedLatency();
+			if (seed > highestLatency)
 			{
-				highestLatency = conn.GetHighestHistoricalLatency();
+				highestLatency = seed;
 			}
 		}
 
-		return Real(highestLatency);
+		return highestLatency;
 	}
 
 

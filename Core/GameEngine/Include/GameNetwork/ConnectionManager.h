@@ -264,6 +264,8 @@ private:
 	};
 	RecentCommandIds m_recentIds[MAX_SLOTS];
 
+	Int m_runAheadLowerCount;
+	Int m_runAheadLowerPeak;
 	Bool isDuplicateCommand(NetCommandMsg *msg);
 
 	Int slotForUserID(Int64 userID) const;
@@ -353,6 +355,18 @@ private:
 	time_t m_stallStartTime;
 	UnsignedInt m_stallMissingMask;
 	Int m_lastKnownRunAhead;
+	Bool m_runAheadStillInitial;		///< No run ahead change has taken effect yet, the first decisions apply without the decrease hold.
+	Int m_pendingRunAhead;				///< Router: the run ahead of the last command it issued.
+	UnsignedInt m_pendingExecFrame;		///< Router: the execution frame of that command.
+	Int applyDecreaseHold(Int oldRunAhead, Int askedRunAhead, Int decreaseAfter);
+public:
+	void noteRunAheadApplied(Int oldRunAhead, Int newRunAhead);	///< The run ahead command took effect on this frame.
+private:
+
+	Bool m_shortGrouping;				///< The run ahead is within 2 frames of its floor, connections send at one frame
+	Int getRunAheadFloor() const;
+	time_t getEffectiveDecisionIntervalMs(Int runAhead) const;	///< The longer of the configured floor and 2 x the run ahead in ms
+	void updateShortGrouping();
 	Int m_frameGroupingMs;
 public:
 	Bool getOverlayInfo(Int slot, NetworkOverlayInfo &info);	///< Fills what the overlay and the connection rating need about one slot.

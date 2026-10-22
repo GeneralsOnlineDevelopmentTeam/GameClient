@@ -48,7 +48,7 @@ public:
 	void addCushion(Int cushion);
 
 	Real getAverageLatency();
-	Int getAverageFPS();
+	Int getAverageFPS();	///< The median of the per-second fps samples.
 	Int getMinimumCushion();
 	Bool isPending(UnsignedInt frame);
 

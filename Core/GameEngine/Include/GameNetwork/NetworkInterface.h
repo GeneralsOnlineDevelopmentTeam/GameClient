@@ -62,6 +62,7 @@ public:
 	virtual Bool isFrameDataReady() = 0;												///< Are the commands for the next frame available?
 #if defined(GENERALS_ONLINE)
 	virtual Bool isGameExitPending() const { return FALSE; }
+	virtual UnsignedInt getMeasuredLogicRate() = 0;	///< Logic frames executed per second, over about a second
 #endif
 	virtual Bool isStalling() = 0;
 	virtual void parseUserList(const GameInfo* game) = 0;						///< Parse a userlist, creating connections

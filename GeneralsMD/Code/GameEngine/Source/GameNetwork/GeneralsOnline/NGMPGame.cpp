@@ -466,7 +466,8 @@ void NGMPGame::launchGame(void)
 		PopBackToLobby();
 		return;
 	}
-	TheNetwork->SeedLatencyData(pMesh->getMaximumHistoricalLatency());
+	// One spike or lossy spell must not start the match at a huge run ahead.
+	TheNetwork->SeedLatencyData(pMesh->getSeedProbeLatency());
 
 	// TODO_NGMP: Do we really care about these values anymore
 	TheNetwork->setLocalAddress(getLocalIP(), 8888);

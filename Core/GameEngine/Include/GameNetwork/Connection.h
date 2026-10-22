@@ -68,6 +68,7 @@ public:
 	void setNetworkSettings(const NetworkSettings &settings, Bool unreliableTransport) { m_networkSettings = settings; m_unreliableTransport = unreliableTransport; }
 #endif
 	void setSlot(Int slot) { m_slot = slot; }
+	void setShortGrouping(Bool shortGrouping);	///< Send at one frame while the run ahead is close to its floor.
 	Int getRedundancyDepth() const { return m_redundancyDepth; }
 	time_t getFrameGrouping() const { return m_frameGrouping; }	///< The send interval in use, shorter than the configured one while redundancy is on.
 
@@ -123,6 +124,7 @@ protected:
 	Bool m_queueSuspected;				///< A full queue on the path, redundancy steps down instead of up.
 	Int m_slot;
 
+	Bool m_shortGrouping;
 	time_t m_configuredFrameGrouping;
 	time_t m_frameGrouping;				///< The minimum time between packet sends.
 	time_t m_lastTimeSent;				///< The time of the last packet send.
