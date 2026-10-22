@@ -2,6 +2,7 @@
 // Lowers client only effects step by step when this machine cannot keep up, and gives them back when it can.
 
 #include "Common/AdaptiveQualityModel.h"
+#include "Common/AdaptiveQualityPower.h"
 
 class AdaptiveQuality
 {
@@ -38,6 +39,7 @@ private:
 	void closeSecond(long long t);
 	void setLevel(Int from, Int level, const AdaptiveSecond& s);
 	void showMessage(const UnicodeString& text);
+	void checkPower();
 
 	enum { BINS = 2000 };
 
@@ -74,4 +76,7 @@ private:
 	double m_lastMeanMs;
 	Int m_stepDowns;
 	Int m_stepUps;
+	Bool m_powerChecked;
+	AdaptiveQualityPower::State m_power;
+	char m_planName[24];
 };

@@ -45,6 +45,7 @@ set(GAMEENGINE_SRC
     Include/Common/GameEngine.h
     Include/Common/AdaptiveQuality.h
     Include/Common/AdaptiveQualityModel.h
+    Include/Common/AdaptiveQualityPower.h
     Include/Common/GameLOD.h
     Include/Common/GameMemory.h
 #    Include/Common/GameMusic.h

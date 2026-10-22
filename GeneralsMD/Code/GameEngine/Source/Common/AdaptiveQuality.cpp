@@ -78,6 +78,9 @@ AdaptiveQuality::AdaptiveQuality()
 	m_paused = FALSE;
 	m_lastMeanMs = 0.0;
 	m_stepDowns = m_stepUps = 0;
+	m_powerChecked = FALSE;
+	m_power = {};
+	strcpy(m_planName, "unknown");
 }
 
 long long AdaptiveQuality::now()
@@ -181,9 +184,66 @@ void AdaptiveQuality::frameEnd()
 	}
 
 	const long long t = now();
+	if (!m_powerChecked && (t - m_matchStart) >= 3 * m_freq)
+	{
+		checkPower();
+	}
 	if (t - m_secondStart >= m_freq)
 	{
 		closeSecond(t);
+	}
+}
+
+// Asks Windows once per match and fails silently when it cannot be asked.
+void AdaptiveQuality::checkPower()
+{
+	m_powerChecked = TRUE;
+
+	static_assert(sizeof(AqGuid) == sizeof(GUID), "AqGuid must match GUID");
+	SYSTEM_POWER_STATUS status = {};
+	if (!::GetSystemPowerStatus(&status))
+	{
+		return;
+	}
+
+	AqGuid plan = {};
+	AqGuid overlay = {};
+	Bool havePlan = FALSE;
+	Bool haveOverlay = FALSE;
+	HMODULE powrprof = loadSystemLibrary("powrprof.dll");
+	if (powrprof != nullptr)
+	{
+		typedef DWORD (WINAPI *GetActiveSchemeFn)(HKEY, GUID**);
+		typedef DWORD (WINAPI *GetOverlayFn)(GUID*);
+		GetActiveSchemeFn getActiveScheme = (GetActiveSchemeFn)::GetProcAddress(powrprof, "PowerGetActiveScheme");
+		GUID* activeScheme = nullptr;
+		if (getActiveScheme != nullptr && getActiveScheme(nullptr, &activeScheme) == ERROR_SUCCESS && activeScheme != nullptr)
+		{
+			memcpy(&plan, activeScheme, sizeof(plan));
+			havePlan = TRUE;
+			::LocalFree(activeScheme);
+		}
+		GetOverlayFn getOverlay = (GetOverlayFn)::GetProcAddress(powrprof, "PowerGetEffectiveOverlayScheme");
+		GUID overlayScheme = {};
+		if (getOverlay != nullptr && getOverlay(&overlayScheme) == ERROR_SUCCESS)
+		{
+			memcpy(&overlay, &overlayScheme, sizeof(overlay));
+			haveOverlay = TRUE;
+		}
+		::FreeLibrary(powrprof);
+	}
+
+	m_power = AdaptiveQualityPower::classify(status.ACLineStatus, status.BatteryFlag, status.SystemStatusFlag, havePlan ? &plan : nullptr, haveOverlay ? &overlay : nullptr);
+	_snprintf_s(m_planName, sizeof(m_planName), _TRUNCATE, "%s", AdaptiveQualityPower::planName(havePlan ? &plan : nullptr));
+
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADAPTIVE] power: battery=%d saver=%d plan=%s efficiency=%d", (int)m_power.onBattery, (int)(m_power.batterySaver || m_power.powerSaverPlan), m_planName, (int)m_power.bestEfficiencyMode);
+	if (m_power.onBattery)
+	{
+		showMessage(TheGameText->FETCH_OR_SUBSTITUTE("GUI:AdaptiveQualityBattery", L"On battery power: plug in for better performance."));
+	}
+	if (m_power.savesPower())
+	{
+		showMessage(TheGameText->FETCH_OR_SUBSTITUTE("GUI:AdaptiveQualityPowerSaving", L"Power saving is on: set Windows to Best performance."));
 	}
 }
 
@@ -238,6 +298,7 @@ void AdaptiveQuality::startMatch()
 	m_minimized = m_paused = FALSE;
 	m_pairPending = FALSE;
 	m_stepDowns = m_stepUps = 0;
+	m_powerChecked = FALSE;
 	checkDisplay();
 }
 
