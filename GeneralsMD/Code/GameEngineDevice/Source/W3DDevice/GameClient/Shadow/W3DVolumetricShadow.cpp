@@ -3443,7 +3443,7 @@ void W3DVolumetricShadowManager::renderShadows(Bool forceStencilFill)
 	beY = bbox.Extent.Y;
 	beZ = bbox.Extent.Z;
 
-	if (m_shadowList && TheGlobalData->m_useShadowVolumes)
+	if (m_shadowList && TheGlobalData->drawsShadowVolumes())
 	{
 
 		LPDIRECT3DDEVICE8 m_pDev = DX8Wrapper::_Get_D3D_Device8();

@@ -44,6 +44,7 @@ static void drawFramerateBar();
 
 // USER INCLUDES //////////////////////////////////////////////////////////////
 #include "Common/FramePacer.h"
+#include "Common/AdaptiveQuality.h"
 #include "Common/ThingFactory.h"
 #include "Common/GlobalData.h"
 #include "Common/PerfTimer.h"
@@ -1951,7 +1952,6 @@ void W3DDisplay::draw()
 	// TheSuperHackers @feature bobtista 10/07/2026 Show messages for screenshots finished by the screenshot thread.
 	W3D_UpdateScreenshotMessages();
 
-	updatePerformanceMetrics();
 	if (TheGlobalData->m_enableDynamicLOD && TheGameLogic->getShowDynamicLOD())
 	{
 		DynamicGameLODLevel lod=TheGameLODManager->findDynamicLODLevel(m_averageFPS);
@@ -2080,6 +2080,20 @@ AGAIN:
 		// limit the framerate, because while fast time is on, the game logic is running as fast as it can.
 	}
 
+	// never skipped while time is frozen: scripted cameras render in the loop below
+	const Bool skipRender = !freezeTime && AdaptiveQuality::get().shouldSkipRender();
+
+	// only rendered frames enter the fps history, so skipped frames do not inflate the shown fps
+	if (!skipRender)
+	{
+		updatePerformanceMetrics();
+	}
+
+	if (skipRender && m_cinematicText != AsciiString::TheEmptyString && m_cinematicTextFrames != 0)
+	{
+		m_cinematicTextFrames--;
+	}
+
 	do {
 
 		// update all views of the world - recomputes data which will affect drawing
@@ -2119,6 +2133,7 @@ AGAIN:
 		#else
 	    if ( (TheGameLogic->getFrame() % 30 == 1) || ( ! (!TheGameLogic->isGamePaused() && TheGlobalData->m_TiVOFastMode && TheGameLogic->isInReplayGame())) )
     #endif
+		if (!skipRender)
 		{
 			//USE_PERF_TIMER(BigAssRenderLoop)
 			static Bool couldRender = true;
@@ -2220,8 +2235,13 @@ AGAIN:
 					m_profilerFrameCapture->Capture(getWidth(), getHeight());
 				}
 #endif
+				// sorted geometry is drawn here so that only the Present below is timed as a wait
+				SortingRendererClass::Flush();
+				AdaptiveQuality::get().notePresentMode(WW3D::Is_Windowed(), WW3D::Get_Ext_Swap_Interval() != (long)D3DPRESENT_INTERVAL_IMMEDIATE);
+				const long long presentStart = AdaptiveQuality::now();
 				// render is all done!
 				WW3D::End_Render();
+				AdaptiveQuality::get().addPresentWait(AdaptiveQuality::now() - presentStart);
 			}
 			else
 			{
@@ -2326,6 +2346,8 @@ void W3DDisplay::createLightPulse( const Coord3D *pos, const RGBColor *color,
 																	 )
 {
 	if (m_3DScene == nullptr)
+		return;
+	if (AdaptiveQualityLevels::lightPulsesOff(TheGlobalData->m_adaptiveQualityLevel))
 		return;
 	if (innerRadius+attenuationWidth<2.0*PATHFIND_CELL_SIZE_F + 1.0f) {
 		return; // it basically won't make any visual difference.  jba.

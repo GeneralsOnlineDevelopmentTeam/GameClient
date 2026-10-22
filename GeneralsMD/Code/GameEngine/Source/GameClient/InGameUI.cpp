@@ -33,6 +33,7 @@
 
 #include "Common/ActionManager.h"
 #include "Common/FramePacer.h"
+#include "Common/AdaptiveQuality.h"
 #include "Common/GameAudio.h"
 #include "Common/GameType.h"
 #include "Common/GameUtility.h"

@@ -12,6 +12,7 @@
 #define SETTINGS_KEY_RENDER_LIMIT_FRAMERATE "limit_framerate"
 #define SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL "fps_limit"
 #define SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY "stats_overlay"
+#define SETTINGS_KEY_RENDER_ADAPTIVE_QUALITY "adaptive_quality"
 
 #define SETTINGS_KEY_CHAT "chat"
 #define SETTINGS_KEY_CHAT_LIFE_SECONDS "duration_seconds_until_fade_out"
@@ -213,6 +214,11 @@ void GenOnlineSettings::Load(void)
 				{
 					m_Render_DrawStatsOverlay = renderSettings[SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY];
 				}
+
+				if (renderSettings.contains(SETTINGS_KEY_RENDER_ADAPTIVE_QUALITY))
+				{
+					m_Render_AdaptiveQuality = renderSettings[SETTINGS_KEY_RENDER_ADAPTIVE_QUALITY];
+				}
 			}
 
             if (jsonSettings.contains(SETTINGS_KEY_NETWORK))
@@ -346,6 +352,7 @@ void GenOnlineSettings::Load(void)
 		m_Render_LimitFramerate = true;
 		m_Render_FramerateLimit_FPSVal = 60;
 		m_Render_DrawStatsOverlay = true;
+		m_Render_AdaptiveQuality = true;
 		m_Chat_LifeSeconds = 30;
 
         m_Social_Notification_FriendComesOnline_Menus = true;
@@ -394,6 +401,7 @@ void GenOnlineSettings::Save()
 					{SETTINGS_KEY_RENDER_LIMIT_FRAMERATE, m_Render_LimitFramerate},
 					{SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL, m_Render_FramerateLimit_FPSVal},
 					{SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY, m_Render_DrawStatsOverlay},
+					{SETTINGS_KEY_RENDER_ADAPTIVE_QUALITY, m_Render_AdaptiveQuality},
 				}
 		},
 
