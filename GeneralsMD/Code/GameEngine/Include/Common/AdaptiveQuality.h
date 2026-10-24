@@ -4,6 +4,31 @@
 #include "Common/AdaptiveQualityModel.h"
 #include "Common/AdaptiveQualityPower.h"
 
+// Read-only snapshot for the network overlay
+struct AdaptiveQualityOverlay
+{
+	enum { LEVELS = AdaptiveQualityLevels::LEVEL_COUNT };
+
+	Int level;
+	Int lastFrom;				// the last step, -1 when there was none this match
+	Int lastTo;
+	Int lastReason;				// AdaptiveQualityModel::Reason
+	float lastAgoSec;
+	float p50Ms;				// own frame cost over the last counted second
+	float p95Ms;
+	float cpuMs;
+	float presentMs;
+	float stepDownP50Ms;		// the median limit that steps down
+	float stepUpP95Ms;			// the p95 limit that allows a step up
+	float deadlineMs;
+	Int deadlineKind;			// AdaptiveQualityTuning::DeadlineKind
+	float refreshHz;
+	float savingMs[LEVELS];		// frame cost saved by each level, learned on this machine or the default
+	Bool savingLearned[LEVELS];
+	float downInSec;			// seconds until a step down is allowed, -1 when no level is left to lower
+	float upInSec;				// seconds until a step up is allowed, -1 at level 0
+};
+
 class AdaptiveQuality
 {
 public:
@@ -26,8 +51,8 @@ public:
 	Bool shouldSkipRender();
 
 	Int getLevel() const { return m_model.level(); }
-	// the F10 overlay line, false when there is nothing to show
-	Bool formatOverlayLine(char* out, size_t cap) const;
+	// the network overlay, false when there is no match to show
+	Bool getOverlay(AdaptiveQualityOverlay& out) const;
 
 private:
 	AdaptiveQuality();
@@ -44,6 +69,14 @@ private:
 	enum { BINS = 2000 };
 
 	AdaptiveQualityModel m_model;
+	double m_matchSeconds;
+	float m_lastP50Ms;
+	float m_lastP95Ms;
+	Int m_deadlineKind;
+	Int m_lastFrom;
+	Int m_lastTo;
+	Int m_lastReason;
+	double m_lastStepAt;
 	long long m_freq;
 	long long m_ownTicks;
 	long long m_presentTicks;

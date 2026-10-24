@@ -7293,11 +7293,32 @@ namespace
 	const Int k_strDevCellBase = k_strDevHeadBase + COL_COUNT;
 	const Int k_strFooterBase = k_strDevCellBase + MAX_SLOTS * COL_COUNT;
 	const Int k_strFooterCount = 8;
-	const Int k_strTotal = k_strFooterBase + k_strFooterCount;
+	const Int k_strAqBase = k_strFooterBase + k_strFooterCount;
+	const Int k_strAqCount = 8;
+	const Int k_strTotal = k_strAqBase + k_strAqCount;
+	const Int k_aqDevLines = 3;
+
+	const wchar_t *overlayAqReason(const AdaptiveQualityOverlay &aq)
+	{
+		if (aq.level <= 0)
+		{
+			return L"";
+		}
+		if (aq.lastTo > aq.lastFrom)
+		{
+			return aq.lastReason == AdaptiveQualityModel::REASON_OVER ? L"late frames" : L"slow frames";
+		}
+		return L"recovering";
+	}
+
+	const wchar_t *overlayAqDeadlineName(Int kind)
+	{
+		return kind == AdaptiveQualityTuning::DEADLINE_VSYNC ? L"vsync" : (kind == AdaptiveQualityTuning::DEADLINE_CAP ? L"fps cap" : L"floor");
+	}
 
 	struct OverlayCache
 	{
-		OverlayCache() : valid(FALSE), mode(0), refreshedMs(0), lineH(12), logicRate(0), rowCount(0)
+		OverlayCache() : valid(FALSE), mode(0), refreshedMs(0), lineH(12), logicRate(0), rowCount(0), aqValid(FALSE), fpsAverage(0), fpsLow(0)
 		{
 			for (Int i = 0; i < k_strTotal; ++i)
 			{
@@ -7316,6 +7337,10 @@ namespace
 		UnsignedInt logicRate;
 		Int rowCount;
 		NetworkOverlayInfo header;
+		Bool aqValid;
+		AdaptiveQualityOverlay aq;
+		UnsignedInt fpsAverage;
+		UnsignedInt fpsLow;
 		UnicodeString waitingOn;
 		UnicodeString headerCell[COL_COUNT];
 		OverlayRow rows[MAX_SLOTS];
@@ -7434,6 +7459,9 @@ void InGameUI::drawNetworkOverlay(Int mode)
 		cache.lineH = (std::max)(lineH, 12);
 		cache.logicRate = TheNetwork->getMeasuredLogicRate();
 		TheNetwork->getOverlayInfo(-1, cache.header);
+		cache.aqValid = AdaptiveQuality::get().getOverlay(cache.aq);
+		cache.fpsAverage = (UnsignedInt)(TheDisplay->getAverageFPS() + 0.5f);
+		cache.fpsLow = (UnsignedInt)(TheDisplay->getLow1PercentFPS() + 0.5f);
 
 		for (Int slot = 0; slot < MAX_SLOTS; ++slot)
 		{
@@ -7586,7 +7614,7 @@ void InGameUI::drawNetworkOverlay(Int mode)
 	const UnicodeString& waitingOn = cache.waitingOn;
 	const NetworkOverlayInfo& header = cache.header;
 
-	const Int tableLines = (mode == 2) ? (k_devViewHeaderLines + rowCount + k_devViewFooterLines) : (1 + rowCount);
+	const Int tableLines = (mode == 2) ? (k_devViewHeaderLines + rowCount + k_devViewFooterLines + (cache.aqValid ? k_aqDevLines : 0)) : (1 + rowCount + (cache.aqValid ? 1 : 0));
 	Int y = (mode == 2) ? (Int)(displayHeight * k_devViewTopFraction) : k_playerViewTop;
 	y = (std::min)(y, displayHeight - 4 - tableLines * lineH);
 	y = (std::max)(y, 0);
@@ -7683,6 +7711,20 @@ void InGameUI::drawNetworkOverlay(Int mode)
 			{
 				text.format(L"stalls %d", row.info.stallsWindow);
 				x += overlayDrawText(rowStr + 5, x, y, text, overlayColor(row.info.stallsWindow >= 3 ? ConnectionRating::SEVERITY_BAD : ConnectionRating::SEVERITY_WARN), dropColor) + segmentGap;
+			}
+			y += lineH;
+		}
+
+		if (cache.aqValid)
+		{
+			Int x = left;
+			UnicodeString text;
+			text.format(L"Quality level %d", cache.aq.level);
+			x += overlayDrawText(k_strAqBase + 0, x, y, text, cache.aq.level > 0 ? overlayColor(ConnectionRating::SEVERITY_WARN) : neutral, dropColor) + segmentGap;
+			if (cache.aq.level > 0)
+			{
+				text.format(L"(%ls)", overlayAqReason(cache.aq));
+				overlayDrawText(k_strAqBase + 1, x, y, text, dim, dropColor);
 			}
 			y += lineH;
 		}
@@ -7814,6 +7856,59 @@ void InGameUI::drawNetworkOverlay(Int mode)
 			overlayDrawText(k_strFooterBase + 6, x, y, text, dim, dropColor);
 			y += lineH;
 		}
+	}
+
+	if (cache.aqValid)
+	{
+		const AdaptiveQualityOverlay &aq = cache.aq;
+		UnicodeString text;
+		const Color costColor = overlayColor((aq.p50Ms > aq.stepDownP50Ms) ? ConnectionRating::SEVERITY_BAD : ((aq.p95Ms > aq.stepUpP95Ms) ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK));
+		text.format(L"Quality L%d  fps %u (1%% low %u)  own p50 %.1f / p95 %.1f ms (cpu %.1f, present %.1f)  budget p50 %.1f / p95 %.1f  deadline %.1f ms (%ls, %.0f Hz)", aq.level, cache.fpsAverage, cache.fpsLow, aq.p50Ms, aq.p95Ms, aq.cpuMs, aq.presentMs, aq.stepDownP50Ms, aq.stepUpP95Ms, aq.deadlineMs, overlayAqDeadlineName(aq.deadlineKind), aq.refreshHz);
+		overlayDrawText(k_strAqBase + 2, left, y, text, costColor, dropColor);
+		y += lineH;
+
+		text = L"saving ms";
+		for (Int l = 1; l < AdaptiveQualityOverlay::LEVELS; ++l)
+		{
+			UnicodeString part;
+			part.format(L"  L%d %.1f%ls", l, aq.savingMs[l], aq.savingLearned[l] ? L"" : L"*");
+			text.concat(part);
+		}
+		text.concat(L"  (* default)");
+		UnicodeString down;
+		UnicodeString up;
+		if (aq.downInSec >= 0.0f)
+		{
+			down.format(L"%d s", (Int)(aq.downInSec + 0.5f));
+		}
+		else
+		{
+			down = L"-";
+		}
+		if (aq.upInSec >= 0.0f)
+		{
+			up.format(L"%d s", (Int)(aq.upInSec + 0.5f));
+		}
+		else
+		{
+			up = L"-";
+		}
+		UnicodeString next;
+		next.format(L"  next step down %ls, up %ls", down.str(), up.str());
+		text.concat(next);
+		overlayDrawText(k_strAqBase + 3, left, y, text, neutral, dropColor);
+		y += lineH;
+
+		if (aq.lastFrom >= 0)
+		{
+			text.format(L"last step L%d -> L%d (%ls) %d s ago", aq.lastFrom, aq.lastTo, aq.lastTo > aq.lastFrom ? (aq.lastReason == AdaptiveQualityModel::REASON_OVER ? L"late frames" : L"slow frames") : L"calm", (Int)(aq.lastAgoSec + 0.5f));
+		}
+		else
+		{
+			text = L"no step this match";
+		}
+		overlayDrawText(k_strAqBase + 4, left, y, text, dim, dropColor);
+		y += lineH;
 	}
 #endif
 }

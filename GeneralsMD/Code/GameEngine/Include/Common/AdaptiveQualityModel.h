@@ -41,6 +41,20 @@ namespace AdaptiveQualityTuning
 		return deadline;
 	}
 
+	enum DeadlineKind { DEADLINE_FLOOR, DEADLINE_CAP, DEADLINE_VSYNC };
+
+	// which of the three limits frameDeadlineMs picked
+	inline DeadlineKind frameDeadlineKind(int fpsCap, double refreshMs, bool presentSynced)
+	{
+		const double period = fpsCap > 0 ? 1000.0 / fpsCap : 0.0;
+		const double deadline = period > kOverFrameMs ? period : kOverFrameMs;
+		if (presentSynced && refreshMs * kSyncedMissRefreshes > deadline)
+		{
+			return DEADLINE_VSYNC;
+		}
+		return period > kOverFrameMs ? DEADLINE_CAP : DEADLINE_FLOOR;
+	}
+
 	// frame cost: the CPU side, plus the Present wait when the frame missed its deadline (GPU bound, not vsync)
 	inline double frameCostMs(double cpuMs, double presentMs, double deadlineMs)
 	{
@@ -167,6 +181,12 @@ public:
 	double delta(int level) const { return m_delta[level]; }
 	bool deltaLearned(int level) const { return m_deltaLearned[level]; }
 	int calmSeconds() const { return m_calmSeconds; }
+	// match seconds before the next step down or up is allowed by the cooldown
+	double cooldownLeft(double now) const { return m_cooldownUntil > now ? m_cooldownUntil - now : 0.0; }
+	// counted calm seconds a step up needs, and how many it has
+	double stepUpRequired() const { return m_lastStepWasUp ? std::max(m_stepUpWait, AdaptiveQualityTuning::kStepUpAfterUpSeconds) : m_stepUpWait; }
+	// whether a step down still has a level that is not learned to be useless
+	bool canStepDown() const { return nextUsefulLevel() > m_level; }
 
 private:
 	// the level a step down goes to, or the current level when every level below was learned to be useless

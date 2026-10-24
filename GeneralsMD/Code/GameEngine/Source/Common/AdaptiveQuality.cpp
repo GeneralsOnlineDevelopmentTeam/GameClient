@@ -78,6 +78,12 @@ AdaptiveQuality::AdaptiveQuality()
 	m_paused = FALSE;
 	m_lastMeanMs = 0.0;
 	m_stepDowns = m_stepUps = 0;
+	m_matchSeconds = 0.0;
+	m_lastP50Ms = m_lastP95Ms = 0.0f;
+	m_deadlineKind = AdaptiveQualityTuning::DEADLINE_FLOOR;
+	m_lastFrom = m_lastTo = -1;
+	m_lastReason = AdaptiveQualityModel::REASON_NONE;
+	m_lastStepAt = 0.0;
 	m_powerChecked = FALSE;
 	m_power = {};
 	strcpy(m_planName, "unknown");
@@ -150,6 +156,7 @@ void AdaptiveQuality::frameEnd()
 	const Int fpsCap = TheFramePacer != nullptr && TheFramePacer->isActualFramesPerSecondLimitEnabled() ? TheFramePacer->getActualFramesPerSecondLimit() : 0;
 	const double deadlineMs = AdaptiveQualityTuning::frameDeadlineMs(fpsCap, m_refreshMs, m_presentSynced != FALSE);
 	m_lastDeadlineMs = deadlineMs;
+	m_deadlineKind = AdaptiveQualityTuning::frameDeadlineKind(fpsCap, m_refreshMs, m_presentSynced != FALSE);
 	const double ms = AdaptiveQualityTuning::frameCostMs(cpuMs, presentMs, deadlineMs);
 	if (!m_networkWait)
 	{
@@ -298,6 +305,11 @@ void AdaptiveQuality::startMatch()
 	m_minimized = m_paused = FALSE;
 	m_pairPending = FALSE;
 	m_stepDowns = m_stepUps = 0;
+	m_matchSeconds = 0.0;
+	m_lastP50Ms = m_lastP95Ms = 0.0f;
+	m_lastFrom = m_lastTo = -1;
+	m_lastReason = AdaptiveQualityModel::REASON_NONE;
+	m_lastStepAt = 0.0;
 	m_powerChecked = FALSE;
 	checkDisplay();
 }
@@ -322,6 +334,7 @@ void AdaptiveQuality::endMatch()
 void AdaptiveQuality::closeSecond(long long t)
 {
 	const double matchSeconds = (double)(t - m_matchStart) / (double)m_freq;
+	m_matchSeconds = matchSeconds;
 	checkDisplay();
 
 	AdaptiveSecond s = {};
@@ -356,11 +369,17 @@ void AdaptiveQuality::closeSecond(long long t)
 	if (!ignore)
 	{
 		m_lastMeanMs = s.meanMs;
+		m_lastP50Ms = s.p50Ms;
+		m_lastP95Ms = s.p95Ms;
 		m_lastCpuMs = m_splitFrames ? m_cpuSumMs / m_splitFrames : 0.0;
 		m_lastPresentMs = m_splitFrames ? m_presentSumMs / m_splitFrames : 0.0;
 		const Int from = m_model.level();
 		if (m_model.onSecond(s, matchSeconds) != AdaptiveQualityModel::DECISION_NONE)
 		{
+			m_lastFrom = from;
+			m_lastTo = m_model.level();
+			m_lastReason = m_model.reason();
+			m_lastStepAt = matchSeconds;
 			setLevel(from, m_model.level(), s);
 		}
 	}
@@ -407,13 +426,35 @@ void AdaptiveQuality::setLevel(Int from, Int level, const AdaptiveSecond& s)
 	}
 }
 
-Bool AdaptiveQuality::formatOverlayLine(char* out, size_t cap) const
+Bool AdaptiveQuality::getOverlay(AdaptiveQualityOverlay& out) const
 {
 	if (!m_inMatch)
 	{
 		return FALSE;
 	}
 
-	_snprintf_s(out, cap, _TRUNCATE, "Adaptive quality: level %d (cost %.1f / %.1f ms, cpu %.1f present %.1f, %.0f Hz%s)", (int)m_model.level(), m_lastMeanMs, m_lastDeadlineMs, m_lastCpuMs, m_lastPresentMs, 1000.0 / m_refreshMs, m_presentSynced ? " synced" : "");
+	out.level = m_model.level();
+	out.lastFrom = m_lastFrom;
+	out.lastTo = m_lastTo;
+	out.lastReason = m_lastReason;
+	out.lastAgoSec = m_lastFrom >= 0 ? (float)(m_matchSeconds - m_lastStepAt) : -1.0f;
+	out.p50Ms = m_lastP50Ms;
+	out.p95Ms = m_lastP95Ms;
+	out.cpuMs = (float)m_lastCpuMs;
+	out.presentMs = (float)m_lastPresentMs;
+	out.stepDownP50Ms = (float)AdaptiveQualityTuning::kStepDownP50Ms;
+	out.stepUpP95Ms = (float)AdaptiveQualityTuning::kStepUpP95Ms;
+	out.deadlineMs = (float)m_lastDeadlineMs;
+	out.deadlineKind = m_deadlineKind;
+	out.refreshHz = (float)(1000.0 / m_refreshMs);
+	for (Int l = 0; l < AdaptiveQualityOverlay::LEVELS; ++l)
+	{
+		out.savingMs[l] = (float)m_model.delta(l);
+		out.savingLearned[l] = m_model.deltaLearned(l);
+	}
+	const double cooldown = m_model.cooldownLeft(m_matchSeconds);
+	out.downInSec = m_model.canStepDown() ? (float)cooldown : -1.0f;
+	const double calmLeft = m_model.stepUpRequired() - (double)m_model.calmSeconds();
+	out.upInSec = m_model.level() > 0 ? (float)(std::max)(cooldown, calmLeft > 0.0 ? calmLeft : 0.0) : -1.0f;
 	return TRUE;
 }
