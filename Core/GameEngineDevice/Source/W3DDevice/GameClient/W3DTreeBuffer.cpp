@@ -1522,7 +1522,7 @@ void W3DTreeBuffer::drawTrees(CameraClass* camera, RefRenderObjListIterator* pDy
 
 	Int curTree;
 	// Draw tree shadows.
-	if (m_shadow && TheW3DProjectedShadowManager && TheGlobalData->m_useShadowDecals) {
+	if (m_shadow && TheW3DProjectedShadowManager && TheGlobalData->drawsShadowDecals()) {
 		for (curTree = 0; curTree < m_numTrees; curTree++) {
 			Int type = m_trees[curTree].treeType;
 			if (type < 0) { // deleted.

@@ -43,6 +43,9 @@ set(GAMEENGINE_SRC
 #    Include/Common/GameCommon.h
 #    Include/Common/GameDefines.h
     Include/Common/GameEngine.h
+    Include/Common/AdaptiveQuality.h
+    Include/Common/AdaptiveQualityModel.h
+    Include/Common/AdaptiveQualityPower.h
     Include/Common/GameLOD.h
     Include/Common/GameMemory.h
 #    Include/Common/GameMusic.h
@@ -569,6 +572,7 @@ set(GAMEENGINE_SRC
     Source/Common/Dict.cpp
     Source/Common/DiscreteCircle.cpp
     Source/Common/GameEngine.cpp
+    Source/Common/AdaptiveQuality.cpp
     Source/Common/GameLOD.cpp
     Source/Common/GameMain.cpp
     Source/Common/GlobalData.cpp

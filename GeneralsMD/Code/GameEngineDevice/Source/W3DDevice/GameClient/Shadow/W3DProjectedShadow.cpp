@@ -327,7 +327,7 @@ void W3DProjectedShadowManager::updateRenderTargetTextures()
 	if (!m_shadowList)
 		return;	//there are no shadows to render.
 
-	if (!TheGlobalData->m_useShadowDecals)
+	if (!TheGlobalData->drawsShadowDecals())
 		return;
 
 	if (m_numProjectionShadows)
@@ -1313,7 +1313,7 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 	nShadowDecalVertsInBuf = 0xffff;
 	nShadowDecalIndicesInBuf = 0xffff;
 
-	if (TheGlobalData->m_useShadowDecals)
+	if (TheGlobalData->drawsShadowDecals())
 	{
 		// Render the object
 		TheDX8MeshRenderer.Set_Camera(&rinfo.Camera);
