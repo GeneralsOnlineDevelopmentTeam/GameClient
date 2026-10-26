@@ -66,6 +66,11 @@ public:
 	virtual void update() override;														///< update the game engine
 	virtual void serviceWindowsOS() override;									///< allow windows maintenance in background
 
+	static Bool shouldKeepRunningInBackground();								///< network games and network lobbies never stop for the window state
+	Bool stepFrameFromModalLoop();														///< runs one frame from a Windows modal loop, FALSE if it must not
+	void releaseInputForModalLoop();													///< drops the held input state when a Windows modal loop starts or ends
+	virtual Bool isInputSuspended() override { return m_isInModalStep; }	///< a modal loop frame never reads the input
+
 protected:
 
 	virtual GameLogic *createGameLogic() override;							///< factory for game logic
@@ -84,6 +89,8 @@ protected:
 
 protected:
 	UINT m_previousErrorMode;
+	Bool m_isAtFrameBoundary;															///< the engine is in the message service that ends the frame
+	Bool m_isInModalStep;																	///< a frame is running from a modal loop, no message service in it
 };
 
 // INLINE -----------------------------------------------------------------------------------------

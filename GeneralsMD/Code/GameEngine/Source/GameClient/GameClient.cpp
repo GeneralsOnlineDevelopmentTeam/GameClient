@@ -556,7 +556,10 @@ void GameClient::update()
 	TheAnim2DCollection->UPDATE();
 
 	// update the keyboard
-	if( TheKeyboard )
+	// the input is not read while a frame runs from a Windows modal loop
+	const Bool inputSuspended = TheGameEngine != nullptr && TheGameEngine->isInputSuspended();
+
+	if( TheKeyboard && !inputSuspended )
 	{
 		TheKeyboard->UPDATE();
 		TheKeyboard->createStreamMessages();
@@ -567,7 +570,7 @@ void GameClient::update()
 	TheEva->UPDATE();
 
 	// update the mouse
-	if( TheMouse )
+	if( TheMouse && !inputSuspended )
 	{
 		TheMouse->UPDATE();
 		TheMouse->createStreamMessages();

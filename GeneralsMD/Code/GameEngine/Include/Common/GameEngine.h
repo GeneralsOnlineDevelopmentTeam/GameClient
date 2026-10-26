@@ -80,6 +80,7 @@ public:
 	virtual void serviceWindowsOS() {};		///< service the native OS
 	virtual Bool isActive() {return m_isActive;}	///< returns whether app has OS focus.
 	virtual void setIsActive(Bool isActive) { m_isActive = isActive; };
+	virtual Bool isInputSuspended() { return FALSE; }	///< true while a frame runs from a Windows modal loop, the input is not read
 
 protected:
 

@@ -78,6 +78,7 @@ class GameEngine : public SubsystemInterface
 	virtual void serviceWindowsOS() {};		///< service the native OS
 	virtual Bool isActive() {return m_isActive;}	///< returns whether app has OS focus.
 	virtual void setIsActive(Bool isActive) { m_isActive = isActive; };
+	virtual Bool isInputSuspended() { return FALSE; }	///< true while a frame runs from a Windows modal loop, the input is not read
 	virtual void checkAbnormalQuitting();	///< check if user is quitting at an unusual time - as in cheating!
 
 protected:

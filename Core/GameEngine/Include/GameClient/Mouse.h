@@ -169,6 +169,7 @@ class Mouse : public SubsystemInterface
 		CursorCaptureBlockReason_Paused,
 		CursorCaptureBlockReason_Unfocused,
 		CursorCaptureBlockReadon_CursorIsOutside,
+		CursorCaptureBlockReason_MovingWindow,
 
 		CursorCaptureBlockReason_Count
 	};
@@ -275,6 +276,7 @@ public:
 	virtual void init() override;		///< init mouse, extend this functionality, do not replace
 	virtual void reset() override;		///< Reset the system
 	virtual void update() override;  ///< update the state of the mouse position and buttons
+	void resetButtons();  ///< release all buttons without an event, for input that was eaten by the OS
 	virtual void initCursorResources()=0;	///< needed so Win32 cursors can load resources before D3D device created.
 
 	virtual void createStreamMessages();  /**< given state of device, create
@@ -289,6 +291,8 @@ public:
 	void setCursorCaptureMode(CursorCaptureMode mode); ///< set the rules for the mouse capture
 	void refreshCursorCapture(); ///< refresh the mouse capture
 	Bool isCursorCaptured(); ///< true if the mouse is captured in the game window
+	void onWindowMoveSizeBegin(); ///< called when the window enters its move or size loop
+	void onWindowMoveSizeEnd(); ///< called when the window leaves its move or size loop
 
 	// access methods for the mouse data
 	const MouseIO *getMouseStatus() { return &m_currMouse; }							///< get current mouse status

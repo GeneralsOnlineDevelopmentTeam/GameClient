@@ -33,6 +33,13 @@
 
 #include "Win32Device/Common/Win32GameEngine.h"
 #include "Common/PerfTimer.h"
+#include "Common/FramePacer.h"
+#include "Common/MessageStream.h"
+#include "GameClient/InGameUI.h"
+#include "GameClient/Keyboard.h"
+#include "GameClient/Mouse.h"
+#include "GameClient/SelectionXlat.h"
+#include "GameClient/View.h"
 
 #include "GameNetwork/LANAPICallbacks.h"
 #include "../OnlineServices_Init.h"
@@ -44,6 +51,9 @@ extern DWORD TheMessageTime;
 //-------------------------------------------------------------------------------------------------
 Win32GameEngine::Win32GameEngine()
 {
+	m_isAtFrameBoundary = FALSE;
+	m_isInModalStep = FALSE;
+
 	// Stop blue screen
 	m_previousErrorMode = SetErrorMode( SEM_FAILCRITICALERRORS );
 }
@@ -81,6 +91,93 @@ void Win32GameEngine::reset()
 }
 
 //-------------------------------------------------------------------------------------------------
+/** Network games and network lobbies never stop for the window state, only the drawing may pause. */
+//-------------------------------------------------------------------------------------------------
+Bool Win32GameEngine::shouldKeepRunningInBackground()
+{
+	if (TheNetwork != nullptr || TheLAN != nullptr)
+	{
+		return TRUE;
+	}
+
+	if (TheGameLogic != nullptr)
+	{
+		if (TheGameLogic->isInMultiplayerGame())
+		{
+			return TRUE;
+		}
+
+		// a single player, skirmish or replay game pauses, also when logged in online
+		if (TheGameLogic->isInGame() && !TheGameLogic->isInShellGame())
+		{
+			return FALSE;
+		}
+	}
+
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+	{
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Runs one main loop iteration from a Windows modal loop (window move or size, menu).
+	* Only from the message service that ends a frame, other callers are mid-operation. */
+//-------------------------------------------------------------------------------------------------
+Bool Win32GameEngine::stepFrameFromModalLoop()
+{
+	if (m_isInModalStep || !m_isAtFrameBoundary || getQuitting() || !shouldKeepRunningInBackground())
+	{
+		return FALSE;
+	}
+
+	m_isInModalStep = TRUE;
+	update();
+	TheFramePacer->update();
+	m_isInModalStep = FALSE;
+	return TRUE;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** The modal loop eats the button releases and key releases, so nothing may stay held or be delivered late.
+	* Scrolling and area selection end without a command being issued. */
+//-------------------------------------------------------------------------------------------------
+void Win32GameEngine::releaseInputForModalLoop()
+{
+	if (TheInGameUI != nullptr)
+	{
+		TheInGameUI->setScrolling(FALSE);
+		TheInGameUI->setSelecting(FALSE);
+		TheInGameUI->endAreaSelectHint(nullptr);
+	}
+
+	if (TheSelectionTranslator != nullptr)
+	{
+		TheSelectionTranslator->setLeftMouseButton(FALSE);
+		TheSelectionTranslator->setDragSelecting(FALSE);
+	}
+
+	if (TheTacticalView != nullptr)
+	{
+		TheTacticalView->setMouseLock(FALSE);
+	}
+
+	if (TheMouse != nullptr)
+	{
+		TheMouse->resetButtons();
+	}
+
+	if (TheKeyboard != nullptr && TheMessageStream != nullptr)
+	{
+		// reads and drops the keys buffered by the device meanwhile
+		TheKeyboard->UPDATE();
+		TheKeyboard->resetKeys();
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
 /** Update the game engine by updating the GameClient and
 	* GameLogic singletons. */
 //-------------------------------------------------------------------------------------------------
@@ -90,6 +187,11 @@ void Win32GameEngine::update()
 
 	// call the engine normal update
 	GameEngine::update();
+
+	if (m_isInModalStep)
+	{
+		return;
+	}
 
 	extern HWND ApplicationHWnd;
 	if (ApplicationHWnd && ::IsIconic(ApplicationHWnd)) {
@@ -111,12 +213,8 @@ void Win32GameEngine::update()
 				NGMP_OnlineServicesManager::GetInstance()->Tick();
 			}
 
-			// If we are running a multiplayer game, keep running the logic.
-			// There is code in the client to skip client redraw if we are
-			// iconic.  jba.
-			// GO_CHANGE: If we have an active network session, keep running to prevent disconnecting us from
-			// other players during lobby and loading screen where isInMultiplayerGame() returns false
-			if (TheGameEngine->getQuitting() || TheGameLogic->isInMultiplayerGame() || (TheNetwork != nullptr)) {
+			// Network games and lobbies keep running, the client skips the redraw while iconic.
+			if (TheGameEngine->getQuitting() || shouldKeepRunningInBackground()) {
 				break; // keep running.
 			}
 		}
@@ -129,7 +227,9 @@ void Win32GameEngine::update()
 	}
 
 	// allow windows to perform regular windows maintenance stuff like msgs
+	m_isAtFrameBoundary = TRUE;
 	serviceWindowsOS();
+	m_isAtFrameBoundary = FALSE;
 
 }
 

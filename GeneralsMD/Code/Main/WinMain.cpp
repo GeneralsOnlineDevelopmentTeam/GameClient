@@ -60,6 +60,7 @@
 #include "GameLogic/GameLogic.h"  ///< @todo for demo, remove
 #include "GameClient/Mouse.h"
 #include "GameClient/IMEManager.h"
+#include "GameNetwork/NetworkInterface.h"
 #include "Win32Device/GameClient/Win32Mouse.h"
 #include "Win32Device/Common/Win32GameEngine.h"
 #include "Common/version.h"
@@ -309,6 +310,9 @@ static void setWinMainActive(Bool active)
 // WndProc ====================================================================
 /** Window Procedure */
 //=============================================================================
+static const UINT_PTR NETWORK_TIMER_ID = 1;
+static const UINT NETWORK_TIMER_INTERVAL = USER_TIMER_MINIMUM;
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
 	WPARAM wParam, LPARAM lParam)
 {
@@ -366,6 +370,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
 			}
 			break;
 			//-------------------------------------------------------------------------
+			// Windows runs its own loop while a window is moved or sized or its menu is open, a network game or lobby steps a frame from a timer meanwhile.
+			case WM_ENTERSIZEMOVE:
+				if( TheMouse != nullptr )
+					TheMouse->onWindowMoveSizeBegin();
+				// fall through
+			case WM_ENTERMENULOOP:
+				if( TheGameEngine != nullptr )
+					static_cast<Win32GameEngine*>( TheGameEngine )->releaseInputForModalLoop();
+				SetTimer( hWnd, NETWORK_TIMER_ID, NETWORK_TIMER_INTERVAL, nullptr );
+				break;
+
+			case WM_EXITSIZEMOVE:
+				if( TheMouse != nullptr )
+					TheMouse->onWindowMoveSizeEnd();
+				// fall through
+			case WM_EXITMENULOOP:
+				KillTimer( hWnd, NETWORK_TIMER_ID );
+				if( TheGameEngine != nullptr )
+					static_cast<Win32GameEngine*>( TheGameEngine )->releaseInputForModalLoop();
+				break;
+
+			case WM_TIMER:
+				if( wParam == NETWORK_TIMER_ID )
+				{
+					Win32GameEngine* pEngine = static_cast<Win32GameEngine*>( TheGameEngine );
+					if( pEngine == nullptr || !pEngine->stepFrameFromModalLoop() )
+					{
+						if( TheNetwork != nullptr )
+						{
+							TheNetwork->liteupdate();
+						}
+					}
+				}
+				break;
+
 		case WM_SYSCOMMAND:
 			// Prevent moving/sizing and power loss in fullscreen mode
 			switch (wParam & 0xFFF0)
@@ -417,7 +456,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
 			}
 			return 0;
 
-			//-------------------------------------------------------------------------
 		case WM_MOVE:
 		{
 			if (TheMouse)
@@ -608,6 +646,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
 		//-------------------------------------------------------------------------
 		case WM_SETCURSOR:
 		{
+			// the title bar and borders keep the system cursor, also while the window is moved
+			if (LOWORD(lParam) != HTCLIENT)
+				break;
+
 			if (TheWin32Mouse && (HWND)wParam == ApplicationHWnd)
 				TheWin32Mouse->setCursor(TheWin32Mouse->getMouseCursor());
 			return TRUE;	//tell Windows not to reset mouse cursor image to default.
