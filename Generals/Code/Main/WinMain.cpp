@@ -320,7 +320,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 			//-------------------------------------------------------------------------
 			case WM_NCHITTEST:
 				// Prevent the user from selecting the menu in fullscreen mode
-				if( !TheGlobalData->m_windowed )
+				if( TheGlobalData && !TheGlobalData->m_windowed )
 					return HTCLIENT;
 				break;
 
@@ -359,7 +359,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 					case SC_SIZE:
 					case SC_MAXIMIZE:
 					case SC_MONITORPOWER:
-						if( !TheGlobalData->m_windowed )
+						if( TheGlobalData && !TheGlobalData->m_windowed )
 							return 1;
 						break;
 				}
@@ -562,7 +562,9 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message,
 			//-------------------------------------------------------------------------
 			case WM_MOUSEMOVE:
 			{
-				if( TheWin32Mouse == nullptr )
+				// TheMouse and TheWin32Mouse are separate globals; guard both since messages
+				// can be pumped during engine init/shutdown before or after either exists.
+				if( TheWin32Mouse == nullptr || TheMouse == nullptr )
 					return 0;
 
 				// ignore when window is not active
