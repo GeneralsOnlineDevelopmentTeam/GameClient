@@ -100,6 +100,7 @@ public:
 
 	virtual Int getAverageFPS() = 0;
 	virtual Int getSlotAverageFPS(Int slot) = 0;
+	virtual const ConnectionStats* getConnectionStats(Int slot) const = 0;	///< Latency, jitter and loss of the connection to a slot, nullptr when there is none.
 
 #if defined(GENERALS_ONLINE)
 	virtual void SeedLatencyData(int highestLatency) = 0;

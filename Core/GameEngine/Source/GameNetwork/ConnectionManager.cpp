@@ -59,6 +59,10 @@
 #include "../NetworkMesh.h"
 #include "../ngmp_interfaces.h"
 
+#if defined(GENERALS_ONLINE)
+Int MIN_RUNAHEAD = 4;
+#endif
+
 static Bool hasValidTransferFileExtension(const AsciiString& filePath)
 {
 	static const char* const validExtensions[] = {
@@ -272,6 +276,23 @@ ConnectionManager::ConnectionManager()
  */
 void ConnectionManager::init()
 {
+#if defined(GENERALS_ONLINE)
+	m_networkSettings = NetworkSettings::LocalDefaults();
+	NGMP_OnlineServicesManager *services = NGMP_OnlineServicesManager::GetInstance();
+	if (TheLAN == nullptr && TheNGMPGame != nullptr && services != nullptr) {
+		const ServiceConfig &overrides = services->GetServiceConfig();
+		m_networkSettings.send = overrides.send;
+		m_networkSettings.input_delay = overrides.input_delay;
+	}
+	const NetworkSettings::InputDelay &runAhead = m_networkSettings.input_delay;
+	TheWritableGlobalData->m_networkFPSHistoryLength = (std::max)(1, runAhead.fps_history_samples);
+	TheWritableGlobalData->m_networkLatencyHistoryLength = (std::max)(1, runAhead.formula.latency_history_samples);
+	TheWritableGlobalData->m_networkRunAheadSlack = runAhead.slack_percent;
+	TheWritableGlobalData->m_networkRunAheadMetricsTime = runAhead.decision_interval_ms;
+	MIN_RUNAHEAD = runAhead.min_frames;
+	FRAME_GROUPING_CAP = (int)(m_networkSettings.send.frames_per_packet * (float)(1000.f / GENERALS_ONLINE_HIGH_FPS_LIMIT));
+#endif
+
 //	if (m_transport == nullptr) {
 //		m_transport = new Transport;
 //	}
@@ -318,6 +339,11 @@ void ConnectionManager::init()
 		m_latencyAverages[i] = 0.0; // using zero since all floating point standards should be able to specify 0.0 accurately.
 	}
 	m_smallestPacketArrivalCushion = -1;
+#if defined(GENERALS_ONLINE)
+	m_stallActive = FALSE;
+	m_stallStartTime = 0;
+	m_stallMissingMask = 0;
+#endif
 
 	m_frameMetrics.init();
 
@@ -389,10 +415,10 @@ void ConnectionManager::reset()
 #endif
 	m_packetRouterSlot = -1;
 
-	for (i = 0; i < TheGlobalData->m_networkFPSHistoryLength; ++i) {
+	for (i = 0; i < (UnsignedInt)MAX_SLOTS; ++i) {
 		m_fpsAverages[i] = -1;
 	}
-	for (i = 0; i < TheGlobalData->m_networkLatencyHistoryLength; ++i) {
+	for (i = 0; i < (UnsignedInt)MAX_SLOTS; ++i) {
 		m_latencyAverages[i] = 0.0;
 	}
 
@@ -981,6 +1007,11 @@ void ConnectionManager::processFrameInfo(NetFrameCommandMsg *msg) {
 		if (m_frameData[playerID] != nullptr) {
 //			DEBUG_LOG(("ConnectionManager::processFrameInfo - player %d, frame %d, command count %d, received on frame %d", playerID, msg->getExecutionFrame(), msg->getCommandCount(), TheGameLogic->getFrame()));
 			m_frameData[playerID]->setFrameCommandCount(msg->getExecutionFrame(), msg->getCommandCount());
+#if defined(GENERALS_ONLINE)
+			if ((playerID != (UnsignedInt)m_localSlot) && (TheGameLogic != nullptr)) {
+				m_cushionStats[playerID].note((Int)msg->getExecutionFrame() - (Int)TheGameLogic->getFrame(), timeGetTime());
+			}
+#endif
 		}
 	}
 }
@@ -1995,7 +2026,7 @@ void ConnectionManager::setFrameGrouping(time_t frameGrouping) {
 	// This is probably ok since the packet router should have the fastest connection of all
 	// the players in the game.
 
-	NetworkLog(ELogVerbosity::LOG_DEBUG, "ConnectionManager::setFrameGrouping Frame grouping is %d, is packet router %d", frameGrouping, m_localSlot == m_packetRouterSlot);
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "ConnectionManager::setFrameGrouping Frame grouping is %I64d, is packet router %d", (Int64)frameGrouping, m_localSlot == m_packetRouterSlot);
 
 	if (m_localSlot == m_packetRouterSlot) {
 		frameGrouping = frameGrouping / 2;
@@ -2721,6 +2752,13 @@ Int ConnectionManager::getSlotAverageFPS(Int slot) {
 	return m_fpsAverages[slot];
 }
 
+const ConnectionStats* ConnectionManager::getConnectionStats(Int slot) const {
+	if ((slot < 0) || (slot >= MAX_SLOTS) || (m_connections[slot] == nullptr)) {
+		return nullptr;
+	}
+	return &m_connections[slot]->getStats();
+}
+
 #if defined(RTS_DEBUG)
 void ConnectionManager::debugPrintConnectionCommands() {
 	DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::debugPrintConnectionCommands - begin commands"));
@@ -2785,7 +2823,7 @@ void ConnectionManager::sendFrameDataToPlayer(UnsignedInt playerID, UnsignedInt 
 }
 
 void ConnectionManager::sendSingleFrameToPlayer(UnsignedInt playerID, UnsignedInt frame) {
-	if ((TheGameLogic->getFrame() - FRAMES_TO_KEEP) > frame) {
+	if (frame + FRAMES_TO_KEEP < TheGameLogic->getFrame()) {
 		DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::sendSingleFrameToPlayer - player %d requested frame %d when we are on frame %d, this is too far in the past.", playerID, frame, TheGameLogic->getFrame()));
 		return;
 	}
@@ -2852,3 +2890,25 @@ void ConnectionManager::requestFrameDataResend(Int playerID, UnsignedInt frame) 
 
 	msg->detach();
 }
+
+#if defined(GENERALS_ONLINE)
+void ConnectionManager::noteStalling(Bool stalling, UnsignedInt frame) {
+	time_t now = timeGetTime();
+
+	if (stalling && !m_stallActive) {
+		// list the senders whose commands for this frame are missing
+		m_stallMissingMask = 0;
+		for (Int i = 0; i < MAX_SLOTS; ++i) {
+			if ((m_frameData[i] != nullptr) && (m_frameData[i]->getIsQuitting() == FALSE)
+				&& (m_frameData[i]->getFrameCommandCount(frame) != m_frameData[i]->getCommandCount(frame))) {
+				m_stallMissingMask |= (1u << i);
+			}
+		}
+		m_stallActive = TRUE;
+		m_stallStartTime = now;
+	} else if (!stalling && m_stallActive) {
+		m_stallActive = FALSE;
+		m_stallStats.note((Int)(now - m_stallStartTime), m_stallMissingMask, now);
+	}
+}
+#endif

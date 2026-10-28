@@ -37,6 +37,9 @@
 #include "GameNetwork/FrameMetrics.h"
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/DisconnectManager.h"
+#if defined(GENERALS_ONLINE)
+#include "GameNetwork/NetworkSettings.h"
+#endif
 
 class GameInfo;
 class NetCommandWrapperList;
@@ -56,6 +59,7 @@ public:
 	virtual void update(Bool isInGame);			///< Service the Connections being managed by this instance.
 
 #if defined(GENERALS_ONLINE)
+	const NetworkSettings &getNetworkSettings() const { return m_networkSettings; }
 	void SeedLatencyData(int highestLatency)
 	{
 		for (int i = 0; i < MAX_SLOTS; ++i) {
@@ -154,6 +158,10 @@ public:
 
 	Int getAverageFPS();
 	Int getSlotAverageFPS(Int slot);
+#if defined(GENERALS_ONLINE)
+	void noteStalling(Bool stalling, UnsignedInt frame);	///< Called every network update with whether the game is waiting for commands.
+#endif
+	const ConnectionStats* getConnectionStats(Int slot) const;	///< Returns nullptr when there is no connection for the slot.
 
 #if defined(RTS_DEBUG)
 	void debugPrintConnectionCommands();
@@ -165,6 +173,10 @@ public:
 	Int getPingsReceived();
 
 private:
+#if defined(GENERALS_ONLINE)
+	NetworkSettings m_networkSettings;
+#endif
+
 	void doRelay();
 	void doKeepAlive();
 	void sendRemoteCommand(NetCommandRef *msg);
@@ -225,6 +237,14 @@ private:
 	Int  m_minFps;
 	UnsignedInt m_smallestPacketArrivalCushion;
 	Bool m_didSelfSlug;
+
+#if defined(GENERALS_ONLINE)
+	ArrivalCushionStats m_cushionStats[MAX_SLOTS];
+	StallStats m_stallStats;
+	Bool m_stallActive;
+	time_t m_stallStartTime;
+	UnsignedInt m_stallMissingMask;
+#endif
 
 	// -----------------------------------------------------------------------------
 	FileCommandMap s_fileCommandMap;

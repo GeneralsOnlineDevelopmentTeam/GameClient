@@ -6,6 +6,9 @@
 #include <mutex>
 #include <steam/steamnetworkingcustomsignaling.h>
 #include "PluginInterfaces.h"
+#include "Lib/BaseType.h"
+#include "GameNetwork/ConnectionStats.h"
+#include "GameNetwork/GeneralsOnline/PacketFeedback.h"
 
 class NetRoom_ChatMessagePacket;
 
@@ -50,6 +53,12 @@ public:
 
 	void UpdateLatencyHistogram();
 
+	void TickProbe(int64_t nowMs);
+	void HandleProbe(const uint8_t* payload, size_t len, int64_t arrivalMs);
+	void ResetProbe();
+	static int64_t GetArrivalMs(const SteamNetworkingMessage_t* msg);	///< transport receive time in steady_clock ms
+	ConnectionStats m_probeStats;
+
 	void Close();
 
 	bool IsIPV4();
@@ -66,7 +75,7 @@ public:
 		       m_State != EConnectionState::CONNECTION_DISCONNECTED;
 	}
 
-	int Recv(SteamNetworkingMessage_t** pMsg);
+	int Recv(SteamNetworkingMessage_t** pMsg, int maxMessages = 255);
 
 	int GetHighestHistoricalLatency()
 	{
@@ -96,14 +105,18 @@ public:
 
 	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
 	
-	int64_t pingSent = -1;
-
 	int m_SignallingAttempts = 0;
 
 	// when signalling for this connection started, for connect-time logging
 	int64_t m_connectStartedMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 	
 	int GetLatency();
+	PacketFeedback m_feedback;
+	size_t ConsumeEnvelope(const uint8_t* data, size_t len);	///< envelope size, 0 if malformed
+	int64_t m_lastPacketMs = 0;	///< steady_clock ms of the last enveloped packet, 0 before the first
+	int SendEnveloped(ENetworkChannel channel, const uint8_t* payload, size_t len, int sendFlags);	///< returns an EResult
+	bool GetOutgoingLoss(int windowMs, PacketFeedback::Summary& summary);	///< our packets to the peer, false without feedback
+	bool GetIncomingLoss(int windowMs, PacketFeedback::Summary& summary);	///< the peer's packets to us
 	int GetJitter();
 	float GetConnectionQuality();
 	int ComputeConnectionScore();
@@ -118,6 +131,22 @@ public:
 	std::string m_strMiddlewareID = std::string("NOT SET");
 
 	void LiteUpdateForAC();
+
+private:
+	static constexpr size_t k_probeRingSize = 64;
+	static constexpr uint16_t k_noProbeSeq = 0xFFFF;
+
+	struct OutstandingProbe
+	{
+		uint16_t seq = k_noProbeSeq;	// k_noProbeSeq marks a free slot
+		int64_t sendTimeMs = 0;
+	};
+
+	OutstandingProbe m_probeRing[k_probeRingSize];	// indexed by seq % k_probeRingSize
+	uint16_t m_nextProbeSeq = 0;
+	uint16_t m_lastPeerSeq = k_noProbeSeq;	// last probe received from the peer
+	int64_t m_lastPeerSeqRecvMs = 0;
+	int64_t m_nextProbeMs = 0;
 };
 
 struct LobbyMemberEntry;
