@@ -251,6 +251,7 @@ public:
 	virtual void winSetGrabWindow( GameWindow *window );  ///< set the grab window
 	virtual GameWindow *winGetGrabWindow();  ///< who is currently 'held' by mouse
 	virtual void winSetLoneWindow( GameWindow *window );  ///< set the open window
+	GameWindow *winGetLoneWindow() const { return m_loneWindow; }  ///< the combo box whose list is open, if any
 
 	// Finds the top-level window at the mouse position that matches the required and forbidden status masks.
 	virtual GameWindow* findWindowUnderMouse(GameWindow*& toolTipWindow, const ICoord2D* mousePos, unsigned int requiredStatusMask, unsigned int forbiddenStatusMask);

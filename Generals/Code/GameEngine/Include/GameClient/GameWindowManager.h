@@ -251,6 +251,7 @@ public:
 	virtual void winSetGrabWindow( GameWindow *window );  ///< set the grab window
 	virtual GameWindow *winGetGrabWindow();  ///< who is currently 'held' by mouse
 	virtual void winSetLoneWindow( GameWindow *window );  ///< set the open window
+	GameWindow *winGetLoneWindow() const { return m_loneWindow; }  ///< the combo box whose list is open, if any
 
 	virtual Bool isEnabled( GameWindow *win );  ///< is window or parents enabled
 	virtual Bool isHidden( GameWindow *win );  ///< is parent or parents hidden

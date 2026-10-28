@@ -1432,6 +1432,26 @@ GameWindow *GameWindow::winPointInChild( Int x, Int y, Bool ignoreEnableCheck, B
 	GameWindow *child;
 	ICoord2D origin;
 
+	// the list of an open combo box reaches past the rects of its parents, so it is tested first or clicks on it would fall through
+	GameWindow *open = TheWindowManager ? TheWindowManager->winGetLoneWindow() : nullptr;
+	if( open && open != this && BitIsSet( open->winGetStyle(), GWS_COMBO_BOX ) && winIsChild( open ) )
+	{
+		GameWindow *list = GadgetComboBoxGetListBox( open );
+		Bool shown = list && !list->winIsHidden();
+		for( parent = open; parent && shown; parent = parent->m_parent )
+		{
+			shown = !BitIsSet( parent->m_status, WIN_STATUS_HIDDEN );
+		}
+		ICoord2D position;
+		ICoord2D size;
+		open->winGetScreenPosition( &position.x, &position.y );
+		open->winGetSize( &size.x, &size.y );
+		if( shown && x >= position.x && x <= position.x + size.x && y >= position.y && y <= position.y + size.y )
+		{
+			return open->winPointInChild( x, y, ignoreEnableCheck, playDisabledSound );
+		}
+	}
+
 	for( child = m_child; child; child = child->m_next )
 	{
 

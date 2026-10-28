@@ -2821,6 +2821,23 @@ void W3DDisplay::drawImage( const Image *image, Int startX, Int startY,
 	RectClass screen_rect(startX,startY,endX,endY);
 	RectClass uv_rect(uv->lo.x,uv->lo.y,uv->hi.x,uv->hi.y);
 
+	// A stretched image samples half a texel inside its own rectangle, so bilinear filtering does not pull in the neighbours of an atlas texture.
+	// An image drawn at its own size is left as is.
+	{
+		const Bool rotated = BitIsSet( image->getStatus(), IMAGE_STATUS_ROTATED_90_CLOCKWISE );
+		const Int imageWidth = image->getImageWidth();
+		const Int imageHeight = image->getImageHeight();
+		if (imageWidth > 1 && imageHeight > 1 && (endX - startX != imageWidth || endY - startY != imageHeight))
+		{
+			const Real insetU = 0.5f * uv_rect.Width() / (Real)(rotated ? imageHeight : imageWidth);
+			const Real insetV = 0.5f * uv_rect.Height() / (Real)(rotated ? imageWidth : imageHeight);
+			uv_rect.Left += insetU;
+			uv_rect.Right -= insetU;
+			uv_rect.Top += insetV;
+			uv_rect.Bottom -= insetV;
+		}
+	}
+
 	if (m_isClippedEnabled)
 	{	//need to clip this quad to clip rectangle
 		if (screen_rect.Left < m_clipRegion.lo.x || screen_rect.Right > m_clipRegion.hi.x || screen_rect.Top < m_clipRegion.lo.y || screen_rect.Bottom > m_clipRegion.hi.y)

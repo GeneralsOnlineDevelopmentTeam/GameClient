@@ -473,9 +473,10 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage*
 				}
 
 				// TheSuperHackers @fix Mauller 16/06/2025 fix RMB scrolling to allow it to scale with the user adjusted scroll factor
+				// TheSuperHackers @fix The drag distance is measured at 800x600, so the scroll speed does not depend on the screen resolution.
 				Coord2D vec;
-				vec.x = (m_currentPos.x - m_anchor.x);
-				vec.y = (m_currentPos.y - m_anchor.y);
+				vec.x = (m_currentPos.x - m_anchor.x) * (800.0f / TheDisplay->getWidth());
+				vec.y = (m_currentPos.y - m_anchor.y) * (600.0f / TheDisplay->getHeight());
 				// TheSuperHackers @info calculate the length of the vector to obtain the movement speed before the vector is normalized
 				float vecLength = vec.length();
 				vec.normalize();

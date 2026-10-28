@@ -368,13 +368,24 @@ void W3DGameWinDefaultDraw( GameWindow *window, WinInstanceData *instData )
 																		 origin.x, origin.y,
 																		 origin.x + size.x, origin.y + size.y );
 
+		// The fill leaves room for the border. At other resolutions than the creation one it only does that for a border that is drawn,
+		// so a window without a visible border reaches its own edges.
+		Real fillInset = borderWidth;
+		if( TheDisplay != nullptr && ( TheDisplay->getWidth() != 800 || TheDisplay->getHeight() != 600 ) )
+		{
+			Real red, green, blue, alpha;
+			GameGetColorComponentsReal( borderColor, &red, &green, &blue, &alpha );
+			if( borderColor == WIN_COLOR_UNDEFINED || alpha <= 0.0f )
+				fillInset = 0.0f;
+		}
+
 		// draw filled background
 		if( color != WIN_COLOR_UNDEFINED )
 			TheWindowManager->winFillRect( color, borderWidth,
-																		 origin.x + borderWidth,
-																		 origin.y + borderWidth,
-																		 origin.x + size.x - borderWidth,
-																		 origin.y + size.y - borderWidth );
+																		 origin.x + fillInset,
+																		 origin.y + fillInset,
+																		 origin.x + size.x - fillInset,
+																		 origin.y + size.y - fillInset );
 
 	}
 
