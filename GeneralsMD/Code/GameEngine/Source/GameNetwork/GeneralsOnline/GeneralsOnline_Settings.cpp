@@ -1,7 +1,11 @@
 #include "GameNetwork/GeneralsOnline/GeneralsOnline_Settings.h"
+#include "Common/ArchiveFileSystem.h"
 #include "../json.hpp"
 #include "../OnlineServices_LobbyInterface.h"
 #include "../OnlineServices_Init.h"
+#include <algorithm>
+#include "GameNetwork/GeneralsOnline/CredentialStore.h"
+#include "GameNetwork/GeneralsOnline/OnlineServices_Auth.h"
 
 #define SETTINGS_KEY_CAMERA "camera"
 #define SETTINGS_KEY_CAMERA_MIN_HEIGHT "min_height"
@@ -30,14 +34,29 @@
 #define SETTINGS_KEY_DEBUG_VERBOSE_LOGGING "verbose_logging"
 
 #define SETTINGS_KEY_NETWORK "network"
-#define SETTINGS_KEY_NETWORK_HTTP_VERSION "http_version"
+#define SETTINGS_KEY_NETWORK_LEGACY_HTTP_VERSION "http_version"
 #define SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT "use_alternative_endpoint"
+#define SETTINGS_KEY_NETWORK_SERVER "server"
+#define SETTINGS_KEY_NETWORK_SERVER_MODE "mode"
+#define SETTINGS_KEY_NETWORK_SERVER_ADDRESS "address"
+#define SETTINGS_KEY_NETWORK_PROXY "proxy"
+#define SETTINGS_KEY_NETWORK_PROXY_MODE "mode"
+#define SETTINGS_KEY_NETWORK_PROXY_ADDRESS "address"
+#define SETTINGS_KEY_NETWORK_PROXY_WINDOWS_LOGIN "windows_login"
+#define SETTINGS_KEY_NETWORK_LAST_ROUTE "last_route"
+#define LEGACY_ALTERNATIVE_ROUTE_HOST "api-ru.playgenerals.online"
 
 #define SETTINGS_KEY_PLUGINS "plugins"
 #define SETTINGS_KEY_PLUGINS_ANTICHEAT "anticheat"
 
 #define SETTINGS_KEY_DATAPACKS "data_packs"
-#define SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH "use_community_data_patch"
+#define SETTINGS_KEY_DATAPACKS_USER "user"
+#define SETTINGS_KEY_DATAPACKS_GENERALS_ONLINE "generals_online"
+#define SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH "community_patch"
+#define SETTINGS_KEY_DATAPACKS_ENABLED "enabled"
+#define SETTINGS_KEY_DATAPACKS_INCLUDE_PATHS "include_paths"
+#define SETTINGS_KEY_DATAPACKS_EXCLUDE_PATHS "exclude_paths"
+#define SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH_LEGACY "use_community_data_patch"	// before the layers, read once and dropped on save
 
 #define SETTINGS_FILENAME_LEGACY "GeneralsOnline_settings.json"
 #define SETTINGS_FILENAME "settings.json"
@@ -94,8 +113,93 @@ std::string GenOnlineSettings::GetAnticheatPlugin() const
     return m_Plugins_Anticheat;
 }
 
+// Reads a list of paths of data_packs, an entry that is not valid is dropped. Returns FALSE and keeps the list when the field is missing or not a list.
+static bool LoadDataPackPaths(const nlohmann::json& jsonLayer, const char* layerName, const char* key, bool excludes, std::vector<std::string>& paths)
+{
+    if (!jsonLayer.contains(key))
+    {
+        return false;
+    }
+
+    if (!jsonLayer[key].is_array())
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "Data pack layer %s: %s is not a list, using the default", layerName, key);
+        return false;
+    }
+
+    paths.clear();
+    for (const auto& path : jsonLayer[key])
+    {
+        AsciiString reason;
+        bool bValid = false;
+        if (path.is_string())
+        {
+            bValid = excludes ? PathExcludeList::parse(path.get<std::string>(), nullptr, &reason) : ArchiveFileSystem::parseMountEntry(AsciiString(path.get<std::string>().c_str()), nullptr, &reason);
+        }
+
+        if (bValid)
+        {
+            paths.push_back(path.get<std::string>());
+        }
+        else
+        {
+            NetworkLog(ELogVerbosity::LOG_RELEASE, "Data pack layer %s: %s entry dropped from the settings (%s)", layerName, key, path.is_string() ? reason.str() : "not a string");
+        }
+    }
+    return true;
+}
+
+// Reads one layer of data_packs. A missing or invalid field keeps what the layer holds, its default. excludePaths is only read for the user layer.
+static void LoadDataPackLayer(const nlohmann::json& dataPacks, const char* name, GenOnlineDataPackLayer& layer, std::vector<std::string>* excludePaths)
+{
+    if (!dataPacks.contains(name))
+    {
+        return;
+    }
+
+    const nlohmann::json& jsonLayer = dataPacks[name];
+    if (!jsonLayer.is_object())
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "Data pack layer %s in the settings is not an object, using the default", name);
+        return;
+    }
+
+    if (jsonLayer.contains(SETTINGS_KEY_DATAPACKS_ENABLED))
+    {
+        if (jsonLayer[SETTINGS_KEY_DATAPACKS_ENABLED].is_boolean())
+        {
+            layer.m_enabled = jsonLayer[SETTINGS_KEY_DATAPACKS_ENABLED].get<bool>();
+        }
+        else
+        {
+            NetworkLog(ELogVerbosity::LOG_RELEASE, "Data pack layer %s: enabled is not a boolean, using the default", name);
+        }
+    }
+
+    LoadDataPackPaths(jsonLayer, name, SETTINGS_KEY_DATAPACKS_INCLUDE_PATHS, false, layer.m_includePaths);
+
+    if (excludePaths != nullptr)
+    {
+        LoadDataPackPaths(jsonLayer, name, SETTINGS_KEY_DATAPACKS_EXCLUDE_PATHS, true, *excludePaths);
+    }
+}
+
+static nlohmann::json DataPackLayerToJson(const GenOnlineDataPackLayer& layer, const std::vector<std::string>* excludePaths)
+{
+    nlohmann::json jsonLayer = nlohmann::json::object();
+    jsonLayer[SETTINGS_KEY_DATAPACKS_ENABLED] = layer.m_enabled;
+    jsonLayer[SETTINGS_KEY_DATAPACKS_INCLUDE_PATHS] = layer.m_includePaths;
+    if (excludePaths != nullptr)
+    {
+        jsonLayer[SETTINGS_KEY_DATAPACKS_EXCLUDE_PATHS] = *excludePaths;
+    }
+    return jsonLayer;
+}
+
 void GenOnlineSettings::Load(void)
 {
+	ServiceConnection::ConfigureCredentialStore(&NGMP_OnlineServices_AuthInterface::GetCredentialsFilePath);
+	ServiceConnection::SetCredentialLogSink([](const std::string& line) { NetworkLog(ELogVerbosity::LOG_RELEASE, "%s", line.c_str()); });
 	char GameDir[MAX_PATH + 1] = {};
 	::GetCurrentDirectoryA(MAX_PATH + 1u, GameDir);
 	std::string strSettingsFileDir = std::format("{}/GeneralsOnlineData/", TheGlobalData->getPath_UserData().str());
@@ -163,6 +267,9 @@ void GenOnlineSettings::Load(void)
 		try
 		{
 			jsonSettings = nlohmann::json::parse(strJSON);
+			if (!jsonSettings.is_object())
+				throw std::runtime_error("Settings must be an object");
+			m_PreservedJSON = jsonSettings.dump();
 
 		}
 		catch (...)
@@ -217,26 +324,122 @@ void GenOnlineSettings::Load(void)
 
             if (jsonSettings.contains(SETTINGS_KEY_NETWORK))
             {
-                auto networkSettings = jsonSettings[SETTINGS_KEY_NETWORK];
-
-                if (networkSettings.contains(SETTINGS_KEY_NETWORK_HTTP_VERSION))
+                // Any network value that is unknown, malformed or of the wrong type goes back to its default and is logged, one line per field.
+                // The load ends with a save, so the file never keeps the invalid value. Addresses can hold a secret, so their old value is not logged.
+                auto resetField = [](const std::string& path, const nlohmann::json& old, bool secret)
                 {
-                   int httpVersion = networkSettings[SETTINGS_KEY_NETWORK_HTTP_VERSION];
+                    const std::string oldText = secret ? std::string("hidden") : old.is_string() ? old.get<std::string>().substr(0, 64) : std::string(old.type_name());
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[Settings] %s is not valid (%s), reset to its default", path.c_str(), oldText.c_str());
+                };
+                auto choice = [&](const nlohmann::json& section, const std::string& path, const char* key, std::string& value, std::initializer_list<const char*> allowed)
+                {
+                    if (!section.contains(key))
+                    {
+                        return;
+                    }
+                    const auto& found = section[key];
+                    if (found.is_string() && std::find_if(allowed.begin(), allowed.end(), [&](const char* name) { return found.get<std::string>() == name; }) != allowed.end())
+                    {
+                        value = found.get<std::string>();
+                        return;
+                    }
+                    resetField(path + "." + key, found, false);
+                };
+                // a section that is present but not an object goes back to its defaults
+                auto section = [&](const nlohmann::json& parent, const std::string& path, const char* key) -> const nlohmann::json*
+                {
+                    if (!parent.contains(key))
+                    {
+                        return nullptr;
+                    }
+                    if (!parent[key].is_object())
+                    {
+                        resetField(path + "." + key, parent[key], false);
+                        return nullptr;
+                    }
+                    return &parent[key];
+                };
 
-				   // clamp
-				   if (httpVersion < 0 || httpVersion > HTTP_VERSION_3_0)
-				   {
-					   m_Network_HTTPVersion = EHTTPVersion::HTTP_VERSION_AUTO;
-				   }
-				   else
-				   {
-					   m_Network_HTTPVersion = (EHTTPVersion)httpVersion;
-				   }
+                if (!jsonSettings[SETTINGS_KEY_NETWORK].is_object())
+                {
+                    resetField(SETTINGS_KEY_NETWORK, jsonSettings[SETTINGS_KEY_NETWORK], false);
                 }
-
-                if (networkSettings.contains(SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT))
+                else
                 {
-                    m_Network_UseAlternativeEndpoint = networkSettings[SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT];
+                    const auto& networkSettings = jsonSettings[SETTINGS_KEY_NETWORK];
+
+                    if (const auto* serverSettings = section(networkSettings, SETTINGS_KEY_NETWORK, SETTINGS_KEY_NETWORK_SERVER))
+                    {
+                        const std::string path = std::string(SETTINGS_KEY_NETWORK) + "." + SETTINGS_KEY_NETWORK_SERVER;
+                        choice(*serverSettings, path, SETTINGS_KEY_NETWORK_SERVER_MODE, m_ConnectionSettings.serverMode, { "automatic", "custom" });
+                        if (serverSettings->contains(SETTINGS_KEY_NETWORK_SERVER_ADDRESS))
+                        {
+                            const auto& found = (*serverSettings)[SETTINGS_KEY_NETWORK_SERVER_ADDRESS];
+                            std::string endpointError;
+                            if (found.is_string() && (found.get<std::string>().empty() ||
+                                ServiceConnection::NormalizeCustomEndpoint(found.get<std::string>(), m_ConnectionSettings.serverAddress, endpointError)))
+                            {
+                                // an empty address stays empty
+                            }
+                            else
+                            {
+                                resetField(path + "." + SETTINGS_KEY_NETWORK_SERVER_ADDRESS, found, true);
+                                m_ConnectionSettings.serverAddress.clear();
+                            }
+                        }
+                    }
+
+                    if (const auto* proxySettings = section(networkSettings, SETTINGS_KEY_NETWORK, SETTINGS_KEY_NETWORK_PROXY))
+                    {
+                        const std::string path = std::string(SETTINGS_KEY_NETWORK) + "." + SETTINGS_KEY_NETWORK_PROXY;
+                        choice(*proxySettings, path, SETTINGS_KEY_NETWORK_PROXY_MODE, m_ConnectionSettings.proxyMode, { "automatic", "disabled", "custom" });
+                        if (proxySettings->contains(SETTINGS_KEY_NETWORK_PROXY_ADDRESS))
+                        {
+                            const auto& found = (*proxySettings)[SETTINGS_KEY_NETWORK_PROXY_ADDRESS];
+                            std::string proxyError;
+                            if (found.is_string() && (found.get<std::string>().empty() || ServiceConnection::ValidateProxyURL(found.get<std::string>(), proxyError)))
+                            {
+                                m_ConnectionSettings.proxyURL = found.get<std::string>();
+                            }
+                            else
+                            {
+                                resetField(path + "." + SETTINGS_KEY_NETWORK_PROXY_ADDRESS, found, true);
+                            }
+                        }
+                        if (proxySettings->contains(SETTINGS_KEY_NETWORK_PROXY_WINDOWS_LOGIN))
+                        {
+                            const auto& found = (*proxySettings)[SETTINGS_KEY_NETWORK_PROXY_WINDOWS_LOGIN];
+                            if (found.is_boolean())
+                            {
+                                m_ConnectionSettings.windowsLogin = found.get<bool>();
+                            }
+                            else
+                            {
+                                resetField(path + "." + SETTINGS_KEY_NETWORK_PROXY_WINDOWS_LOGIN, found, false);
+                            }
+                        }
+                    }
+
+                    if (networkSettings.contains(SETTINGS_KEY_NETWORK_LAST_ROUTE))
+                    {
+                        const auto& found = networkSettings[SETTINGS_KEY_NETWORK_LAST_ROUTE];
+                        if (found.is_string() && found.get<std::string>().size() <= 253 &&
+                            found.get<std::string>().find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") == std::string::npos)
+                        {
+                            m_LastRoute = found.get<std::string>();
+                        }
+                        else
+                        {
+                            resetField(std::string(SETTINGS_KEY_NETWORK) + "." + SETTINGS_KEY_NETWORK_LAST_ROUTE, found, false);
+                        }
+                    }
+                    else if (networkSettings.contains(SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT) &&
+                        networkSettings[SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT].is_boolean() &&
+                        networkSettings[SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT].get<bool>())
+                    {
+                        // the old switch of the released client now only prefers that route
+                        m_LastRoute = LEGACY_ALTERNATIVE_ROUTE_HOST;
+                    }
                 }
             }
 
@@ -317,11 +520,18 @@ void GenOnlineSettings::Load(void)
 
             if (jsonSettings.contains(SETTINGS_KEY_DATAPACKS))
             {
-                auto datapackSettings = jsonSettings[SETTINGS_KEY_DATAPACKS];
+                const nlohmann::json& datapackSettings = jsonSettings[SETTINGS_KEY_DATAPACKS];
 
-                if (datapackSettings.contains(SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH))
+                LoadDataPackLayer(datapackSettings, SETTINGS_KEY_DATAPACKS_USER, m_DataPacks_User, &m_DataPacks_UserExcludePaths);
+                LoadDataPackLayer(datapackSettings, SETTINGS_KEY_DATAPACKS_GENERALS_ONLINE, m_DataPacks_GeneralsOnline, nullptr);
+                LoadDataPackLayer(datapackSettings, SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH, m_DataPacks_CommunityPatch, nullptr);
+
+                // a file from before the layers: the old community patch switch becomes community_patch.enabled
+                if (!datapackSettings.contains(SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH)
+                    && datapackSettings.contains(SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH_LEGACY)
+                    && datapackSettings[SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH_LEGACY].is_boolean())
                 {
-                    m_DataPacks_UseCommunityPatch = datapackSettings[SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH];
+                    m_DataPacks_CommunityPatch.m_enabled = datapackSettings[SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH_LEGACY].get<bool>();
                 }
             }
 		}
@@ -356,6 +566,7 @@ void GenOnlineSettings::Load(void)
 	
 	if (bReadFailed)
 	{
+		m_CanSave = false;
 		// keep the file on disk, the defaults above only apply to this session
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Could not read settings file, keeping it untouched");
 		return;
@@ -365,17 +576,28 @@ void GenOnlineSettings::Load(void)
 	{
 		// keep the unparseable file for recovery before the defaults replace it
 		std::filesystem::rename(strSettingsFilePath, strSettingsFilePath + ".bad", ec);
+		if (ec)
+		{
+			m_CanSave = false;
+			return;
+		}
+		m_PreservedJSON = "{}";
 	}
 
 	// Always save so we re-serialize anything new or missing
 	Save();
 }
 
-void GenOnlineSettings::Save()
+bool GenOnlineSettings::Save()
 {
 	if (!m_bInitialized)
 	{
 		Initialize();
+	}
+
+	if (!m_CanSave)
+	{
+		return false;
 	}
 
 	nlohmann::json root = {
@@ -400,8 +622,14 @@ void GenOnlineSettings::Save()
         {
             SETTINGS_KEY_NETWORK,
                 {
-                    {SETTINGS_KEY_NETWORK_HTTP_VERSION, m_Network_HTTPVersion},
-                    {SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT, m_Network_UseAlternativeEndpoint}
+                    {SETTINGS_KEY_NETWORK_SERVER, {
+                        {SETTINGS_KEY_NETWORK_SERVER_MODE, m_ConnectionSettings.serverMode},
+                        {SETTINGS_KEY_NETWORK_SERVER_ADDRESS, m_ConnectionSettings.serverAddress}}},
+                    {SETTINGS_KEY_NETWORK_PROXY, {
+                        {SETTINGS_KEY_NETWORK_PROXY_MODE, m_ConnectionSettings.proxyMode},
+                        {SETTINGS_KEY_NETWORK_PROXY_ADDRESS, m_ConnectionSettings.proxyURL},
+                        {SETTINGS_KEY_NETWORK_PROXY_WINDOWS_LOGIN, m_ConnectionSettings.windowsLogin}}},
+                    {SETTINGS_KEY_NETWORK_LAST_ROUTE, m_LastRoute}
                 }
         },
 
@@ -443,12 +671,19 @@ void GenOnlineSettings::Save()
         {
             SETTINGS_KEY_DATAPACKS,
                 {
-                    {SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH, m_DataPacks_UseCommunityPatch}
+                    {SETTINGS_KEY_DATAPACKS_USER, DataPackLayerToJson(m_DataPacks_User, &m_DataPacks_UserExcludePaths)},
+                    {SETTINGS_KEY_DATAPACKS_GENERALS_ONLINE, DataPackLayerToJson(m_DataPacks_GeneralsOnline, nullptr)},
+                    {SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH, DataPackLayerToJson(m_DataPacks_CommunityPatch, nullptr)}
                 }
         }
     };
 	
-	std::string strData = root.dump(1);
+	auto preserved = nlohmann::json::parse(m_PreservedJSON);
+	preserved.merge_patch(root);
+	preserved[SETTINGS_KEY_DATAPACKS] = root[SETTINGS_KEY_DATAPACKS];	// the client owns data_packs completely, stale keys go
+	preserved[SETTINGS_KEY_NETWORK].erase(SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT);
+	preserved[SETTINGS_KEY_NETWORK].erase(SETTINGS_KEY_NETWORK_LEGACY_HTTP_VERSION);
+	std::string strData = preserved.dump(1);
 
 	std::string strSettingsFilePath = std::format("{}/GeneralsOnlineData/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
 
@@ -472,4 +707,102 @@ void GenOnlineSettings::Save()
 		std::error_code ec;
 		std::filesystem::remove(strTempPath, ec);
 	}
+	else
+	{
+		m_PreservedJSON = strData;
+	}
+	return bSaved;
+}
+
+bool GenOnlineSettings::Network_SaveConnectionSettings(const ServiceConnectionSettings& requested, std::string& error)
+{
+	error.clear();
+	ServiceConnectionSettings settings = requested;
+	if ((settings.serverMode != "automatic" && settings.serverMode != "custom") ||
+		(settings.proxyMode != "automatic" && settings.proxyMode != "disabled" && settings.proxyMode != "custom"))
+	{
+		error = "Choose a valid service and proxy mode.";
+		return false;
+	}
+	if (settings.serverMode == "custom")
+	{
+		if (!ServiceConnection::NormalizeCustomEndpoint(settings.serverAddress, settings.serverAddress, error))
+		{
+			return false;
+		}
+	}
+	else
+	{
+		settings.serverAddress.clear();
+	}
+	if ((settings.proxyMode == "custom" || !settings.proxyURL.empty()) && !ServiceConnection::ValidateProxyURL(settings.proxyURL, error))
+	{
+		return false;
+	}
+	if (!m_bInitialized)
+	{
+		Initialize();
+	}
+	std::lock_guard<std::mutex> lock(m_NetworkMutex);
+	const auto previous = m_ConnectionSettings;
+	m_ConnectionSettings = settings;
+	if (Save())
+	{
+		// a changed proxy starts without anything typed for the old one
+		const std::string previousProxy = previous.proxyMode == "custom" ? ServiceConnection::CanonicalProxyKey(previous.proxyURL) : std::string();
+		const std::string proxy = settings.proxyMode == "custom" ? ServiceConnection::CanonicalProxyKey(settings.proxyURL) : std::string();
+		if (previousProxy != proxy)
+			ServiceConnection::ClearSessionProxyCredentialsExcept(proxy);
+		ServiceConnection::InvalidateProxyPolicyCache();
+		return true;
+	}
+	m_ConnectionSettings = previous;
+	error = "Could not save connection settings. Check the game user-data folder permissions.";
+	return false;
+}
+
+bool GenOnlineSettings::Network_SaveWindowsLogin(bool windowsLogin)
+{
+	if (!m_bInitialized)
+	{
+		Initialize();
+	}
+	std::lock_guard<std::mutex> lock(m_NetworkMutex);
+	if (m_ConnectionSettings.windowsLogin == windowsLogin)
+	{
+		return true;
+	}
+	m_ConnectionSettings.windowsLogin = windowsLogin;
+	if (!Save())
+	{
+		m_ConnectionSettings.windowsLogin = !windowsLogin;
+		return false;
+	}
+	ServiceConnection::InvalidateProxyPolicyCache();
+	return true;
+}
+
+bool GenOnlineSettings::Network_SaveLastRoute(const std::string& host)
+{
+	if (host.empty() || host.size() > 253 || host.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != std::string::npos)
+	{
+		return false;
+	}
+	if (!m_bInitialized)
+	{
+		Initialize();
+	}
+	std::lock_guard<std::mutex> lock(m_NetworkMutex);
+	if (m_LastRoute == host)
+	{
+		return true;
+	}
+	const auto previous = m_LastRoute;
+	m_LastRoute = host;
+	if (Save())
+	{
+		return true;
+	}
+	m_LastRoute = previous;
+	return false;
 }

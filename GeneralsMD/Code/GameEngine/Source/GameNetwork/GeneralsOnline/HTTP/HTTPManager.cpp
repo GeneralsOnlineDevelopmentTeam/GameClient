@@ -43,13 +43,14 @@ void HTTPManager::SendPUTRequest(const char* szURI, EIPProtocolVersion protover,
 }
 
 
-void HTTPManager::SendS3PUTRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, std::vector<uint8_t> vecBuffer, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/, int timeoutMS /*= -1*/)
+void HTTPManager::SendS3PUTRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, std::vector<uint8_t> vecBuffer, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/, int timeoutMS /*= -1*/, int maxSendBytesPerSec /*= 0*/)
 {
     CHECK_MAIN_THREAD;
 
     HTTPRequest* pRequest = PlatformCreateRequest(EHTTPVerb::HTTP_VERB_PUT, protover, szURI, inHeaders, completionCallback, progressCallback, timeoutMS);
 	pRequest->DisableServiceAuth();
-    pRequest->SetPostDataBuffer(vecBuffer);
+	pRequest->SetMaxSendSpeed(maxSendBytesPerSec);
+    pRequest->SetPostDataBuffer(std::move(vecBuffer));
 
     m_vecRequestsPendingStart.push_back(pRequest);
 }
@@ -83,118 +84,21 @@ void HTTPManager::Shutdown()
 	}
 	m_vecRequestsPendingStart.clear();
 
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTPManager] Waiting for %d in-flight requests to complete...", (int)m_vecRequestsInFlight.size());
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTPManager] Canceling %d in-flight requests...", (int)m_vecRequestsInFlight.size());
 
-	// Wait for all in-flight requests to complete
+	// removing handles cancels transfers; resolver workers hold value snapshots, so abandoned results never block shutdown
+	for (HTTPRequest* request : m_vecRequestsInFlight)
+		delete request;
+	m_vecRequestsInFlight.clear();
 	if (m_pCurl != nullptr)
 	{
-		int numRunning = 0;
-		do
-		{
-			// Perform any pending operations
-			curl_multi_perform(m_pCurl, &numRunning);
-			
-			// Check for completed requests
-			int msgq = 0;
-			CURLMsg* m = nullptr;
-			while ((m = curl_multi_info_read(m_pCurl, &msgq)) != nullptr)
-			{
-				if (m->msg == CURLMSG_DONE)
-				{
-					CURL* pCurlHandle = m->easy_handle;
-					
-					// Find and remove the associated request
-					for (auto it = m_vecRequestsInFlight.begin(); it != m_vecRequestsInFlight.end(); ++it)
-					{
-						HTTPRequest* pRequest = *it;
-						if (pRequest != nullptr && pRequest->EasyHandleMatches(pCurlHandle))
-						{
-							// During shutdown, skip invoking the completion callback. The callback
-							// may reference objects (e.g. NGMP_OnlineServices_StatsInterface via
-							// captured 'this') that have already been or are being destroyed,
-							// leading to use-after-free memory corruption and crashes in unrelated
-							// destructors such as GameSpyMiscPreferences::~GameSpyMiscPreferences().
-							// HTTPRequest::~HTTPRequest() handles all necessary curl handle cleanup.
-							delete pRequest;
-							m_vecRequestsInFlight.erase(it);
-							break;
-						}
-					}
-				}
-			}
-			
-			// Small sleep to avoid busy-waiting if there are still operations pending
-			if (numRunning > 0)
-			{
-				std::this_thread::sleep_for(std::chrono::milliseconds(10));
-			}
-			
-		} while (numRunning > 0 || !m_vecRequestsInFlight.empty());
-		
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTPManager] All in-flight requests completed");
-
-		// Delete any remaining in-flight requests without invoking their callbacks.
-		// These are requests that completed via curl but were not matched above, or
-		// requests that are still pending completion. Invoking callbacks here is unsafe
-		// as the objects they reference may already be destroyed.
-		for (HTTPRequest* pRequest : m_vecRequestsInFlight)
-		{
-			if (pRequest != nullptr)
-			{
-				delete pRequest;
-			}
-		}
-		m_vecRequestsInFlight.clear();
-
-		// Now safe to cleanup
 		curl_multi_cleanup(m_pCurl);
 		m_pCurl = nullptr;
-
-        // Cleanup libcurl global state
-        curl_global_cleanup();
 	}
 
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTPManager] Shutdown complete");
 }
 
-
-bool HTTPManager::DeterminePlatformProxySettings()
-{
-	CHECK_MAIN_THREAD;
-
-	WINHTTP_CURRENT_USER_IE_PROXY_CONFIG pProxyConfig;
-	WinHttpGetIEProxyConfigForCurrentUser(&pProxyConfig);
-
-	if (pProxyConfig.lpszProxy != nullptr)
-	{
-		LPWSTR ws = pProxyConfig.lpszProxy;
-		std::string strFullProxy;
-		strFullProxy.reserve(wcslen(ws));
-		for (; *ws; ws++)
-			strFullProxy += (char)*ws;
-
-		size_t ipStart = strFullProxy.find("=");
-		ipStart = (ipStart != std::string::npos) ? ipStart + 1 : 0;
-		size_t ipEnd = strFullProxy.find(":", ipStart);
-		if (ipEnd == std::string::npos) ipEnd = strFullProxy.size();
-
-		m_strProxyAddr = strFullProxy.substr(ipStart, ipEnd - ipStart);
-
-		size_t portStart = ipEnd + 1;
-		size_t portEnd = strFullProxy.find(";", portStart);
-		std::string strPort = strFullProxy.substr(portStart, portEnd != std::string::npos ? portEnd - portStart : std::string::npos);
-
-		m_proxyPort = (uint16_t)atoi(strPort.c_str());
-	}
-
-	m_bProxyEnabled = pProxyConfig.lpszProxy != nullptr;
-
-	if (pProxyConfig.lpszProxy) GlobalFree(pProxyConfig.lpszProxy);
-	if (pProxyConfig.lpszAutoConfigUrl) GlobalFree(pProxyConfig.lpszAutoConfigUrl);
-	if (pProxyConfig.lpszProxyBypass) GlobalFree(pProxyConfig.lpszProxyBypass);
-
-	return m_bProxyEnabled;
-}
 
 HTTPRequest* HTTPManager::PlatformCreateRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const char* szURI, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/, int timeoutMS /* = -1 */) noexcept
 {
@@ -216,7 +120,6 @@ void HTTPManager::Initialize()
 	CHECK_MAIN_THREAD;
 
 	m_pCurl = curl_multi_init();
-	m_bProxyEnabled = DeterminePlatformProxySettings();
 }
 
 void HTTPManager::Tick()
@@ -225,13 +128,20 @@ void HTTPManager::Tick()
 
 	std::vector<HTTPRequest*> vecItemsToRemove = std::vector<HTTPRequest*>();
 
-	// start anything needing starting
-	for (HTTPRequest* pRequest : m_vecRequestsPendingStart)
-	{
-		pRequest->StartRequest();
-		m_vecRequestsInFlight.push_back(pRequest);
-	}
+	// Callbacks may enqueue new requests; do not iterate the live pending vector.
+	auto pending = std::move(m_vecRequestsPendingStart);
 	m_vecRequestsPendingStart.clear();
+	for (HTTPRequest* request : pending)
+	{
+		request->StartRequest();
+		m_vecRequestsInFlight.push_back(request);
+	}
+	for (HTTPRequest* request : m_vecRequestsInFlight)
+	{
+		request->PollConnectionSetup();
+		if (request->IsComplete())
+			vecItemsToRemove.push_back(request);
+	}
 
 	// perform and poll
 	if (m_pCurl == nullptr)
@@ -248,7 +158,7 @@ void HTTPManager::Tick()
 		if (pRequest->WaitingDelayAction())
 		{
 			bool bDone = pRequest->InvokeDelayAction();
-			if (bDone)
+			if (bDone && pRequest->IsComplete())
 			{
 				vecItemsToRemove.push_back(pRequest);
 			}
@@ -277,7 +187,8 @@ void HTTPManager::Tick()
 						pRequest->SetWaitingDelay(m->data.result);
 #else
 						pRequest->Threaded_SetComplete(m->data.result);
-						vecItemsToRemove.push_back(pRequest);
+						if (pRequest->IsComplete())
+							vecItemsToRemove.push_back(pRequest);
 #endif
 					}
 				}
@@ -288,16 +199,16 @@ void HTTPManager::Tick()
 	// remove any completed
 	for (HTTPRequest* pRequestToDestroy : vecItemsToRemove)
 	{
-		m_vecRequestsInFlight.erase(std::remove(m_vecRequestsInFlight.begin(), m_vecRequestsInFlight.end(), pRequestToDestroy));
+		m_vecRequestsInFlight.erase(std::remove(m_vecRequestsInFlight.begin(), m_vecRequestsInFlight.end(), pRequestToDestroy), m_vecRequestsInFlight.end());
 		delete pRequestToDestroy;
 	}
 }
 
-void HTTPManager::AddHandleToMulti(CURL* pNewHandle)
+bool HTTPManager::AddHandleToMulti(CURL* pNewHandle)
 {
 	CHECK_MAIN_THREAD;
 
-	curl_multi_add_handle(m_pCurl, pNewHandle);
+	return m_pCurl != nullptr && curl_multi_add_handle(m_pCurl, pNewHandle) == CURLM_OK;
 }
 
 void HTTPManager::RemoveHandleFromMulti(CURL* pHandleToRemove)
