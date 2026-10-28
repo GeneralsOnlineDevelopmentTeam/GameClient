@@ -22,7 +22,7 @@
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
-//////// Win32BIGFileSystem.h ///////////////////////////
+//////// BIGFileSystem.h ///////////////////////////
 // Bryan Cleveland, August 2002
 /////////////////////////////////////////////////////////////
 
@@ -30,11 +30,11 @@
 
 #include "Common/ArchiveFileSystem.h"
 
-class Win32BIGFileSystem : public ArchiveFileSystem
+class BIGFileSystem : public ArchiveFileSystem
 {
 public:
-	Win32BIGFileSystem();
-	virtual ~Win32BIGFileSystem() override;
+	BIGFileSystem();
+	virtual ~BIGFileSystem() override;
 
 	virtual void init() override;
 	virtual void update() override;
@@ -49,7 +49,9 @@ public:
 	virtual void closeArchiveFile(const Char *filename) override;
 	virtual void closeAllFiles() override;															///< Close all files associated with ArchiveFiles
 
-	virtual Bool loadBigFilesFromDirectory(AsciiString dir, AsciiString fileMask, Bool overwrite = FALSE) override;
+	virtual Bool loadArchiveFilesFromDirectory(AsciiString dir, AsciiString fileMask, Bool overwrite = FALSE) override;
+
+	virtual void loadMods() override;
 protected:
 
 };
