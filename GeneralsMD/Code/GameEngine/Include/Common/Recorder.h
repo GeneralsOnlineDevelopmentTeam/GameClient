@@ -44,6 +44,7 @@ public:
 		for (Int i = 0; i< MAX_SLOTS; ++i)
 			setSlotPointer(i, &m_ReplaySlot[i]);
 	}
+	virtual ~ReplayGameInfo() override {}
 };
 
 enum RecorderModeType CPP_11(: Int) {

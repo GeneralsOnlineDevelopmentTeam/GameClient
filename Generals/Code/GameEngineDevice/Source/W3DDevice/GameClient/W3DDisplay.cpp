@@ -359,6 +359,8 @@ W3DDisplay::W3DDisplay()
 
 	for (i = 0; i < DisplayStringCount; i++)
 		m_displayStrings[i] = nullptr;
+	m_benchmarkDisplayString = nullptr;
+	m_cinematicDisplayString = nullptr;
 
 	m_batchTexture = nullptr;
 	m_batchMode = DRAW_IMAGE_ALPHA;
@@ -393,6 +395,8 @@ W3DDisplay::~W3DDisplay()
 	if( m_benchmarkDisplayString ) {
 		TheDisplayStringManager->freeDisplayString(m_benchmarkDisplayString);
 	}
+
+	TheDisplayStringManager->freeDisplayString(m_cinematicDisplayString);
 
 	// delete 2D renderer
 	if( m_2DRender )
@@ -1801,7 +1805,7 @@ AGAIN:
   	//
 	//PredictiveLODOptimizerClass::Optimize_LODs( 5000 );
 
-	Bool freezeTime = TheFramePacer->isTimeFrozen() || TheFramePacer->isGameHalted();
+	Bool freezeTime = TheFramePacer->isTimeFrozen();
 
 	// hack to let client spin fast in network games but still do effects at the same pace. -MDC
 	static UnsignedInt lastFrame = ~0;
@@ -1810,7 +1814,7 @@ AGAIN:
 
 	/// @todo: I'm assuming the first view is our main 3D view.
 	W3DView *primaryW3DView=(W3DView *)getFirstView();
-	if (!freezeTime && TheScriptEngine->isTimeFast())
+	if ((!freezeTime || TheFramePacer->isGameHalted()) && TheScriptEngine->isTimeFast())
 	{
 		primaryW3DView->updateCameraMovements();  // Update camera motion effects.
 		syncTime += TheW3DFrameLengthInMsec;
@@ -1952,28 +1956,29 @@ AGAIN:
 				// display cinematicText over the black
 				if( m_cinematicText != AsciiString::TheEmptyString && m_cinematicTextFrames != 0)
 				{
-					DisplayString *displayString = TheDisplayStringManager->newDisplayString();
+					if( m_cinematicDisplayString == nullptr )
+						m_cinematicDisplayString = TheDisplayStringManager->newDisplayString();
 
 					// set word wrap if necessary
 
 					Int wordWrapWidth = TheDisplay->getWidth() - 20;
-					displayString->setWordWrap( wordWrapWidth );
-					displayString->setWordWrapCentered( TRUE );
+					m_cinematicDisplayString->setWordWrap( wordWrapWidth );
+					m_cinematicDisplayString->setWordWrapCentered( TRUE );
 
 					UnicodeString text;
 					text.translate( m_cinematicText );
-					displayString->setText( text );
+					m_cinematicDisplayString->setText( text );
 					Color color = GameMakeColor( 255, 255, 255, 255 );  // white
 					Color backColor = GameMakeColor( 0, 0, 0, 0 );      // black
-					displayString->setFont( m_cinematicFont );
+					m_cinematicDisplayString->setFont( m_cinematicFont );
 					Int height = TheDisplay->getHeight() * .9;
 
 					Int width;
-					if( displayString->getWidth() > TheDisplay->getWidth() )
+					if( m_cinematicDisplayString->getWidth() > TheDisplay->getWidth() )
 						width = 20;
 					else
-						width = ( TheDisplay->getWidth() - displayString->getWidth() ) / 2;
-					displayString->draw( width, height, color, backColor );
+						width = ( TheDisplay->getWidth() - m_cinematicDisplayString->getWidth() ) / 2;
+					m_cinematicDisplayString->draw( width, height, color, backColor );
 
 					m_cinematicTextFrames--;
 				}
@@ -2025,7 +2030,7 @@ AGAIN:
 
 		if (TheScriptEngine->isTimeFrozenDebug() || TheScriptEngine->isTimeFrozenScript() || TheGameLogic->isGamePaused())
 		{
-			freezeTime = false; // We're frozen for debug or for pause, and need to continue out of the loop.
+			break; // We're frozen for debug or for pause, and need to break out of the loop.
 		}
 
 	} while (freezeTime && !TheTacticalView->isCameraMovementFinished());

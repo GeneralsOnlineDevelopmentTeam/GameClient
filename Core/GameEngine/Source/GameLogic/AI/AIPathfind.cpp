@@ -1125,8 +1125,10 @@ void PathfindCellInfo::forceCleanPathFindCellInfos()
 
 void Pathfinder::forceCleanCells()
 {
-	UnicodeString pathfinderFailoverMessage = TheGameText->FETCH_OR_SUBSTITUTE("GUI:PathfindingCrashPrevented", L"A pathfinding crash was prevented, now switching to the crash fixed pathfinding.");
+	UnicodeString pathfinderFailoverMessage = TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:PathfindingCrashPrevented", L"A pathfinding crash was prevented at frame %u, now switching to the crash fixed pathfinding.", TheGameLogic->getFrame());
 	TheInGameUI->message(pathfinderFailoverMessage);
+
+	printf("%ls\n", pathfinderFailoverMessage.str());
 
 	TheAudio->addAudioEvent(&TheAudio->getMiscAudio()->m_allCheerSound);
 
@@ -1727,6 +1729,13 @@ void PathfindCell::forwardInsertionSortRetailCompatible(PathfindCellList& list)
 	UnsignedInt cellCount = 0;
 	while (currentCell && cellCount < PATHFIND_CELLS_PER_FRAME && currentCell->m_info->m_totalCost <= m_info->m_totalCost)
 	{
+		// Prevent a retail crash where a pathfindCell has an m_info with a dangling nextOpen pointer
+		if (currentCell->m_info->m_nextOpen && !currentCell->m_info->m_nextOpen->m_cell->m_info)
+		{
+			currentCell->m_info->m_nextOpen->m_cell = nullptr;
+			currentCell->m_info->m_nextOpen = nullptr;
+		}
+
 		cellCount++;
 		previousCell = currentCell;
 		currentCell = currentCell->getNextOpen();
@@ -1976,7 +1985,19 @@ void PathfindCell::putOnClosedList( PathfindCellList &list )
 		m_info->m_prevOpen = nullptr;
 		m_info->m_nextOpen = list.m_head ? list.m_head->m_info : nullptr;
 		if (list.m_head)
+#if RETAIL_COMPATIBLE_PATHFINDING
+		// TheSuperHackers @info This is only here to catch a crash point in the retail compatible pathfinding
+		// This crash mode occurs due to the closed list head not having an m_info associated with it
+		// A node cannot be put onto the closed list without an m_info under normal conditions
+		{
+			if (list.m_head->m_info)
+			{
+				list.m_head->m_info->m_prevOpen = this->m_info;
+			}
+		}
+#else
 			list.m_head->m_info->m_prevOpen = this->m_info;
+#endif
 
 		list.m_head = this;
 	}
@@ -7562,24 +7583,16 @@ void Pathfinder::processHierarchicalCell( const ICoord2D &scanCell, const ICoord
 			return;
 		}
 
-		newCell->allocateInfo(scanCell);
-#if RETAIL_COMPATIBLE_PATHFINDING
-		if (!s_useFixedPathfinding)
-		{
-			if (!newCell->getClosed() && !newCell->getOpen()) {
-				newCell->putOnClosedList(m_closedList);
-			}
-		}
-		else
+#if RTS_GENERALS && RETAIL_COMPATIBLE_PATHFINDING
+		// TheSuperHackers @bugfix Caball009 14/09/2026 Check newCell->m_info before accessing it to prevent a possible crash.
+		// The Zero Hour / non-retail compatible pathfinding code performs this check earlier in the function.
+		if (newCell->allocateInfo(scanCell) && !newCell->getOpen() && !newCell->getClosed())
 #endif
 		{
-			if (newCell->hasInfo() && !newCell->getClosed() && !newCell->getOpen()) {
-				newCell->putOnClosedList(m_closedList);
-			}
+			newCell->putOnClosedList(m_closedList);
 		}
 
-		adjNewCell->allocateInfo(adjacentCell);
-		if( adjNewCell->hasInfo() )
+		if (adjNewCell->allocateInfo(adjacentCell))
 		{
 
 			cellCount++;
