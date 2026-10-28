@@ -828,6 +828,10 @@ void NGMP_OnlineServices_LobbyInterface::Tick()
 					if (!TheNGMPGame->HasCommittedOutcome())
 					{
 						TheNGMPGame->SetHasCommittedOutcome();
+						if (m_pLobbyMesh != nullptr)
+						{
+							m_pLobbyMesh->EndMatchKeys();
+						}
 						pStatsInterface->CommitMyOutcome(localPlayer->getScoreKeeper(), TheVictoryConditions->isLocalAlliedVictory());
 					}
 				}

@@ -27,6 +27,7 @@
 
 #include "GameNetwork/NetCommandMsg.h"
 #include "GameNetwork/NetPacketStructs.h"
+#include "GameNetwork/NetCommandRef.h"
 #include "GameNetwork/GameMessageParser.h"
 #include "Common/GameState.h"
 #include "Common/PlayerList.h"
@@ -346,6 +347,24 @@ NetAckStage2CommandMsg::~NetAckStage2CommandMsg() {
 NetFrameCommandMsg::NetFrameCommandMsg() {
 	m_commandCount = 0;
 	m_commandType = NETCOMMANDTYPE_FRAMEINFO;
+	m_hasSignature = FALSE;
+	memset(m_signature, 0, sizeof(m_signature));
+}
+
+void NetFrameCommandMsg::setSignature(const UnsignedByte *signature) {
+	memcpy(m_signature, signature, sizeof(m_signature));
+	m_hasSignature = TRUE;
+}
+
+// A frame info that came in its signed form is read with its signature and is a plain frame info from then on.
+size_t NetFrameCommandMsg::readMessageData(NetCommandRef& ref, NetPacketBuf buf) const {
+	if (m_commandType == NETCOMMANDTYPE_SIGNEDFRAMEINFO) {
+		NetFrameCommandMsg *frameMsg = static_cast<NetFrameCommandMsg *>(ref.getCommand());
+		const size_t size = NetPacketSignedFrameCommandData::readIntoFrame(frameMsg, buf);
+		frameMsg->setNetCommandType(NETCOMMANDTYPE_FRAMEINFO);
+		return size;
+	}
+	return SmallNetPacketFrameCommand::CommandData::readMessage(ref, buf);
 }
 
 /**
@@ -613,6 +632,9 @@ NetCommandMsg::Select NetDisconnectKeepAliveCommandMsg::getSmallNetPacketSelect(
 NetDisconnectPlayerCommandMsg::NetDisconnectPlayerCommandMsg() {
 	m_commandType = NETCOMMANDTYPE_DISCONNECTPLAYER;
 	m_disconnectSlot = 0;
+	m_disconnectFrame = 0;
+	m_hasSignature = FALSE;
+	memset(m_signature, 0, sizeof(m_signature));
 }
 
 /**
@@ -633,6 +655,11 @@ UnsignedByte NetDisconnectPlayerCommandMsg::getDisconnectSlot() const {
  */
 void NetDisconnectPlayerCommandMsg::setDisconnectSlot(UnsignedByte slot) {
 	m_disconnectSlot = slot;
+}
+
+void NetDisconnectPlayerCommandMsg::setSignature(const UnsignedByte *signature) {
+	memcpy(m_signature, signature, sizeof(m_signature));
+	m_hasSignature = TRUE;
 }
 
 /**
@@ -1245,6 +1272,74 @@ NetTimeOutGameStartCommandMsg::~NetTimeOutGameStartCommandMsg() {
 }
 
 NetCommandMsg::Select NetTimeOutGameStartCommandMsg::getSmallNetPacketSelect() const {
+	Select select;
+	select.useCommandType = 1;
+	select.useRelay = 1;
+	select.useFrame = 0;
+	select.usePlayerId = 1;
+	select.useCommandId = 1;
+	return select;
+}
+
+//-------------------------
+// NetSignedFrameCommandMsg
+//-------------------------
+NetSignedFrameCommandMsg::NetSignedFrameCommandMsg() {
+	m_commandType = NETCOMMANDTYPE_SIGNEDFRAMEINFO;
+	m_commandCount = 0;
+	memset(m_signature, 0, sizeof(m_signature));
+}
+
+NetSignedFrameCommandMsg::NetSignedFrameCommandMsg(const NetFrameCommandMsg *frameMsg) {
+	m_commandType = NETCOMMANDTYPE_SIGNEDFRAMEINFO;
+	m_executionFrame = frameMsg->getExecutionFrame();
+	m_playerID = frameMsg->getPlayerID();
+	m_id = frameMsg->getID();
+	m_commandCount = frameMsg->getCommandCount();
+	memcpy(m_signature, frameMsg->getSignature(), sizeof(m_signature));
+}
+
+NetSignedFrameCommandMsg::~NetSignedFrameCommandMsg() {
+}
+
+void NetSignedFrameCommandMsg::setSignature(const UnsignedByte *signature) {
+	memcpy(m_signature, signature, sizeof(m_signature));
+}
+
+NetCommandMsg::Select NetSignedFrameCommandMsg::getSmallNetPacketSelect() const {
+	Select select;
+	select.useCommandType = 1;
+	select.useRelay = 1;
+	select.useFrame = 1;
+	select.usePlayerId = 1;
+	select.useCommandId = 1;
+	return select;
+}
+
+//-------------------------
+// NetSignaturesCommandMsg
+//-------------------------
+NetSignaturesCommandMsg::NetSignaturesCommandMsg() {
+	m_commandType = NETCOMMANDTYPE_SIGNATURES;
+	m_entryCount = 0;
+	memset(m_entries, 0, sizeof(m_entries));
+}
+
+NetSignaturesCommandMsg::~NetSignaturesCommandMsg() {
+}
+
+Bool NetSignaturesCommandMsg::addEntry(UnsignedInt frame, UnsignedShort commandID, const UnsignedByte *signature) {
+	if (m_entryCount >= MAX_ENTRIES) {
+		return FALSE;
+	}
+	Entry &entry = m_entries[m_entryCount++];
+	entry.frame = frame;
+	entry.commandId = commandID;
+	memcpy(entry.signature, signature, sizeof(entry.signature));
+	return TRUE;
+}
+
+NetCommandMsg::Select NetSignaturesCommandMsg::getSmallNetPacketSelect() const {
 	Select select;
 	select.useCommandType = 1;
 	select.useRelay = 1;

@@ -37,6 +37,9 @@
 #include "GameNetwork/FrameMetrics.h"
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/DisconnectManager.h"
+#if defined(GENERALS_ONLINE)
+#include "GameNetwork/NetworkSettings.h"
+#endif
 
 class GameInfo;
 class NetCommandWrapperList;
@@ -56,6 +59,7 @@ public:
 	virtual void update(Bool isInGame);			///< Service the Connections being managed by this instance.
 
 #if defined(GENERALS_ONLINE)
+	const NetworkSettings &getNetworkSettings() const { return m_networkSettings; }
 	void SeedLatencyData(int highestLatency)
 	{
 		for (int i = 0; i < MAX_SLOTS; ++i) {
@@ -154,6 +158,10 @@ public:
 
 	Int getAverageFPS();
 	Int getSlotAverageFPS(Int slot);
+#if defined(GENERALS_ONLINE)
+	void noteStalling(Bool stalling, UnsignedInt frame);	///< Called every network update with whether the game is waiting for commands.
+#endif
+	const ConnectionStats* getConnectionStats(Int slot) const;	///< Returns nullptr when there is no connection for the slot.
 
 #if defined(RTS_DEBUG)
 	void debugPrintConnectionCommands();
@@ -165,6 +173,10 @@ public:
 	Int getPingsReceived();
 
 private:
+#if defined(GENERALS_ONLINE)
+	NetworkSettings m_networkSettings;
+#endif
+
 	void doRelay();
 	void doKeepAlive();
 	void sendRemoteCommand(NetCommandRef *msg);
@@ -212,6 +224,9 @@ private:
 
 	NetCommandList *m_pendingCommands;
 	NetCommandList *m_relayedCommands;
+#if !RETAIL_COMPATIBLE_NETWORKING
+	Int m_currentSenderSlot;	///< The slot of the peer the packet being read came from, -1 when not known.
+#endif
 
 	FrameMetrics m_frameMetrics;
 
@@ -225,6 +240,106 @@ private:
 	Int  m_minFps;
 	UnsignedInt m_smallestPacketArrivalCushion;
 	Bool m_didSelfSlug;
+
+#if defined(GENERALS_ONLINE)
+	// the last command ids seen per sender, so a redundant copy of a command that is not synchronized is dropped
+	enum { RECENT_ID_COUNT = 256 };
+	struct RecentCommandIds
+	{
+		Bool valid;
+		UnsignedShort highest;
+		Bool seen[RECENT_ID_COUNT];
+	};
+	RecentCommandIds m_recentIds[MAX_SLOTS];
+
+	Bool isDuplicateCommand(NetCommandMsg *msg);
+
+	Int slotForUserID(Int64 userID) const;
+	UnsignedInt m_formerRouterMask;	///< Slots that were the packet router in this match, their last packets can still be on the way.
+	Bool isCommandFromSender(NetCommandMsg *msg, Int senderSlot);	///< A command must come from the player it names, unless the packet router relays it
+	Bool noteSecurityDrop();
+	Bool m_loggedSenderUnavailable;
+	Int m_securityDrops;
+	void resetRecentCommandIds();
+
+	// Frames with commands and chat that a peer passes on for another player need that player's signature.
+	// Every peer keeps the signatures it gets as long as the frames, so whoever holds a frame holds its proof.
+	enum { SIGNATURE_BYTES = 64, SIGNATURE_WAIT_MS = 3000, HELD_CHAT_COUNT = 8 };
+	struct FrameSignature
+	{
+		Bool used;
+		UnsignedInt frame;
+		Bool relayed;			///< a command or the frame info arrived from a peer other than the author
+		Bool haveSignature;
+		Bool verified;
+		Int relayedBy;
+		time_t waitingSince;	///< when the frame was complete without a signature, 0 when not waiting
+		UnsignedByte signature[SIGNATURE_BYTES];
+	};
+	struct HeldChat
+	{
+		NetChatCommandMsg *msg;
+		Int relayedBy;
+		time_t since;
+	};
+	struct ChatSignature
+	{
+		Bool used;
+		UnsignedInt author;
+		UnsignedShort commandID;
+		time_t since;
+		UnsignedByte signature[SIGNATURE_BYTES];
+	};
+	enum { RELAYED_WRAPPER_COUNT = 8 };
+	struct RelayedWrapper
+	{
+		Bool used;
+		UnsignedShort wrappedCommandID;
+		Int relayedBy;
+	};
+	std::vector<FrameSignature> m_frameSignatures[MAX_SLOTS];	///< Indexed like the frame data, by frame modulo FRAME_DATA_LENGTH.
+	HeldChat m_heldChats[HELD_CHAT_COUNT];
+	ChatSignature m_chatSignatures[HELD_CHAT_COUNT];
+	RelayedWrapper m_relayedWrappers[MAX_SLOTS][RELAYED_WRAPPER_COUNT];
+	Int m_nextRelayedWrapper[MAX_SLOTS];
+	Int64 m_signerUserID[MAX_SLOTS];	///< The user id per slot, kept after the player leaves to verify its last frames.
+	UnsignedInt m_lastFrameInfoSent;	///< The last frame our frame info went out for, our data up to it is final.
+	void clearSignatureState(Bool releaseChats);
+	void requestPassedOnFrameAgain(Int slot, UnsignedInt frame, Int passedOnBy);
+	FrameSignature *findFrameSignature(Int slot, UnsignedInt frame);
+	FrameSignature &frameSignatureFor(Int slot, UnsignedInt frame);
+	Int64 signerUserID(Int slot);
+	void noteFramePassedOn(Int author, UnsignedInt frame, Int relayedBy, Bool changesFrame);
+	void noteWrapperPassedOn(NetCommandMsg *wrapper, Int relayedBy);
+	Int wrapperPassedOnBy(NetCommandMsg *msg);
+	Bool buildSignedFrame(Int slot, UnsignedInt frame, std::vector<UnsignedByte> &out);
+	Bool buildSignedCommand(Int slot, NetCommandMsg *msg, std::vector<UnsignedByte> &out);
+	void signLocalFrame(NetFrameCommandMsg *frameInfo);
+	void signLocalChat(NetChatCommandMsg *msg);
+	Bool buildSignedLeave(Int slot, std::vector<UnsignedByte> &out);
+public:
+	Bool signLeaveNotice(NetDisconnectPlayerCommandMsg *msg);	///< The leaving player signs its leave notice.
+	Bool verifyLeaveNotice(NetDisconnectPlayerCommandMsg *msg);	///< The notice carries the signature of the player it says left.
+private:
+	void attachStoredSignature(Int author, NetFrameCommandMsg *frameInfo);
+	Bool isPassedOnFrameAuthentic(Int slot, UnsignedInt frame);
+	void storeFrameSignature(Int author, UnsignedInt frame, const UnsignedByte *signature, Bool fromAuthor);
+	void processSignatures(NetSignaturesCommandMsg *msg);
+	Bool holdPassedOnChat(NetChatCommandMsg *msg);
+	void releaseHeldChat(Int index, const UnsignedByte *signature);
+	void expireHeldChats(time_t now);
+
+	ArrivalCushionStats m_cushionStats[MAX_SLOTS];
+	StallStats m_stallStats;
+	Bool m_stallActive;
+	time_t m_stallStartTime;
+	UnsignedInt m_stallMissingMask;
+	Int m_lastKnownRunAhead;
+	Int m_frameGroupingMs;
+public:
+	Bool getOverlayInfo(Int slot, NetworkOverlayInfo &info);	///< Fills what the overlay and the connection rating need about one slot.
+protected:
+#endif
 
 	// -----------------------------------------------------------------------------
 	FileCommandMap s_fileCommandMap;

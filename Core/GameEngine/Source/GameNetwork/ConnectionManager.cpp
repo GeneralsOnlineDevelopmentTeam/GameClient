@@ -59,6 +59,12 @@
 #include "../NetworkMesh.h"
 #include "../ngmp_interfaces.h"
 
+#include <algorithm>
+
+#if defined(GENERALS_ONLINE)
+Int MIN_RUNAHEAD = 4;
+#endif
+
 static Bool hasValidTransferFileExtension(const AsciiString& filePath)
 {
 	static const char* const validExtensions[] = {
@@ -207,6 +213,10 @@ static Bool hasValidTransferFileContent(const AsciiString& filePath, const Unsig
  */
 ConnectionManager::~ConnectionManager()
 {
+#if defined(GENERALS_ONLINE)
+	clearSignatureState(TRUE);
+#endif
+
 	deleteInstance(m_localUser);
 	m_localUser = nullptr;
 
@@ -265,6 +275,9 @@ ConnectionManager::ConnectionManager()
 	m_netCommandWrapperList = nullptr;
 	m_localUser = nullptr;
 	m_localUser = newInstance(User);
+#if defined(GENERALS_ONLINE)
+	clearSignatureState(FALSE);
+#endif
 }
 
 /**
@@ -272,6 +285,23 @@ ConnectionManager::ConnectionManager()
  */
 void ConnectionManager::init()
 {
+#if defined(GENERALS_ONLINE)
+	m_networkSettings = NetworkSettings::LocalDefaults();
+	NGMP_OnlineServicesManager *services = NGMP_OnlineServicesManager::GetInstance();
+	if (TheLAN == nullptr && TheNGMPGame != nullptr && services != nullptr) {
+		const ServiceConfig &overrides = services->GetServiceConfig();
+		m_networkSettings.send = overrides.send;
+		m_networkSettings.input_delay = overrides.input_delay;
+	}
+	const NetworkSettings::InputDelay &runAhead = m_networkSettings.input_delay;
+	TheWritableGlobalData->m_networkFPSHistoryLength = (std::max)(1, runAhead.fps_history_samples);
+	TheWritableGlobalData->m_networkLatencyHistoryLength = (std::max)(1, runAhead.formula.latency_history_samples);
+	TheWritableGlobalData->m_networkRunAheadSlack = runAhead.slack_percent;
+	TheWritableGlobalData->m_networkRunAheadMetricsTime = runAhead.decision_interval_ms;
+	MIN_RUNAHEAD = runAhead.min_frames;
+	FRAME_GROUPING_CAP = (int)(m_networkSettings.send.frames_per_packet * (float)(1000.f / GENERALS_ONLINE_HIGH_FPS_LIMIT));
+#endif
+
 //	if (m_transport == nullptr) {
 //		m_transport = new Transport;
 //	}
@@ -318,6 +348,20 @@ void ConnectionManager::init()
 		m_latencyAverages[i] = 0.0; // using zero since all floating point standards should be able to specify 0.0 accurately.
 	}
 	m_smallestPacketArrivalCushion = -1;
+#if !RETAIL_COMPATIBLE_NETWORKING
+	m_currentSenderSlot = -1;
+#endif
+#if defined(GENERALS_ONLINE)
+	m_stallActive = FALSE;
+	m_stallStartTime = 0;
+	m_stallMissingMask = 0;
+	m_lastKnownRunAhead = 0;
+	m_loggedSenderUnavailable = FALSE;
+	m_securityDrops = 0;
+	m_formerRouterMask = 0;
+	clearSignatureState(TRUE);
+	m_frameGroupingMs = 0;
+#endif
 
 	m_frameMetrics.init();
 
@@ -332,6 +376,9 @@ void ConnectionManager::init()
 
 	m_netCommandWrapperList = newInstance(NetCommandWrapperList);
 	m_netCommandWrapperList->init();
+#if defined(GENERALS_ONLINE)
+	resetRecentCommandIds();
+#endif
 
 	s_fileCommandMap.clear();
 	s_fileRecipientMaskMap.clear();
@@ -382,6 +429,10 @@ void ConnectionManager::reset()
 		m_netCommandWrapperList->init();
 	}
 	m_netCommandWrapperList->reset();
+#if defined(GENERALS_ONLINE)
+	resetRecentCommandIds();
+	clearSignatureState(TRUE);
+#endif
 
 	m_localSlot = -1;
 #ifdef MEMORYPOOL_DEBUG
@@ -389,10 +440,10 @@ void ConnectionManager::reset()
 #endif
 	m_packetRouterSlot = -1;
 
-	for (i = 0; i < TheGlobalData->m_networkFPSHistoryLength; ++i) {
+	for (i = 0; i < (UnsignedInt)MAX_SLOTS; ++i) {
 		m_fpsAverages[i] = -1;
 	}
-	for (i = 0; i < TheGlobalData->m_networkLatencyHistoryLength; ++i) {
+	for (i = 0; i < (UnsignedInt)MAX_SLOTS; ++i) {
 		m_latencyAverages[i] = 0.0;
 	}
 
@@ -456,6 +507,593 @@ void ConnectionManager::destroyGameMessages() {
 	}
 }
 
+#if defined(GENERALS_ONLINE)
+// TRUE if (sender, id) was seen in the last 256 ids, remembers it otherwise. Synchronized commands are deduplicated by the frame data.
+Bool ConnectionManager::isDuplicateCommand(NetCommandMsg *msg) {
+	if (IsCommandSynchronized(msg->getNetCommandType())) {
+		return FALSE;
+	}
+
+	const UnsignedInt playerID = msg->getPlayerID();
+	if (playerID >= MAX_SLOTS) {
+		return FALSE;
+	}
+
+	RecentCommandIds &recent = m_recentIds[playerID];
+	const UnsignedShort id = msg->getID();
+
+	if (!recent.valid) {
+		recent.valid = TRUE;
+		recent.highest = id;
+		for (Int i = 0; i < RECENT_ID_COUNT; ++i) {
+			recent.seen[i] = FALSE;
+		}
+		recent.seen[id % RECENT_ID_COUNT] = TRUE;
+		return FALSE;
+	}
+
+	const Int diff = (Int)(Short)(id - recent.highest);
+	if (diff > 0) {
+		// the window moves forward, the slots it moves over belong to ids not seen yet
+		for (Int step = 1; step <= diff && step <= RECENT_ID_COUNT; ++step) {
+			recent.seen[(recent.highest + step) % RECENT_ID_COUNT] = FALSE;
+		}
+		recent.highest = id;
+		recent.seen[id % RECENT_ID_COUNT] = TRUE;
+		return FALSE;
+	}
+
+	if (-diff >= RECENT_ID_COUNT) {
+		return FALSE;
+	}
+
+	if (recent.seen[id % RECENT_ID_COUNT]) {
+		return TRUE;
+	}
+	recent.seen[id % RECENT_ID_COUNT] = TRUE;
+	return FALSE;
+}
+
+Int ConnectionManager::slotForUserID(Int64 userID) const {
+	return (TheNGMPGame != nullptr) ? TheNGMPGame->getSlotOfUser(userID) : -1;
+}
+
+// Counts a dropped command; TRUE for the drops that are logged (the first 20, then every 100th).
+Bool ConnectionManager::noteSecurityDrop() {
+	++m_securityDrops;
+	return m_securityDrops <= 20 || (m_securityDrops % 100) == 0;
+}
+
+// How a command may reach us with another player's name on it: 0 only straight from its author, 1 authenticated by the
+// author's signature (frames, chat), also from a former router, 2 only from the current packet router.
+static Int relayClass(NetCommandType type) {
+	switch (type) {
+	case NETCOMMANDTYPE_FRAMEINFO:
+	case NETCOMMANDTYPE_SIGNEDFRAMEINFO:
+	case NETCOMMANDTYPE_GAMECOMMAND:
+	case NETCOMMANDTYPE_PLAYERLEAVE:
+	case NETCOMMANDTYPE_RUNAHEAD:
+	case NETCOMMANDTYPE_DESTROYPLAYER:
+	case NETCOMMANDTYPE_CHAT:
+	case NETCOMMANDTYPE_SIGNATURES:
+		return 1;
+	case NETCOMMANDTYPE_WRAPPER:
+	case NETCOMMANDTYPE_RUNAHEADMETRICS:
+	case NETCOMMANDTYPE_PROGRESS:
+	case NETCOMMANDTYPE_ACKBOTH:
+	case NETCOMMANDTYPE_ACKSTAGE1:
+	case NETCOMMANDTYPE_ACKSTAGE2:
+		return 2;
+	default:
+		return 0; // votes, disconnect frames, keep alives, load complete, file transfer, ... are never passed on
+	}
+}
+
+// Checks that a command names its sender, or that the packet router or a former one passes it on.
+Bool ConnectionManager::isCommandFromSender(NetCommandMsg *msg, Int senderSlot) {
+	const Int claimedSlot = (Int)msg->getPlayerID();
+	if (claimedSlot == senderSlot && claimedSlot >= 0 && claimedSlot < MAX_SLOTS) {
+		return TRUE;
+	}
+	const Int cls = relayClass(msg->getNetCommandType());
+	const Bool nameOk = claimedSlot >= 0 && claimedSlot < MAX_SLOTS && claimedSlot != (Int)m_localSlot;
+	Bool maySendForOthers = FALSE;
+	if (nameOk && cls == 1) {
+		maySendForOthers = (senderSlot == m_packetRouterSlot) || (senderSlot >= 0 && (m_formerRouterMask & (1u << senderSlot)) != 0);
+	} else if (nameOk && cls == 2) {
+		maySendForOthers = (senderSlot == m_packetRouterSlot);
+	}
+	// forwarded frames are checked in isPassedOnFrameAuthentic
+	if (maySendForOthers) {
+		return TRUE;
+	}
+	if (noteSecurityDrop()) {
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] dropped %s claiming slot %d from slot %d (%d dropped so far)",
+			GetNetCommandTypeAsString(msg->getNetCommandType()), claimedSlot, (Int)senderSlot, m_securityDrops);
+	}
+	return FALSE;
+}
+
+void ConnectionManager::resetRecentCommandIds() {
+	for (Int i = 0; i < MAX_SLOTS; ++i) {
+		m_recentIds[i].valid = FALSE;
+	}
+}
+
+static Int64 userIDOfSlot(Int slot) {
+	return (TheNGMPGame != nullptr) ? TheNGMPGame->getUserOfSlot(slot) : -1;
+}
+
+static MatchKeys *activeMatchKeys() {
+	NetworkMesh *mesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	if (mesh == nullptr || !mesh->GetMatchKeys().IsActive()) {
+		return nullptr;
+	}
+	return &mesh->GetMatchKeys();
+}
+
+static void appendBytes(std::vector<UnsignedByte> &out, UnsignedInt64 value, Int count) {
+	for (Int i = 0; i < count; ++i) {
+		out.push_back((UnsignedByte)(value >> (8 * i)));
+	}
+}
+
+static void appendSignedHeader(std::vector<UnsignedByte> &out, Char kind, UnsignedInt64 matchID, Int64 userID, Int slot) {
+	out.push_back('G');
+	out.push_back('O');
+	out.push_back('S');
+	out.push_back((UnsignedByte)kind);
+	out.push_back(1); // version
+	appendBytes(out, matchID, 8);
+	appendBytes(out, (UnsignedInt64)userID, 8);
+	out.push_back((UnsignedByte)slot);
+}
+
+// The command as the full packet format writes it, without the relay mask that differs per hop.
+static void appendCommandBytes(std::vector<UnsignedByte> &out, NetCommandMsg *msg) {
+	NetCommandRef *ref = NEW_NETCOMMANDREF(msg);
+	ref->setRelay(0);
+	const size_t start = out.size();
+	const size_t size = msg->getSizeForNetPacket();
+	appendBytes(out, 0, 4);
+	out.resize(start + 4 + size);
+	const size_t written = msg->copyBytesForNetPacket(&out[start + 4], *ref);
+	out.resize(start + 4 + written);
+	for (Int i = 0; i < 4; ++i) {
+		out[start + i] = (UnsignedByte)(written >> (8 * i));
+	}
+	deleteInstance(ref);
+}
+
+static Bool commandSignOrder(const NetCommandMsg *a, const NetCommandMsg *b) {
+	if (a->getNetCommandType() != b->getNetCommandType()) {
+		return a->getNetCommandType() < b->getNetCommandType();
+	}
+	return a->getID() < b->getID();
+}
+
+void ConnectionManager::clearSignatureState(Bool releaseChats) {
+	for (Int slot = 0; slot < MAX_SLOTS; ++slot) {
+		m_frameSignatures[slot].assign(FRAME_DATA_LENGTH, FrameSignature());
+		m_nextRelayedWrapper[slot] = 0;
+		m_signerUserID[slot] = -1;
+		for (Int wrapper = 0; wrapper < RELAYED_WRAPPER_COUNT; ++wrapper) {
+			m_relayedWrappers[slot][wrapper].used = FALSE;
+		}
+	}
+	for (Int held = 0; held < HELD_CHAT_COUNT; ++held) {
+		if (releaseChats && m_heldChats[held].msg != nullptr) {
+			m_heldChats[held].msg->detach();
+		}
+		m_heldChats[held].msg = nullptr;
+		m_chatSignatures[held].used = FALSE;
+	}
+	m_currentSenderSlot = -1;
+	m_lastFrameInfoSent = 0;
+}
+
+ConnectionManager::FrameSignature *ConnectionManager::findFrameSignature(Int slot, UnsignedInt frame) {
+	if (slot < 0 || slot >= MAX_SLOTS) {
+		return nullptr;
+	}
+	FrameSignature &entry = m_frameSignatures[slot][frame % FRAME_DATA_LENGTH];
+	return (entry.used && entry.frame == frame) ? &entry : nullptr;
+}
+
+ConnectionManager::FrameSignature &ConnectionManager::frameSignatureFor(Int slot, UnsignedInt frame) {
+	FrameSignature &entry = m_frameSignatures[slot][frame % FRAME_DATA_LENGTH];
+	if (!entry.used || entry.frame != frame) {
+		entry = FrameSignature();
+		entry.used = TRUE;
+		entry.frame = frame;
+		entry.relayedBy = -1;
+	}
+	return entry;
+}
+
+// The user id of a slot, kept once seen so the last frames of a player that left can still be verified.
+Int64 ConnectionManager::signerUserID(Int slot) {
+	if (slot < 0 || slot >= MAX_SLOTS) {
+		return -1;
+	}
+	const Int64 userID = userIDOfSlot(slot);
+	if (userID >= 0) {
+		m_signerUserID[slot] = userID;
+	}
+	return m_signerUserID[slot];
+}
+
+void ConnectionManager::noteFramePassedOn(Int author, UnsignedInt frame, Int relayedBy, Bool changesFrame) {
+	if (author < 0 || author >= MAX_SLOTS || author == (Int)m_localSlot) {
+		return;
+	}
+	if (TheGameLogic != nullptr && frame < TheGameLogic->getFrame()) {
+		return;
+	}
+	FrameSignature &entry = frameSignatureFor(author, frame);
+	entry.relayed = TRUE;
+	entry.relayedBy = relayedBy;
+	if (changesFrame) {
+		entry.verified = FALSE;
+	}
+}
+
+void ConnectionManager::noteWrapperPassedOn(NetCommandMsg *wrapper, Int relayedBy) {
+	const Int author = (Int)wrapper->getPlayerID();
+	if (author < 0 || author >= MAX_SLOTS) {
+		return;
+	}
+	const UnsignedShort wrappedID = ((NetWrapperCommandMsg *)wrapper)->getWrappedCommandID();
+	for (Int i = 0; i < RELAYED_WRAPPER_COUNT; ++i) {
+		if (m_relayedWrappers[author][i].used && m_relayedWrappers[author][i].wrappedCommandID == wrappedID) {
+			m_relayedWrappers[author][i].relayedBy = relayedBy;
+			return;
+		}
+	}
+	RelayedWrapper &entry = m_relayedWrappers[author][m_nextRelayedWrapper[author]];
+	m_nextRelayedWrapper[author] = (m_nextRelayedWrapper[author] + 1) % RELAYED_WRAPPER_COUNT;
+	entry.used = TRUE;
+	entry.wrappedCommandID = wrappedID;
+	entry.relayedBy = relayedBy;
+}
+
+Int ConnectionManager::wrapperPassedOnBy(NetCommandMsg *msg) {
+	const Int author = (Int)msg->getPlayerID();
+	if (author < 0 || author >= MAX_SLOTS) {
+		return -2;
+	}
+	for (Int i = 0; i < RELAYED_WRAPPER_COUNT; ++i) {
+		if (m_relayedWrappers[author][i].used && m_relayedWrappers[author][i].wrappedCommandID == msg->getID()) {
+			m_relayedWrappers[author][i].used = FALSE;
+			return m_relayedWrappers[author][i].relayedBy;
+		}
+	}
+	return author;
+}
+
+/// Signed bytes: header (match, user id, slot), frame, command count, then the frame's commands in full packet form (relay 0) sorted by type and id.
+/// The frame info id is not signed, a peer that passes it on renumbers it.
+Bool ConnectionManager::buildSignedFrame(Int slot, UnsignedInt frame, std::vector<UnsignedByte> &out) {
+	MatchKeys *keys = activeMatchKeys();
+	const Int64 userID = signerUserID(slot);
+	if (keys == nullptr || userID < 0 || m_frameData[slot] == nullptr) {
+		return FALSE;
+	}
+
+	std::vector<NetCommandMsg *> commands;
+	NetCommandList *list = m_frameData[slot]->getFrameCommandList(frame);
+	for (NetCommandRef *ref = (list != nullptr) ? list->getFirstMessage() : nullptr; ref != nullptr; ref = ref->getNext()) {
+		commands.push_back(ref->getCommand());
+	}
+	std::sort(commands.begin(), commands.end(), commandSignOrder);
+
+	out.clear();
+	appendSignedHeader(out, 'F', keys->GetMatchID(), userID, slot);
+	appendBytes(out, frame, 4);
+	appendBytes(out, m_frameData[slot]->getFrameCommandCount(frame), 2);
+	for (size_t i = 0; i < commands.size(); ++i) {
+		appendCommandBytes(out, commands[i]);
+	}
+	return TRUE;
+}
+
+// What the author signs for its chat, the one command it sends through the packet router outside a frame.
+Bool ConnectionManager::buildSignedCommand(Int slot, NetCommandMsg *msg, std::vector<UnsignedByte> &out) {
+	MatchKeys *keys = activeMatchKeys();
+	const Int64 userID = signerUserID(slot);
+	if (keys == nullptr || userID < 0) {
+		return FALSE;
+	}
+	out.clear();
+	appendSignedHeader(out, 'C', keys->GetMatchID(), userID, slot);
+	appendCommandBytes(out, msg);
+	return TRUE;
+}
+
+/// Signs a local frame that has commands; the signature rides in the frame info. Empty frames are not signed.
+void ConnectionManager::signLocalFrame(NetFrameCommandMsg *frameInfo) {
+	MatchKeys *keys = activeMatchKeys();
+	if (keys == nullptr || frameInfo->getCommandCount() == 0) {
+		return;
+	}
+
+	std::vector<UnsignedByte> data;
+	UnsignedByte signature[SIGNATURE_BYTES];
+	if (!buildSignedFrame(m_localSlot, frameInfo->getExecutionFrame(), data) || !keys->Sign(&data[0], data.size(), signature)) {
+		return;
+	}
+	frameInfo->setSignature(signature);
+}
+
+void ConnectionManager::signLocalChat(NetChatCommandMsg *chat) {
+	MatchKeys *keys = activeMatchKeys();
+	if (keys == nullptr || m_packetRouterSlot >= MAX_SLOTS || m_packetRouterSlot == m_localSlot || m_connections[m_packetRouterSlot] == nullptr) {
+		return;
+	}
+
+	std::vector<UnsignedByte> data;
+	UnsignedByte signature[SIGNATURE_BYTES];
+	if (!buildSignedCommand(m_localSlot, chat, data) || !keys->Sign(&data[0], data.size(), signature)) {
+		return;
+	}
+
+	NetSignaturesCommandMsg *msg = newInstance(NetSignaturesCommandMsg);
+	msg->addEntry(chat->getExecutionFrame(), chat->getID(), signature);
+	msg->setPlayerID(m_localSlot);
+	msg->setID(GenerateNextCommandID());
+	sendLocalCommand(msg, (UnsignedByte)(0xff & ~(1 << m_localSlot)));
+	msg->detach();
+}
+
+// What the leaver signs: the match, its user id and slot. A leave carries no frame, so a copy a peer passes on keeps its proof.
+Bool ConnectionManager::buildSignedLeave(Int slot, std::vector<UnsignedByte> &out) {
+	MatchKeys *keys = activeMatchKeys();
+	const Int64 userID = signerUserID(slot);
+	if (keys == nullptr || userID < 0) {
+		return FALSE;
+	}
+	out.clear();
+	appendSignedHeader(out, 'L', keys->GetMatchID(), userID, slot);
+	return TRUE;
+}
+
+// The leaving player signs its own leave; without a key yet the notice goes out unsigned.
+Bool ConnectionManager::signLeaveNotice(NetDisconnectPlayerCommandMsg *msg) {
+	MatchKeys *keys = activeMatchKeys();
+	if (keys == nullptr || (Int)msg->getDisconnectSlot() != (Int)m_localSlot) {
+		return FALSE;
+	}
+	std::vector<UnsignedByte> data;
+	UnsignedByte signature[SIGNATURE_BYTES];
+	if (!buildSignedLeave(m_localSlot, data) || !keys->Sign(&data[0], data.size(), signature)) {
+		return FALSE;
+	}
+	msg->setSignature(signature);
+	return TRUE;
+}
+
+// TRUE if the notice carries the signature of the player it says left.
+Bool ConnectionManager::verifyLeaveNotice(NetDisconnectPlayerCommandMsg *msg) {
+	const Int slot = (Int)msg->getDisconnectSlot();
+	MatchKeys *keys = activeMatchKeys();
+	if (!msg->hasSignature() || slot < 0 || slot >= MAX_SLOTS || keys == nullptr) {
+		return FALSE;
+	}
+	std::vector<UnsignedByte> data;
+	return buildSignedLeave(slot, data) && keys->Verify(signerUserID(slot), &data[0], data.size(), msg->getSignature());
+}
+
+void ConnectionManager::attachStoredSignature(Int author, NetFrameCommandMsg *frameInfo) {
+	FrameSignature *entry = findFrameSignature(author, frameInfo->getExecutionFrame());
+	if (entry != nullptr && entry->haveSignature) {
+		frameInfo->setSignature(entry->signature);
+	}
+}
+
+// the author's signature replaces a passed on one, never the reverse
+void ConnectionManager::storeFrameSignature(Int author, UnsignedInt frame, const UnsignedByte *signature, Bool fromAuthor) {
+	if (author < 0 || author >= MAX_SLOTS || author == (Int)m_localSlot) {
+		return;
+	}
+	if (TheGameLogic != nullptr && frame + FRAMES_TO_KEEP < TheGameLogic->getFrame()) {
+		return;
+	}
+	FrameSignature &entry = frameSignatureFor(author, frame);
+	if (entry.haveSignature && !fromAuthor) {
+		return;
+	}
+	if (!entry.haveSignature || memcmp(entry.signature, signature, SIGNATURE_BYTES) != 0) {
+		memcpy(entry.signature, signature, SIGNATURE_BYTES);
+		entry.haveSignature = TRUE;
+		entry.verified = FALSE;
+	}
+}
+
+// Asks the author for the frame again when we reach it, and the peer that passed it on, which holds it in any case.
+void ConnectionManager::requestPassedOnFrameAgain(Int slot, UnsignedInt frame, Int passedOnBy) {
+	UnsignedByte targets = 0;
+	if (isPlayerConnected(slot)) {
+		targets |= (UnsignedByte)(1 << slot);
+	}
+	if (passedOnBy >= 0 && passedOnBy < MAX_SLOTS && passedOnBy != (Int)m_localSlot && isPlayerConnected(passedOnBy)) {
+		targets |= (UnsignedByte)(1 << passedOnBy);
+	}
+	if (targets == 0) {
+		requestFrameDataResend(slot, frame);
+		return;
+	}
+
+	NetFrameResendRequestCommandMsg *msg = newInstance(NetFrameResendRequestCommandMsg);
+	msg->setPlayerID(m_localSlot);
+	msg->setFrameToResend(frame);
+	msg->setID(GenerateNextCommandID());
+	sendLocalCommandDirect(msg, targets);
+	msg->detach();
+}
+
+/// A frame that a peer other than its author passed on runs only with the author's valid signature, else it is cleared and asked for again.
+Bool ConnectionManager::isPassedOnFrameAuthentic(Int slot, UnsignedInt frame) {
+	FrameSignature *entry = findFrameSignature(slot, frame);
+	if (entry == nullptr || !entry->relayed || entry->verified || !TheNetwork->matchKeysRequired()) {
+		return TRUE;
+	}
+	// empty frames are not signed
+	if (m_frameData[slot]->getFrameCommandCount(frame) == 0) {
+		return TRUE;
+	}
+
+	const char *problem = nullptr;
+	if (!entry->haveSignature) {
+		const time_t now = timeGetTime();
+		if (entry->waitingSince == 0) {
+			entry->waitingSince = now;
+		}
+		if ((now - entry->waitingSince) < SIGNATURE_WAIT_MS) {
+			return FALSE;
+		}
+		problem = "unsigned";
+	} else {
+		MatchKeys *keys = activeMatchKeys();
+		std::vector<UnsignedByte> data;
+		if (keys != nullptr && buildSignedFrame(slot, frame, data) && keys->Verify(signerUserID(slot), &data[0], data.size(), entry->signature)) {
+			entry->verified = TRUE;
+			return TRUE;
+		}
+		problem = "forged";
+	}
+
+	if (noteSecurityDrop()) {
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] dropped %s commands for player %d relayed by %d (frame %u, %d dropped so far), asking for them again",
+			problem, slot, entry->relayedBy, frame, m_securityDrops);
+	}
+	const Int passedOnBy = entry->relayedBy;
+	m_frameData[slot]->resetFrame(frame, FALSE);
+	*entry = FrameSignature();
+	entry->used = TRUE;
+	entry->frame = frame;
+	entry->relayedBy = -1;
+	requestPassedOnFrameAgain(slot, frame, passedOnBy);
+	return FALSE;
+}
+
+void ConnectionManager::processSignatures(NetSignaturesCommandMsg *msg) {
+	const Int author = (Int)msg->getPlayerID();
+	if (author < 0 || author >= MAX_SLOTS || author == (Int)m_localSlot) {
+		return;
+	}
+
+	const time_t now = timeGetTime();
+	for (Int e = 0; e < msg->getEntryCount(); ++e) {
+		const NetSignaturesCommandMsg::Entry &signedEntry = msg->getEntry(e);
+		expireHeldChats(now);
+		Bool released = FALSE;
+		for (Int held = 0; held < HELD_CHAT_COUNT && !released; ++held) {
+			NetChatCommandMsg *chat = m_heldChats[held].msg;
+			if (chat != nullptr && (Int)chat->getPlayerID() == author && chat->getID() == signedEntry.commandId) {
+				releaseHeldChat(held, signedEntry.signature);
+				released = TRUE;
+			}
+		}
+		if (released) {
+			continue;
+		}
+
+		// the chat is not here yet, keep the signature for it, the oldest one gives way
+		Int index = 0;
+		for (Int i = 0; i < HELD_CHAT_COUNT; ++i) {
+			if (!m_chatSignatures[i].used) {
+				index = i;
+				break;
+			}
+			if (m_chatSignatures[i].since < m_chatSignatures[index].since) {
+				index = i;
+			}
+		}
+		ChatSignature &stored = m_chatSignatures[index];
+		stored.used = TRUE;
+		stored.author = (UnsignedInt)author;
+		stored.commandID = signedEntry.commandId;
+		stored.since = now;
+		memcpy(stored.signature, signedEntry.signature, SIGNATURE_BYTES);
+	}
+}
+
+// Chat the packet router relays is held until its author's signature checks out.
+Bool ConnectionManager::holdPassedOnChat(NetChatCommandMsg *msg) {
+	const Int author = (Int)msg->getPlayerID();
+	const Int relayedBy = m_currentSenderSlot;
+	if (relayedBy < 0 || author == relayedBy || author == (Int)m_localSlot || !TheNetwork->matchKeysRequired()) {
+		return FALSE;
+	}
+
+	const time_t now = timeGetTime();
+	expireHeldChats(now);
+
+	Int index = 0;
+	for (Int i = 0; i < HELD_CHAT_COUNT; ++i) {
+		if (m_heldChats[i].msg == nullptr) {
+			index = i;
+			break;
+		}
+		if (m_heldChats[i].since < m_heldChats[index].since) {
+			index = i;
+		}
+	}
+	if (m_heldChats[index].msg != nullptr) {
+		++m_securityDrops;
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] dropped unsigned chat for player %d relayed by %d, too many chats wait for a signature",
+			(Int)m_heldChats[index].msg->getPlayerID(), m_heldChats[index].relayedBy);
+		m_heldChats[index].msg->detach();
+		m_heldChats[index].msg = nullptr;
+	}
+	msg->attach();
+	m_heldChats[index].msg = msg;
+	m_heldChats[index].relayedBy = relayedBy;
+	m_heldChats[index].since = now;
+
+	for (Int i = 0; i < HELD_CHAT_COUNT; ++i) {
+		if (m_chatSignatures[i].used && m_chatSignatures[i].author == (UnsignedInt)author && m_chatSignatures[i].commandID == msg->getID()) {
+			m_chatSignatures[i].used = FALSE;
+			releaseHeldChat(index, m_chatSignatures[i].signature);
+			break;
+		}
+	}
+	return TRUE;
+}
+
+void ConnectionManager::releaseHeldChat(Int index, const UnsignedByte *signature) {
+	NetChatCommandMsg *chat = m_heldChats[index].msg;
+	const Int relayedBy = m_heldChats[index].relayedBy;
+	m_heldChats[index].msg = nullptr;
+
+	const Int author = (Int)chat->getPlayerID();
+	MatchKeys *keys = activeMatchKeys();
+	std::vector<UnsignedByte> data;
+	if (keys != nullptr && buildSignedCommand(author, chat, data) && keys->Verify(signerUserID(author), &data[0], data.size(), signature)) {
+		processChat(chat);
+	} else {
+		++m_securityDrops;
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] dropped forged chat for player %d relayed by %d", author, relayedBy);
+	}
+	chat->detach();
+}
+
+void ConnectionManager::expireHeldChats(time_t now) {
+	for (Int i = 0; i < HELD_CHAT_COUNT; ++i) {
+		if (m_heldChats[i].msg != nullptr && (now - m_heldChats[i].since) > SIGNATURE_WAIT_MS * 3) {
+			++m_securityDrops;
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] dropped unsigned chat for player %d relayed by %d",
+				(Int)m_heldChats[i].msg->getPlayerID(), m_heldChats[i].relayedBy);
+			m_heldChats[i].msg->detach();
+			m_heldChats[i].msg = nullptr;
+		}
+		if (m_chatSignatures[i].used && (now - m_chatSignatures[i].since) > SIGNATURE_WAIT_MS * 3) {
+			m_chatSignatures[i].used = FALSE;
+		}
+	}
+}
+#endif
+
 /**
  * ConnectionManager::doRelay()
  * Queries the transport for commands that need to be relayed to another client.
@@ -478,18 +1116,55 @@ void ConnectionManager::doRelay() {
 			// Get the command list from the packet.
 			NetCommandList *cmdList = packet->getCommandList();
 
+#if defined(GENERALS_ONLINE)
+			// -2 when the transport cannot say who sent the packet
+			Int senderSlot = -2;
+			if (m_transport->m_inBuffer[i].senderKnown) {
+				senderSlot = slotForUserID(m_transport->m_inBuffer[i].senderUserID);
+				if (senderSlot < 0) {
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] dropped a packet of %d commands from user %lld, who is not in this game", (Int)packet->getNumCommands(), (long long)m_transport->m_inBuffer[i].senderUserID);
+				}
+			} else if (!m_loggedSenderUnavailable) {
+				m_loggedSenderUnavailable = TRUE;
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] the transport does not say who sent a packet (anticheat plugin path), commands are not checked against their sender");
+			}
+#endif
+
+#if !RETAIL_COMPATIBLE_NETWORKING
+#if defined(GENERALS_ONLINE)
+			m_currentSenderSlot = (senderSlot >= 0) ? senderSlot : -1;
+#endif
+#endif
+
 			// Iterate through the commands in this packet and send them to the proper connections.
 			for (NetCommandRef* cmd = cmdList->getFirstMessage(); cmd; cmd = cmd->getNext()) {
 				//DEBUG_LOG(("ConnectionManager::doRelay() - Looking at a command of type %s",
 					//GetNetCommandTypeAsString(cmd->getCommand()->getNetCommandType())));
 
+#if defined(GENERALS_ONLINE)
+				if (senderSlot == -1 || (senderSlot >= 0 && !isCommandFromSender(cmd->getCommand(), senderSlot))) {
+					continue; // not acked and not processed
+				}
+				if (senderSlot >= 0 && cmd->getCommand()->getNetCommandType() == NETCOMMANDTYPE_WRAPPER && (Int)cmd->getCommand()->getPlayerID() != senderSlot) {
+					noteWrapperPassedOn(cmd->getCommand(), senderSlot);
+				}
+#endif
+
 				if (CommandRequiresAck(cmd->getCommand())) {
 					ackCommand(cmd, m_localSlot);
+#if defined(GENERALS_ONLINE)
+					if (isDuplicateCommand(cmd->getCommand())) {
+						continue; // a redundant copy, acked again in case the first ack was lost
+					}
+#endif
 				}
 				if (!processNetCommand(cmd)) {
 					sendRemoteCommand(cmd);
 				}
 			}
+#if defined(GENERALS_ONLINE)
+			m_currentSenderSlot = -1;
+#endif
 
 			// Delete this packet since we won't be needing it anymore.
 			deleteInstance(packet);
@@ -505,15 +1180,35 @@ void ConnectionManager::doRelay() {
 		}
 	}
 
+#if !RETAIL_COMPATIBLE_NETWORKING
+	m_currentSenderSlot = -1;
+#endif
+
 	NetCommandList *cmdList = m_netCommandWrapperList->getReadyCommands();
 	for (NetCommandRef* cmd = cmdList->getFirstMessage(); cmd; cmd = cmd->getNext()) {
+#if defined(GENERALS_ONLINE)
+		// a command put together from pieces some other peer passed on counts as passed on by that peer
+		m_currentSenderSlot = wrapperPassedOnBy(cmd->getCommand());
+		if (m_currentSenderSlot < 0 || !isCommandFromSender(cmd->getCommand(), m_currentSenderSlot)) {
+			m_currentSenderSlot = -1;
+			continue; // the command inside the pieces is held to the same rule as one sent plain
+		}
+#endif
 		if (CommandRequiresAck(cmd->getCommand())) {
 			ackCommand(cmd, m_localSlot);
+#if defined(GENERALS_ONLINE)
+			if (isDuplicateCommand(cmd->getCommand())) {
+				continue;
+			}
+#endif
 		}
 		if (!processNetCommand(cmd)) {
 			sendRemoteCommand(cmd);
 		}
 	}
+#if defined(GENERALS_ONLINE)
+	m_currentSenderSlot = -1;
+#endif
 
 	// Delete this packet since we won't be needing it anymore.
 	deleteInstance(packet);
@@ -623,8 +1318,19 @@ Bool ConnectionManager::processNetCommand(NetCommandRef *ref) {
 			return FALSE;
 
 		case NETCOMMANDTYPE_CHAT:
+#if defined(GENERALS_ONLINE)
+			if (holdPassedOnChat((NetChatCommandMsg *)msg)) {
+				return FALSE; // shown once the author's signature checks out
+			}
+#endif
 			processChat((NetChatCommandMsg *)msg);
 			return FALSE;
+
+#if defined(GENERALS_ONLINE)
+		case NETCOMMANDTYPE_SIGNATURES:
+			processSignatures((NetSignaturesCommandMsg *)msg);
+			return FALSE;
+#endif
 
 		case NETCOMMANDTYPE_FILE:
 			processFile((NetFileCommandMsg *)msg);
@@ -979,8 +1685,26 @@ void ConnectionManager::processFrameInfo(NetFrameCommandMsg *msg) {
 
 	if (playerID < MAX_SLOTS) {
 		if (m_frameData[playerID] != nullptr) {
+#if defined(GENERALS_ONLINE)
+			if (msg->hasSignature()) {
+				storeFrameSignature((Int)playerID, msg->getExecutionFrame(), msg->getSignature(), m_currentSenderSlot == (Int)playerID);
+			}
+			if (m_currentSenderSlot >= 0 && (Int)playerID != m_currentSenderSlot) {
+				noteFramePassedOn((Int)playerID, msg->getExecutionFrame(), m_currentSenderSlot, m_frameData[playerID]->getFrameCommandCount(msg->getExecutionFrame()) != msg->getCommandCount());
+			}
+#endif
 //			DEBUG_LOG(("ConnectionManager::processFrameInfo - player %d, frame %d, command count %d, received on frame %d", playerID, msg->getExecutionFrame(), msg->getCommandCount(), TheGameLogic->getFrame()));
+#if defined(GENERALS_ONLINE)
+			// a redundant copy of a frame that was already seen says nothing about how early frames arrive
+			NetCommandList *frameCommands = m_frameData[playerID]->getFrameCommandList(msg->getExecutionFrame());
+			const Bool isCopy = (frameCommands != nullptr) && (frameCommands->findMessage(msg) != nullptr);
+#endif
 			m_frameData[playerID]->setFrameCommandCount(msg->getExecutionFrame(), msg->getCommandCount());
+#if defined(GENERALS_ONLINE)
+			if (!isCopy && (playerID != (UnsignedInt)m_localSlot) && (TheGameLogic != nullptr)) {
+				m_cushionStats[playerID].note((Int)msg->getExecutionFrame() - (Int)TheGameLogic->getFrame(), timeGetTime());
+			}
+#endif
 		}
 	}
 }
@@ -1278,12 +2002,24 @@ void ConnectionManager::sendRemoteCommand(NetCommandRef *msg) {
 	const UnsignedByte relay = msg->getRelay();
 	const UnsignedInt playerID = msg->getCommand()->getPlayerID();
 	FrameDataManager *frameDataMgr = playerID < MAX_SLOTS ? m_frameData[playerID] : nullptr;
+	Bool isNew = TRUE;
 	if ((relay & (1 << m_localSlot)) && (frameDataMgr != nullptr)) {
 		if (IsCommandSynchronized(msg->getCommand()->getNetCommandType())) {
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::sendRemoteCommand - adding net command of type %s to player %d for frame %d", GetNetCommandTypeAsString(msg->getCommand()->getNetCommandType()), msg->getCommand()->getPlayerID(), msg->getCommand()->getExecutionFrame()));
-			frameDataMgr->addNetCommandMsg(msg->getCommand());
+			isNew = frameDataMgr->addNetCommandMsg(msg->getCommand());
+#if defined(GENERALS_ONLINE)
+			if (isNew && m_currentSenderSlot >= 0 && (Int)playerID != m_currentSenderSlot) {
+				noteFramePassedOn((Int)playerID, msg->getCommand()->getExecutionFrame(), m_currentSenderSlot, TRUE);
+			}
+#endif
 		}
 	}
+
+#if defined(GENERALS_ONLINE)
+	if (!isNew) {
+		return; // a redundant copy, it was already relayed and counted
+	}
+#endif
 
 	for (Int i = 0; i < MAX_SLOTS; ++i) {
 		if ((relay & (1 << i)) && ((m_connections[i] != nullptr) && (m_connections[i]->isQuitting() == FALSE))) {
@@ -1302,7 +2038,7 @@ void ConnectionManager::sendRemoteCommand(NetCommandRef *msg) {
 	}
 
 	// Do some metrics to find the minimum packet arrival cushion.
-	if (IsCommandSynchronized(msg->getCommand()->getNetCommandType())) {
+	if (isNew && IsCommandSynchronized(msg->getCommand()->getNetCommandType())) {
 //		DEBUG_LOG(("ConnectionManager::sendRemoteCommand - about to call allCommandsReady"));
 		if (allCommandsReady(msg->getCommand()->getExecutionFrame(), TRUE)) {
 			UnsignedInt cushion = msg->getCommand()->getExecutionFrame() - TheGameLogic->getFrame();
@@ -1380,6 +2116,10 @@ void ConnectionManager::update(Bool isInGame) {
 void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didSelfSlug, Int nextExecutionFrame) {
 	static time_t lasttimesent = 0;
 	time_t curTime = timeGetTime();
+
+#if defined(GENERALS_ONLINE)
+	m_lastKnownRunAhead = oldRunAhead;
+#endif
 
 	if ((lasttimesent == 0) || ((curTime - lasttimesent) > TheGlobalData->m_networkRunAheadMetricsTime)) {
 		if (m_localSlot == m_packetRouterSlot) {
@@ -1764,7 +2504,14 @@ void ConnectionManager::processFrameTick(UnsignedInt frame) {
 
 	DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::processFrameTick - sending frame info for frame %d, ID %d, command count %d", frame, msg->getID(), commandCount));
 
+#if defined(GENERALS_ONLINE)
+	signLocalFrame(msg);
+#endif
+
 	sendLocalCommand(msg, 0xff & ~(1 << m_localSlot));
+#if defined(GENERALS_ONLINE)
+	m_lastFrameInfoSent = frame;
+#endif
 
 	msg->detach();
 }
@@ -1933,6 +2680,11 @@ Bool ConnectionManager::allCommandsReady(UnsignedInt frame, Bool justTesting /* 
 				requestFrameDataResend(i, frame);
 				retval = FALSE;
 			}
+#if defined(GENERALS_ONLINE)
+			else if (i != (Int)m_localSlot && !isPassedOnFrameAuthentic(i, frame)) {
+				retval = FALSE;
+			}
+#endif
 		}
 	}
 
@@ -1941,6 +2693,15 @@ Bool ConnectionManager::allCommandsReady(UnsignedInt frame, Bool justTesting /* 
 		for (i = 0; i < MAX_SLOTS; ++i) {
 			if ((m_frameData[i] != nullptr) && (i != m_localSlot)) {
 				m_frameData[i]->resetFrame(frame, FALSE);
+#if defined(GENERALS_ONLINE)
+				// the resent copy is judged by where it comes from, a signature that came already stays
+				FrameSignature *entry = findFrameSignature(i, frame);
+				if (entry != nullptr) {
+					entry->relayed = FALSE;
+					entry->verified = FALSE;
+					entry->waitingSince = 0;
+				}
+#endif
 			}
 		}
 	}
@@ -1995,11 +2756,14 @@ void ConnectionManager::setFrameGrouping(time_t frameGrouping) {
 	// This is probably ok since the packet router should have the fastest connection of all
 	// the players in the game.
 
-	NetworkLog(ELogVerbosity::LOG_DEBUG, "ConnectionManager::setFrameGrouping Frame grouping is %d, is packet router %d", frameGrouping, m_localSlot == m_packetRouterSlot);
+	NetworkLog(ELogVerbosity::LOG_DEBUG, "ConnectionManager::setFrameGrouping Frame grouping is %I64d, is packet router %d", (Int64)frameGrouping, m_localSlot == m_packetRouterSlot);
 
 	if (m_localSlot == m_packetRouterSlot) {
 		frameGrouping = frameGrouping / 2;
 	}
+#if defined(GENERALS_ONLINE)
+	m_frameGroupingMs = (Int)frameGrouping;
+#endif
 	for (Int i = 0; i < MAX_SLOTS; ++i) {
 		if (m_connections[i] != nullptr) {
 			m_connections[i]->setFrameGrouping(frameGrouping);
@@ -2103,13 +2867,12 @@ PlayerLeaveCode ConnectionManager::disconnectPlayer(Int slot) {
 //	}
 
 	if (slot == m_packetRouterSlot) {
-		Int index = 0;
-		while ((index < MAX_SLOTS) && (m_packetRouterFallback[index] != m_packetRouterSlot)) {
-			++index;
-		}
-		++index;
-		if (index < MAX_SLOTS) {
-			m_packetRouterSlot = m_packetRouterFallback[index];
+#if defined(GENERALS_ONLINE)
+		m_formerRouterMask |= (1u << m_packetRouterSlot);
+#endif
+		const UnsignedInt nextRouter = getNextPacketRouterSlot(m_packetRouterSlot);
+		if (nextRouter < (UnsignedInt)MAX_SLOTS) {
+			m_packetRouterSlot = nextRouter;
 		} else {
 			DEBUG_LOG(("ConnectionManager::disconnectPlayer - packet router had no valid fallback, defaulting to local slot %d", m_localSlot));
 			m_packetRouterSlot = m_localSlot;
@@ -2283,6 +3046,10 @@ void ConnectionManager::parseUserList(const GameInfo *game)
 			{
 				m_connections[i] = newInstance(Connection)();
 				m_connections[i]->init();
+#if defined(GENERALS_ONLINE)
+				m_connections[i]->setNetworkSettings(m_networkSettings, TheLAN != nullptr || m_networkSettings.send.IsDatagram());
+#endif
+				m_connections[i]->setSlot(i);
 				m_connections[i]->attachTransport(m_transport);
 //				UnsignedShort port = (TheNAT)?TheNAT->getSlotPort(i):8088;
 				UnsignedShort port = slot->getPort();
@@ -2494,6 +3261,9 @@ void ConnectionManager::sendChat(UnicodeString text, Int playerMask, UnsignedInt
 	DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("Chat message has ID of %d, mask of %8.8X, text of %ls", msg->getID(), msg->getPlayerMask(), msg->getText().str()));
 
 	sendLocalCommand(msg, 0xff ^ (1 << m_localSlot));
+#if defined(GENERALS_ONLINE)
+	signLocalChat(msg);
+#endif
 	processChat(msg);
 
 	msg->detach();
@@ -2721,6 +3491,13 @@ Int ConnectionManager::getSlotAverageFPS(Int slot) {
 	return m_fpsAverages[slot];
 }
 
+const ConnectionStats* ConnectionManager::getConnectionStats(Int slot) const {
+	if ((slot < 0) || (slot >= MAX_SLOTS) || (m_connections[slot] == nullptr)) {
+		return nullptr;
+	}
+	return &m_connections[slot]->getStats();
+}
+
 #if defined(RTS_DEBUG)
 void ConnectionManager::debugPrintConnectionCommands() {
 	DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::debugPrintConnectionCommands - begin commands"));
@@ -2785,7 +3562,7 @@ void ConnectionManager::sendFrameDataToPlayer(UnsignedInt playerID, UnsignedInt 
 }
 
 void ConnectionManager::sendSingleFrameToPlayer(UnsignedInt playerID, UnsignedInt frame) {
-	if ((TheGameLogic->getFrame() - FRAMES_TO_KEEP) > frame) {
+	if (frame + FRAMES_TO_KEEP < TheGameLogic->getFrame()) {
 		DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::sendSingleFrameToPlayer - player %d requested frame %d when we are on frame %d, this is too far in the past.", playerID, frame, TheGameLogic->getFrame()));
 		return;
 	}
@@ -2813,6 +3590,11 @@ void ConnectionManager::sendSingleFrameToPlayer(UnsignedInt playerID, UnsignedIn
 			}
 			msg->setPlayerID(i);
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::sendFrameDataToPlayer - sending frame info from player %d to player %d for frame %d with command count %d and ID %d and relay %d", i, playerID, msg->getExecutionFrame(), msg->getCommandCount(), msg->getID(), relay));
+#if defined(GENERALS_ONLINE)
+			if (i != (Int)m_localSlot) {
+				attachStoredSignature(i, msg);
+			}
+#endif
 			sendLocalCommandDirect(msg, relay);
 			msg->detach();
 		}
@@ -2852,3 +3634,49 @@ void ConnectionManager::requestFrameDataResend(Int playerID, UnsignedInt frame) 
 
 	msg->detach();
 }
+
+#if defined(GENERALS_ONLINE)
+void ConnectionManager::noteStalling(Bool stalling, UnsignedInt frame) {
+	time_t now = timeGetTime();
+
+	if (stalling && !m_stallActive) {
+		// list the senders whose commands for this frame are missing
+		m_stallMissingMask = 0;
+		for (Int i = 0; i < MAX_SLOTS; ++i) {
+			if ((m_frameData[i] != nullptr) && (m_frameData[i]->getIsQuitting() == FALSE)
+				&& (m_frameData[i]->getFrameCommandCount(frame) != m_frameData[i]->getCommandCount(frame))) {
+				m_stallMissingMask |= (1u << i);
+			}
+		}
+		m_stallActive = TRUE;
+		m_stallStartTime = now;
+	} else if (!stalling && m_stallActive) {
+		m_stallActive = FALSE;
+		m_stallStats.note((Int)(now - m_stallStartTime), m_stallMissingMask, now);
+	}
+}
+
+Bool ConnectionManager::getOverlayInfo(Int slot, NetworkOverlayInfo &info) {
+	time_t now = timeGetTime();
+	m_stallStats.update(now);
+
+	info = NetworkOverlayInfo();
+	info.stalledNow = m_stallActive;
+	info.runAhead = m_lastKnownRunAhead;
+	info.frameGroupingMs = m_frameGroupingMs;
+
+	if (slot >= 0 && slot < MAX_SLOTS) {
+		info.stallsWindow = m_stallStats.getCountForSlot(slot, now, NETWORK_STATS_WINDOW_MS);
+		info.stallsMinute = m_stallStats.getCountForSlot(slot, now, 60000);
+		info.waitingOnSlot = m_stallActive && ((m_stallMissingMask & (1u << slot)) != 0);
+		if (isPlayerConnected(slot)) {
+			info.slotInBandMs = (Int)(m_latencyAverages[slot] * 1000.0f);
+		}
+		m_cushionStats[slot].update(now);
+		info.cushionSamples = m_cushionStats[slot].getSampleCount();
+		info.cushionP5 = m_cushionStats[slot].getPercentile(5);
+		info.cushionP50 = m_cushionStats[slot].getPercentile(50);
+	}
+	return TRUE;
+}
+#endif
