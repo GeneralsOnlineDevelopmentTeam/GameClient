@@ -7121,16 +7121,15 @@ void ScriptActions::executeAction( ScriptAction *pAction )
 			doSetStoppingDistance(pAction->getParameter(0)->getString(), pAction->getParameter(1)->getReal());
 			return;
 		case ScriptAction::SET_FPS_LIMIT:
+			// the game speed of a script is in retail units (30 is normal), so it is doubled for the 60 Hz logic. The render limit is the one of Options.ini
 			if (!pAction->getParameter(0)->getInt())
 			{
-				TheFramePacer->setFramesPerSecondLimit(TheGlobalData->m_framesPerSecondLimit);
+				TheFramePacer->resetGameSpeed();
 			}
 			else
 			{
-				TheFramePacer->setFramesPerSecondLimit(pAction->getParameter(0)->getInt());
+				TheFramePacer->setGameSpeedFps(pAction->getParameter(0)->getInt() * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER);
 			}
-			// Setting the fps limit doesn't do much good if we don't use it.  jba.
-			TheWritableGlobalData->m_useFpsLimit = true;
 			return;
 
 		case ScriptAction::DISABLE_SPECIAL_POWER_DISPLAY:

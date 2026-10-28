@@ -2,6 +2,9 @@
 #include "../json.hpp"
 #include "../OnlineServices_LobbyInterface.h"
 #include "../OnlineServices_Init.h"
+#include <algorithm>
+#include "Common/FrameRateLimit.h"
+#include "Common/OptionPreferences.h"
 
 #define SETTINGS_KEY_CAMERA "camera"
 #define SETTINGS_KEY_CAMERA_MIN_HEIGHT "min_height"
@@ -9,8 +12,8 @@
 #define SETTINGS_KEY_CAMERA_MAX_HEIGHT_WHEN_LOBBY_HOST "max_height_only_when_lobby_host"
 
 #define SETTINGS_KEY_RENDER "render"
-#define SETTINGS_KEY_RENDER_LIMIT_FRAMERATE "limit_framerate"
-#define SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL "fps_limit"
+#define SETTINGS_KEY_RENDER_LEGACY_LIMIT_FRAMERATE "limit_framerate"
+#define SETTINGS_KEY_RENDER_LEGACY_FPS_LIMIT "fps_limit"
 #define SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY "stats_overlay"
 
 #define SETTINGS_KEY_CHAT "chat"
@@ -92,6 +95,24 @@ std::string GenOnlineSettings::GetAnticheatPlugin() const
     }
 
     return m_Plugins_Anticheat;
+}
+
+// The render frame rate limit used to be kept here as well as in Options.ini. A value from an old settings.json moves to the
+// RenderFpsLimit key of Options.ini, unless that file already has one.
+static void MigrateFpsLimitToOptions(bool limited, int fps)
+{
+	OptionPreferences options;
+	if (options.find("RenderFpsLimit") != options.end())
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[Settings] render.limit_framerate and render.fps_limit dropped, Options.ini already has RenderFpsLimit");
+		return;
+	}
+	const int value = limited ? std::clamp(fps, 30, 480) : static_cast<int>(RenderFpsPreset::UncappedFpsValue);
+	AsciiString text;
+	text.format("%d", value);
+	options["RenderFpsLimit"] = text;
+	options.write();
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[Settings] Moved render.limit_framerate=%d render.fps_limit=%d to Options.ini RenderFpsLimit=%d", limited ? 1 : 0, fps, value);
 }
 
 void GenOnlineSettings::Load(void)
@@ -199,14 +220,15 @@ void GenOnlineSettings::Load(void)
 			{
 				auto renderSettings = jsonSettings[SETTINGS_KEY_RENDER];
 
-				if (renderSettings.contains(SETTINGS_KEY_RENDER_LIMIT_FRAMERATE))
+				// the frame rate limit lives in Options.ini now: carry an old value over, the keys are dropped on the next save
+				const bool hasLimited = renderSettings.contains(SETTINGS_KEY_RENDER_LEGACY_LIMIT_FRAMERATE);
+				const bool hasFps = renderSettings.contains(SETTINGS_KEY_RENDER_LEGACY_FPS_LIMIT);
+				if (hasLimited || hasFps)
 				{
-					m_Render_LimitFramerate = renderSettings[SETTINGS_KEY_RENDER_LIMIT_FRAMERATE];
-				}
-
-				if (renderSettings.contains(SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL))
-				{
-					m_Render_FramerateLimit_FPSVal = renderSettings[SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL];
+					const auto& limitedValue = renderSettings[SETTINGS_KEY_RENDER_LEGACY_LIMIT_FRAMERATE];
+					const auto& fpsValue = renderSettings[SETTINGS_KEY_RENDER_LEGACY_FPS_LIMIT];
+					MigrateFpsLimitToOptions(!hasLimited || !limitedValue.is_boolean() || limitedValue.get<bool>(),
+						hasFps && fpsValue.is_number_integer() ? fpsValue.get<int>() : 60);
 				}
 
 				if (renderSettings.contains(SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY))
@@ -343,8 +365,6 @@ void GenOnlineSettings::Load(void)
 		m_Camera_MinHeight = m_Camera_MinHeight_default;
 		m_Camera_MaxHeight_LobbyHost = GENERALS_ONLINE_DEFAULT_LOBBY_CAMERA_ZOOM;
 		m_bVerbose = false;
-		m_Render_LimitFramerate = true;
-		m_Render_FramerateLimit_FPSVal = 60;
 		m_Render_DrawStatsOverlay = true;
 		m_Chat_LifeSeconds = 30;
 
@@ -391,8 +411,6 @@ void GenOnlineSettings::Save()
 		{
 			SETTINGS_KEY_RENDER,
 				{
-					{SETTINGS_KEY_RENDER_LIMIT_FRAMERATE, m_Render_LimitFramerate},
-					{SETTINGS_KEY_RENDER_FRAMERATE_LIMIT_FPS_VAL, m_Render_FramerateLimit_FPSVal},
 					{SETTINGS_KEY_RENDER_DRAW_STATS_OVERLAY, m_Render_DrawStatsOverlay},
 				}
 		},

@@ -28,6 +28,7 @@
 #include "Common/ArchiveFileSystem.h"
 #include "Common/CommandLine.h"
 #include "Common/CRCDebug.h"
+#include "Common/FrameRateLimit.h"
 #include "Common/LocalFileSystem.h"
 #include "Common/Recorder.h"
 #include "Common/version.h"
@@ -1022,7 +1023,11 @@ Int parseIgnoreStackTrace(char *args[], int num)
 Int parseNoFPSLimit(char *args[], int num)
 {
 	TheWritableGlobalData->m_useFpsLimit = false;
+#if defined(GENERALS_ONLINE)
+	TheWritableGlobalData->m_framesPerSecondLimit = RenderFpsPreset::UncappedFpsValue;
+#else
 	TheWritableGlobalData->m_framesPerSecondLimit = 30000;
+#endif
 
 	return 1;
 }

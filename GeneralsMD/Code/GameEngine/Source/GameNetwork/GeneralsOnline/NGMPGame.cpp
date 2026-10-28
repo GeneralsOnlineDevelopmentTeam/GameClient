@@ -1,3 +1,4 @@
+#include "Common/FrameRateLimit.h"
 #include "GameNetwork/GeneralsOnline/NGMPGame.h"
 #include "GameLogic/VictoryConditions.h"
 #include "Common/PlayerList.h"
@@ -528,16 +529,8 @@ void NGMPGame::launchGame(void)
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
 
-	if (NGMP_OnlineServicesManager::Settings.Graphics_LimitFramerate())
-	{
-		TheWritableGlobalData->m_framesPerSecondLimit = NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit();
-		TheWritableGlobalData->m_useFpsLimit = true;
-	}
-	else
-	{
-		TheWritableGlobalData->m_framesPerSecondLimit = 30000; // game does this... it's not great
-		TheWritableGlobalData->m_useFpsLimit = false;
-	}
+	// m_framesPerSecondLimit is the render limit of Options.ini, uncapped is its largest value
+	TheWritableGlobalData->m_useFpsLimit = TheGlobalData->m_framesPerSecondLimit < (Int)RenderFpsPreset::UncappedFpsValue;
 	
 #endif
 	//TheWritableGlobalData->m_useFpsLimit = false;

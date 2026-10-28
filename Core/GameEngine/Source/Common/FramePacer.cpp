@@ -21,11 +21,18 @@
 
 #include "GameClient/View.h"
 
+#include "Common/GameEngine.h"
+
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/ScriptEngine.h"
 
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/NetworkInterface.h"
+
+#if defined(GENERALS_ONLINE)
+#include "WW3D2/dx8wrapper.h"
+#include "WW3D2/ww3d.h"
+#endif
 
 
 FramePacer* TheFramePacer = nullptr;
@@ -42,6 +49,11 @@ FramePacer::FramePacer()
 	m_enableLogicTimeScale = FALSE;
 	m_isTimeFrozen = FALSE;
 	m_isGameHalted = FALSE;
+#if defined(GENERALS_ONLINE)
+	m_windowRefreshRate = 60;
+	m_windowRefreshTime = 0;
+	m_windowRefreshDirty = TRUE;
+#endif
 }
 
 FramePacer::~FramePacer()
@@ -117,8 +129,57 @@ Bool FramePacer::isActualFramesPerSecondLimitEnabled() const
 
 Int FramePacer::getActualFramesPerSecondLimit() const
 {
-	return isActualFramesPerSecondLimitEnabled() ? getFramesPerSecondLimit() : RenderFpsPreset::UncappedFpsValue;
+	const Int fps = isActualFramesPerSecondLimitEnabled() ? getFramesPerSecondLimit() : RenderFpsPreset::UncappedFpsValue;
+#if defined(GENERALS_ONLINE)
+	return getWindowCappedFramesPerSecondLimit(fps);
+#else
+	return fps;
+#endif
 }
+
+#if defined(GENERALS_ONLINE)
+void FramePacer::invalidateWindowRefreshRate()
+{
+	m_windowRefreshDirty = TRUE;
+}
+
+UnsignedInt FramePacer::getWindowRefreshRate() const
+{
+	// Re-query at most every 100 ms after a move or display change, and every second otherwise.
+	const DWORD now = timeGetTime();
+	const DWORD age = now - m_windowRefreshTime;
+	if (m_windowRefreshTime == 0 || age >= 1000 || (m_windowRefreshDirty && age >= 100))
+	{
+		m_windowRefreshRate = DX8Wrapper::Get_Window_Monitor_Refresh_Rate();
+		m_windowRefreshTime = now;
+		m_windowRefreshDirty = FALSE;
+	}
+	return m_windowRefreshRate;
+}
+
+Int FramePacer::getWindowCappedFramesPerSecondLimit(Int fps) const
+{
+	// Presenting a windowed device faster than the monitor refreshes only floods the GPU and the desktop compositor.
+	// Explicit limits stay as chosen, only the uncapped limit maps to the refresh rate. Exclusive fullscreen stays uncapped.
+	if (fps >= (Int)RenderFpsPreset::UncappedFpsValue && WW3D::Is_Windowed())
+	{
+		fps = (Int)getWindowRefreshRate();
+	}
+
+	// Without focus nobody watches the match at a high frame rate.
+	if (TheGameEngine != nullptr && !TheGameEngine->isActive())
+	{
+		fps = std::min<Int>(fps, GENERALS_ONLINE_HIGH_FPS_LIMIT);
+	}
+
+	// Logic is capped by the render frame rate, so never render slower than the logic time scale or the network rate.
+	if (TheNetwork != nullptr || isLogicTimeScaleEnabled())
+	{
+		fps = std::max<Int>(fps, getActualLogicTimeScaleFps(IgnoreFrozenTime | IgnoreHaltedGame));
+	}
+	return fps;
+}
+#endif
 
 Real FramePacer::getUpdateTime()  const
 {
@@ -176,6 +237,26 @@ Bool FramePacer::isLogicTimeScaleEnabled() const
 {
 	return m_enableLogicTimeScale;
 }
+
+#if defined(GENERALS_ONLINE)
+void FramePacer::setGameSpeedFps( Int fps )
+{
+	const Int logicFps = fps >= 1000 ? (Int)RenderFpsPreset::UncappedFpsValue : std::max<Int>(fps, 1);
+	m_enableLogicTimeScale = TRUE;
+	m_logicTimeScaleFPS = logicFps;
+}
+
+Int FramePacer::getGameSpeedFps() const
+{
+	return m_logicTimeScaleFPS >= (Int)RenderFpsPreset::UncappedFpsValue ? 1000 : m_logicTimeScaleFPS;
+}
+
+void FramePacer::resetGameSpeed()
+{
+	m_enableLogicTimeScale = TRUE;
+	m_logicTimeScaleFPS = LOGICFRAMES_PER_SECOND;
+}
+#endif
 
 Int FramePacer::getActualLogicTimeScaleFps(LogicTimeQueryFlags flags) const
 {

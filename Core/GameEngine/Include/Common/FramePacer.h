@@ -47,6 +47,9 @@ public:
 	Bool isFramesPerSecondLimitEnabled() const; ///< Returns whether the fps limit is enabled here.
 	Bool isActualFramesPerSecondLimitEnabled() const; ///< Returns whether the fps limit is actually enabled when considering all game settings and setups.
 	Int  getActualFramesPerSecondLimit() const; // Get the actual update fps limit.
+#if defined(GENERALS_ONLINE)
+	void invalidateWindowRefreshRate(); ///< The window moved or the display changed, query the monitor refresh rate again soon.
+#endif
 
 	Real getUpdateTime() const; ///< Get the last update delta time in seconds.
 	Real getUpdateFps() const; ///< Get the last update fps.
@@ -61,6 +64,11 @@ public:
 	Int  getLogicTimeScaleFps() const; ///< Get the raw logic time scale fps value.
 	void enableLogicTimeScale( Bool enable ); ///< Enable or disable the logic time scale setup. If disabled, the simulation time scale is bound to the render frame time or network update time.
 	Bool isLogicTimeScaleEnabled() const; ///< Check whether the logic time scale setup is enabled.
+#if defined(GENERALS_ONLINE)
+	void setGameSpeedFps( Int fps ); ///< Set the offline game speed in logic frames per second (60 is normal, 1000 and more is unlimited). Scales the logic time scale, the render limit is untouched.
+	Int  getGameSpeedFps() const; ///< Get the offline game speed in logic frames per second, 1000 for unlimited.
+	void resetGameSpeed(); ///< Back to the normal game speed.
+#endif
 	Int  getActualLogicTimeScaleFps(LogicTimeQueryFlags flags = 0) const; ///< Get the real logic time scale fps, depending on the max render fps, network state and enabled state.
 	Real getActualLogicTimeScaleRatio(LogicTimeQueryFlags flags = 0) const; ///< Get the real logic time scale ratio, depending on the max render fps, network state and enabled state.
 	Real getActualLogicTimeScaleOverFpsRatio(LogicTimeQueryFlags flags = 0) const; ///< Get the real logic time scale over render fps ratio, used to scale down steps in render updates to match logic updates.
@@ -70,6 +78,15 @@ public:
 protected:
 
 	FrameRateLimit m_frameRateLimit;
+
+#if defined(GENERALS_ONLINE)
+	Int getWindowCappedFramesPerSecondLimit(Int fps) const; ///< Cap uncapped windowed rendering at the monitor refresh rate and rendering without focus at the logic rate.
+	UnsignedInt getWindowRefreshRate() const;
+
+	mutable UnsignedInt m_windowRefreshRate;
+	mutable DWORD m_windowRefreshTime;
+	mutable Bool m_windowRefreshDirty;
+#endif
 
 	Int m_maxFPS; ///< Maximum frames per second for rendering
 	Int m_logicTimeScaleFPS; ///< Maximum frames per second for logic time scale

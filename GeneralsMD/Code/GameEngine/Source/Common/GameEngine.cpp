@@ -978,15 +978,18 @@ void GameEngine::update()
 			VERIFY_CRC
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
-			// NGMP_NOTE: Lock the shellmap to 30fps until we fix everything
-			if (TheNGMPGame != nullptr && TheGameLogic->isInGame() && !TheShell->isShellActive())
+			if (TheGameLogic->isInGame() && !TheShell->isShellActive())
 			{
-				TheFramePacer->setFramesPerSecondLimit(NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit());
-				TheWritableGlobalData->m_useFpsLimit = NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit();
+				// every game (online, LAN, skirmish, campaign, replay) renders at the limit of Options.ini, the logic rate is separate:
+				// the network frame rate, or the logic time scale offline
+				TheFramePacer->setFramesPerSecondLimit(TheGlobalData->m_framesPerSecondLimit);
+				TheWritableGlobalData->m_useFpsLimit = TheGlobalData->m_framesPerSecondLimit < (Int)RenderFpsPreset::UncappedFpsValue;
 			}
 			else
 			{
+				// menus and the shellmap stay at the logic rate
 				TheFramePacer->setFramesPerSecondLimit(GENERALS_ONLINE_HIGH_FPS_LIMIT);
+				TheWritableGlobalData->m_useFpsLimit = true;
 			}
 #endif
 			

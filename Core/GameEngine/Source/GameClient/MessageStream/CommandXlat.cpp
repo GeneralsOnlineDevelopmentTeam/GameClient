@@ -208,11 +208,11 @@ static Int applyObserverFontSizeChange(Int fontSize, ObserverFontSizeChange chan
 	return fontSize;
 }
 
-static void writeObserverFontSizePref(const char* prefKey, Int fontSize)
+static void writeIntPref(const char* prefKey, Int value)
 {
 	OptionPreferences optPref;
 	AsciiString prefString;
-	prefString.format("%d", fontSize);
+	prefString.format("%d", value);
 	optPref[prefKey] = prefString;
 	optPref.write();
 }
@@ -229,7 +229,7 @@ static bool changeObserverNotificationFontSize(ObserverFontSizeChange change)
 	if (TheInGameUI)
 		TheInGameUI->refreshObserverNotificationResources();
 
-	writeObserverFontSizePref("ObserverNotificationFontSize", fontSize);
+	writeIntPref("ObserverNotificationFontSize", fontSize);
 
 	return true;
 }
@@ -246,7 +246,7 @@ static bool changeObserverStatsFontSize(ObserverFontSizeChange change)
 	if (TheInGameUI)
 		TheInGameUI->initObserverOverlay();
 
-	writeObserverFontSizePref("ObserverStatsFontSize", fontSize);
+	writeIntPref("ObserverStatsFontSize", fontSize);
 
 	return true;
 }
@@ -260,9 +260,9 @@ bool changeMaxRenderFps(FpsValueChange change)
 	TheWritableGlobalData->m_useFpsLimit = (maxRenderFps != RenderFpsPreset::UncappedFpsValue);
 
 #if defined(GENERALS_ONLINE)
-    // Save to GO settings, SH does not save it yet
-    // TODO_NGMP: Remove this, SH saves it now
-    NGMP_OnlineServicesManager::Settings.Graphics_SetFPS(maxRenderFps, TheWritableGlobalData->m_useFpsLimit);
+	// the limit of the next online match, kept in Options.ini
+	TheWritableGlobalData->m_framesPerSecondLimit = maxRenderFps;
+	writeIntPref("RenderFpsLimit", maxRenderFps);
 #endif
 
 	UnicodeString message;
@@ -311,7 +311,12 @@ bool changeLogicTimeScale(FpsValueChange change)
 		TheFramePacer->setLogicTimeScaleFps(logicTimeScaleFps);
 	}
 
+#if defined(GENERALS_ONLINE)
+	// the logic rate is capped by the render rate, so it stays enabled when it is not below it
+	TheFramePacer->enableLogicTimeScale(TRUE);
+#else
 	TheFramePacer->enableLogicTimeScale(logicTimeScaleFps < maxRenderFps);
+#endif
 
 	// Set value after potentially enabling it.
 	if (TheFramePacer->isLogicTimeScaleEnabled())

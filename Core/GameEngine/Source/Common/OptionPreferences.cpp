@@ -744,6 +744,21 @@ Bool OptionPreferences::getDynamicLODEnabled()
 	return FALSE;
 }
 
+UnsignedInt OptionPreferences::getRenderFpsLimit()
+{
+	OptionPreferences::const_iterator it = find("RenderFpsLimit");
+	if (it == end())
+		return TheGlobalData->m_framesPerSecondLimit;
+
+	const Int fps = atoi(it->second.str());
+#if defined(GENERALS_ONLINE)
+	// the logic rate is capped by the render rate, so a lower limit would slow the game down
+	return fps > 0 ? (UnsignedInt)std::max<Int>(fps, LOGICFRAMES_PER_SECOND) : TheGlobalData->m_framesPerSecondLimit;
+#else
+	return fps > 0 ? (UnsignedInt)fps : TheGlobalData->m_framesPerSecondLimit;
+#endif
+}
+
 Bool OptionPreferences::getFPSLimitEnabled()
 {
 	OptionPreferences::const_iterator it = find("FPSLimit");

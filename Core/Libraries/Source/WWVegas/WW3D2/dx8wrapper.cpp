@@ -1316,6 +1316,29 @@ bool DX8Wrapper::Set_Device_Resolution(int width, int height, int bits, int wind
 	}
 }
 
+#if defined(GENERALS_ONLINE)
+unsigned DX8Wrapper::Get_Window_Monitor_Refresh_Rate()
+{
+	unsigned hz = 0;
+	MONITORINFOEX info;
+	memset(&info, 0, sizeof(info));
+	info.cbSize = sizeof(info);
+	if (_Hwnd != nullptr && GetMonitorInfo(MonitorFromWindow(_Hwnd, MONITOR_DEFAULTTONEAREST), &info))
+	{
+		DEVMODE mode;
+		memset(&mode, 0, sizeof(mode));
+		mode.dmSize = sizeof(mode);
+		if (EnumDisplaySettings(info.szDevice, ENUM_CURRENT_SETTINGS, &mode))
+		{
+			hz = mode.dmDisplayFrequency;
+		}
+	}
+
+	// 0 and 1 mean the hardware default
+	return hz > 1 ? hz : 60;
+}
+#endif
+
 void DX8Wrapper::Get_Device_Resolution(int& set_w, int& set_h, int& set_bits, bool& set_windowed)
 {
 	WWASSERT(IsInitted);

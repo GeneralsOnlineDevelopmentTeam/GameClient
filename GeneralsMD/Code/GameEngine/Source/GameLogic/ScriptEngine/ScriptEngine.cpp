@@ -5267,9 +5267,9 @@ void ScriptEngine::init()
 //-------------------------------------------------------------------------------------------------
 void ScriptEngine::reset()
 {
-	// setting FPS limit in case a script had changed it
-	if (TheFramePacer && TheGlobalData)
-		TheFramePacer->setFramesPerSecondLimit(TheGlobalData->m_framesPerSecondLimit);
+	// back to the normal game speed in case a script had changed it
+	if (TheFramePacer)
+		TheFramePacer->resetGameSpeed();
 
 	if (TheScriptActions) {
 		TheScriptActions->reset();

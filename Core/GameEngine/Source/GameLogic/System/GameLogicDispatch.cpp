@@ -880,11 +880,19 @@ bool GameLogic::onNewGame(MAYBE_UNUSED GameMessage *msg)
 	if ( msg->getArgumentCount() >= 4 )
 	{
 		Int maxFPS = msg->getArgument( 3 )->integer;
+#if defined(GENERALS_ONLINE)
+		// the game speed of the skirmish slider (logic frames per second, 60 is normal) sets the logic rate, the render limit is the one of Options.ini
+		if (maxFPS < 1 || maxFPS > 1000)
+			maxFPS = LOGICFRAMES_PER_SECOND;
+		DEBUG_LOG(("Setting game speed to %d FPS", maxFPS));
+		TheFramePacer->setGameSpeedFps(maxFPS);
+#else
 		if (maxFPS < 1 || maxFPS > 1000)
 			maxFPS = TheGlobalData->m_framesPerSecondLimit;
 		DEBUG_LOG(("Setting max FPS limit to %d FPS", maxFPS));
 		TheFramePacer->setFramesPerSecondLimit(maxFPS);
 		TheWritableGlobalData->m_useFpsLimit = true;
+#endif
 	}
 
 	// prepare for new game

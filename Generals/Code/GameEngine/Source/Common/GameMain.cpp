@@ -42,6 +42,11 @@ Int GameMain()
 	// initialize the game engine using factory function
 	TheFramePacer = new FramePacer();
 	TheFramePacer->enableFramesPerSecondLimit(TRUE);
+#if defined(GENERALS_ONLINE)
+	// Decouple the simulation speed from the render frame rate. Without this, raising the render FPS limit also speeds up the game logic.
+	// Network games are unaffected, they use TheNetwork->getFrameRate().
+	TheFramePacer->enableLogicTimeScale(TRUE);
+#endif
 	TheGameEngine = CreateGameEngine();
 	TheGameEngine->init();
 

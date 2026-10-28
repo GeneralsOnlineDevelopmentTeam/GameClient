@@ -150,7 +150,8 @@ static Bool buttonPushed = FALSE;
 static Bool stillNeedsToSetOptions = FALSE;
 void skirmishUpdateSlotList();
 static void populateSkirmishBattleHonors();
-enum{ GREATER_NO_FPS_LIMIT = 60};
+// the slider is in logic frames per second (60 is normal, 30 to 120, one more is unlimited); the saved "FPS" pref stays in retail units, half of that
+enum{ GREATER_NO_FPS_LIMIT = 120, GAME_SPEED_MIN = 30, GAME_SPEED_UNLIMITED = 121 };
 Bool doUpdateSlotList = TRUE;
 
 static Int getNextSelectablePlayer(Int start)
@@ -365,7 +366,7 @@ Bool SkirmishPreferences::write()
 //	NameKeyType sliderGameSpeedID = TheNameKeyGenerator->nameToKey( "SkirmishGameOptionsMenu.wnd:SliderGameSpeed" );
 	GameWindow *sliderGameSpeed = TheWindowManager->winGetWindowFromId( parentSkirmishGameOptions, sliderGameSpeedID );
 	Int maxFPS = GadgetSliderGetPosition( sliderGameSpeed );
-	setInt("FPS", maxFPS);
+	setInt("FPS", maxFPS > GREATER_NO_FPS_LIMIT ? 61 : (maxFPS + 1) / 2);
 
 	return UserPreferences::write();
 }
@@ -407,7 +408,7 @@ void setFPSTextBox( Int sliderPos )
 		GadgetStaticTextSetText(staticTextGameSpeed, text);
 		return;
 	}
-	else if( sliderPos == TheGlobalData->m_framesPerSecondLimit )
+	else if( sliderPos == LOGICFRAMES_PER_SECOND )
 	{
 		// set different color
 		staticTextGameSpeed->winEnable(FALSE);
@@ -427,8 +428,8 @@ void reallyDoStart()
 	DEBUG_LOG(("GameSpeedSlider was at %d", maxFPS));
 	if (maxFPS > GREATER_NO_FPS_LIMIT)
 		maxFPS = 1000;
-	if (maxFPS < 15)
-		maxFPS = 15;
+	if (maxFPS < GAME_SPEED_MIN)
+		maxFPS = GAME_SPEED_MIN;
 
   TheWritableGlobalData->m_mapName = TheSkirmishGameInfo->getMap();
   TheSkirmishGameInfo->startGame(0);
@@ -1376,7 +1377,10 @@ void SkirmishGameOptionsMenuInit( WindowLayout *layout, void *userData )
 	// set up the game speed slider
 //	NameKeyType sliderGameSpeedID = TheNameKeyGenerator->nameToKey( "SkirmishGameOptionsMenu.wnd:SliderGameSpeed" );
 	GameWindow *sliderGameSpeed = TheWindowManager->winGetWindowFromId( parentSkirmishGameOptions, sliderGameSpeedID );
-	Int sliderPos = max(15,min(61,prefs.getInt("FPS", TheGlobalData->m_framesPerSecondLimit)));
+	// the pref is in retail units (30 is normal, 61 unlimited, retail clamps it to 15..61), doubled for the 60 Hz logic
+	const Int savedSpeed = max(15,min(61,prefs.getInt("FPS", LOGICFRAMES_PER_SECOND / GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER)));
+	Int sliderPos = savedSpeed >= 61 ? GAME_SPEED_UNLIMITED : savedSpeed * GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER;
+	TheWindowManager->winSendSystemMsg( sliderGameSpeed, GSM_SET_MIN_MAX, GAME_SPEED_MIN, GAME_SPEED_UNLIMITED );
 	GadgetSliderSetPosition( sliderGameSpeed, sliderPos );
 	setFPSTextBox(sliderPos);
 	buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
@@ -1614,6 +1618,12 @@ WindowMsgHandledType SkirmishGameOptionsMenuSystem( GameWindow *window, Unsigned
 			Int controlID = control->winGetWindowId();
 			if(controlID == sliderGameSpeedID)
 			{
+				// steps of 2, so the speed saves in retail units and loads back the same
+				if (sliderPos < GAME_SPEED_UNLIMITED && (sliderPos & 1) != 0)
+				{
+					sliderPos -= 1;
+					GadgetSliderSetPosition( control, sliderPos );
+				}
 				setFPSTextBox(sliderPos);
 			}
 			break;

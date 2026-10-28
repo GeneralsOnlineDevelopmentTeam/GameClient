@@ -568,6 +568,10 @@ public:
 
 	static void Set_Draw_Polygon_Low_Bound_Limit(unsigned n) { DrawPolygonLowBoundLimit=n; }
 
+#if defined(GENERALS_ONLINE)
+	static unsigned Get_Window_Monitor_Refresh_Rate(); ///< Refresh rate in Hz of the monitor the device window is on, 60 if unknown.
+#endif
+
 protected:
 
 	static bool	Create_Device();

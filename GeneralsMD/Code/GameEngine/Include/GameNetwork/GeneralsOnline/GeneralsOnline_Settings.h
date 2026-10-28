@@ -21,13 +21,6 @@ public:
 
 	float DetermineCameraMaxHeight();
 
-	void Graphics_SetFPS(int fpsLimit, bool bLimitFramerate)
-	{
-		m_Render_FramerateLimit_FPSVal = fpsLimit;
-		m_Render_LimitFramerate = bLimitFramerate;
-		Save();
-	}
-
 	void Save_Camera_MaxHeight_WhenLobbyHost(float maxHeight)
 	{
 		if (maxHeight >= GENERALS_ONLINE_MIN_LOBBY_CAMERA_ZOOM && maxHeight <= GENERALS_ONLINE_MAX_LOBBY_CAMERA_ZOOM)
@@ -38,16 +31,6 @@ public:
 	}
 
 	bool Graphics_DrawStatsOverlay() const { return m_Render_DrawStatsOverlay; }
-	bool Graphics_LimitFramerate() const { return m_Render_LimitFramerate; }
-	int Graphics_GetFPSLimit() const
-	{
-		if (!m_Render_LimitFramerate)
-		{
-			return 1000000;
-		}
-
-		return m_Render_FramerateLimit_FPSVal;
-	}
 
 	std::string GetAnticheatPlugin() const;
 	bool Social_Notifications_FriendComesOnline_Menus() { return m_Social_Notification_FriendComesOnline_Menus; }
@@ -126,8 +109,6 @@ private:
 	bool m_bVerbose = false;
 
 	bool m_Render_DrawStatsOverlay = true;
-	bool m_Render_LimitFramerate = true;
-	int m_Render_FramerateLimit_FPSVal = 60;
 	int m_Chat_LifeSeconds = 30;
 
 	bool m_Social_Notification_FriendComesOnline_Menus = true;

@@ -59,6 +59,7 @@
 #include "GameClient/GameClient.h"
 #include "GameLogic/GameLogic.h"  ///< @todo for demo, remove
 #include "GameClient/Mouse.h"
+#include "Common/FramePacer.h"
 #include "GameClient/IMEManager.h"
 #include "Win32Device/GameClient/Win32Mouse.h"
 #include "Win32Device/Common/Win32GameEngine.h"
@@ -423,8 +424,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
 			if (TheMouse)
 				TheMouse->refreshCursorCapture();
 
+#if defined(GENERALS_ONLINE)
+			// the window may be on another monitor now
+			if (TheFramePacer)
+				TheFramePacer->invalidateWindowRefreshRate();
+#endif
+
 			break;
 		}
+
+#if defined(GENERALS_ONLINE)
+		//-------------------------------------------------------------------------
+		case WM_DISPLAYCHANGE:
+		case WM_EXITSIZEMOVE:
+		{
+			if (TheFramePacer)
+				TheFramePacer->invalidateWindowRefreshRate();
+
+			break;
+		}
+#endif
 
 		//-------------------------------------------------------------------------
 		case WM_SIZE:

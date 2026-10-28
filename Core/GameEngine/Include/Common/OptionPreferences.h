@@ -114,6 +114,7 @@ public:
 	Bool getExtraAnimationsDisabled();
 	Bool getUseHeatEffects();
 	Bool getDynamicLODEnabled();
+	UnsignedInt getRenderFpsLimit();
 	Bool getFPSLimitEnabled();
 	Bool getBuildingOcclusionEnabled();
 	Int getParticleCap();
