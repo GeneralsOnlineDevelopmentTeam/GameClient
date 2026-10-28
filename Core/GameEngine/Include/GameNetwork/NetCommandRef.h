@@ -62,12 +62,26 @@ public:
 	time_t getTimeLastSent() const;
 	void setTimeLastSent(time_t timeLastSent);
 
+	time_t getTimeFirstSent() const;
+	void setTimeFirstSent(time_t timeFirstSent);
+
+	Int getRedundantCopies() const;
+	time_t getTimeFirstRedundant() const;
+	void noteRedundantCopy(time_t now);	///< One more redundant copy went out, the first one is timestamped.
+
+	Bool isRetried() const;
+	void setRetried(Bool retried);
+
 protected:
 	NetCommandMsg *m_msg;
 	NetCommandRef *m_next;
 	NetCommandRef *m_prev;
 	UnsignedByte m_relay; ///< Need this in the command reference since the relay value will be different depending on where this particular reference is being sent.
 	time_t m_timeLastSent;
+	Int m_redundantCopies;
+	time_t m_timeFirstRedundant;
+	time_t m_timeFirstSent; ///< Stays put on resends, round trips are measured from it
+	Bool m_retried; ///< Sent again after the redundancy window: no round trip sample
 
 #ifdef DEBUG_NETCOMMANDREF
 	UnsignedInt m_id;
@@ -136,6 +150,45 @@ inline time_t NetCommandRef::getTimeLastSent() const
 inline void NetCommandRef::setTimeLastSent(time_t timeLastSent)
 {
 	m_timeLastSent = timeLastSent;
+}
+
+inline time_t NetCommandRef::getTimeFirstSent() const
+{
+	return m_timeFirstSent;
+}
+
+inline void NetCommandRef::setTimeFirstSent(time_t timeFirstSent)
+{
+	m_timeFirstSent = timeFirstSent;
+}
+
+inline Int NetCommandRef::getRedundantCopies() const
+{
+	return m_redundantCopies;
+}
+
+inline time_t NetCommandRef::getTimeFirstRedundant() const
+{
+	return m_timeFirstRedundant;
+}
+
+inline void NetCommandRef::noteRedundantCopy(time_t now)
+{
+	if (m_redundantCopies == 0)
+	{
+		m_timeFirstRedundant = now;
+	}
+	++m_redundantCopies;
+}
+
+inline Bool NetCommandRef::isRetried() const
+{
+	return m_retried;
+}
+
+inline void NetCommandRef::setRetried(Bool retried)
+{
+	m_retried = retried;
 }
 
 /**

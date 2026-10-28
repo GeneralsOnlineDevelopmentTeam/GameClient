@@ -49,6 +49,7 @@ NetCommandWrapperListNode::NetCommandWrapperListNode(NetWrapperCommandMsg *msg)
 	m_data = NEW UnsignedByte[m_totalDataLength];	// pool[]ify
 
 	m_commandID = msg->getWrappedCommandID();
+	m_playerID = msg->getPlayerID();
 }
 
 NetCommandWrapperListNode::~NetCommandWrapperListNode() {
@@ -72,6 +73,10 @@ Int NetCommandWrapperListNode::getPercentComplete() {
 
 UnsignedShort NetCommandWrapperListNode::getCommandID() {
 	return m_commandID;
+}
+
+UnsignedByte NetCommandWrapperListNode::getPlayerID() {
+	return m_playerID;
 }
 
 UnsignedInt NetCommandWrapperListNode::getRawDataLength() {
@@ -133,6 +138,8 @@ UnsignedByte * NetCommandWrapperListNode::getRawData() {
 
 NetCommandWrapperList::NetCommandWrapperList() {
 	m_list = nullptr;
+	m_recentCompletedCount = 0;
+	m_recentCompletedNext = 0;
 }
 
 NetCommandWrapperList::~NetCommandWrapperList() {
@@ -146,6 +153,8 @@ NetCommandWrapperList::~NetCommandWrapperList() {
 
 void NetCommandWrapperList::init() {
 	m_list = nullptr;
+	m_recentCompletedCount = 0;
+	m_recentCompletedNext = 0;
 }
 
 void NetCommandWrapperList::reset() {
@@ -154,6 +163,26 @@ void NetCommandWrapperList::reset() {
 		temp = m_list->m_next;
 		deleteInstance(m_list);
 		m_list = temp;
+	}
+	m_recentCompletedCount = 0;
+	m_recentCompletedNext = 0;
+}
+
+Bool NetCommandWrapperList::wasRecentlyCompleted(UnsignedByte playerID, UnsignedShort wrappedCommandID) const {
+	for (Int i = 0; i < m_recentCompletedCount; ++i) {
+		if ((m_recentCompletedPlayers[i] == playerID) && (m_recentCompletedIDs[i] == wrappedCommandID)) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+void NetCommandWrapperList::noteCompleted(UnsignedByte playerID, UnsignedShort wrappedCommandID) {
+	m_recentCompletedPlayers[m_recentCompletedNext] = playerID;
+	m_recentCompletedIDs[m_recentCompletedNext] = wrappedCommandID;
+	m_recentCompletedNext = (m_recentCompletedNext + 1) % RECENT_COMPLETED_COUNT;
+	if (m_recentCompletedCount < RECENT_COMPLETED_COUNT) {
+		++m_recentCompletedCount;
 	}
 }
 
@@ -174,6 +203,10 @@ Int NetCommandWrapperList::getPercentComplete(UnsignedShort wrappedCommandID)
 void NetCommandWrapperList::processWrapper(NetCommandRef *ref) {
 	NetCommandWrapperListNode *temp = m_list;
 	NetWrapperCommandMsg *msg = (NetWrapperCommandMsg *)(ref->getCommand());
+
+	if (wasRecentlyCompleted(msg->getPlayerID(), msg->getWrappedCommandID())) {
+		return; // a duplicate or late chunk of a command that was already delivered
+	}
 
 	while ((temp != nullptr) && (temp->getCommandID() != msg->getWrappedCommandID())) {
 		temp = temp->m_next;
@@ -206,6 +239,7 @@ NetCommandList * NetCommandWrapperList::getReadyCommands()
 			deleteInstance(msg);
 			msg = nullptr;
 
+			noteCompleted(temp->getPlayerID(), temp->getCommandID());
 			removeFromList(temp);
 			temp = nullptr;
 		}

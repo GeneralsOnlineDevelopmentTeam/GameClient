@@ -615,6 +615,7 @@ private:
 	void drawRenderFps(Int& x, Int& y);
 	void drawSystemTime(Int& x, Int& y);
 	void drawGameTime();
+	void drawNetworkOverlay(Int mode);	///< 1 = player view, 2 = dev view
 	void drawPlayerInfoList();
 	void drawObserverStats(Int &x, Int &y);
 	Bool m_observerStatsHidden = false;   // hide/show observer overlay
