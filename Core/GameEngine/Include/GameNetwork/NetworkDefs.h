@@ -38,7 +38,7 @@ static constexpr const Int MIN_LOGIC_FRAMES = 5;
 static constexpr const Int MAX_FRAMES_AHEAD = 128;
 
 #if defined(GENERALS_ONLINE)
-static Int MIN_RUNAHEAD = 6;
+extern Int MIN_RUNAHEAD;
 #else
 static constexpr const Int MIN_RUNAHEAD = 4;
 #endif

@@ -44,8 +44,8 @@ public:
 	CustomMatchPreferences();
 	virtual ~CustomMatchPreferences() override;
 
-	AsciiString getLastLobbyName() const;
-	void setLastLobbyName(const AsciiString& name);
+	UnicodeString getLastLobbyName() const;
+	void setLastLobbyName(const UnicodeString& name);
 
 	void setLastLadder(const AsciiString& addr, UnsignedShort port);
 	AsciiString getLastLadderAddr();

@@ -336,12 +336,8 @@ void PopupHostGameInit( WindowLayout *layout, void *userData )
 #if defined(GENERALS_ONLINE)
 	{
 		CustomMatchPreferences pref;
-		AsciiString lastLobbyName = pref.getLastLobbyName();
-		if (!lastLobbyName.isEmpty())
-		{
-			name.translate(lastLobbyName.str());
-		}
-		else
+		name = pref.getLastLobbyName();
+		if (name.isEmpty())
 		{
 			name.translate("Generals Online Lobby");
 		}
@@ -605,19 +601,8 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 #if defined(GENERALS_ONLINE)
 				// save last used lobby name to CustomPref.ini
 				{
-					char buffer[256];
-					const WideChar* w = name.str();
-					int i = 0;
-					for (; w[i] != 0 && i < 255; ++i)
-					{
-						buffer[i] = (char)(w[i] & 0xFF);
-					}
-					buffer[i] = 0;
-
-					AsciiString lobbyNameAscii = buffer;
-
 					CustomMatchPreferences pref;
-					pref.setLastLobbyName(lobbyNameAscii);
+					pref.setLastLobbyName(name);
 					pref.write();
 				}
 #endif

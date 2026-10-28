@@ -65,6 +65,7 @@ private:
 	Int m_reportedNumObservers;
 
 	bool m_bHasCommittedOutcome = false;
+	uint64_t m_startAttempt = 0;
 	
 	std::chrono::system_clock::time_point matchStartTime;
 
@@ -79,6 +80,8 @@ public:
 	virtual ~NGMPGame();
 	virtual void reset(void);
 
+	uint64_t BeginStartAttempt() { return ++m_startAttempt; }
+	uint64_t GetStartAttempt() const { return m_startAttempt; }
 	bool HasCommittedOutcome() const { return m_bHasCommittedOutcome; }
 	void SetHasCommittedOutcome() { m_bHasCommittedOutcome = true; }
 
@@ -87,6 +90,7 @@ public:
 
 	void StopCountdown()
 	{
+		++m_startAttempt;
 		m_bCountdownStarted = false;
 		m_countdownStartTime = -1;
 		m_countdownLastCheckTime = -1;

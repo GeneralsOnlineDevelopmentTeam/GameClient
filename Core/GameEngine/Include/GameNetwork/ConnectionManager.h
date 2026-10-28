@@ -37,6 +37,9 @@
 #include "GameNetwork/FrameMetrics.h"
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/DisconnectManager.h"
+#if defined(GENERALS_ONLINE)
+#include "GameNetwork/NetworkSettings.h"
+#endif
 
 class GameInfo;
 class NetCommandWrapperList;
@@ -56,6 +59,7 @@ public:
 	virtual void update(Bool isInGame);			///< Service the Connections being managed by this instance.
 
 #if defined(GENERALS_ONLINE)
+	const NetworkSettings &getNetworkSettings() const { return m_networkSettings; }
 	void SeedLatencyData(int highestLatency)
 	{
 		for (int i = 0; i < MAX_SLOTS; ++i) {
@@ -165,6 +169,10 @@ public:
 	Int getPingsReceived();
 
 private:
+#if defined(GENERALS_ONLINE)
+	NetworkSettings m_networkSettings;
+#endif
+
 	void doRelay();
 	void doKeepAlive();
 	void sendRemoteCommand(NetCommandRef *msg);

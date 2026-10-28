@@ -25,12 +25,19 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	int startpos = -1;
 	bool has_map = false;
 
-	uint16_t m_SlotIndex = 999999;
+	// marks a member the service sent without a usable slot
+	static constexpr uint16_t NO_SLOT_INDEX = UINT16_MAX;
+	uint16_t m_SlotIndex = NO_SLOT_INDEX;
 	uint16_t m_SlotState = SlotState::SLOT_OPEN;
 
 	std::string region;
 	std::string middlewareUserID;
 	int latency = 0;
+
+	bool HasValidSlot() const
+	{
+		return m_SlotIndex < MAX_SLOTS;
+	}
 
 	bool IsHuman() const
 	{
@@ -273,6 +280,14 @@ public:
 	}
 
 
+	bool AreLocalLobbyPeersConnected();
+	bool HasFailedLobbyPeers();
+	int RetryFailedLobbyPeers();
+	std::vector<int64_t> GetHumanLobbyMembers() const;
+	std::string GetLobbyStartSettings() const;
+	uint64_t GetLobbyGeneration() const { return m_LobbyJoinGeneration.load(); }
+	bool IsCurrentLobbyAttempt(int64_t lobbyID, uint64_t generation, const std::vector<int64_t>& members) const;
+
 	LobbyEntry& GetCurrentLobby()
 	{
 		return m_CurrentLobby;
@@ -384,6 +399,10 @@ public:
 
 	void UpdateRoomDataCache(std::function<void(bool)> fnCallback = nullptr);
 
+	// re-fetches the lobby when the roster could not be trusted, throttled
+	void RequestRosterRefresh();
+	int64_t m_lastRosterRefreshRequestMs = 0;
+
 	std::function<void(LobbyMemberEntry)> m_cbPlayerDoesntHaveMap = nullptr;
 	void RegisterForPlayerDoesntHaveMapCallback(std::function<void(LobbyMemberEntry)> cb)
 	{
@@ -472,7 +491,8 @@ public:
 
 	NetworkMesh* GetNetworkMeshForLobby() { return m_pLobbyMesh; }
 
-	void JoinLobby(LobbyEntry lobby, std::string strPassword);
+	// false when a join is already in progress and this request was dropped
+	bool JoinLobby(LobbyEntry lobby, std::string strPassword);
 
 	void LeaveCurrentLobby();
 	void ResetForMatchmakingRequeue();
@@ -551,6 +571,10 @@ private:
 #endif
 
 	bool m_bAttemptingToJoinLobby = false;
+
+	// GET Lobby/{id} responses can arrive out of order; only apply ones newer than the last applied
+	std::atomic<uint64_t> m_LobbyUpdateRequestSeq = 0;
+	std::atomic<uint64_t> m_LobbyUpdateAppliedSeq = 0;
 	// Invalidates asynchronous callbacks left behind by an abandoned lobby join.
 	std::atomic<uint64_t> m_LobbyJoinGeneration = 0;
 	LobbyEntry m_LobbyTryingToJoin;

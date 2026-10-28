@@ -97,6 +97,7 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			// Capture before SetDisconnected(), which can erase this entry via UpdateState().
 			const int64_t userID = plrConnection.m_userID;
 			const int signallingAttemptsBeforeDisconnect = plrConnection.m_SignallingAttempts;
+			plrConnection.m_retryTimeout = true;
 
 			if (TheNetwork != nullptr)
 			{
@@ -114,7 +115,9 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			const bool bPeerLeft = pJoinOrderLobby != nullptr && pJoinOrderLobby->IsJoinOrderKnown() && !pJoinOrderLobby->IsLobbyMember(userID);
 			// a match can't leave its lobby, so keep repairing the link until the service drops the player
 			const bool bInMatch = TheGameLogic != nullptr && TheGameLogic->isInInternetGame();
-			bool bShouldRetry = serviceConf.retry_signalling && ((bInMatch && !bPeerLeft) || (!bWeJoinedLater && !bPeerLeft) || signallingAttemptsBeforeDisconnect < numSignallingAttempts);
+			const bool bManualLobby = pJoinOrderLobby != nullptr && pJoinOrderLobby->GetCurrentLobby().lobby_type == ELobbyType::CustomGame;
+			bool bShouldRetry = serviceConf.connection.retry_signalling && !bPeerLeft
+				&& (bInMatch || (!bManualLobby && !bWeJoinedLater) || signallingAttemptsBeforeDisconnect < numSignallingAttempts);
 
 			bool bWasError = pInfo->m_info.m_eState == k_ESteamNetworkingConnectionState_ProblemDetectedLocally || pInfo->m_info.m_eEndReason != k_ESteamNetConnectionEnd_App_Generic;
 			plrConnection.SetDisconnected(bWasError, pMesh, bShouldRetry && bWasError);
@@ -182,14 +185,27 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 					}
 					else if (pLobbyInterface != nullptr)
 					{
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Performing local removal for user %lld from lobby due to failure to connect\n", userID);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][DISCONNECT HANDLER] Connection attempts exhausted for user %lld\n", userID);
 
-						// deferred: the handler leaves the lobby, which deletes this mesh while we're still inside its RunCallbacks
-						pLobbyInterface->QueueCannotConnectToLobby();
+						if (pLobbyInterface->GetCurrentLobby().lobby_type == ELobbyType::QuickMatch)
+						{
+							// deferred: the handler leaves the lobby, which deletes this mesh while we're still inside its RunCallbacks
+							pLobbyInterface->QueueCannotConnectToLobby();
+						}
+						else
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[LOBBY] Staying in lobby after connection failure peer=%lld; manual retry available", userID);
+						}
 					}
 				}
 			}
 
+
+			// a clean close is a leave, the peer is gone for good; the game's own disconnect already ran above
+			if (!bWasError)
+			{
+				pMesh->RemoveConnection(userID);
+			}
 
 			// In this example, we will bail the test whenever this happens.
 			// Was this a normal termination?
@@ -266,23 +282,17 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 					}
 				}
 
+				// the server started signalling with this peer, so accept it even if our roster is stale
 				if (bPlayerIsInLobby)
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Accepting - Player is in lobby\n", pInfo->m_info.m_szConnectionDescription);
-					SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
 				}
 				else
 				{
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Rejecting - Player is not in lobby\n", pInfo->m_info.m_szConnectionDescription);
-
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection not in lobby %lld", plrConnection.m_userID);
-					SteamNetworkingSockets()->CloseConnection(pInfo->m_hConn, 1000, "Player is not in lobby (Rejected)", false);
-
-					if (TheNetwork != nullptr)
-					{
-						TheNetwork->GetConnectionManager()->disconnectPlayer(plrConnection.m_userID);
-					}
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Accepting - Server started signalling, roster not refreshed yet\n", pInfo->m_info.m_szConnectionDescription);
 				}
+				pMesh->ApplyConnectionTimeouts(pInfo->m_hConn, plrConnection.m_userID);
+				SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
 			}
 			
 		}
@@ -716,12 +726,13 @@ NetworkMesh::NetworkMesh()
 	m_strTurnTokenString = std::format("{},{}", m_strTurnToken.c_str(), m_strTurnToken.c_str());
 
 	ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
-	m_iceEnable = (g_bForceRelay || serviceConf.relay_all_traffic)
+	m_reconnectTimeoutMs = MeshConnectionTimeoutPolicy::ClampReconnectTimeout(serviceConf.connection.reconnect_timeout_ms);
+	m_iceEnable = (g_bForceRelay || serviceConf.connection.relay_only)
 		? k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Relay
 		: k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All;
 
 	// 0 = library default, 1 = native, 2 = WebRTC
-	m_iceImplementation = (serviceConf.ice_implementation >= 0 && serviceConf.ice_implementation <= 2) ? serviceConf.ice_implementation : 2;
+	m_iceImplementation = (serviceConf.connection.ice_engine >= 0 && serviceConf.connection.ice_engine <= 2) ? serviceConf.connection.ice_engine : 2;
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh: using ICE implementation %d (0=default, 1=native, 2=WebRTC)", m_iceImplementation);
 
 	m_pSignaling = new CSignalingClient(SteamNetworkingSockets());
@@ -743,6 +754,11 @@ NetworkMesh::NetworkMesh()
 
 	std::vector<SteamNetworkingConfigValue_t> vecListenOpts;
 	SteamNetworkingConfigValue_t opt;
+	const auto listenTimeouts = MeshConnectionTimeoutPolicy::ForAttempt(false, m_reconnectTimeoutMs);
+	opt.SetInt32(k_ESteamNetworkingConfig_TimeoutInitial, listenTimeouts.initialMs);
+	vecListenOpts.push_back(opt);
+	opt.SetInt32(k_ESteamNetworkingConfig_TimeoutConnected, listenTimeouts.connectedMs);
+	vecListenOpts.push_back(opt);
 	opt.SetInt32(k_ESteamNetworkingConfig_SymmetricConnect, 1);
 	vecListenOpts.push_back(opt);
 	opt.SetInt32(k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, m_iceEnable);
@@ -772,7 +788,7 @@ NetworkMesh::NetworkMesh()
 void NetworkMesh::Flush()
 {
 	ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-	bool bDoImmediateFlushPerFrame = serviceConf.network_do_immediate_flush_per_frame;
+	bool bDoImmediateFlushPerFrame = serviceConf.send.flush_every_frame;
 
 	if (bDoImmediateFlushPerFrame)
 	{
@@ -865,6 +881,17 @@ void NetworkMesh::SendACPacket(uint32_t userID, const void* pData, uint32_t data
 	}
 }
 
+void NetworkMesh::ApplyConnectionTimeouts(HSteamNetConnection connection, int64_t userID)
+{
+	auto it = m_mapConnections.find(userID);
+	const bool retry = (it != m_mapConnections.end() && it->second.m_retryTimeout)
+		|| (TheGameLogic != nullptr && TheGameLogic->isInInternetGame());
+	const auto timeouts = MeshConnectionTimeoutPolicy::ForAttempt(retry, m_reconnectTimeoutMs);
+	const bool initialSet = SteamNetworkingUtils()->SetConnectionConfigValueInt32(connection, k_ESteamNetworkingConfig_TimeoutInitial, timeouts.initialMs);
+	const bool connectedSet = SteamNetworkingUtils()->SetConnectionConfigValueInt32(connection, k_ESteamNetworkingConfig_TimeoutConnected, timeouts.connectedMs);
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[MESH] Incoming timeouts peer=%lld retry=%d initial=%dms connected=%dms applied=%d", userID, retry ? 1 : 0, timeouts.initialMs, timeouts.connectedMs, initialSet && connectedSet ? 1 : 0);
+}
+
 void NetworkMesh::StartConnectionSignalling(const char* szMiddlewareID, int64_t remoteUserID, uint16_t preferredPort)
 {
 	// Thread safety: Lock connection map during access
@@ -898,10 +925,12 @@ void NetworkMesh::StartConnectionSignalling(const char* szMiddlewareID, int64_t 
 
         // if we already have a connection to this use, drop it, having a single-direction connection will break signalling
         int previousAttempts = 0;
+        bool retryTimeout = TheGameLogic != nullptr && TheGameLogic->isInInternetGame();
         auto it = m_mapConnections.find(remoteUserID);
         if (it != m_mapConnections.end())
         {
             previousAttempts = it->second.m_SignallingAttempts;
+            retryTimeout = true;
 
             if (it->second.m_hSteamConnection != k_HSteamNetConnection_Invalid)
             {
@@ -952,7 +981,7 @@ void NetworkMesh::StartConnectionSignalling(const char* szMiddlewareID, int64_t 
 
         int g_nLocalPort = 0;
 
-        int g_nVirtualPortRemote = serviceConf.use_mapped_port ? preferredPort : 0;
+        int g_nVirtualPortRemote = serviceConf.connection.use_mapped_port ? preferredPort : 0;
 
         // Our remote and local port don't match, so we need to set it explicitly
         if (g_nVirtualPortRemote != g_nLocalPort)
@@ -987,6 +1016,13 @@ void NetworkMesh::StartConnectionSignalling(const char* szMiddlewareID, int64_t 
             return;
         }
 
+        const auto timeouts = MeshConnectionTimeoutPolicy::ForAttempt(retryTimeout, m_reconnectTimeoutMs);
+        opt.SetInt32(k_ESteamNetworkingConfig_TimeoutInitial, timeouts.initialMs);
+        vecOpts.push_back(opt);
+        opt.SetInt32(k_ESteamNetworkingConfig_TimeoutConnected, timeouts.connectedMs);
+        vecOpts.push_back(opt);
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[MESH] Connection timeouts peer=%lld retry=%d initial=%dms connected=%dms", remoteUserID, retryTimeout ? 1 : 0, timeouts.initialMs, timeouts.connectedMs);
+
         // create a signaling object for this connection
         SteamNetworkingErrMsg errMsg;
         ISteamNetworkingConnectionSignaling* pConnSignaling = m_pSignaling->CreateSignalingForConnection(identityRemote, errMsg);
@@ -1015,6 +1051,7 @@ void NetworkMesh::StartConnectionSignalling(const char* szMiddlewareID, int64_t 
 
             // add attempt; carried over so the retry cap holds across re-signals
             m_mapConnections[remoteUserID].m_SignallingAttempts = previousAttempts + 1;
+            m_mapConnections[remoteUserID].m_retryTimeout = retryTimeout;
         }
 	}
 
@@ -1057,6 +1094,18 @@ void NetworkMesh::SetTurnCredentials(const std::string& strUsername, const std::
 	}
 }
 
+
+void NetworkMesh::RemoveConnection(int64_t userID)
+{
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+
+	auto it = m_mapConnections.find(userID);
+	if (it != m_mapConnections.end())
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 4] Removing user %lld", it->second.m_userID);
+		m_mapConnections.erase(it);
+	}
+}
 
 void NetworkMesh::DisconnectUser(int64_t remoteUserID)
 {
@@ -1196,6 +1245,11 @@ void PlayerConnection::LiteUpdateForAC()
 	}
 	else
 	{
+		if (!CanRecv())
+		{
+			return;
+		}
+
 		SteamNetworkingMessage_t* pMsg[255] = { nullptr };
 		int numPackets = Recv(pMsg);
 
@@ -1336,7 +1390,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 		int sendFlags = k_nSteamNetworkingSend_Reliable | k_nSteamNetworkingSend_AutoRestartBrokenSession; // default from last patch
 
 		ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-		int netSendFlags = serviceConf.network_send_flags;
+		int netSendFlags = serviceConf.send.flags;
 
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "[GAME PACKET] Sending msg of size %ld to user %lld\n", totalDataSize, m_userID);
 		EResult r = SteamNetworkingSockets()->SendMessageToConnection(
@@ -1424,7 +1478,7 @@ void PlayerConnection::UpdateLatencyHistogram()
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
 		ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-		histogram_duration = serviceConf.network_mesh_histogram_duration;
+		histogram_duration = serviceConf.connection.latency_history_ms;
 	}
 
 

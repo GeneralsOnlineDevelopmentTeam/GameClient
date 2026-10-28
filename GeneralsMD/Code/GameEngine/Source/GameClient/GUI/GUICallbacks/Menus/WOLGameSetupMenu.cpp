@@ -977,6 +977,215 @@ static void WOLLockSettings()
 	}
 }
 
+// lobby humans (the service's view) the game has no human slot for
+static Int CountLobbyHumansMissingFromGame(NGMPGame* game)
+{
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr || game == nullptr)
+	{
+		return 0;
+	}
+
+	Int missing = 0;
+	for (const LobbyMemberEntry& member : pLobbyInterface->GetCurrentLobby().members)
+	{
+		if (!member.IsHuman())
+		{
+			continue;
+		}
+
+		bool bInGame = false;
+		for (Int i = 0; i < MAX_SLOTS; ++i)
+		{
+			NGMPGameSlot* slot = static_cast<NGMPGameSlot*>(game->getSlot(i));
+			if (slot != nullptr && slot->isHuman() && slot->m_userID == member.user_id)
+			{
+				bInGame = true;
+				break;
+			}
+		}
+
+		if (!bInGame)
+		{
+			++missing;
+		}
+	}
+
+	return missing;
+}
+
+// every lobby human has a slot and a connected link to us
+static Bool AreAllHumansSlottedAndConnected(NGMP_OnlineServices_LobbyInterface* lobby)
+{
+	if (lobby == nullptr || lobby->GetCurrentGame() == nullptr)
+	{
+		return FALSE;
+	}
+
+	return CountLobbyHumansMissingFromGame(lobby->GetCurrentGame()) == 0 && lobby->AreLocalLobbyPeersConnected();
+}
+
+static const Int MAX_ROSTER_REFRESHES_BEFORE_START = 3;
+static bool s_startWaitingForRoster = false;
+
+// the game must have a slot for every human the lobby lists, otherwise the match would start without them
+static void StartMatchWhenRosterMatches(Int refreshesDone)
+{
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	NGMPGame* myGame = pLobbyInterface == nullptr ? nullptr : pLobbyInterface->GetCurrentGame();
+
+	if (pLobbyInterface == nullptr || !myGame || !myGame->isInGame())
+	{
+		s_startWaitingForRoster = false;
+		return;
+	}
+
+	if (!TheNGMPGame)
+	{
+		s_startWaitingForRoster = false;
+		return;
+	}
+
+	const Int missingHumans = CountLobbyHumansMissingFromGame(myGame);
+	if (missingHumans > 0)
+	{
+		if (refreshesDone < MAX_ROSTER_REFRESHES_BEFORE_START)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Start: the game is missing %d lobby player(s), refreshing the lobby (%d/%d)", missingHumans, refreshesDone + 1, MAX_ROSTER_REFRESHES_BEFORE_START);
+			pLobbyInterface->UpdateRoomDataCache([refreshesDone](bool)
+				{
+					StartMatchWhenRosterMatches(refreshesDone + 1);
+				});
+			return;
+		}
+
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Start: the game is still missing %d lobby player(s), not starting", missingHumans);
+		s_startWaitingForRoster = false;
+		GSMessageBoxOk(TheGameText->fetch("GUI:Error"), UnicodeString(L"The player list was incomplete, so the match was not started. Please rejoin the lobby."));
+		PopBackToLobby();
+		return;
+	}
+
+	s_startWaitingForRoster = false;
+
+	// TODO_NGMP
+	//SendStatsToOtherPlayers(TheNGMPGame);
+
+	GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
+	if (buttonBuddy)
+		buttonBuddy->winEnable(FALSE);
+	GameSpyCloseOverlay(GSOVERLAY_BUDDY);
+	GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
+
+	*TheNGMPGame = *myGame;
+	TheNGMPGame->startGame(0);
+}
+
+static void RestoreLobbyControlsAfterConnectionFailure()
+{
+	auto* lobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (lobby == nullptr || TheNGMPGame == nullptr || TheNGMPGame->isGameInProgress())
+	{
+		return;
+	}
+
+	if (buttonBack != nullptr)
+	{
+		buttonBack->winEnable(TRUE);
+	}
+	if (buttonStart != nullptr)
+	{
+		buttonStart->winEnable(TRUE);
+	}
+	if (lobby->IsHost())
+	{
+		if (buttonSelectMap != nullptr)
+		{
+			buttonSelectMap->winEnable(TRUE);
+		}
+		if (comboBoxStartingCash != nullptr)
+		{
+			comboBoxStartingCash->winEnable(TRUE);
+		}
+		if (checkBoxLimitSuperweapons != nullptr)
+		{
+			checkBoxLimitSuperweapons->winEnable(TRUE);
+		}
+	}
+	WOLDisplaySlotList();
+}
+
+// Drops a check result whose lobby, settings or start attempt changed since it was requested
+static Bool IsCurrentStartCheck(NGMP_OnlineServices_LobbyInterface* lobby, int64_t lobbyID, uint64_t generation,
+	const std::vector<int64_t>& members, const std::string& settings, uint64_t attempt)
+{
+	if (lobby == nullptr || lobby->GetCurrentLobby().lobbyID != lobbyID || lobby->GetLobbyGeneration() != generation
+		|| !lobby->IsHost() || TheNGMPGame == nullptr || TheNGMPGame->isGameInProgress()
+		|| TheNGMPGame->GetStartAttempt() != attempt)
+	{
+		return FALSE;
+	}
+
+	if (!lobby->IsCurrentLobbyAttempt(lobbyID, generation, members) || lobby->GetLobbyStartSettings() != settings)
+	{
+		TheNGMPGame->StopCountdown();
+		RestoreLobbyControlsAfterConnectionFailure();
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static void RequestFinalLobbyStart()
+{
+	auto* lobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	auto ws = NGMP_OnlineServicesManager::GetWebSocket();
+	if (lobby == nullptr || ws == nullptr || !lobby->IsHost() || !AreAllHumansSlottedAndConnected(lobby))
+	{
+		return;
+	}
+
+	const auto lobbyID = lobby->GetCurrentLobby().lobbyID;
+	const auto generation = lobby->GetLobbyGeneration();
+	const auto members = lobby->GetHumanLobbyMembers();
+	const auto settings = lobby->GetLobbyStartSettings();
+	const auto attempt = TheNGMPGame->BeginStartAttempt();
+	if (buttonStart != nullptr)
+	{
+		buttonStart->winEnable(FALSE);
+	}
+
+	ws->SendData_StartFullMeshConnectivityCheck([lobbyID, generation, members, settings, attempt](bool complete,
+		std::list<std::pair<int64_t, int64_t>> missing, std::string reason)
+		{
+			auto* current = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+			if (!IsCurrentStartCheck(current, lobbyID, generation, members, settings, attempt))
+			{
+				return;
+			}
+
+			if (complete && AreAllHumansSlottedAndConnected(current))
+			{
+				auto socket = NGMP_OnlineServicesManager::GetWebSocket();
+				if (socket != nullptr)
+				{
+					socket->SendData_StartGame();
+				}
+				return;
+			}
+
+			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Start blocked: not all players are connected. Retry failed connections."), GameMakeColor(255, 194, 15, 255), -1, -1);
+			for (const auto& pair : missing)
+			{
+				const auto source = current->GetRoomMemberFromID(pair.first);
+				const auto target = current->GetRoomMemberFromID(pair.second);
+				UnicodeString text;
+				text.format(L"%ls is not connected to %ls.", from_utf8(source.display_name).c_str(), from_utf8(target.display_name).c_str());
+				GadgetListBoxAddEntryText(listboxGameSetupChat, text, GameMakeColor(255, 194, 15, 255), -1, -1);
+			}
+			RestoreLobbyControlsAfterConnectionFailure();
+		});
+}
+
 static void StartPressed()
 {
 	Bool isReady = TRUE;
@@ -990,6 +1199,20 @@ static void StartPressed()
 
 	if (pLobbyInterface == nullptr || !myGame || pAuthInterface == nullptr)
 		return;
+
+	if (pLobbyInterface->GetCurrentLobby().lobby_type == ELobbyType::CustomGame && !pLobbyInterface->AreLocalLobbyPeersConnected())
+	{
+		pLobbyInterface->RetryFailedLobbyPeers();
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Start blocked: waiting for all player connections."), GameMakeColor(255, 194, 15, 255), -1, -1);
+		return;
+	}
+
+	if (pLobbyInterface->GetCurrentLobby().lobby_type == ELobbyType::CustomGame && !AreAllHumansSlottedAndConnected(pLobbyInterface))
+	{
+		pLobbyInterface->UpdateRoomDataCache();
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Start blocked: waiting for the player list."), GameMakeColor(255, 194, 15, 255), -1, -1);
+		return;
+	}
 
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
 	if (pMesh == nullptr)
@@ -1162,8 +1385,26 @@ static void StartPressed()
 				buttonStart->winEnable(FALSE);
 			}
 
+			const auto checkLobbyID = pLobbyInterface->GetCurrentLobby().lobbyID;
+			const auto checkGeneration = pLobbyInterface->GetLobbyGeneration();
+			const auto checkMembers = pLobbyInterface->GetHumanLobbyMembers();
+			const auto checkSettings = pLobbyInterface->GetLobbyStartSettings();
+			const auto checkAttempt = TheNGMPGame->BeginStartAttempt();
 			pWS->SendData_StartFullMeshConnectivityCheck([=](bool bMeshFullyConnected, std::list<std::pair<int64_t, int64_t>> missingConnections, std::string strFailureReason)
 				{
+					auto* current = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+					if (!IsCurrentStartCheck(current, checkLobbyID, checkGeneration, checkMembers, checkSettings, checkAttempt))
+					{
+						return;
+					}
+
+					// the service can report a complete mesh while we hold no link or slot for players the lobby lists
+					if (bMeshFullyConnected && !AreAllHumansSlottedAndConnected(current))
+					{
+						bMeshFullyConnected = false;
+						strFailureReason = "no_link_to_lobby_players";
+					}
+
 					if (bMeshFullyConnected)
 					{
 						UnicodeString strInform = UnicodeString(L"Connections: All players are connected.");
@@ -1223,7 +1464,10 @@ static void StartPressed()
 
 						// who is missing who?
 						//std::list<std::pair<int64_t, int64_t>> missingConnections
-						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Connections: Missing links:"), GameMakeColor(255, 194, 15, 255), -1, -1);
+						if (!missingConnections.empty())
+						{
+							GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Connections: Missing links:"), GameMakeColor(255, 194, 15, 255), -1, -1);
+						}
 						for (auto& missingPair : missingConnections)
 						{
 							bool bFoundPlayer = false;
@@ -1893,6 +2137,13 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 	// cannot connect to the lobby we joined
 	pLobbyInterface->RegisterForCannotConnectToLobbyCallback([](void)
 		{
+			auto* lobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+			if (lobby != nullptr && lobby->GetCurrentLobby().lobby_type == ELobbyType::CustomGame)
+			{
+				GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Connection failed. Stay in the lobby and use Retry connections."), GameMakeColor(255, 0, 0, 255), -1, -1);
+				return;
+			}
+
 			if (TheNetwork != NULL) {
 				delete TheNetwork;
 				TheNetwork = NULL;
@@ -1954,7 +2205,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 					if (connState == EConnectionState::CONNECTION_FAILED)
 					{
 #endif
-						strConnectionMessage.format(L"Connection: %s is now %hs.", strDisplayName.c_str(), strState.c_str());
+						strConnectionMessage.format(L"Connection: %ls is now %hs.%ls", strDisplayName.c_str(), strState.c_str(), connState == EConnectionState::CONNECTION_FAILED ? L" Use Retry connections." : L"");
 						const Color connectionColor = connState == EConnectionState::CONNECTION_FAILED
 							? GameMakeColor(255, 0, 0, 255)
 							: GameMakeColor(192, 192, 192, 255);
@@ -1965,6 +2216,21 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 #endif
 				}
 
+				auto* lobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+				if (lobby != nullptr && lobby->GetCurrentLobby().lobby_type == ELobbyType::CustomGame
+					&& TheNGMPGame != nullptr && !TheNGMPGame->isGameInProgress())
+				{
+					if (connState != EConnectionState::CONNECTED_DIRECT && TheNGMPGame->IsCountdownStarted())
+					{
+						TheNGMPGame->StopCountdown();
+						RestoreLobbyControlsAfterConnectionFailure();
+					}
+					if (connState == EConnectionState::CONNECTED_DIRECT && AreAllHumansSlottedAndConnected(lobby)
+						&& buttonStart != nullptr && !TheNGMPGame->IsCountdownStarted())
+					{
+						buttonStart->winEnable(TRUE);
+					}
+				}
 				// update UI
 				WOLDisplaySlotList();
 			});
@@ -2009,26 +2275,13 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 	pLobbyInterface->RegisterForGameStartPacket([]()
 		{
-			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-			NGMPGame* myGame = pLobbyInterface == nullptr ? nullptr : pLobbyInterface->GetCurrentGame();
-
-			if (pLobbyInterface == nullptr || !myGame || !myGame->isInGame())
+			if (s_startWaitingForRoster)
+			{
 				return;
+			}
 
-			if (!TheNGMPGame)
-				return;
-
-			// TODO_NGMP
-			//SendStatsToOtherPlayers(TheNGMPGame);
-
-			GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
-			if (buttonBuddy)
-				buttonBuddy->winEnable(FALSE);
-			GameSpyCloseOverlay(GSOVERLAY_BUDDY);
-			GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
-
-			*TheNGMPGame = *myGame;
-			TheNGMPGame->startGame(0);
+			s_startWaitingForRoster = true;
+			StartMatchWhenRosterMatches(0);
 		});
 
 
@@ -2510,7 +2763,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		if (pLobbyInterface != nullptr)
 		{
 			ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-			bool bHostMigrationEnabledOnService = serviceConf.enable_host_migration;
+			bool bHostMigrationEnabledOnService = serviceConf.lobby.host_migration;
 
 			if (bHostMigrationEnabledOnService)
 			{
@@ -2601,6 +2854,47 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		}
 	}
 
+	auto* connectionLobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (connectionLobby != nullptr && connectionLobby->GetCurrentLobby().lobby_type == ELobbyType::CustomGame
+		&& TheNGMPGame != nullptr && !TheNGMPGame->isGameInProgress())
+	{
+		const bool peersConnected = connectionLobby->AreLocalLobbyPeersConnected();
+		const bool connected = AreAllHumansSlottedAndConnected(connectionLobby);
+		const bool failed = connectionLobby->HasFailedLobbyPeers();
+		static UnsignedInt s_lastSlotRefreshTime = 0;
+		if (peersConnected && !connected && timeGetTime() > s_lastSlotRefreshTime + 3000)
+		{
+			// peers are linked but the game lacks a slot for one, ask the service for the roster
+			s_lastSlotRefreshTime = timeGetTime();
+			connectionLobby->UpdateRoomDataCache();
+		}
+		if (!connected && TheNGMPGame->IsCountdownStarted())
+		{
+			TheNGMPGame->StopCountdown();
+			RestoreLobbyControlsAfterConnectionFailure();
+		}
+
+		if (buttonStart != nullptr)
+		{
+			buttonStart->winSetText(failed ? UnicodeString(L"Retry connections")
+				: !peersConnected ? UnicodeString(L"Connecting...")
+				: !connected ? UnicodeString(L"Updating players...") : TheGameText->fetch(connectionLobby->IsHost() ? "GUI:Start" : "GUI:Accept"));
+			if (!connected)
+			{
+				buttonStart->winEnable(failed);
+			}
+			else
+			{
+				auto socket = NGMP_OnlineServicesManager::GetWebSocket();
+				if (!TheNGMPGame->IsCountdownStarted() && socket != nullptr && socket->m_cbOnConnectivityCheckComplete == nullptr
+					&& (buttonStart->winGetStatus() & WIN_STATUS_ENABLED) == 0)
+				{
+					RestoreLobbyControlsAfterConnectionFailure();
+				}
+			}
+		}
+	}
+
 #if defined(GENERALS_ONLINE_ENABLE_MATCH_START_COUNTDOWN)
 	// is there a countdown in progress?
 	if (TheNGMPGame != nullptr)
@@ -2646,12 +2940,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 					// stop countdown
 					TheNGMPGame->StopCountdown();
 
-					// send start game packet
-					std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
-					if (pWS != nullptr)
-					{
-						pWS->SendData_StartGame();
-					}
+					RequestFinalLobbyStart();
 				}
 			}
 		}
@@ -4139,6 +4428,13 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 				}
 				else if ( controlID == buttonStartID )
 				{
+					auto* retryLobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+					if (retryLobby != nullptr && retryLobby->GetCurrentLobby().lobby_type == ELobbyType::CustomGame
+						&& !retryLobby->AreLocalLobbyPeersConnected())
+					{
+						retryLobby->RetryFailedLobbyPeers();
+						break;
+					}
 					savePlayerInfo();
 					
 					NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
