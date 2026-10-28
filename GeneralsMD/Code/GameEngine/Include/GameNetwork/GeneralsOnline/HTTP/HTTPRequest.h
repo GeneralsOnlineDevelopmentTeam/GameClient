@@ -36,6 +36,11 @@ public:
 		m_bAppendAuthIfPresent = false;
 	}
 
+	void SetMaxSendSpeed(int bytesPerSec)
+	{
+		m_maxSendBytesPerSec = bytesPerSec;
+	}
+
 	void OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes);
 
 	bool HasStarted() const { return m_bIsStarted; }
@@ -76,6 +81,8 @@ private:
 	EHTTPVerb m_httpVerb;
 
 	bool m_bAppendAuthIfPresent = true;
+
+	int m_maxSendBytesPerSec = 0; // 0 = unlimited
 
 	EIPProtocolVersion m_protover;
 
