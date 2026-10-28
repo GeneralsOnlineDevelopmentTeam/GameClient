@@ -1,10 +1,14 @@
 #include "GameNetwork/GeneralsOnline/NetworkMesh.h"
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
+#include "GameNetwork/GeneralsOnline/NetBytes.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
 #include <ws2ipdef.h>
+#include <charconv>
+#include <chrono>
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/NetworkInterface.h"
+#include "Common/GlobalData.h"
 #include "GameLogic/GameLogic.h"
 #include "../OnlineServices_RoomsInterface.h"
 #include "../json.hpp"
@@ -18,6 +22,11 @@
 
 bool g_bForceRelay = false;
 UnsignedInt m_exeCRCOriginal = 0;
+
+static int64_t NowSteadyMs()
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
 
 // Pool for deferred deletion of ConnectionSignaling objects; avoids "delete this" races during
 // async Steam callbacks.
@@ -39,6 +48,27 @@ static void CleanupPendingConnSignalingDeletions()
 		// SECURITY: Delete through base interface to avoid nested class visibility issues
 		delete static_cast<ISteamNetworkingConnectionSignaling*>(pObj);
 	}
+}
+
+// The user id of a handshake identity, which is plain text chosen by the peer.
+static bool ParseUserIdentity(const SteamNetworkingIdentity& identity, int64_t& userId)
+{
+	const char* szIdentity = identity.GetGenericString();
+	if (szIdentity == nullptr)
+	{
+		return false;
+	}
+
+	const size_t identityLen = strlen(szIdentity);
+	const char* szDigits = (szIdentity[0] == '-') ? szIdentity + 1 : szIdentity;
+	const size_t numDigits = identityLen - (szDigits - szIdentity);
+	if (numDigits == 0 || numDigits > 19 || strspn(szDigits, "0123456789") != numDigits)
+	{
+		return false;
+	}
+
+	const std::from_chars_result parseResult = std::from_chars(szIdentity, szIdentity + identityLen, userId);
+	return parseResult.ec == std::errc() && parseResult.ptr == szIdentity + identityLen;
 }
 
 // Called on connection state transitions. Always runs on the main thread via RunCallbacks(), so
@@ -98,9 +128,20 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			const int64_t userID = plrConnection.m_userID;
 			const int signallingAttemptsBeforeDisconnect = plrConnection.m_SignallingAttempts;
 
+			const bool bInMatch = TheGameLogic != nullptr && TheGameLogic->isInInternetGame();
 			if (TheNetwork != nullptr)
 			{
 				TheNetwork->GetConnectionManager()->disconnectPlayer(userID);
+
+				// a peer that closed on purpose during the match has left; closing to negotiate a new connection is not a leave
+				const bool bClosedOnPurpose = pInfo->m_info.m_eState == k_ESteamNetworkingConnectionState_ClosedByPeer
+					&& pInfo->m_info.m_eEndReason == k_ESteamNetConnectionEnd_App_Generic
+					&& strstr(pInfo->m_info.m_szEndDebug, "new connection being negotiated") == nullptr
+					&& strstr(pInfo->m_info.m_szEndDebug, "(Rejected)") == nullptr;
+				if (bClosedOnPurpose && bInMatch)
+				{
+					TheNetwork->GetConnectionManager()->playerClosedGracefully(userID);
+				}
 			}
 
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection %lld", userID);
@@ -113,8 +154,7 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			const bool bWeJoinedLater = pJoinOrderLobby == nullptr || !pJoinOrderLobby->IsJoinOrderKnown() || pJoinOrderLobby->JoinedAfter(userID);
 			const bool bPeerLeft = pJoinOrderLobby != nullptr && pJoinOrderLobby->IsJoinOrderKnown() && !pJoinOrderLobby->IsLobbyMember(userID);
 			// a match can't leave its lobby, so keep repairing the link until the service drops the player
-			const bool bInMatch = TheGameLogic != nullptr && TheGameLogic->isInInternetGame();
-			bool bShouldRetry = serviceConf.retry_signalling && ((bInMatch && !bPeerLeft) || (!bWeJoinedLater && !bPeerLeft) || signallingAttemptsBeforeDisconnect < numSignallingAttempts);
+			bool bShouldRetry = serviceConf.connection.retry_signalling && ((bInMatch && !bPeerLeft) || (!bWeJoinedLater && !bPeerLeft) || signallingAttemptsBeforeDisconnect < numSignallingAttempts);
 
 			bool bWasError = pInfo->m_info.m_eState == k_ESteamNetworkingConnectionState_ProblemDetectedLocally || pInfo->m_info.m_eEndReason != k_ESteamNetConnectionEnd_App_Generic;
 			plrConnection.SetDisconnected(bWasError, pMesh, bShouldRetry && bWasError);
@@ -226,6 +266,15 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 				if (connectionID != -1)
 					assert(plrConnection.m_hSteamConnection == k_HSteamNetConnection_Invalid); // not really a bug in this code, but a bug in the test
 #endif
+
+				// the identity of the peer must be the user this connection is for
+				int64_t remoteUserID = 0;
+				if (!ParseUserIdentity(pInfo->m_info.m_identityRemote, remoteUserID) || remoteUserID != plrConnection.m_userID)
+				{
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] Rejecting incoming connection %s: its identity is not user %lld", pInfo->m_info.m_szConnectionDescription, static_cast<long long>(plrConnection.m_userID));
+					SteamNetworkingSockets()->CloseConnection(pInfo->m_hConn, 1001, "Identity mismatch (Rejected)", false);
+					return;
+				}
 
 				if (pInfo != nullptr)
 				{
@@ -355,6 +404,15 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 		{
 			PlayerConnection& plrConnection = connections[connectionID];
 
+			// the peer that finished the handshake must be the user this connection was made for
+			int64_t remoteUserID = 0;
+			if (!ParseUserIdentity(pInfo->m_info.m_identityRemote, remoteUserID) || remoteUserID != plrConnection.m_userID)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] Closing connection %s: its identity is not user %lld", pInfo->m_info.m_szConnectionDescription, static_cast<long long>(plrConnection.m_userID));
+				SteamNetworkingSockets()->CloseConnection(pInfo->m_hConn, 1001, "Identity mismatch (Rejected)", false);
+				break;
+			}
+
 			plrConnection.UpdateState(EConnectionState::CONNECTED_DIRECT, pMesh);
 		}
 
@@ -479,9 +537,17 @@ public:
 		// identity does not have spaces, since our protocol doesn't permit it.
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Creating signaling session for peer '%s'\n", sIdentityPeer.c_str());
 
-		// Silence warnings
-		(void)errMsg;
-		int64_t user_id = std::stoll(identityPeer.GetGenericString());
+		// The identity comes from the remote peer, so only accept a plain integer user id
+		int64_t user_id = 0;
+		const bool bValidIdentity = ParseUserIdentity(identityPeer, user_id);
+
+		if (!bValidIdentity)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Rejecting connection, peer identity '%s' is not a valid user id", sIdentityPeer.c_str());
+			snprintf(errMsg, sizeof(errMsg), "Invalid peer identity");
+			return nullptr;
+		}
+
 		return new ConnectionSignaling(this, user_id);
 	}
 
@@ -515,7 +581,7 @@ public:
 				sendBatch.pop_front();
 			}
 
-			std::queue<std::vector<uint8_t>> pendingSignals = pWS->DrainPendingSignals();
+			std::queue<WebSocket::PendingSignal> pendingSignals = pWS->DrainPendingSignals();
 
 			// Now dispatch any buffered signals
 			if (!pendingSignals.empty())
@@ -526,13 +592,15 @@ public:
 					// NOTE: outbound msg doesnt need sender ID, we only need that to determine target on the server, everything else is included in the payload
 					// 
 					// Get the next signal
-					std::vector<uint8_t> signalData = pendingSignals.front();
+					const WebSocket::PendingSignal pendingSignal = pendingSignals.front();
+					const std::vector<uint8_t>& signalData = pendingSignal.payload;
 					pendingSignals.pop();
 
 					// Setup a context object that can respond if this signal is a connection request.
 					struct Context : ISteamNetworkingSignalingRecvContext
 					{
 						CSignalingClient* m_pOwner;
+						int64_t m_serverSender = -1;	// the user the service delivered this signal from
 
 						virtual ISteamNetworkingConnectionSignaling* OnConnectRequest(
 							HSteamNetConnection hConn,
@@ -550,6 +618,16 @@ public:
 							// Also, note that if there was routing/session info, it should have been in
 							// our envelope that we know how to parse, and we should save it off in this
 							// context object.
+							// The identity in the handshake is whatever the peer wrote. The service stamped the signal with
+							// the user it came from, a request claiming to be somebody else is not answered.
+							int64_t claimedUserID = 0;
+							if (ParseUserIdentity(identityPeer, claimedUserID) && claimedUserID != m_serverSender)
+							{
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] Rejecting connection request: the handshake claims user %lld but the service delivered the signal from user %lld",
+									static_cast<long long>(claimedUserID), static_cast<long long>(m_serverSender));
+								return nullptr;
+							}
+
 							SteamNetworkingErrMsg ignoreErrMsg;
 							return m_pOwner->CreateSignalingForConnection(identityPeer, ignoreErrMsg);
 						}
@@ -574,6 +652,7 @@ public:
 					};
 					Context context;
 					context.m_pOwner = this;
+					context.m_serverSender = pendingSignal.senderUserID;
 
 					// Dispatch.
 					// Remember: From inside this function, our context object might get callbacks.
@@ -716,12 +795,12 @@ NetworkMesh::NetworkMesh()
 	m_strTurnTokenString = std::format("{},{}", m_strTurnToken.c_str(), m_strTurnToken.c_str());
 
 	ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
-	m_iceEnable = (g_bForceRelay || serviceConf.relay_all_traffic)
+	m_iceEnable = (g_bForceRelay || serviceConf.connection.relay_only)
 		? k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Relay
 		: k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All;
 
 	// 0 = library default, 1 = native, 2 = WebRTC
-	m_iceImplementation = (serviceConf.ice_implementation >= 0 && serviceConf.ice_implementation <= 2) ? serviceConf.ice_implementation : 2;
+	m_iceImplementation = (serviceConf.connection.ice_engine >= 0 && serviceConf.connection.ice_engine <= 2) ? serviceConf.connection.ice_engine : 2;
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh: using ICE implementation %d (0=default, 1=native, 2=WebRTC)", m_iceImplementation);
 
 	m_pSignaling = new CSignalingClient(SteamNetworkingSockets());
@@ -766,13 +845,16 @@ NetworkMesh::NetworkMesh()
 	}
 
 	m_bInitialized = true;
+
+	// the key of this client for the lobby, peers get it as they connect
+	BeginLobbyKeys();
 }
 
 
 void NetworkMesh::Flush()
 {
 	ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-	bool bDoImmediateFlushPerFrame = serviceConf.network_do_immediate_flush_per_frame;
+	bool bDoImmediateFlushPerFrame = serviceConf.send.flush_every_frame;
 
 	if (bDoImmediateFlushPerFrame)
 	{
@@ -952,7 +1034,7 @@ void NetworkMesh::StartConnectionSignalling(const char* szMiddlewareID, int64_t 
 
         int g_nLocalPort = 0;
 
-        int g_nVirtualPortRemote = serviceConf.use_mapped_port ? preferredPort : 0;
+        int g_nVirtualPortRemote = serviceConf.connection.use_mapped_port ? preferredPort : 0;
 
         // Our remote and local port don't match, so we need to set it explicitly
         if (g_nVirtualPortRemote != g_nLocalPort)
@@ -1018,6 +1100,252 @@ void NetworkMesh::StartConnectionSignalling(const char* szMiddlewareID, int64_t 
         }
 	}
 
+}
+
+bool NetworkMesh::BeginLobbyKeys()
+{
+	NGMP_OnlineServices_AuthInterface* auth = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (auth == nullptr || AnticheatPlugInterface::DoesACPluginProvideSecureGameTransport())
+	{
+		return false;
+	}
+
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+	if (!m_matchKeys.BeginLobby(auth->GetUserID()))
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Could not make the key pair of this client");
+		return false;
+	}
+	m_keySync.clear();
+	return true;
+}
+
+void NetworkMesh::TickLobbyKeys(int64_t nowMs)
+{
+	// once a match is bound its keys are done, the roster does not change
+	if (!m_matchKeys.HasLocalKey() || m_matchKeys.IsActive())
+	{
+		return;
+	}
+
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+
+	// the key of a peer that is gone is dropped, it announces again when it is back
+	for (int64_t userID : m_matchKeys.GetPeerKeyUsers())
+	{
+		auto it = m_mapConnections.find(userID);
+		if (it == m_mapConnections.end() || !it->second.IsValid())
+		{
+			m_matchKeys.DropPeer(userID);
+			m_keySync.erase(userID);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Dropped the key of user %lld, it is no longer connected", static_cast<long long>(userID));
+		}
+	}
+
+	const std::set<int64_t> self = { m_matchKeys.GetLocalUserID() };
+	const std::vector<uint8_t> announcement = m_matchKeys.BuildAnnouncement();
+	const std::vector<uint8_t> status = m_matchKeys.BuildStatus();
+	for (auto& entry : m_mapConnections)
+	{
+		PlayerConnection& connection = entry.second;
+		if (connection.GetState() != EConnectionState::CONNECTED_DIRECT || connection.m_hSteamConnection == k_HSteamNetConnection_Invalid)
+		{
+			m_keySync.erase(entry.first);
+			continue;
+		}
+
+		KeySync& sync = m_keySync[entry.first];
+		const bool announce = nowMs >= sync.nextAnnounceMs && !m_matchKeys.PeerHoldsAll(entry.first, self);
+		const bool report = nowMs >= sync.nextStatusMs || status != sync.lastStatus;
+		if (!announce && !report)
+		{
+			continue;
+		}
+
+		for (int pass = 0; pass < 2; ++pass)
+		{
+			if (pass == 0 ? !announce : !report)
+			{
+				continue;
+			}
+			const std::vector<uint8_t>& body = pass == 0 ? announcement : status;
+			std::vector<BYTE> packet(sizeof(ENetworkChannel) + body.size());
+			packet[0] = static_cast<BYTE>(ENetworkChannel::NETWORK_CHANNEL_KEYS);
+			memcpy(packet.data() + sizeof(ENetworkChannel), body.data(), body.size());
+			const EResult result = SteamNetworkingSockets()->SendMessageToConnection(connection.m_hSteamConnection,
+				packet.data(), static_cast<uint32>(packet.size()), k_nSteamNetworkingSend_ReliableNoNagle, nullptr);
+			if (result != k_EResultOK)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Could not send to user %lld, error %d", static_cast<long long>(entry.first), static_cast<int>(result));
+			}
+		}
+		if (announce)
+		{
+			sync.nextAnnounceMs = nowMs + 1000;
+		}
+		if (report)
+		{
+			sync.nextStatusMs = nowMs + 5000;
+			sync.lastStatus = status;
+		}
+	}
+}
+
+bool NetworkMesh::BeginMatchKeys()
+{
+	NGMP_OnlineServices_AuthInterface* auth = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	NGMP_OnlineServices_LobbyInterface* lobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (auth == nullptr || lobby == nullptr || TheNGMPGame == nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Cannot authenticate match without auth, lobby and roster");
+		EndMatchKeys();
+		return false;
+	}
+
+	std::set<int64_t> peers;
+	bool haveLocalPlayer = false;
+	for (Int i = 0; i < MAX_SLOTS; ++i)
+	{
+		const NGMPGameSlot* slot = (const NGMPGameSlot*)TheNGMPGame->getConstSlot(i);
+		if (slot == nullptr || !slot->isHuman())
+		{
+			continue;
+		}
+		if (slot->m_userID < 0 || !peers.insert(slot->m_userID).second)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Invalid or duplicate user identity in match roster");
+			EndMatchKeys();
+			return false;
+		}
+		haveLocalPlayer |= slot->m_userID == auth->GetUserID();
+	}
+	if (!haveLocalPlayer)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Local user is missing from match roster");
+		EndMatchKeys();
+		return false;
+	}
+	peers.erase(auth->GetUserID());
+	if (!peers.empty() && AnticheatPlugInterface::DoesACPluginProvideSecureGameTransport())
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Cannot authenticate peers on plugin transport without sender attribution");
+		EndMatchKeys();
+		return false;
+	}
+
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+	if (!m_matchKeys.HasLocalKey() && !BeginLobbyKeys())
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Could not make the key pair of this client");
+		return false;
+	}
+
+	// the keys came in while the lobby was open, a launch never waits for one
+	for (int64_t userID : peers)
+	{
+		if (!m_matchKeys.HasPeerKey(userID))
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] No key of user %lld in the roster of the match", static_cast<long long>(userID));
+			EndMatchKeys();
+			return false;
+		}
+	}
+
+	if (!m_matchKeys.BeginMatch(lobby->GetCurrentMatchID(), peers))
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Could not bind the keys to the match");
+		return false;
+	}
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Keys bound to match %llu with %zu peers", static_cast<unsigned long long>(lobby->GetCurrentMatchID()), peers.size());
+	return true;
+}
+
+void NetworkMesh::EndMatchKeys()
+{
+	m_matchKeys.EndMatch();
+}
+
+void NetworkMesh::GetLobbyStartBlockers(std::vector<LobbyStartBlocker>& blockers)
+{
+	blockers.clear();
+	NGMP_OnlineServices_AuthInterface* auth = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	NGMP_OnlineServices_LobbyInterface* lobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (auth == nullptr || lobby == nullptr)
+	{
+		return;
+	}
+
+	std::set<int64_t> humans;
+	for (const LobbyMemberEntry& member : lobby->GetCurrentLobby().members)
+	{
+		if (member.IsHuman())
+		{
+			humans.insert(member.user_id);
+		}
+	}
+
+	// on a plugin transport there are no keys, the launch says so
+	const bool keysApply = !AnticheatPlugInterface::DoesACPluginProvideSecureGameTransport();
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+	for (int64_t userID : humans)
+	{
+		if (userID == auth->GetUserID())
+		{
+			continue;
+		}
+		const PlayerConnection* connection = GetConnectionForUser(userID);
+		if (connection == nullptr || connection->GetState() != EConnectionState::CONNECTED_DIRECT)
+		{
+			blockers.push_back({ userID, true });
+		}
+		else if (keysApply && (!m_matchKeys.HasPeerKey(userID) || !m_matchKeys.PeerHoldsAll(userID, humans)))
+		{
+			blockers.push_back({ userID, false });
+		}
+	}
+}
+
+void NetworkMesh::OnKeyAnnouncement(int64_t connectionUserID, const uint8_t* data, size_t len)
+{
+	if (data == nullptr || len == 0 || !m_matchKeys.HasLocalKey())
+	{
+		return;
+	}
+
+	// in the lobby only its members count, a sender whose member entry has not arrived yet announces again
+	if (!m_matchKeys.IsActive())
+	{
+		NGMP_OnlineServices_LobbyInterface* lobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+		bool member = false;
+		if (lobby != nullptr)
+		{
+			for (const LobbyMemberEntry& entry : lobby->GetCurrentLobby().members)
+			{
+				member |= entry.IsHuman() && entry.user_id == connectionUserID;
+			}
+		}
+		if (!member)
+		{
+			return;
+		}
+	}
+
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+	const char* szReason = nullptr;
+	bool changed = false;
+	const bool accepted = data[0] == MatchKeys::KIND_STATUS
+		? m_matchKeys.OnStatus(connectionUserID, data, len, szReason, changed)
+		: m_matchKeys.OnAnnouncement(connectionUserID, data, len, szReason, changed);
+	if (!accepted)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] Rejected a key message from user %lld: %s", static_cast<long long>(connectionUserID), szReason != nullptr ? szReason : "unknown");
+		return;
+	}
+
+	if (changed && data[0] == MatchKeys::KIND_ANNOUNCEMENT)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[KEYS] have keys for %zu peers, got one from user %lld", m_matchKeys.GetPeerKeyCount(), static_cast<long long>(connectionUserID));
+	}
 }
 
 void NetworkMesh::AwaitTurnCredentials()
@@ -1123,6 +1451,10 @@ void NetworkMesh::Disconnect()
 
 	m_bDisconnected = true;
 
+	EndMatchKeys();
+	m_matchKeys.End();
+	m_keySync.clear();
+
     for (auto& connectionData : m_mapConnections)
     {
 		connectionData.second.Close();
@@ -1171,12 +1503,17 @@ void NetworkMesh::Tick()
 		m_pSignaling->Poll();
 	}
 
+	const int64_t nowMs = NowSteadyMs();
+
 	// update connection histograms
 	for (auto& kvPair : m_mapConnections)
 	{
 		PlayerConnection& conn = kvPair.second;
+		conn.TickProbe(nowMs);
 		conn.UpdateLatencyHistogram();
 	}
+
+	TickLobbyKeys(nowMs);
 
 	// the game transport isn't created until the game begins, but we want to transfer AC packets in the lobby first, so consider this a liteupdate
 	if (TheNGMPGame != nullptr && !TheNGMPGame->isGameInProgress())
@@ -1248,6 +1585,18 @@ void PlayerConnection::LiteUpdateForAC()
 					msg->Release();
 					continue;
 				}
+				else if (netChannel == ENetworkChannel::NETWORK_CHANNEL_PING)
+				{
+					HandleProbe(vecData.data() + sizeof(ENetworkChannel), numBytes - sizeof(ENetworkChannel), GetArrivalMs(msg));
+					msg->Release();
+					continue;
+				}
+				else if (netChannel == ENetworkChannel::NETWORK_CHANNEL_KEYS)
+				{
+					HandleKeyMessage(vecData.data() + sizeof(ENetworkChannel), numBytes - sizeof(ENetworkChannel));
+					msg->Release();
+					continue;
+				}
 			}
 			else if (numBytes != -1 && numBytes < sizeof(ENetworkChannel))
 			{
@@ -1260,6 +1609,169 @@ void PlayerConnection::LiteUpdateForAC()
 			// not an AC packet, we dont care
 			NetworkLog(ELogVerbosity::LOG_DEBUG, "[AC PACKET] Received NON AC message");
 			msg->Release();
+		}
+	}
+}
+
+// Probe payload after the envelope, little endian: u16 seq, u16 echoSeq, u16 echoHoldMs
+static constexpr size_t k_probePayloadSize = 6;
+
+void PlayerConnection::ResetProbe()
+{
+	m_probeStats.reset();
+	for (OutstandingProbe& probe : m_probeRing)
+	{
+		probe = OutstandingProbe();
+	}
+	m_nextProbeSeq = 0;
+	m_lastPeerSeq = k_noProbeSeq;
+	m_lastPeerSeqRecvMs = 0;
+	m_nextProbeMs = 0;
+}
+
+void PlayerConnection::TickProbe(int64_t nowMs)
+{
+	int pingIntervalMs = 250;
+	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+	{
+		const ServiceConfig::Connection& connection = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig().connection;
+		pingIntervalMs = (TheNetwork != nullptr) ? connection.probe_match_interval_ms : connection.probe_lobby_interval_ms;
+	}
+
+	// an echo rides on the next probe, so it is allowed one probe interval late
+	const int64_t timeoutMs = (std::max)(static_cast<int64_t>(1000), static_cast<int64_t>(m_probeStats.getLatency() * 4.0f)) + pingIntervalMs;
+	for (OutstandingProbe& probe : m_probeRing)
+	{
+		if (probe.seq != k_noProbeSeq && nowMs - probe.sendTimeMs > timeoutMs)
+		{
+			m_probeStats.noteRetry(static_cast<time_t>(nowMs));
+			probe.seq = k_noProbeSeq;
+		}
+	}
+
+	m_probeStats.update(static_cast<time_t>(nowMs));
+
+	if (nowMs < m_nextProbeMs || m_State != EConnectionState::CONNECTED_DIRECT)
+	{
+		return;
+	}
+
+	m_nextProbeMs = nowMs + pingIntervalMs;
+
+	if (AnticheatPlugInterface::DoesACPluginProvideSecureGameTransport())
+	{
+		// the plugin transport has no per-peer receive path for the ping channel, so nothing could be echoed back
+		return;
+	}
+
+	if (m_hSteamConnection == k_HSteamNetConnection_Invalid)
+	{
+		return;
+	}
+
+	const uint16_t seq = m_nextProbeSeq;
+	m_nextProbeSeq = (m_nextProbeSeq == k_noProbeSeq - 1) ? 0 : static_cast<uint16_t>(m_nextProbeSeq + 1);
+
+	uint16_t echoHoldMs = 0;
+	if (m_lastPeerSeq != k_noProbeSeq)
+	{
+		echoHoldMs = static_cast<uint16_t>((std::min)(nowMs - m_lastPeerSeqRecvMs, static_cast<int64_t>(k_noProbeSeq - 1)));
+	}
+
+	BYTE packet[k_probePayloadSize];
+	WriteU16(packet + 0, seq);
+	WriteU16(packet + 2, m_lastPeerSeq);
+	WriteU16(packet + 4, echoHoldMs);
+
+	if (SendEnveloped(ENetworkChannel::NETWORK_CHANNEL_PING, packet, sizeof(packet), k_nSteamNetworkingSend_UnreliableNoNagle) != k_EResultOK)
+	{
+		return;
+	}
+
+	// the slot is still in use: that probe was never echoed in a full ring turn
+	OutstandingProbe& slot = m_probeRing[seq % k_probeRingSize];
+	if (slot.seq != k_noProbeSeq)
+	{
+		m_probeStats.noteRetry(static_cast<time_t>(nowMs));
+	}
+	slot.seq = seq;
+	slot.sendTimeMs = nowMs;
+}
+
+void PlayerConnection::HandleKeyMessage(const uint8_t* data, size_t len)
+{
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	if (pMesh != nullptr)
+	{
+		pMesh->OnKeyAnnouncement(m_userID, data, len);
+	}
+}
+
+int64_t PlayerConnection::GetArrivalMs(const SteamNetworkingMessage_t* msg)
+{
+	const int64_t nowMs = NowSteadyMs();
+	if (msg == nullptr || SteamNetworkingUtils() == nullptr || msg->m_usecTimeReceived <= 0)
+	{
+		return nowMs;
+	}
+
+	// how long the message waited in the transport's queue for the main loop
+	const int64_t queuedMs = (SteamNetworkingUtils()->GetLocalTimestamp() - msg->m_usecTimeReceived) / 1000;
+	return nowMs - (std::max)(static_cast<int64_t>(0), queuedMs);
+}
+
+void PlayerConnection::HandleProbe(const uint8_t* payload, size_t len, int64_t arrivalMs)
+{
+	const size_t envelopeSize = (payload != nullptr) ? ConsumeEnvelope(payload, len) : 0;
+	if (envelopeSize == 0)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[PROBE] Dropping probe without a valid packet envelope from user %lld, size %zu", m_userID, len);
+		return;
+	}
+	payload += envelopeSize;
+	len -= envelopeSize;
+
+	if (payload == nullptr || len < k_probePayloadSize)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[PROBE] Dropping malformed probe of size %zu from user %lld", len, m_userID);
+		return;
+	}
+
+	// the arrival time, a slow frame on either side is no network delay
+	const int64_t nowMs = arrivalMs;
+	const uint16_t peerSeq = ReadU16(payload);
+	const uint16_t echoSeq = ReadU16(payload + 2);
+	const uint16_t echoHoldMs = ReadU16(payload + 4);
+
+	// a reordered older probe must not move the echo back
+	if (peerSeq != k_noProbeSeq && (m_lastPeerSeq == k_noProbeSeq || static_cast<uint16_t>(peerSeq - m_lastPeerSeq) < 0x8000))
+	{
+		m_lastPeerSeq = peerSeq;
+		m_lastPeerSeqRecvMs = nowMs;
+	}
+
+	if (echoSeq == k_noProbeSeq)
+	{
+		return;
+	}
+
+	OutstandingProbe& acked = m_probeRing[echoSeq % k_probeRingSize];
+	if (acked.seq != echoSeq)
+	{
+		// already resolved or timed out
+		return;
+	}
+
+	const int64_t rttMs = (std::max)(static_cast<int64_t>(0), nowMs - acked.sendTimeMs - echoHoldMs);
+	m_probeStats.noteAcked(static_cast<Real>(rttMs), static_cast<time_t>(nowMs));
+	acked.seq = k_noProbeSeq;
+
+	// older un-echoed probes are dropped, not lost: packet feedback measures the loss
+	for (OutstandingProbe& probe : m_probeRing)
+	{
+		if (probe.seq != k_noProbeSeq && static_cast<uint16_t>(echoSeq - probe.seq) < 0x8000)
+		{
+			probe.seq = k_noProbeSeq;
 		}
 	}
 }
@@ -1300,18 +1812,29 @@ PlayerConnection::PlayerConnection(int64_t userID, const char* szMiddlewareID)
     }
 }
 
+bool PlayerConnection::LogInvalidDue()
+{
+	const int64_t nowMs = NowSteadyMs();
+	if (nowMs < m_nextInvalidLogMs)
+	{
+		return false;
+	}
+	m_nextInvalidLogMs = nowMs + 5000;
+	return true;
+}
+
 int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 {
     if (totalDataSize == 0)
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Cannot send empty game packet to user %lld", m_userID);
-        return (int)k_EResultFail;
+        return -(int)k_EResultFail;
     }
 
     if (pBuffer == nullptr)
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Cannot send game packet with null buffer to user %lld", m_userID);
-        return (int)k_EResultFail;
+        return -(int)k_EResultFail;
     }
 
 	if (AnticheatPlugInterface::DoesACPluginProvideSecureGameTransport())
@@ -1323,65 +1846,32 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	{
 		if (m_hSteamConnection == k_HSteamNetConnection_Invalid)
 		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Cannot send game packet - connection is invalid for user %lld", m_userID);
-			return (int)k_EResultFail;
+			if (LogInvalidDue())
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Cannot send game packet - connection is invalid for user %lld", m_userID);
+			}
+			return -(int)k_EResultFail;
 		}
 
-		ENetworkChannel netChannel = ENetworkChannel::NETWORK_CHANNEL_GAME;
-		std::vector<BYTE> vecData;
-		vecData.resize(totalDataSize + sizeof(ENetworkChannel));
-		memcpy(vecData.data() + sizeof(ENetworkChannel), pBuffer, totalDataSize);
-		vecData[0] = (BYTE)netChannel;
-
-		int sendFlags = k_nSteamNetworkingSend_Reliable | k_nSteamNetworkingSend_AutoRestartBrokenSession; // default from last patch
-
 		ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-		int netSendFlags = serviceConf.network_send_flags;
+
+		// datagram mode leaves loss repair to the game layer; the restart flag only applies to ISteamNetworkingMessages
+		int sendFlags = k_nSteamNetworkingSend_Reliable | k_nSteamNetworkingSend_AutoRestartBrokenSession; // default from last patch
+		if (serviceConf.send.IsDatagram())
+		{
+			sendFlags = k_nSteamNetworkingSend_UnreliableNoNagle;
+		}
 
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "[GAME PACKET] Sending msg of size %ld to user %lld\n", totalDataSize, m_userID);
-		EResult r = SteamNetworkingSockets()->SendMessageToConnection(
-			m_hSteamConnection, vecData.data(), vecData.size(), sendFlags, nullptr);
-
+		const int r = SendEnveloped(ENetworkChannel::NETWORK_CHANNEL_GAME, static_cast<const uint8_t*>(pBuffer), totalDataSize, sendFlags);
 		if (r != k_EResultOK)
 		{
-			if (netSendFlags != -1)
-			{
-				if (netSendFlags == 0)
-				{
-					sendFlags = k_nSteamNetworkingSend_Unreliable;
-				}
-				else if (netSendFlags == 1)
-				{
-					sendFlags = k_nSteamNetworkingSend_UnreliableNoNagle;
-				}
-				else if (netSendFlags == 2)
-				{
-					sendFlags = k_nSteamNetworkingSend_UnreliableNoDelay;
-				}
-				else if (netSendFlags == 3)
-				{
-					sendFlags = k_nSteamNetworkingSend_Reliable;
-				}
-				else if (netSendFlags == 4)
-				{
-					sendFlags = k_nSteamNetworkingSend_ReliableNoNagle;
-				}
-			}
-
-			NetworkLog(ELogVerbosity::LOG_DEBUG, "[GAME PACKET] Sending msg of size %ld to user %lld\n", totalDataSize, m_userID);
-			EResult r = SteamNetworkingSockets()->SendMessageToConnection(
-				m_hSteamConnection, pBuffer, (int)totalDataSize, sendFlags, nullptr);
-
-			if (r != k_EResultOK)
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Failed to send, err code was %d", r);
-			}
-
-			return (int)r;
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Failed to send, err code was %d", r);
+			return -r;
 		}
 	}
 
-	return (int)k_EResultFail;
+	return 0;
 
 }
 
@@ -1424,12 +1914,12 @@ void PlayerConnection::UpdateLatencyHistogram()
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
 		ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-		histogram_duration = serviceConf.network_mesh_histogram_duration;
+		histogram_duration = serviceConf.connection.latency_history_ms;
 	}
 
 
-	// update latency history
-	int currLatency = GetLatency();
+	// update latency history, from the mesh probe once it has samples
+	int currLatency = (m_probeStats.getSampleCount() > 0) ? static_cast<int>(m_probeStats.getLatency()) : GetLatency();
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	const int connectionHistoryLength = histogram_duration / 16; // ~20 sec worth of frames at 60fps (default)
 #else
@@ -1441,38 +1931,6 @@ void PlayerConnection::UpdateLatencyHistogram()
 		m_vecLatencyHistory.erase(m_vecLatencyHistory.begin());
 	}
 	m_vecLatencyHistory.push_back(currLatency);
-
-	// Sample connection quality into rolling history.
-	// Prefer SNS local quality, then remote quality, then fall back to manual in/out packet rate ratio.
-	if (m_hSteamConnection != k_HSteamNetConnection_Invalid)
-	{
-		SteamNetConnectionRealTimeStatus_t status;
-		if (SteamNetworkingSockets()->GetConnectionRealTimeStatus(m_hSteamConnection, &status, 0, nullptr) == k_EResultOK)
-		{
-			float sample = -1.0f;
-			if (status.m_flConnectionQualityLocal >= 0.0f)
-			{
-				sample = status.m_flConnectionQualityLocal;
-			}
-			else if (status.m_flConnectionQualityRemote >= 0.0f)
-			{
-				sample = status.m_flConnectionQualityRemote;
-			}
-			else if (status.m_flOutPacketsPerSec > 0.0f)
-			{
-				sample = status.m_flInPacketsPerSec / status.m_flOutPacketsPerSec;
-			}
-
-			if (sample > 1.0f) sample = 1.0f;
-
-			if (sample >= 0.0f)
-			{
-				if (m_vecQualityHistory.size() >= connectionHistoryLength)
-					m_vecQualityHistory.erase(m_vecQualityHistory.begin());
-				m_vecQualityHistory.push_back(sample);
-			}
-		}
-	}
 }
 
 void PlayerConnection::Close()
@@ -1509,17 +1967,20 @@ bool PlayerConnection::IsIPV4()
 	return info.m_addrRemote.IsIPv4();
 }
 
-int PlayerConnection::Recv(SteamNetworkingMessage_t** pMsg)
+int PlayerConnection::Recv(SteamNetworkingMessage_t** pMsg, int maxMessages)
 {
 	int r = -1;
 	if (m_hSteamConnection != k_HSteamNetConnection_Invalid)
 	{
-		r = SteamNetworkingSockets()->ReceiveMessagesOnConnection(m_hSteamConnection, pMsg, 255);
+		r = SteamNetworkingSockets()->ReceiveMessagesOnConnection(m_hSteamConnection, pMsg, maxMessages);
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "[DISC] Recv Result %d from user %lld", r, m_userID);
 	}
 	else
 	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "[DISC] Recv Failed 1 from user %lld", m_userID);
+		if (LogInvalidDue())
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[DISC] Recv Failed 1 from user %lld", m_userID);
+		}
 	}
 
 	return r;
@@ -1528,14 +1989,25 @@ int PlayerConnection::Recv(SteamNetworkingMessage_t** pMsg)
 
 std::string PlayerConnection::GetStats()
 {
+	// lead with the probe numbers, or just the reported ping while there are no samples yet
+	char szSummary[64] = { 0 };
+	if (m_probeStats.getSampleCount() > 0)
+	{
+		snprintf(szSummary, sizeof(szSummary), "Lat %d j%.0f L%.0f%%\n", static_cast<int>(m_probeStats.getLatency()), m_probeStats.getJitter(), m_probeStats.getLossPercent());
+	}
+	else
+	{
+		snprintf(szSummary, sizeof(szSummary), "Lat %d\n", GetLatency());
+	}
+
 	if (m_hSteamConnection == k_HSteamNetConnection_Invalid)
-		return "(disconnected)";
+		return std::string(szSummary) + "(disconnected)";
 
 	char szBuf[2048] = { 0 };
 	int ret = SteamNetworkingSockets()->GetDetailedConnectionStatus(m_hSteamConnection, szBuf, 2048);
 
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM] PlayerConnection::GetStats returned %d", ret);
-	return std::string(szBuf);
+	return std::string(szSummary) + szBuf;
 }
 
 
@@ -1577,7 +2049,9 @@ void PlayerConnection::UpdateState(EConnectionState newState, NetworkMesh* pOwni
 	if (newState == EConnectionState::CONNECTED_DIRECT && m_State != EConnectionState::CONNECTED_DIRECT)
 	{
 		m_connectedSinceTime = std::chrono::steady_clock::now();
-		m_smoothedScore = -1.0f;
+		m_rating = ConnectionRating::State();
+		m_nextRatingMs = 0;
+		ResetProbe();
 	}
 
 	m_State = newState;
@@ -1688,6 +2162,66 @@ int PlayerConnection::GetLatency()
 	return -1;
 }
 
+size_t PlayerConnection::ConsumeEnvelope(const uint8_t* data, size_t len)
+{
+	const int64_t nowMs = NowSteadyMs();
+	m_lastPacketMs = nowMs;
+	return m_feedback.ReadEnvelope(data, len, nowMs);
+}
+
+int PlayerConnection::SendEnveloped(ENetworkChannel channel, const uint8_t* payload, size_t len, int sendFlags)
+{
+	const int64_t nowMs = NowSteadyMs();
+
+	std::vector<BYTE> vecData;
+	vecData.resize(sizeof(ENetworkChannel) + PacketFeedback::ENVELOPE_MAX_SIZE + len);
+	vecData[0] = static_cast<BYTE>(channel);
+	const size_t envelopeSize = m_feedback.WriteEnvelope(vecData.data() + sizeof(ENetworkChannel), nowMs);
+	memcpy(vecData.data() + sizeof(ENetworkChannel) + envelopeSize, payload, len);
+	vecData.resize(sizeof(ENetworkChannel) + envelopeSize + len);
+
+	EResult r = SteamNetworkingSockets()->SendMessageToConnection(m_hSteamConnection, vecData.data(), static_cast<uint32>(vecData.size()), sendFlags, nullptr);
+	if (r != k_EResultOK)
+	{
+		// once more with the same packet, it keeps its sequence number
+		r = SteamNetworkingSockets()->SendMessageToConnection(m_hSteamConnection, vecData.data(), static_cast<uint32>(vecData.size()), sendFlags, nullptr);
+	}
+	if (r != k_EResultOK)
+	{
+		m_feedback.CancelEnvelope();
+	}
+	return static_cast<int>(r);
+}
+
+bool PlayerConnection::GetOutgoingLoss(int windowMs, PacketFeedback::Summary& summary)
+{
+	const int64_t nowMs = NowSteadyMs();
+	summary = m_feedback.GetOutgoing(nowMs, windowMs);
+	return summary.samples > 0;
+}
+
+bool PlayerConnection::GetIncomingLoss(int windowMs, PacketFeedback::Summary& summary)
+{
+	const int64_t nowMs = NowSteadyMs();
+	summary = m_feedback.GetIncoming(nowMs, windowMs);
+	return summary.samples > 0;
+}
+
+float PlayerConnection::GetSustainedLossPercent(int windowMs)
+{
+	// one report of a short window is no trend
+	static constexpr int k_minFeedbackReports = 3;
+	PacketFeedback::Summary outLoss;
+	PacketFeedback::Summary inLoss;
+	GetOutgoingLoss(windowMs, outLoss);
+	GetIncomingLoss(windowMs, inLoss);
+	if (outLoss.samples < k_minFeedbackReports && inLoss.samples < k_minFeedbackReports)
+	{
+		return -1.0f;
+	}
+	return (std::max)((outLoss.samples >= k_minFeedbackReports) ? outLoss.lossPercent : 0.0f, (inLoss.samples >= k_minFeedbackReports) ? inLoss.lossPercent : 0.0f);
+}
+
 int PlayerConnection::GetJitter()
 {
 	int sumDelta = 0;
@@ -1716,20 +2250,20 @@ int PlayerConnection::GetJitter()
 	return sumDelta / count;
 }
 
-float PlayerConnection::GetConnectionQuality()
+int PlayerConnection::ComputeConnectionRating()
 {
-	if (!m_vecQualityHistory.empty())
+	// the overlay and the lobby ask every frame, the percentile sorts inside do not change that fast
+	const int64_t ratingNowMs = NowSteadyMs();
+	if (ratingNowMs < m_nextRatingMs)
 	{
-		float sum = 0.0f;
-		for (float r : m_vecQualityHistory)
-			sum += r;
-		return sum / static_cast<float>(m_vecQualityHistory.size());
+		return m_ratingResult;
 	}
-
-	return -1.0f;
+	m_nextRatingMs = ratingNowMs + 250;
+	m_ratingResult = UpdateConnectionRating();
+	return m_ratingResult;
 }
 
-int PlayerConnection::ComputeConnectionScore()
+int PlayerConnection::UpdateConnectionRating()
 {
 	static constexpr std::chrono::milliseconds k_warmupDuration{ 1000 };
 	if (m_connectedSinceTime == (std::chrono::steady_clock::time_point::min)() ||
@@ -1738,65 +2272,71 @@ int PlayerConnection::ComputeConnectionScore()
 		return -1;
 	}
 
-	// TODO_EOS: need to impl jitter etc again
-	const int latency = GetLatency();
-	const int jitter = GetJitter();
-	const float quality = GetConnectionQuality();   // packet delivery ratio [0..1]
-
-	static constexpr float k_subScoreFloor = 0.3f;
-	static constexpr float k_latencyWeight = 0.30f;
-	static constexpr float k_jitterWeight = 0.25f;
-	static constexpr float k_reliabilityWeight = 0.45f;
-
-	float weightedLogSum = 0.0f;
-	float activeWeightSum = 0.0f;
-
-	if (latency >= 0)
-	{
-		// 10ms and below are treated as full score. Above that, roughly:
-		// 400ms -> composite 75, 800ms -> composite 50 when other metrics are perfect.
-		int effectiveLatency = (std::max)(latency - 10, 0);
-		float latFactor = std::clamp(1.0f - static_cast<float>(effectiveLatency) / 1590.0f, 0.0f, 1.0f);
-		float latencyScore = (std::max)(std::powf(latFactor, 4.545f), k_subScoreFloor);
-		weightedLogSum += k_latencyWeight * std::logf(latencyScore);
-		activeWeightSum += k_latencyWeight;
-	}
-
-	if (jitter >= 0)
-	{
-		// 50ms -> composite 75, 100ms -> composite 50 when other metrics are perfect.
-		float jitFactor = std::clamp(1.0f - static_cast<float>(jitter) / 200.0f, 0.0f, 1.0f);
-		float jitterScore = (std::max)(std::powf(jitFactor, 2.632f), k_subScoreFloor);
-		weightedLogSum += k_jitterWeight * std::logf(jitterScore);
-		activeWeightSum += k_jitterWeight;
-	}
-
-	if (quality >= 0.0f)
-	{
-		// 90% -> composite 75, 80% -> composite 50 when other metrics are perfect.
-		float relFactor = std::clamp(2.5f * quality - 1.5f, 0.0f, 1.0f);
-		float reliabilityScore = (std::max)(std::powf(relFactor, 2.5f), k_subScoreFloor);
-		weightedLogSum += k_reliabilityWeight * std::logf(reliabilityScore);
-		activeWeightSum += k_reliabilityWeight;
-	}
-
-	if (activeWeightSum <= 0.0f)
+	if (NGMP_OnlineServicesManager::GetInstance() == nullptr)
 	{
 		return -1;
 	}
+	const ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
+	const int slackPercent = serviceConf.input_delay.slack_percent;
+	int sendIntervalMs = serviceConf.send.frames_per_packet * 1000 / GENERALS_ONLINE_HIGH_FPS_LIMIT;
 
-	float composite = std::expf(weightedLogSum / activeWeightSum);
-	float rawScore = composite * 100.0f;
-
-	static constexpr float k_scoreSmoothingAlpha = 0.15f;
-	if (m_smoothedScore < 0.0f)
+	// the command connections are indexed by game slot, find the slot of this user
+	int slot = -1;
+	const ConnectionStats* pCmd = nullptr;
+	if (TheNetwork != nullptr && TheNGMPGame != nullptr)
 	{
-		m_smoothedScore = rawScore;
+		slot = TheNGMPGame->getSlotOfUser(m_userID);
+		pCmd = TheNetwork->getConnectionStats(slot);
+	}
+
+	ConnectionRating::Inputs inputs;
+	NetworkOverlayInfo info;
+
+	float feedbackLoss = -1.0f;
+	static constexpr int k_minCmdSamples = 20;
+	const bool inMatch = (pCmd != nullptr && pCmd->getSampleCount() >= k_minCmdSamples);
+	const int feedbackWindowMs = inMatch ? NETWORK_STATS_WINDOW_MS : 60000;
+	PacketFeedback::Summary outLoss;
+	PacketFeedback::Summary inLoss;
+	const bool hasOut = GetOutgoingLoss(feedbackWindowMs, outLoss);
+	const bool hasIn = GetIncomingLoss(feedbackWindowMs, inLoss);
+	if (hasOut || hasIn)
+	{
+		feedbackLoss = (std::max)(hasOut ? outLoss.lossPercent : 0.0f, hasIn ? inLoss.lossPercent : 0.0f);
+	}
+	const float sustainedLoss = GetSustainedLossPercent(feedbackWindowMs);
+
+	if (inMatch && TheNetwork->getOverlayInfo(slot, info))
+	{
+		if (info.frameGroupingMs > 0)
+		{
+			sendIntervalMs = info.frameGroupingMs;
+		}
+		inputs = ConnectionRating::InputsFromMatch(*pCmd, info, slackPercent, sendIntervalMs, feedbackLoss);
+	}
+	else if (m_probeStats.getSampleCount() >= 10)
+	{
+		inputs = ConnectionRating::InputsFromProbe(m_probeStats, slackPercent, sendIntervalMs, feedbackLoss);
 	}
 	else
 	{
-		m_smoothedScore += k_scoreSmoothingAlpha * (rawScore - m_smoothedScore);
+		// a gap in the samples keeps the last rating, the indicator must not blink out
+		return (m_rating.bars > 0) ? m_rating.bars : -1;
 	}
 
-	return static_cast<int>(std::round(m_smoothedScore));
+	inputs.lossPercent = sustainedLoss;
+	if (m_lastPacketMs > 0)
+	{
+		const int64_t nowSteadyMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+		inputs.silentMs = static_cast<Int>((std::min)(nowSteadyMs - m_lastPacketMs, static_cast<int64_t>(3600000)));
+	}
+	{
+		// silence must outlast the probe interval of the current phase, probes may be the only traffic
+		const ServiceConfig::Connection& pingConfig = serviceConf.connection;
+		const int pingIntervalMs = (TheNetwork != nullptr) ? pingConfig.probe_match_interval_ms : pingConfig.probe_lobby_interval_ms;
+		inputs.silentLimitMs = (std::max)(inputs.silentLimitMs, pingIntervalMs * 5 / 2);
+	}
+
+	ConnectionRating::Update(m_rating, inputs, timeGetTime());
+	return m_rating.bars;
 }
