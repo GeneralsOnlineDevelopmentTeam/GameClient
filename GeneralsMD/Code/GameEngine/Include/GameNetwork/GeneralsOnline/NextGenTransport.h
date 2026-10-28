@@ -49,6 +49,9 @@ public:
 	}
 
 private:
+	Bool sendFailureLogDue();	///< true once a second, the other failure lines are counted
+	UnsignedInt m_nextSendFailLogMs = 0;
+	Int m_skippedSendFailLogs = 0;
 	OutgoingPacketState m_outPacketState[MAX_MESSAGES];
 	// Track which incoming buffer slots are occupied (handles zero-length packets)
 	bool m_inBufferOccupied[MAX_MESSAGES];

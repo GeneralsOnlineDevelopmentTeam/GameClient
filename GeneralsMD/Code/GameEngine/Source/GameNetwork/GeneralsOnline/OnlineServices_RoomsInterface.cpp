@@ -1414,7 +1414,8 @@ void WebSocket::Tick()
 										{
 											NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal User: %lld!", signalData.target_user_id);
 											NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal Payload Size: %d!", (int)signalData.payload.size());
-											PushPendingSignal(std::move(signalData.payload));
+											// target_user_id is the sender here, the service fills it in from the authenticated session
+											PushPendingSignal(signalData.target_user_id, std::move(signalData.payload));
 										}
 									}
 									break;

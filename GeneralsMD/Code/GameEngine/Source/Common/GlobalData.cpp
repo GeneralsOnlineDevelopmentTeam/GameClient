@@ -1031,7 +1031,11 @@ GlobalData::GlobalData()
 	m_networkFPSHistoryLength = 30;
 	m_networkLatencyHistoryLength = 200;
 	m_networkRunAheadMetricsTime = 500;
+#if defined(GENERALS_ONLINE)
+	m_networkCushionHistoryLength = 20; // 333 ms at 60 Hz, what retail's 10 frames at 30 Hz covered
+#else
 	m_networkCushionHistoryLength = 10;
+#endif
 	m_networkRunAheadSlack = 10;
 	m_networkKeepAliveDelay = 20;
 	m_networkDisconnectTime = 5000;

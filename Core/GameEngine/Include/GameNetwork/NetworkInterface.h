@@ -60,6 +60,10 @@ public:
 
 	virtual void setLocalAddress(UnsignedInt ip, UnsignedInt port) = 0;	///< Tell the network what local ip and port to bind to.
 	virtual Bool isFrameDataReady() = 0;												///< Are the commands for the next frame available?
+#if defined(GENERALS_ONLINE)
+	virtual Bool isGameExitPending() const { return FALSE; }
+	virtual UnsignedInt getMeasuredLogicRate() = 0;	///< Logic frames executed per second, over about a second
+#endif
 	virtual Bool isStalling() = 0;
 	virtual void parseUserList(const GameInfo* game) = 0;						///< Parse a userlist, creating connections
 	virtual void startGame() = 0;																	///< Sets the network game frame counter to -1
@@ -100,9 +104,13 @@ public:
 
 	virtual Int getAverageFPS() = 0;
 	virtual Int getSlotAverageFPS(Int slot) = 0;
+	virtual const ConnectionStats* getConnectionStats(Int slot) const = 0;	///< Latency, jitter and loss of the connection to a slot, nullptr when there is none.
 
 #if defined(GENERALS_ONLINE)
+	virtual Bool getOverlayInfo(Int slot, NetworkOverlayInfo &info) = 0;
 	virtual void SeedLatencyData(int highestLatency) = 0;
+	virtual void requireMatchKeys() {}
+	virtual Bool matchKeysRequired() const { return FALSE; }
 	virtual bool IsSlugging() = 0;
 #endif
 
