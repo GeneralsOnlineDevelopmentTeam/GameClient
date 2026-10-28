@@ -83,16 +83,17 @@ void FrameDataManager::update() {
 /**
  * Add a network command to the appropriate frame.
  */
-void FrameDataManager::addNetCommandMsg(NetCommandMsg *msg) {
+Bool FrameDataManager::addNetCommandMsg(NetCommandMsg *msg) {
 	UnsignedInt frame = msg->getExecutionFrame();
 	UnsignedInt frameindex = frame % FRAME_DATA_LENGTH;
 	DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("FrameDataManager::addNetCommandMsg - about to add a command of type %s for frame %d, frame index %d", GetNetCommandTypeAsString(msg->getNetCommandType()), frame, frameindex));
-	m_frameData[frameindex].addCommand(msg);
+	const Bool added = m_frameData[frameindex].addCommand(msg);
 
 	if (m_isLocal) {
 		// If this is the local connection, adjust the frame command count.
 		m_frameData[frameindex].setFrameCommandCount(m_frameData[frameindex].getCommandCount());
 	}
+	return added;
 }
 
 /**
