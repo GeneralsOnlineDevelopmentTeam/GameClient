@@ -615,6 +615,7 @@ private:
 	void drawRenderFps(Int& x, Int& y);
 	void drawSystemTime(Int& x, Int& y);
 	void drawGameTime();
+	void drawNetworkOverlay(Int mode);	///< 1 = player view, 2 = dev view
 	void drawPlayerInfoList();
 	void drawObserverStats(Int &x, Int &y);
 	Bool m_observerStatsHidden = false;   // hide/show observer overlay
@@ -833,19 +834,23 @@ protected:
 	Color												m_networkLatencyColor;
 	Color												m_networkLatencyDropColor;
 	UnsignedInt									m_lastNetworkLatencyFrames;
+	UnsignedInt									m_lastNetworkLogicRate;
 
 	// Render FPS Counter
 	DisplayString* m_renderFpsString;
+	DisplayString* m_renderFpsLowString;
 	DisplayString* m_renderFpsLimitString;
 	AsciiString									m_renderFpsFont;
 	Int													m_renderFpsPointSize;
 	Bool												m_renderFpsBold;
 	Coord2D											m_renderFpsPosition;
 	Color												m_renderFpsColor;
+	Color												m_renderFpsLowColor;
 	Color												m_renderFpsLimitColor;
 	Color												m_renderFpsDropColor;
 	UnsignedInt									m_renderFpsRefreshMs;
 	UnsignedInt									m_lastRenderFps;
+	UnsignedInt									m_lastRenderFpsLow;
 	UnsignedInt									m_lastRenderFpsLimit;
 	UnsignedInt									m_lastRenderFpsUpdateMs;
 

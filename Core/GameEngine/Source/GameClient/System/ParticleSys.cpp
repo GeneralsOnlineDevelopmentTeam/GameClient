@@ -1799,14 +1799,14 @@ Particle *ParticleSystem::createParticle( const ParticleInfo *info,
 		// ALWAYS_RENDER particles are exempt from all count limits, and are always created, regardless of LOD issues.
 		if (priority != ALWAYS_RENDER)
 		{
-			int numInExcess = TheParticleSystemManager->getParticleCount() - (UnsignedInt)TheGlobalData->m_maxParticleCount;
+			int numInExcess = TheParticleSystemManager->getParticleCount() - (UnsignedInt)TheGlobalData->getEffectiveMaxParticleCount();
 			if ( numInExcess > 0)
 			{
 				if( TheParticleSystemManager->removeOldestParticles((UnsignedInt) numInExcess, priority) != numInExcess )
 					return nullptr;  // could not remove enough particles, don't create new stuff
 			}
 
-			if (TheGlobalData->m_maxParticleCount == 0)
+			if (TheGlobalData->getEffectiveMaxParticleCount() == 0)
 				return nullptr;
 		}
 
@@ -3062,7 +3062,7 @@ void ParticleSystemManager::update()
 		}
 	}
 
-	const Bool drawSmudge = TheSmudgeManager && TheSmudgeManager->getHardwareSupport() && TheGlobalData->m_useHeatEffects;
+	const Bool drawSmudge = TheSmudgeManager && TheSmudgeManager->getHardwareSupport() && TheGlobalData->drawsHeatEffects();
 
 	if (drawSmudge)
 	{

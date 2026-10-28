@@ -33,6 +33,7 @@
 
 #include "Common/ActionManager.h"
 #include "Common/FramePacer.h"
+#include "Common/AdaptiveQuality.h"
 #include "Common/GameAudio.h"
 #include "Common/GameType.h"
 #include "Common/GameUtility.h"
@@ -101,6 +102,11 @@
 #include "GameNetwork/NetworkInterface.h"
 extern NetworkInterface * TheNetwork;
 #include <steam/isteamnetworkingsockets.h>
+
+namespace
+{
+	void overlayReleaseCache();
+}
 #endif
 
 
@@ -926,6 +932,7 @@ const FieldParse InGameUI::s_fieldParseTable[] =
 	{ "RenderFpsBold",          INI::parseBool,         nullptr, offsetof(InGameUI, m_renderFpsBold) },
 	{ "RenderFpsPosition",      INI::parseCoord2D,      nullptr, offsetof(InGameUI, m_renderFpsPosition) },
 	{ "RenderFpsColor",         INI::parseColorInt,     nullptr, offsetof(InGameUI, m_renderFpsColor) },
+	{ "RenderFpsLowColor",      INI::parseColorInt,     nullptr, offsetof(InGameUI, m_renderFpsLowColor) },
 	{ "RenderFpsLimitColor",    INI::parseColorInt,     nullptr, offsetof(InGameUI, m_renderFpsLimitColor) },
 	{ "RenderFpsDropColor",     INI::parseColorInt,     nullptr, offsetof(InGameUI, m_renderFpsDropColor) },
 	{ "RenderFpsRefreshMs",     INI::parseUnsignedInt,  nullptr, offsetof(InGameUI, m_renderFpsRefreshMs) },
@@ -1174,8 +1181,10 @@ InGameUI::InGameUI()
 	m_networkLatencyColor = GameMakeColor(173, 216, 255, 255);
 	m_networkLatencyDropColor = GameMakeColor(0, 0, 0, 255);
 	m_lastNetworkLatencyFrames = ~0u;
+	m_lastNetworkLogicRate = ~0u;
 
 	m_renderFpsString = nullptr;
+	m_renderFpsLowString = nullptr;
 	m_renderFpsLimitString = nullptr;
 	m_renderFpsFont = "Tahoma";
 	m_renderFpsPointSize = TheGlobalData->m_renderFpsFontSize;
@@ -1183,10 +1192,12 @@ InGameUI::InGameUI()
 	m_renderFpsPosition.x = kHudAnchorX;
 	m_renderFpsPosition.y = kHudAnchorY;
 	m_renderFpsColor = GameMakeColor(255, 255, 0, 255);
+	m_renderFpsLowColor = GameMakeColor(190, 180, 130, 255);
 	m_renderFpsLimitColor = GameMakeColor(119, 119, 119, 255);
 	m_renderFpsDropColor = GameMakeColor(0, 0, 0, 255);
 	m_renderFpsRefreshMs = 1000;
 	m_lastRenderFps = ~0u;
+	m_lastRenderFpsLow = ~0u;
 	m_lastRenderFpsLimit = ~0u;
 	m_lastRenderFpsUpdateMs = 0u;
 
@@ -2354,10 +2365,15 @@ void InGameUI::freeMessageResources()
 
 void InGameUI::freeCustomUiResources()
 {
+#if defined(GENERALS_ONLINE)
+	overlayReleaseCache();
+#endif
 	TheDisplayStringManager->freeDisplayString(m_networkLatencyString);
 	m_networkLatencyString = nullptr;
 	TheDisplayStringManager->freeDisplayString(m_renderFpsString);
 	m_renderFpsString = nullptr;
+	TheDisplayStringManager->freeDisplayString(m_renderFpsLowString);
+	m_renderFpsLowString = nullptr;
 	TheDisplayStringManager->freeDisplayString(m_renderFpsLimitString);
 	m_renderFpsLimitString = nullptr;
 	TheDisplayStringManager->freeDisplayString(m_systemTimeString);
@@ -6885,7 +6901,8 @@ void InGameUI::refreshNetworkLatencyResources()
 	{
 		m_networkLatencyString = TheDisplayStringManager->newDisplayString();
 		m_lastNetworkLatencyFrames = ~0u;
-	}
+		m_lastNetworkLogicRate = ~0u;
+		}
 
 	m_networkLatencyPointSize = TheGlobalData->m_networkLatencyFontSize;
 	Int adjustedNetworkLatencyFontSize = TheGlobalLanguageData->adjustFontSize(m_networkLatencyPointSize);
@@ -6902,6 +6919,12 @@ void InGameUI::refreshRenderFpsResources()
 		m_lastRenderFpsUpdateMs = 0u;
 	}
 
+	if (!m_renderFpsLowString)
+	{
+		m_renderFpsLowString = TheDisplayStringManager->newDisplayString();
+		m_lastRenderFpsLow = ~0u;
+	}
+
 	if (!m_renderFpsLimitString)
 	{
 		m_renderFpsLimitString = TheDisplayStringManager->newDisplayString();
@@ -6912,6 +6935,7 @@ void InGameUI::refreshRenderFpsResources()
 	Int adjustedRenderFpsFontSize = TheGlobalLanguageData->adjustFontSize(m_renderFpsPointSize);
 	GameFont* fpsFont = TheWindowManager->winFindFont(m_renderFpsFont, adjustedRenderFpsFontSize, m_renderFpsBold);
 	m_renderFpsString->setFont(fpsFont);
+	m_renderFpsLowString->setFont(fpsFont);
 	m_renderFpsLimitString->setFont(fpsFont);
 
 	if (m_renderFpsPointSize > 0)
@@ -7024,31 +7048,30 @@ void InGameUI::updateRenderFpsString()
 		m_renderFpsString->setText(fpsStr);
 		m_lastRenderFps = renderFps;
 	}
+
+	const UnsignedInt renderFpsLow = (UnsignedInt)(TheDisplay->getLow1PercentFPS() + 0.5f);
+	if (renderFpsLow != m_lastRenderFpsLow)
+	{
+		UnicodeString fpsLowStr;
+		fpsLowStr.format(L"\x25BC%u", renderFpsLow);
+		m_renderFpsLowString->setText(fpsLowStr);
+		m_lastRenderFpsLow = renderFpsLow;
+	}
 }
 
 void InGameUI::drawNetworkLatency(Int& x, Int& y)
 {
 #if defined(GENERALS_ONLINE)
-	const UnsignedInt actualLatencyInMS = TheNetwork->getRunAhead() * (1000 / GENERALS_ONLINE_HIGH_FPS_LIMIT);
-	const UnsignedInt actualFrames = ConvertMSLatencyToFrames(actualLatencyInMS);
-	const UnsignedInt gentoolFrames = ConvertMSLatencyToGenToolFrames(actualLatencyInMS);
+	const UnsignedInt networkLatencyFrames = TheNetwork->getRunAhead();
+	const UnsignedInt logicRate = TheNetwork->getMeasuredLogicRate();
 
-	//bool bIsSelfSlugged = TheNetwork->IsSlugging();
-
-	if (gentoolFrames != m_lastNetworkLatencyFrames)
+	if (networkLatencyFrames != m_lastNetworkLatencyFrames || logicRate != m_lastNetworkLogicRate)
 	{
 		UnicodeString latencyStr;
-
-		if (actualFrames != gentoolFrames)
-		{
-			latencyStr.format(L"[%u] - [%ums - %u]", TheNetwork->getFrameRate(), actualLatencyInMS, actualFrames);
-		}
-		else
-		{
-			latencyStr.format(L"%u [%ums][L: %u]", gentoolFrames, actualLatencyInMS, TheNetwork->getFrameRate());
-		}
+		latencyStr.format(L"%u [%ums] [L%u]", networkLatencyFrames, (networkLatencyFrames * 1000 + GENERALS_ONLINE_HIGH_FPS_LIMIT / 2) / GENERALS_ONLINE_HIGH_FPS_LIMIT, logicRate);
 		m_networkLatencyString->setText(latencyStr);
-		m_lastNetworkLatencyFrames = gentoolFrames;
+		m_lastNetworkLatencyFrames = networkLatencyFrames;
+		m_lastNetworkLogicRate = logicRate;
 	}
 #else
 	const UnsignedInt networkLatencyFrames = TheNetwork->getRunAhead();
@@ -7061,8 +7084,6 @@ void InGameUI::drawNetworkLatency(Int& x, Int& y)
 		m_lastNetworkLatencyFrames = networkLatencyFrames;
 	}
 #endif
-
-
 
 	// TheSuperHackers @info at the HUD anchor this draws inline and advances x otherwise uses configured position
 	if (isAtHudAnchorPos(m_networkLatencyPosition))
@@ -7093,19 +7114,22 @@ void InGameUI::drawRenderFps(Int& x, Int& y)
 		updateRenderFpsString();
 	}
 
-	UnsignedInt renderFpsLimit = 0u;
+	UnsignedInt renderFpsLimit = RenderFpsPreset::UncappedFpsValue;
 	if (TheGlobalData->m_useFpsLimit)
 	{
 		renderFpsLimit = (UnsignedInt)TheFramePacer->getFramesPerSecondLimit();
-		if (renderFpsLimit == RenderFpsPreset::UncappedFpsValue)
-		{
-			renderFpsLimit = 0u;
-		}
 	}
 	if (renderFpsLimit != m_lastRenderFpsLimit)
 	{
 		UnicodeString fpsLimitStr;
-		fpsLimitStr.format(L"[%u]", renderFpsLimit);
+		if (renderFpsLimit == RenderFpsPreset::UncappedFpsValue)
+		{
+			fpsLimitStr.format(L"\x25B2X");
+		}
+		else
+		{
+			fpsLimitStr.format(L"\x25B2%u", renderFpsLimit);
+		}
 		m_renderFpsLimitString->setText(fpsLimitStr);
 		m_lastRenderFpsLimit = renderFpsLimit;
 	}
@@ -7116,14 +7140,20 @@ void InGameUI::drawRenderFps(Int& x, Int& y)
 		const Int drawY = kHudAnchorY + y;
 
 		m_renderFpsString->draw(kHudAnchorX + x, drawY, m_renderFpsColor, m_renderFpsDropColor);
-		x += m_renderFpsString->getWidth();
+		x += m_renderFpsString->getWidth() + kHudGapPx / 2;
+		m_renderFpsLowString->draw(kHudAnchorX + x, drawY, m_renderFpsLowColor, m_renderFpsDropColor);
+		x += m_renderFpsLowString->getWidth() + kHudGapPx / 2;
 		m_renderFpsLimitString->draw(kHudAnchorX + x, drawY, m_renderFpsLimitColor, m_renderFpsDropColor);
 		x += m_renderFpsLimitString->getWidth() + kHudGapPx;
 	}
 	else
 	{
-		m_renderFpsString->draw(m_renderFpsPosition.x, m_renderFpsPosition.y, m_renderFpsColor, m_renderFpsDropColor);
-		m_renderFpsLimitString->draw(m_renderFpsPosition.x + m_renderFpsString->getWidth(), m_renderFpsPosition.y, m_renderFpsLimitColor, m_renderFpsDropColor);
+		Int currentX = m_renderFpsPosition.x;
+		m_renderFpsString->draw(currentX, m_renderFpsPosition.y, m_renderFpsColor, m_renderFpsDropColor);
+		currentX += m_renderFpsString->getWidth() + kHudGapPx / 2;
+		m_renderFpsLowString->draw(currentX, m_renderFpsPosition.y, m_renderFpsLowColor, m_renderFpsDropColor);
+		currentX += m_renderFpsLowString->getWidth() + kHudGapPx / 2;
+		m_renderFpsLimitString->draw(currentX, m_renderFpsPosition.y, m_renderFpsLimitColor, m_renderFpsDropColor);
 	}
 }
 
@@ -7171,98 +7201,730 @@ void InGameUI::drawSystemTime(Int& x, Int& y)
 	}
 }
 
-void InGameUI::drawGameTime()
+#if defined(GENERALS_ONLINE)
+namespace
 {
-	// draw connections
-	if (NGMP_OnlineServicesManager::IsAdvancedNetworkStatsEnabled())
+	enum OverlayColumn
 	{
-		if (TheNGMPGame != nullptr)
+		COL_SLOT, COL_NAME, COL_BARS, COL_PATH, COL_PROBE, COL_CMD, COL_JIT, COL_LOST, COL_LATE,
+		COL_CUSHION, COL_SAMPLES, COL_STALLS, COL_DEPTH, COL_OUT, COL_IN,
+		COL_COUNT
+	};
+
+	const Int k_playerViewTop = 500;
+	const Real k_devViewTopFraction = 0.10f;	// the dev table sits higher to clear the control bar
+	const Int k_changeShownMs = 10000;
+	const Int k_nameMaxChars = 14;
+	const Int k_devViewHeaderLines = 2;
+	const Int k_devViewFooterLines = 3;
+
+	const wchar_t *const s_overlayHeaders[COL_COUNT] =
+	{
+		L"Slot", L"Player", L"Bars", L"Path", L"Probe", L"Cmd", L"Jit", L"Lost%", L"Late%",
+		L"Cush5/50", L"n", L"Stalls", L"Depth", L"OutL%", L"InL%"
+	};
+
+	const wchar_t *const s_overlayChangeNames[] = { L"", L"start", L"lag spike", L"stall", L"clean" };
+	const wchar_t *const s_overlayControllerNames[] = { L"n/a", L"seed", L"hold", L"baseline", L"cover", L"uncover", L"congestion", L"outage", L"formula" };
+
+	struct OverlayRow
+	{
+		OverlayRow() : used(FALSE), bars(-1), slowPc(FALSE), direct(FALSE), pingMs(0), lossPercent(0.0f), latePercent(0.0f)
 		{
-			NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-
-			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-
-			if (pMesh != nullptr && pLobbyInterface != nullptr)
+			for (Int c = 0; c < COL_COUNT; ++c)
 			{
-				//std::vector<LobbyMemberEntry>& vecMembers = pLobbyInterface->GetMembersListForCurrentRoom();
-
-				ISteamNetworkingSockets* pSteamNetSockets = SteamNetworkingSockets();
-				if (!pSteamNetSockets)
-				{
-					return;
-				}
-
-				int i = 0;
-				auto& allConnections = pMesh->GetAllConnections();
-				if (allConnections.empty())
-				{
-					return;
-				}
-
-				for (auto& connection : allConnections)
-				{
-					if (!connection.second.IsValid())
-					{
-						continue;
-					}
-
-					LobbyMemberEntry lobbyMember = pLobbyInterface->GetRoomMemberFromID(connection.first);
-
-					const int k_nLanes = 1;
-					SteamNetConnectionRealTimeStatus_t status;
-					SteamNetConnectionRealTimeLaneStatus_t laneStatus[k_nLanes];
-					
-					if (!TheNetwork)
-					{
-						continue;
-					}
-
-					EResult res = pSteamNetSockets->GetConnectionRealTimeStatus(connection.second.m_hSteamConnection, &status, k_nLanes, laneStatus);
-
-					if (res == k_EResultNoConnection || lobbyMember.display_name.empty())
-					{
-						continue;
-					}
-
-					int avgFPS = TheNetwork->getSlotAverageFPS(lobbyMember.m_SlotIndex);
-
-					UnicodeString netString;
-					netString.format(L"\n[usr %s|%d][%hs %hs][AVGFPS: %d] Lat: %i, QL: %.2f, QR: %.2f OutP/s: %.2f, OutB/s: %.2f, InP/s: %.2f, InB/s: %.2f, SR %i PU: %d, PR: %d, NACK: %d, QT: %I64d",
-						from_utf8(lobbyMember.display_name).c_str(),
-						(int)res,
-						connection.second.IsIPV4() ? "IPv4" : "IPv6",
-						connection.second.IsDirect() ? "Direct" : "Relay",
-						avgFPS,
-						status.m_nPing,
-						status.m_flConnectionQualityLocal,
-						status.m_flConnectionQualityRemote,
-						status.m_flOutPacketsPerSec,
-						status.m_flOutBytesPerSec,
-						status.m_flInPacketsPerSec,
-						status.m_flInBytesPerSec,
-						status.m_nSendRateBytesPerSecond,
-						status.m_cbPendingUnreliable,
-						status.m_cbPendingReliable,
-						status.m_cbSentUnackedReliable,
-						status.m_usecQueueTime);
-
-					int w, h;
-					m_gameTimeString->getSize(&w, &h);
-
-					bool bIsHighQuality = true;
-					if (avgFPS < (GENERALS_ONLINE_HIGH_FPS_LIMIT - 1) || status.m_cbSentUnackedReliable >= 1000 || (status.m_flConnectionQualityLocal != -1.f && status.m_flConnectionQualityLocal < 1.f) || (status.m_flConnectionQualityRemote != -1.f && status.m_flConnectionQualityRemote < 1.f))
-					{
-						bIsHighQuality = false;
-					}
-
-					m_gameTimeString->setText(netString);
-					m_gameTimeString->draw(0, 500 + (i * h / 2), bIsHighQuality ? m_colorGood : m_colorBad, m_gameTimeDropColor);
-					++i;
-				}
+				severity[c] = ConnectionRating::SEVERITY_OK;
 			}
+		}
 
+		Bool used;
+		UnicodeString name;
+		Int bars;
+		Bool slowPc;
+		Bool direct;
+		Int pingMs;
+		Real lossPercent;
+		Real latePercent;
+		NetworkOverlayInfo info;
+		UnicodeString cell[COL_COUNT];
+		Int severity[COL_COUNT];
+	};
+
+	Int overlayPercentSeverity(Real percent)
+	{
+		if (percent >= 5.0f)
+		{
+			return ConnectionRating::SEVERITY_BAD;
+		}
+		if (percent >= 0.5f)
+		{
+			return ConnectionRating::SEVERITY_WARN;
+		}
+		return ConnectionRating::SEVERITY_OK;
+	}
+
+	Color overlayColor(Int severity)
+	{
+		if (severity >= ConnectionRating::SEVERITY_BAD)
+		{
+			return GameMakeColor(255, 90, 80, 255);
+		}
+		if (severity == ConnectionRating::SEVERITY_WARN)
+		{
+			return GameMakeColor(255, 195, 50, 255);
+		}
+		return GameMakeColor(235, 235, 235, 255);
+	}
+
+	Color overlayDim()
+	{
+		return GameMakeColor(165, 165, 165, 255);
+	}
+
+	// the overlay owns one DisplayString per text slot, so a slot whose text is unchanged keeps its built sentence and
+	// quads. a shared string would rebuild a sentence surface and texture on every draw, which is very slow on some drivers
+	const Int k_overlayRefreshMs = 250;
+	const Int k_strMeasure = 0;
+	const Int k_strHeaderBase = 1;
+	const Int k_strHeaderCount = 8;
+	const Int k_strRowBase = k_strHeaderBase + k_strHeaderCount;
+	const Int k_strRowCount = 8;
+	const Int k_strDevHeadBase = k_strRowBase + MAX_SLOTS * k_strRowCount;
+	const Int k_strDevCellBase = k_strDevHeadBase + COL_COUNT;
+	const Int k_strFooterBase = k_strDevCellBase + MAX_SLOTS * COL_COUNT;
+	const Int k_strFooterCount = 8;
+	const Int k_strAqBase = k_strFooterBase + k_strFooterCount;
+	const Int k_strAqCount = 8;
+	const Int k_strTotal = k_strAqBase + k_strAqCount;
+	const Int k_aqDevLines = 3;
+
+	const wchar_t *overlayAqReason(const AdaptiveQualityOverlay &aq)
+	{
+		if (aq.level <= 0)
+		{
+			return L"";
+		}
+		if (aq.lastTo > aq.lastFrom)
+		{
+			return aq.lastReason == AdaptiveQualityModel::REASON_OVER ? L"late frames" : L"slow frames";
+		}
+		return L"recovering";
+	}
+
+	const wchar_t *overlayAqDeadlineName(Int kind)
+	{
+		return kind == AdaptiveQualityTuning::DEADLINE_VSYNC ? L"vsync" : (kind == AdaptiveQualityTuning::DEADLINE_CAP ? L"fps cap" : L"floor");
+	}
+
+	struct OverlayCache
+	{
+		OverlayCache() : valid(FALSE), mode(0), refreshedMs(0), lineH(12), logicRate(0), rowCount(0), aqValid(FALSE), fpsAverage(0), fpsLow(0)
+		{
+			for (Int i = 0; i < k_strTotal; ++i)
+			{
+				strings[i] = nullptr;
+			}
+			for (Int c = 0; c < COL_COUNT; ++c)
+			{
+				headerCell[c] = s_overlayHeaders[c];
+			}
+		}
+
+		Bool valid;
+		Int mode;
+		UnsignedInt refreshedMs;
+		Int lineH;
+		UnsignedInt logicRate;
+		Int rowCount;
+		NetworkOverlayInfo header;
+		Bool aqValid;
+		AdaptiveQualityOverlay aq;
+		UnsignedInt fpsAverage;
+		UnsignedInt fpsLow;
+		UnicodeString waitingOn;
+		UnicodeString headerCell[COL_COUNT];
+		OverlayRow rows[MAX_SLOTS];
+		DisplayString *strings[k_strTotal];
+	};
+
+	OverlayCache *s_overlayCache = nullptr;
+	GameFont *s_overlayFont = nullptr;
+
+	void overlayReleaseCache()
+	{
+		if (s_overlayCache == nullptr)
+		{
+			return;
+		}
+		for (Int i = 0; i < k_strTotal; ++i)
+		{
+			if (s_overlayCache->strings[i] != nullptr && TheDisplayStringManager != nullptr)
+			{
+				TheDisplayStringManager->freeDisplayString(s_overlayCache->strings[i]);
+			}
+		}
+		delete s_overlayCache;
+		s_overlayCache = nullptr;
+	}
+
+	DisplayString *overlayString(Int index)
+	{
+		DisplayString *&pString = s_overlayCache->strings[index];
+		if (pString == nullptr)
+		{
+			pString = TheDisplayStringManager->newDisplayString();
+		}
+		pString->setFont(s_overlayFont);
+		return pString;
+	}
+
+	void overlaySetText(DisplayString *pString, const UnicodeString &text)
+	{
+		if (!(text == pString->getText()))
+		{
+			pString->setText(text);
 		}
 	}
+
+	Int overlayTextWidth(Int index, const UnicodeString &text)
+	{
+		DisplayString *pString = overlayString(index);
+		overlaySetText(pString, text);
+		return pString->getWidth();
+	}
+
+	Int overlayDrawText(Int index, Int x, Int y, const UnicodeString &text, Color color, Color dropColor)
+	{
+		DisplayString *pString = overlayString(index);
+		overlaySetText(pString, text);
+		pString->draw(x, y, color, dropColor);
+		return pString->getWidth();
+	}
+
+	Int overlayTableWidth(const Int *colWidth, const Bool *colShown, Int gap)
+	{
+		Int total = 0;
+		Int shown = 0;
+		for (Int c = 0; c < COL_COUNT; ++c)
+		{
+			if (colShown[c])
+			{
+				total += colWidth[c];
+				++shown;
+			}
+		}
+		return total + (shown > 1 ? (shown - 1) * gap : 0);
+	}
+}
+#endif
+
+void InGameUI::drawNetworkOverlay(Int mode)
+{
+#if defined(GENERALS_ONLINE)
+	if (TheNGMPGame == nullptr || TheNetwork == nullptr)
+	{
+		return;
+	}
+
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pMesh == nullptr || pLobbyInterface == nullptr)
+	{
+		return;
+	}
+
+	if (s_overlayCache == nullptr)
+	{
+		s_overlayCache = new OverlayCache();
+	}
+	OverlayCache& cache = *s_overlayCache;
+	s_overlayFont = m_gameTimeString->getFont();
+
+	const Color dropColor = m_gameTimeDropColor;
+	const Color neutral = overlayColor(ConnectionRating::SEVERITY_OK);
+	const Color dim = overlayDim();
+
+	const UnsignedInt nowMs = timeGetTime();
+	const Bool refresh = !cache.valid || cache.mode != mode || nowMs - cache.refreshedMs >= (UnsignedInt)k_overlayRefreshMs;
+	if (refresh)
+	{
+		cache.valid = TRUE;
+		cache.mode = mode;
+		cache.refreshedMs = nowMs;
+
+		Int lineW, lineH;
+		DisplayString *pMeasure = overlayString(k_strMeasure);
+		overlaySetText(pMeasure, UnicodeString(L"Wg"));
+		pMeasure->getSize(&lineW, &lineH);
+		cache.lineH = (std::max)(lineH, 12);
+		cache.logicRate = TheNetwork->getMeasuredLogicRate();
+		TheNetwork->getOverlayInfo(-1, cache.header);
+		cache.aqValid = AdaptiveQuality::get().getOverlay(cache.aq);
+		cache.fpsAverage = (UnsignedInt)(TheDisplay->getAverageFPS() + 0.5f);
+		cache.fpsLow = (UnsignedInt)(TheDisplay->getLow1PercentFPS() + 0.5f);
+
+		for (Int slot = 0; slot < MAX_SLOTS; ++slot)
+		{
+			cache.rows[slot] = OverlayRow();
+		}
+		cache.rowCount = 0;
+		cache.waitingOn.clear();
+		OverlayRow (&rows)[MAX_SLOTS] = cache.rows;
+		Int& rowCount = cache.rowCount;
+		UnicodeString& waitingOn = cache.waitingOn;
+
+		for (auto& connection : pMesh->GetAllConnections())
+		{
+			PlayerConnection& conn = connection.second;
+			if (!conn.IsValid())
+			{
+				continue;
+			}
+
+			LobbyMemberEntry member = pLobbyInterface->GetRoomMemberFromID(connection.first);
+			if (member.display_name.empty() || member.m_SlotIndex < 0 || member.m_SlotIndex >= MAX_SLOTS)
+			{
+				continue;
+			}
+
+			const Int slot = member.m_SlotIndex;
+			OverlayRow& row = rows[slot];
+			row.used = TRUE;
+			row.name.set(from_utf8(member.display_name).c_str());
+			row.bars = conn.ComputeConnectionRating();
+			row.slowPc = conn.m_rating.slowPc;
+			row.direct = conn.IsDirect();
+			row.pingMs = conn.GetLatency();
+			++rowCount;
+
+			const ConnectionStats* pCmdStats = TheNetwork->getConnectionStats(slot);
+			const ConnectionStats& probeStats = conn.m_probeStats;
+			const Bool hasCmd = (pCmdStats != nullptr && pCmdStats->getSampleCount() > 0);
+			row.lossPercent = hasCmd ? pCmdStats->getLossPercent() : probeStats.getLossPercent();
+			row.latePercent = hasCmd ? pCmdStats->getLatePercent() : 0.0f;
+			TheNetwork->getOverlayInfo(slot, row.info);
+
+			if (row.info.waitingOnSlot)
+			{
+				if (!waitingOn.isEmpty())
+				{
+					waitingOn.concat(L", ");
+				}
+				waitingOn.concat(row.name);
+			}
+
+			if (mode != 2)
+			{
+				continue;
+			}
+
+			UnicodeString* cell = row.cell;
+			Int* sev = row.severity;
+			cell[COL_SLOT].format(L"%d", slot);
+			cell[COL_NAME] = row.name;
+			cell[COL_NAME].truncateTo(k_nameMaxChars);
+			if (row.bars > 0)
+			{
+				cell[COL_BARS].format(L"%d", row.bars);
+				sev[COL_BARS] = ConnectionRating::Severity(row.bars);
+			}
+			else
+			{
+				cell[COL_BARS] = L"-";
+			}
+			cell[COL_PATH].format(L"%hs %hs", conn.IsIPV4() ? "IPv4" : "IPv6", row.direct ? "direct" : "relay");
+
+			if (probeStats.getSampleCount() > 0)
+			{
+				cell[COL_PROBE].format(L"%.0f", probeStats.getLatency());
+			}
+			else
+			{
+				cell[COL_PROBE] = L"-";
+			}
+
+			if (hasCmd)
+			{
+				const Real jitter = pCmdStats->getJitter();
+				cell[COL_CMD].format(L"%.0f", pCmdStats->getLatency());
+				cell[COL_JIT].format(L"%.1f", jitter);
+				sev[COL_JIT] = (jitter >= 60.0f) ? ConnectionRating::SEVERITY_BAD : ((jitter >= 30.0f) ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK);
+				cell[COL_LOST].format(L"%.0f", pCmdStats->getLossPercent());
+				sev[COL_LOST] = overlayPercentSeverity(pCmdStats->getLossPercent());
+				cell[COL_LATE].format(L"%.0f", pCmdStats->getLatePercent());
+				sev[COL_LATE] = overlayPercentSeverity(pCmdStats->getLatePercent());
+				cell[COL_DEPTH].format(L"%d/%d", pCmdStats->getRedundancyDepth(), pCmdStats->getRedundancyCap());
+				sev[COL_DEPTH] = (pCmdStats->getRedundancyCap() > 0 && pCmdStats->getRedundancyDepth() >= pCmdStats->getRedundancyCap()) ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK;
+			}
+			else
+			{
+				cell[COL_CMD] = L"-";
+				cell[COL_JIT] = L"-";
+				cell[COL_LOST] = L"-";
+				cell[COL_LATE] = L"-";
+				cell[COL_DEPTH] = L"-";
+			}
+
+			if (row.info.cushionSamples > 0)
+			{
+				cell[COL_CUSHION].format(L"%d/%d", row.info.cushionP5, row.info.cushionP50);
+				sev[COL_CUSHION] = (row.info.cushionP5 <= 0) ? ConnectionRating::SEVERITY_BAD : ((row.info.cushionP5 <= row.info.marginFrames) ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK);
+			}
+			else
+			{
+				cell[COL_CUSHION] = L"-";
+			}
+			cell[COL_SAMPLES].format(L"%d", row.info.cushionSamples);
+			cell[COL_STALLS].format(L"%d", row.info.stallsWindow);
+			sev[COL_STALLS] = (row.info.stallsWindow >= 3 && !row.slowPc) ? ConnectionRating::SEVERITY_BAD : ((row.info.stallsWindow > 0) ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK);
+
+			// out is how our packets fare to the peer, in is the peer's to us
+			PacketFeedback::Summary feedbackOut;
+			PacketFeedback::Summary feedbackIn;
+			if (conn.GetOutgoingLoss(NETWORK_STATS_WINDOW_MS, feedbackOut))
+			{
+				cell[COL_OUT].format(L"%.1f", feedbackOut.lossPercent);
+				sev[COL_OUT] = overlayPercentSeverity(feedbackOut.lossPercent);
+			}
+			else
+			{
+				cell[COL_OUT] = L"-";
+			}
+			if (conn.GetIncomingLoss(NETWORK_STATS_WINDOW_MS, feedbackIn))
+			{
+				cell[COL_IN].format(L"%.1f", feedbackIn.lossPercent);
+				sev[COL_IN] = overlayPercentSeverity(feedbackIn.lossPercent);
+			}
+			else
+			{
+				cell[COL_IN] = L"-";
+			}
+		}
+	}
+
+	const Int lineH = cache.lineH;
+	const Int segmentGap = (lineH * 3) / 4;
+	const Int displayWidth = TheDisplay->getWidth();
+	const Int displayHeight = TheDisplay->getHeight();
+
+	const Int left = 0;
+
+	OverlayRow (&rows)[MAX_SLOTS] = cache.rows;
+	const Int rowCount = cache.rowCount;
+	const UnicodeString& waitingOn = cache.waitingOn;
+	const NetworkOverlayInfo& header = cache.header;
+
+	const Int tableLines = (mode == 2) ? (k_devViewHeaderLines + rowCount + k_devViewFooterLines + (cache.aqValid ? k_aqDevLines : 0)) : (1 + rowCount + (cache.aqValid ? 1 : 0));
+	Int y = (mode == 2) ? (Int)(displayHeight * k_devViewTopFraction) : k_playerViewTop;
+	y = (std::min)(y, displayHeight - 4 - tableLines * lineH);
+	y = (std::max)(y, 0);
+
+	const Int delayMs = header.runAhead * 1000 / GENERALS_ONLINE_HIGH_FPS_LIMIT;
+	{
+		Int x = left;
+		UnicodeString text;
+		text.format(L"Input delay %d ms, logic rate %u Hz", delayMs, cache.logicRate);
+		x += overlayDrawText(k_strHeaderBase + 0, x, y, text, header.stalledNow ? overlayColor(ConnectionRating::SEVERITY_BAD) : neutral, dropColor) + segmentGap;
+
+		const Bool moving = (header.changeAgoMs >= 0 && header.changeAgoMs < k_changeShownMs);
+		if (moving && header.changeDir > 0)
+		{
+			text = L"rising";
+			x += overlayDrawText(k_strHeaderBase + 1, x, y, text, overlayColor(ConnectionRating::SEVERITY_WARN), dropColor) + segmentGap / 2;
+		}
+		else if (moving && header.changeDir < 0)
+		{
+			text = L"lowering";
+			x += overlayDrawText(k_strHeaderBase + 1, x, y, text, GameMakeColor(120, 220, 120, 255), dropColor) + segmentGap / 2;
+		}
+		else
+		{
+			text = L"steady";
+			x += overlayDrawText(k_strHeaderBase + 1, x, y, text, dim, dropColor) + segmentGap / 2;
+		}
+		if (header.changeReason > NetworkOverlayInfo::CHANGE_NONE)
+		{
+			text.format(L"(%ls)", s_overlayChangeNames[header.changeReason]);
+			x += overlayDrawText(k_strHeaderBase + 2, x, y, text, dim, dropColor) + segmentGap;
+		}
+
+		if (header.stalledNow && !waitingOn.isEmpty())
+		{
+			text.format(L"waiting on: %ls", waitingOn.str());
+			overlayDrawText(k_strHeaderBase + 3, x, y, text, overlayColor(ConnectionRating::SEVERITY_BAD), dropColor);
+		}
+		y += lineH;
+	}
+
+	if (mode != 2)
+	{
+		Int nameWidth = 0;
+		for (Int slot = 0; slot < MAX_SLOTS; ++slot)
+		{
+			if (rows[slot].used)
+			{
+				nameWidth = (std::max)(nameWidth, overlayTextWidth(k_strRowBase + slot * k_strRowCount, rows[slot].name));
+			}
+		}
+
+		Int barRowY[MAX_SLOTS];
+		Int barRowBars[MAX_SLOTS];
+		Int barRowCount = 0;
+		for (Int slot = 0; slot < MAX_SLOTS; ++slot)
+		{
+			const OverlayRow& row = rows[slot];
+			if (!row.used)
+			{
+				continue;
+			}
+
+			// the indicators of all rows are drawn in one batch afterwards, text draws must not sit inside it
+			barRowY[barRowCount] = y;
+			barRowBars[barRowCount] = row.bars;
+			++barRowCount;
+
+			const Int rowStr = k_strRowBase + slot * k_strRowCount;
+			Int x = left + lineH + 8;
+			UnicodeString text;
+			overlayDrawText(rowStr, x, y, row.name, neutral, dropColor);
+			x += nameWidth + segmentGap;
+			text.format(L"ping %d ms", row.pingMs);
+			x += overlayDrawText(rowStr + 1, x, y, text, neutral, dropColor) + segmentGap;
+			text = row.direct ? L"direct" : L"relay";
+			x += overlayDrawText(rowStr + 2, x, y, text, dim, dropColor) + segmentGap;
+			if (row.lossPercent >= 0.5f)
+			{
+				text.format(L"loss %.0f%%", row.lossPercent);
+				x += overlayDrawText(rowStr + 3, x, y, text, overlayColor(overlayPercentSeverity(row.lossPercent)), dropColor) + segmentGap;
+			}
+			if (row.latePercent >= 0.5f)
+			{
+				text.format(L"late %.0f%%", row.latePercent);
+				x += overlayDrawText(rowStr + 4, x, y, text, overlayColor(overlayPercentSeverity(row.latePercent)), dropColor) + segmentGap;
+			}
+			if (row.slowPc)
+			{
+				text = L"slow PC";
+				x += overlayDrawText(rowStr + 5, x, y, text, overlayColor(ConnectionRating::SEVERITY_WARN), dropColor) + segmentGap;
+			}
+			else if (row.info.stallsWindow > 0)
+			{
+				text.format(L"stalls %d", row.info.stallsWindow);
+				x += overlayDrawText(rowStr + 5, x, y, text, overlayColor(row.info.stallsWindow >= 3 ? ConnectionRating::SEVERITY_BAD : ConnectionRating::SEVERITY_WARN), dropColor) + segmentGap;
+			}
+			y += lineH;
+		}
+
+		if (cache.aqValid)
+		{
+			Int x = left;
+			UnicodeString text;
+			text.format(L"Quality level %d", cache.aq.level);
+			x += overlayDrawText(k_strAqBase + 0, x, y, text, cache.aq.level > 0 ? overlayColor(ConnectionRating::SEVERITY_WARN) : neutral, dropColor) + segmentGap;
+			if (cache.aq.level > 0)
+			{
+				text.format(L"(%ls)", overlayAqReason(cache.aq));
+				overlayDrawText(k_strAqBase + 1, x, y, text, dim, dropColor);
+			}
+			y += lineH;
+		}
+
+		if (barRowCount > 0)
+		{
+			ScopedDisplayBatch batch;
+			for (Int barRow = 0; barRow < barRowCount; ++barRow)
+			{
+				ConnectionRating::DrawIndicator(left, barRowY[barRow], lineH, barRowBars[barRow]);
+			}
+		}
+		return;
+	}
+
+	// dev view: one row per peer, every column drawn at its own x as the font is proportional
+	Int colWidth[COL_COUNT];
+	Bool colShown[COL_COUNT];
+	Int colX[COL_COUNT];
+	for (Int c = 0; c < COL_COUNT; ++c)
+	{
+		colShown[c] = TRUE;
+		colWidth[c] = overlayTextWidth(k_strDevHeadBase + c, cache.headerCell[c]);
+		for (Int slot = 0; slot < MAX_SLOTS; ++slot)
+		{
+			if (rows[slot].used)
+			{
+				colWidth[c] = (std::max)(colWidth[c], overlayTextWidth(k_strDevCellBase + slot * COL_COUNT + c, rows[slot].cell[c]));
+			}
+		}
+	}
+
+	Int tableGap = segmentGap;
+	if (overlayTableWidth(colWidth, colShown, tableGap) > displayWidth - 8)
+	{
+		tableGap = (std::max)(4, lineH / 3);
+	}
+	const Int optionalColumns[3] = { COL_OUT, COL_IN, COL_BARS };
+	for (Int o = 0; o < 3 && overlayTableWidth(colWidth, colShown, tableGap) > displayWidth - 8; ++o)
+	{
+		colShown[optionalColumns[o]] = FALSE;
+	}
+
+	{
+		Int x = left;
+		for (Int c = 0; c < COL_COUNT; ++c)
+		{
+			colX[c] = x;
+			if (colShown[c])
+			{
+				x += colWidth[c] + tableGap;
+			}
+		}
+	}
+
+	for (Int c = 0; c < COL_COUNT; ++c)
+	{
+		if (colShown[c])
+		{
+			overlayDrawText(k_strDevHeadBase + c, colX[c], y, cache.headerCell[c], dim, dropColor);
+		}
+	}
+	y += lineH;
+
+	for (Int slot = 0; slot < MAX_SLOTS; ++slot)
+	{
+		const OverlayRow& row = rows[slot];
+		if (!row.used)
+		{
+			continue;
+		}
+		for (Int c = 0; c < COL_COUNT; ++c)
+		{
+			if (colShown[c])
+			{
+				overlayDrawText(k_strDevCellBase + slot * COL_COUNT + c, colX[c], y, row.cell[c], overlayColor(row.severity[c]), dropColor);
+			}
+		}
+		y += lineH;
+	}
+	y += lineH / 2;
+
+	{
+		Int x = left;
+		UnicodeString text;
+		text.format(L"R %d frames (%d ms)  send interval %d ms", header.runAhead, delayMs, header.frameGroupingMs);
+		x += overlayDrawText(k_strFooterBase + 0, x, y, text, neutral, dropColor) + segmentGap;
+
+		if (header.isRouter && header.controllerOn)
+		{
+			const Int reasonSeverity = (header.ctlReason == NetworkOverlayInfo::CTL_CONGESTION || header.ctlReason == NetworkOverlayInfo::CTL_OUTAGE) ? ConnectionRating::SEVERITY_BAD : ((header.ctlReason == NetworkOverlayInfo::CTL_COVER || header.ctlInSpike) ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK);
+			text.format(L"reason %ls", s_overlayControllerNames[header.ctlReason]);
+			x += overlayDrawText(k_strFooterBase + 1, x, y, text, overlayColor(reasonSeverity), dropColor) + segmentGap;
+
+			const Int minSumNeeded = 2 * header.marginFrames;
+			if (header.ctlMinSum < NetworkOverlayInfo::NO_PAIR_SUM)
+			{
+				text.format(L"minS %d of %d (pair %d-%d)", header.ctlMinSum, minSumNeeded, header.ctlPairA, header.ctlPairB);
+				x += overlayDrawText(k_strFooterBase + 2, x, y, text, overlayColor(header.ctlMinSum <= 0 ? ConnectionRating::SEVERITY_BAD : (header.ctlMinSum < minSumNeeded ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK)), dropColor) + segmentGap;
+			}
+			else
+			{
+				text = L"minS - (no pair)";
+				x += overlayDrawText(k_strFooterBase + 2, x, y, text, dim, dropColor) + segmentGap;
+			}
+			if (header.ctlReason == NetworkOverlayInfo::CTL_NONE)
+			{
+				text = L"base n/a  cover n/a";
+			}
+			else
+			{
+				text.format(L"base %d  cover %d%ls", header.ctlBase, header.ctlCover, header.ctlInSpike ? L"  in spike" : L"");
+			}
+			overlayDrawText(k_strFooterBase + 3, x, y, text, neutral, dropColor);
+			y += lineH;
+
+			text.format(L"spikes %d.%d/min  size %d ms  since_change %d ms", header.ctlSpikesPerMin10 / 10, header.ctlSpikesPerMin10 % 10, header.ctlSpikeSizeMs, header.ctlSinceChangeMs);
+			overlayDrawText(k_strFooterBase + 4, left, y, text, neutral, dropColor);
+			y += lineH;
+		}
+		else
+		{
+			if (header.changeReason > NetworkOverlayInfo::CHANGE_NONE)
+			{
+				text.format(L"last change %ls %d s ago", s_overlayChangeNames[header.changeReason], header.changeAgoMs / 1000);
+				x += overlayDrawText(k_strFooterBase + 5, x, y, text, neutral, dropColor) + segmentGap;
+			}
+			text = header.isRouter ? L"controller off" : L"host decides";
+			overlayDrawText(k_strFooterBase + 6, x, y, text, dim, dropColor);
+			y += lineH;
+		}
+	}
+
+	if (cache.aqValid)
+	{
+		const AdaptiveQualityOverlay &aq = cache.aq;
+		UnicodeString text;
+		const Color costColor = overlayColor((aq.p50Ms > aq.stepDownP50Ms) ? ConnectionRating::SEVERITY_BAD : ((aq.p95Ms > aq.stepUpP95Ms) ? ConnectionRating::SEVERITY_WARN : ConnectionRating::SEVERITY_OK));
+		text.format(L"Quality L%d  fps %u (1%% low %u)  own p50 %.1f / p95 %.1f ms (cpu %.1f, present %.1f)  budget p50 %.1f / p95 %.1f  deadline %.1f ms (%ls, %.0f Hz)", aq.level, cache.fpsAverage, cache.fpsLow, aq.p50Ms, aq.p95Ms, aq.cpuMs, aq.presentMs, aq.stepDownP50Ms, aq.stepUpP95Ms, aq.deadlineMs, overlayAqDeadlineName(aq.deadlineKind), aq.refreshHz);
+		overlayDrawText(k_strAqBase + 2, left, y, text, costColor, dropColor);
+		y += lineH;
+
+		text = L"saving ms";
+		for (Int l = 1; l < AdaptiveQualityOverlay::LEVELS; ++l)
+		{
+			UnicodeString part;
+			part.format(L"  L%d %.1f%ls", l, aq.savingMs[l], aq.savingLearned[l] ? L"" : L"*");
+			text.concat(part);
+		}
+		text.concat(L"  (* default)");
+		UnicodeString down;
+		UnicodeString up;
+		if (aq.downInSec >= 0.0f)
+		{
+			down.format(L"%d s", (Int)(aq.downInSec + 0.5f));
+		}
+		else
+		{
+			down = L"-";
+		}
+		if (aq.upInSec >= 0.0f)
+		{
+			up.format(L"%d s", (Int)(aq.upInSec + 0.5f));
+		}
+		else
+		{
+			up = L"-";
+		}
+		UnicodeString next;
+		next.format(L"  next step down %ls, up %ls", down.str(), up.str());
+		text.concat(next);
+		overlayDrawText(k_strAqBase + 3, left, y, text, neutral, dropColor);
+		y += lineH;
+
+		if (aq.lastFrom >= 0)
+		{
+			text.format(L"last step L%d -> L%d (%ls) %d s ago", aq.lastFrom, aq.lastTo, aq.lastTo > aq.lastFrom ? (aq.lastReason == AdaptiveQualityModel::REASON_OVER ? L"late frames" : L"slow frames") : L"calm", (Int)(aq.lastAgoSec + 0.5f));
+		}
+		else
+		{
+			text = L"no step this match";
+		}
+		overlayDrawText(k_strAqBase + 4, left, y, text, dim, dropColor);
+		y += lineH;
+	}
+#endif
+}
+
+void InGameUI::drawGameTime()
+{
+	if (NGMP_OnlineServicesManager::GetNetworkOverlayMode() != 0)
+	{
+		drawNetworkOverlay(NGMP_OnlineServicesManager::GetNetworkOverlayMode());
+	}
+#if defined(GENERALS_ONLINE)
+	else
+	{
+		overlayReleaseCache();
+	}
+#endif
 
 	Int currentFrame = TheGameLogic->getFrame();
 	Int gameSeconds = (Int)(SECONDS_PER_LOGICFRAME_REAL * currentFrame);
