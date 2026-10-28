@@ -191,6 +191,12 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			}
 
 
+			// a clean close is a leave, the peer is gone for good; the game's own disconnect already ran above
+			if (!bWasError)
+			{
+				pMesh->RemoveConnection(userID);
+			}
+
 			// In this example, we will bail the test whenever this happens.
 			// Was this a normal termination?
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING]DISCONNECTED OR PROBLEM DETECTED %d\n", pInfo->m_info.m_eEndReason);
@@ -266,23 +272,16 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 					}
 				}
 
+				// the server started signalling with this peer, so accept it even if our roster is stale
 				if (bPlayerIsInLobby)
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Accepting - Player is in lobby\n", pInfo->m_info.m_szConnectionDescription);
-					SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
 				}
 				else
 				{
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Rejecting - Player is not in lobby\n", pInfo->m_info.m_szConnectionDescription);
-
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection not in lobby %lld", plrConnection.m_userID);
-					SteamNetworkingSockets()->CloseConnection(pInfo->m_hConn, 1000, "Player is not in lobby (Rejected)", false);
-
-					if (TheNetwork != nullptr)
-					{
-						TheNetwork->GetConnectionManager()->disconnectPlayer(plrConnection.m_userID);
-					}
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Accepting - Server started signalling, roster not refreshed yet\n", pInfo->m_info.m_szConnectionDescription);
 				}
+				SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
 			}
 			
 		}
@@ -1058,6 +1057,18 @@ void NetworkMesh::SetTurnCredentials(const std::string& strUsername, const std::
 }
 
 
+void NetworkMesh::RemoveConnection(int64_t userID)
+{
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+
+	auto it = m_mapConnections.find(userID);
+	if (it != m_mapConnections.end())
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[ERASE 4] Removing user %lld", it->second.m_userID);
+		m_mapConnections.erase(it);
+	}
+}
+
 void NetworkMesh::DisconnectUser(int64_t remoteUserID)
 {
 	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
@@ -1196,6 +1207,11 @@ void PlayerConnection::LiteUpdateForAC()
 	}
 	else
 	{
+		if (!CanRecv())
+		{
+			return;
+		}
+
 		SteamNetworkingMessage_t* pMsg[255] = { nullptr };
 		int numPackets = Recv(pMsg);
 

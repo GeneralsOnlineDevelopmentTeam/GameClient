@@ -4,6 +4,7 @@
 
 #include <thread>
 #include <memory>
+#include <chrono>
 
 class HTTPManager;
 
@@ -28,6 +29,7 @@ struct S3ScreenshotEntry
     std::vector<uint8_t> vecBytes;
     std::string strSignedURI;
 	EScreenshotType screenshotType;
+	std::chrono::steady_clock::time_point notBefore; // upload is held back until this time
 
     bool operator==(const S3ScreenshotEntry& other) const
 	{
@@ -185,12 +187,16 @@ public:
 	// lobby ID the check was started for; a stale reply (different lobby) is ignored
 	int64_t m_connectivityCheckLobbyID = -1;
 
+	// when the check was sent; Tick() gives up on it after a client-side timeout
+	int64_t m_connectivityCheckStartMs = -1;
+
 	void SendData_StartFullMeshConnectivityCheck(std::function<void(bool, std::list<std::pair<int64_t, int64_t>>, std::string)> cbOnConnectivityCheckComplete);
 
 	void ClearConnectivityCheckCallback()
 	{
 		m_cbOnConnectivityCheckComplete = nullptr;
 		m_connectivityCheckLobbyID = -1;
+		m_connectivityCheckStartMs = -1;
 	}
 
 	void Tick();
@@ -213,6 +219,13 @@ public:
 		}
 
 		m_pendingSignals.push(std::move(payload));
+	}
+
+	// signals queued for a lobby we've since left must not reach the next one
+	void ClearPendingSignals()
+	{
+		std::scoped_lock<std::mutex> lock(m_pendingSignalsMutex);
+		m_pendingSignals = std::queue<std::vector<uint8_t>>();
 	}
 
 	std::queue<std::vector<uint8_t>> DrainPendingSignals()
@@ -341,6 +354,8 @@ struct ServiceConfig
 
 	int screenshot_width = 557;
 	int screenshot_height = 333;
+	int screenshot_upload_bytes_per_sec = 131072; // 128 KB/s
+	int screenshot_slot_offset_ms = 2000;
 
 	// ICE client used for P2P NAT traversal: 0 = library default, 1 = native, 2 = WebRTC.
 	int ice_implementation = 2;
@@ -351,7 +366,7 @@ struct ServiceConfig
 		ra_slack_percent, frame_grouping_frames, enable_host_migration, network_do_immediate_flush_per_frame, network_send_flags, network_latency_logic_model,
 		use_default_config, ra_slack_override_percent_in_default, do_probes, do_replay_upload, network_mesh_histogram_duration,
 		ibra_ra_tweaks, ibra_minslack_default, ibra_maxslack_default, ibra_minslack_greaterthan300ms, ibra_maxslack_greaterthan300ms, ibra_minslack_greaterthan200ms, ibra_maxslack_greaterthan200ms,
-		screenshot_width, screenshot_height, ice_implementation, use_new_networking)
+		screenshot_width, screenshot_height, screenshot_upload_bytes_per_sec, screenshot_slot_offset_ms, ice_implementation, use_new_networking)
 };
 
 class NGMP_OnlineServicesManager
@@ -586,10 +601,10 @@ public:
 	ServiceConfig& GetServiceConfig() { return m_ServiceConfig; }
 
 public:
-	void CacheScreenshotBytes_StartMatch(std::vector<uint8_t>& vecData)
+	void CacheScreenshotBytes_StartMatch(std::vector<uint8_t> vecData)
 	{
 		std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
-        m_vecCachedScreenshotBytes_MatchStart = vecData;
+        m_vecCachedScreenshotBytes_MatchStart = std::move(vecData);
 	}
 
 	void CacheScreenshotBytes_EndMatch(uint64_t matchID, std::vector<uint8_t> data);

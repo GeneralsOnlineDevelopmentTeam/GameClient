@@ -332,6 +332,11 @@ Bool NextGenTransport::doRecv(void)
         std::map<int64_t, PlayerConnection>& connections = pMesh->GetAllConnections();
         for (auto& kvPair : connections)
         {
+            if (!kvPair.second.CanRecv())
+            {
+                continue;
+            }
+
             SteamNetworkingMessage_t* pMsg[255] = { nullptr };
             int numPackets = kvPair.second.Recv(pMsg);
 

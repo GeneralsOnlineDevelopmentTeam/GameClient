@@ -60,11 +60,13 @@ public:
 	Real getReal(AsciiString key, Real defaultValue) const;
 	Int getInt(AsciiString key, Int defaultValue) const;
 	AsciiString getAsciiString(AsciiString key, AsciiString defaultValue) const;
+	UnicodeString getUnicodeString(AsciiString key, UnicodeString defaultValue) const;
 
 	void setBool(AsciiString key, Bool val);
 	void setReal(AsciiString key, Real val);
 	void setInt(AsciiString key, Int val);
 	void setAsciiString(AsciiString key, AsciiString val);
+	void setUnicodeString(AsciiString key, UnicodeString val);
 
 protected:
 	AsciiString m_filename;

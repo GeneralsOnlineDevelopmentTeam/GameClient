@@ -149,9 +149,38 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		return;
 	}
 
-	for (Int i = 0; i < MAX_SLOTS; ++i)
+	const std::vector<LobbyMemberEntry>& members = pLobbyInterface->GetCurrentLobby().members;
+
+	// a real member without a usable slot means the roster is incomplete, keep the previous slots and ask for a fresh one
+	for (const LobbyMemberEntry& lobbyMember : members)
 	{
-		LobbyMemberEntry pLobbyMember = pLobbyInterface->GetRoomMemberFromIndex(i);
+		if (lobbyMember.user_id != -1 && !lobbyMember.HasValidSlot())
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] UpdateSlotsFromCurrentLobby: user %lld has no valid slot index (%u), keeping the previous roster", lobbyMember.user_id, lobbyMember.m_SlotIndex);
+			pLobbyInterface->RequestRosterRefresh();
+			return;
+		}
+	}
+
+	bool claimedSlots[MAX_SLOTS] = {};
+
+	for (const LobbyMemberEntry& pLobbyMember : members)
+	{
+		// empty placeholder without a slot, nothing to place
+		if (!pLobbyMember.HasValidSlot())
+		{
+			continue;
+		}
+
+		NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(pLobbyMember.m_SlotIndex);
+
+		if (slot == nullptr)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] UpdateSlotsFromCurrentLobby: getSlot(%u) returned null, skipping", pLobbyMember.m_SlotIndex);
+			continue;
+		}
+
+		claimedSlots[pLobbyMember.m_SlotIndex] = true;
 
 		// TODO_NGMP: Support spectators
 		int playerTemplate = -1;
@@ -168,20 +197,6 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		if (pLobbyMember.m_SlotState != SlotState::SLOT_OPEN && pLobbyMember.m_SlotState != SlotState::SLOT_CLOSED)
 		{
 			bool bIsAI = (pLobbyMember.m_SlotState == SlotState::SLOT_EASY_AI || pLobbyMember.m_SlotState == SlotState::SLOT_MED_AI|| pLobbyMember.m_SlotState == SlotState::SLOT_BRUTAL_AI);
-
-			if (pLobbyMember.m_SlotIndex >= MAX_SLOTS)
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] UpdateSlotsFromCurrentLobby: bad slot index %u for user %lld, skipping", pLobbyMember.m_SlotIndex, pLobbyMember.user_id);
-				continue;
-			}
-
-			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(pLobbyMember.m_SlotIndex);
-
-			if (slot == nullptr)
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] UpdateSlotsFromCurrentLobby: getSlot(%u) returned null, skipping", pLobbyMember.m_SlotIndex);
-				continue;
-			}
 
 			// NOTE: Internally generals uses 'local ip' to detect which user is local... we dont have an IP, so just use player index for ip
 			slot->setState((SlotState)pLobbyMember.m_SlotState, UnicodeString(from_utf8(pLobbyMember.display_name).c_str()), pLobbyMember.m_SlotIndex);
@@ -219,24 +234,21 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		else
 		{
 			// handle open/closed
-			if (pLobbyMember.m_SlotIndex >= MAX_SLOTS)
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] UpdateSlotsFromCurrentLobby: bad slot index %u for user %lld, skipping", pLobbyMember.m_SlotIndex, pLobbyMember.user_id);
-				continue;
-			}
-
-			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(pLobbyMember.m_SlotIndex);
-
-			if (slot == nullptr)
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] UpdateSlotsFromCurrentLobby: getSlot(%u) returned null, skipping", pLobbyMember.m_SlotIndex);
-				continue;
-			}
-
 			slot->setState((SlotState)pLobbyMember.m_SlotState);
 		}
+	}
 
-		// dont need to handle else here, we set it up upon lobby creation
+	// slots no member claims are open
+	for (Int i = 0; i < MAX_SLOTS; ++i)
+	{
+		if (!claimedSlots[i])
+		{
+			GameSlot* slot = getSlot(i);
+			if (slot != nullptr)
+			{
+				slot->setState(SLOT_OPEN);
+			}
+		}
 	}
 }
 

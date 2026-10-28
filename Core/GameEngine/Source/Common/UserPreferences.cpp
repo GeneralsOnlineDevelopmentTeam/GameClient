@@ -260,6 +260,19 @@ AsciiString UserPreferences::getAsciiString(AsciiString key, AsciiString default
 	return it->second;
 }
 
+UnicodeString UserPreferences::getUnicodeString(AsciiString key, UnicodeString defaultValue) const
+{
+	UserPreferences::const_iterator it = find(key);
+	if (it == end())
+	{
+		return defaultValue;
+	}
+
+	UnicodeString ret;
+	ret.translate(it->second);
+	return ret;
+}
+
 void UserPreferences::setBool(AsciiString key, Bool val)
 {
 	(*this)[key] = boolAsStr(val);
@@ -278,6 +291,13 @@ void UserPreferences::setInt(AsciiString key, Int val)
 void UserPreferences::setAsciiString(AsciiString key, AsciiString val)
 {
 	(*this)[key] = val;
+}
+
+void UserPreferences::setUnicodeString(AsciiString key, UnicodeString val)
+{
+	AsciiString str;
+	str.translate(val);
+	(*this)[key] = str;
 }
 
 //-----------------------------------------------------------------------------
@@ -515,22 +535,16 @@ void CustomMatchPreferences::setLastLadder(const AsciiString& addr, UnsignedShor
 	(*this)["LastLadderPort"] = strVal;
 }
 
-AsciiString CustomMatchPreferences::getLastLobbyName() const
+UnicodeString CustomMatchPreferences::getLastLobbyName() const
 {
-	CustomMatchPreferences::const_iterator it = find("LastLobbyName");
-	if (it == end())
-	{
-		return AsciiString::TheEmptyString;
-	}
-
-	AsciiString ret = it->second;
+	UnicodeString ret = getUnicodeString("LastLobbyName", UnicodeString::TheEmptyString);
 	ret.trim();
 	return ret;
 }
 
-void CustomMatchPreferences::setLastLobbyName(const AsciiString& name)
+void CustomMatchPreferences::setLastLobbyName(const UnicodeString& name)
 {
-	(*this)["LastLobbyName"] = name;
+	setUnicodeString("LastLobbyName", name);
 }
 
 AsciiString CustomMatchPreferences::getLastLadderAddr( void )

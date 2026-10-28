@@ -977,6 +977,129 @@ static void WOLLockSettings()
 	}
 }
 
+// lobby humans (the service's view) the game has no human slot for
+static Int CountLobbyHumansMissingFromGame(NGMPGame* game)
+{
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr || game == nullptr)
+	{
+		return 0;
+	}
+
+	Int missing = 0;
+	for (const LobbyMemberEntry& member : pLobbyInterface->GetCurrentLobby().members)
+	{
+		if (!member.IsHuman())
+		{
+			continue;
+		}
+
+		bool bInGame = false;
+		for (Int i = 0; i < MAX_SLOTS; ++i)
+		{
+			NGMPGameSlot* slot = static_cast<NGMPGameSlot*>(game->getSlot(i));
+			if (slot != nullptr && slot->isHuman() && slot->m_userID == member.user_id)
+			{
+				bInGame = true;
+				break;
+			}
+		}
+
+		if (!bInGame)
+		{
+			++missing;
+		}
+	}
+
+	return missing;
+}
+
+// other lobby humans we have no connected link to, a mesh check can't be complete with these
+static Int CountLobbyHumansWithoutMeshLink()
+{
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	if (pLobbyInterface == nullptr || pAuthInterface == nullptr || pMesh == nullptr)
+	{
+		return 0;
+	}
+
+	const int64_t myUserID = pAuthInterface->GetUserID();
+	Int unlinked = 0;
+	for (const LobbyMemberEntry& member : pLobbyInterface->GetCurrentLobby().members)
+	{
+		if (!member.IsHuman() || member.user_id == myUserID)
+		{
+			continue;
+		}
+
+		PlayerConnection* pConnection = pMesh->GetConnectionForUser(member.user_id);
+		if (pConnection == nullptr || pConnection->GetState() != EConnectionState::CONNECTED_DIRECT)
+		{
+			++unlinked;
+		}
+	}
+
+	return unlinked;
+}
+
+static const Int MAX_ROSTER_REFRESHES_BEFORE_START = 3;
+static bool s_startWaitingForRoster = false;
+
+// the game must have a slot for every human the lobby lists, otherwise the match would start without them
+static void StartMatchWhenRosterMatches(Int refreshesDone)
+{
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	NGMPGame* myGame = pLobbyInterface == nullptr ? nullptr : pLobbyInterface->GetCurrentGame();
+
+	if (pLobbyInterface == nullptr || !myGame || !myGame->isInGame())
+	{
+		s_startWaitingForRoster = false;
+		return;
+	}
+
+	if (!TheNGMPGame)
+	{
+		s_startWaitingForRoster = false;
+		return;
+	}
+
+	const Int missingHumans = CountLobbyHumansMissingFromGame(myGame);
+	if (missingHumans > 0)
+	{
+		if (refreshesDone < MAX_ROSTER_REFRESHES_BEFORE_START)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Start: the game is missing %d lobby player(s), refreshing the lobby (%d/%d)", missingHumans, refreshesDone + 1, MAX_ROSTER_REFRESHES_BEFORE_START);
+			pLobbyInterface->UpdateRoomDataCache([refreshesDone](bool)
+				{
+					StartMatchWhenRosterMatches(refreshesDone + 1);
+				});
+			return;
+		}
+
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Start: the game is still missing %d lobby player(s), not starting", missingHumans);
+		s_startWaitingForRoster = false;
+		GSMessageBoxOk(TheGameText->fetch("GUI:Error"), UnicodeString(L"The player list was incomplete, so the match was not started. Please rejoin the lobby."));
+		PopBackToLobby();
+		return;
+	}
+
+	s_startWaitingForRoster = false;
+
+	// TODO_NGMP
+	//SendStatsToOtherPlayers(TheNGMPGame);
+
+	GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
+	if (buttonBuddy)
+		buttonBuddy->winEnable(FALSE);
+	GameSpyCloseOverlay(GSOVERLAY_BUDDY);
+	GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
+
+	*TheNGMPGame = *myGame;
+	TheNGMPGame->startGame(0);
+}
+
 static void StartPressed()
 {
 	Bool isReady = TRUE;
@@ -1164,6 +1287,13 @@ static void StartPressed()
 
 			pWS->SendData_StartFullMeshConnectivityCheck([=](bool bMeshFullyConnected, std::list<std::pair<int64_t, int64_t>> missingConnections, std::string strFailureReason)
 				{
+					// the service can report a complete mesh while we hold no link to players the lobby lists
+					if (bMeshFullyConnected && CountLobbyHumansWithoutMeshLink() > 0)
+					{
+						bMeshFullyConnected = false;
+						strFailureReason = "no_link_to_lobby_players";
+					}
+
 					if (bMeshFullyConnected)
 					{
 						UnicodeString strInform = UnicodeString(L"Connections: All players are connected.");
@@ -1223,7 +1353,10 @@ static void StartPressed()
 
 						// who is missing who?
 						//std::list<std::pair<int64_t, int64_t>> missingConnections
-						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Connections: Missing links:"), GameMakeColor(255, 194, 15, 255), -1, -1);
+						if (!missingConnections.empty())
+						{
+							GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Connections: Missing links:"), GameMakeColor(255, 194, 15, 255), -1, -1);
+						}
 						for (auto& missingPair : missingConnections)
 						{
 							bool bFoundPlayer = false;
@@ -2009,26 +2142,13 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 	pLobbyInterface->RegisterForGameStartPacket([]()
 		{
-			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-			NGMPGame* myGame = pLobbyInterface == nullptr ? nullptr : pLobbyInterface->GetCurrentGame();
-
-			if (pLobbyInterface == nullptr || !myGame || !myGame->isInGame())
+			if (s_startWaitingForRoster)
+			{
 				return;
+			}
 
-			if (!TheNGMPGame)
-				return;
-
-			// TODO_NGMP
-			//SendStatsToOtherPlayers(TheNGMPGame);
-
-			GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
-			if (buttonBuddy)
-				buttonBuddy->winEnable(FALSE);
-			GameSpyCloseOverlay(GSOVERLAY_BUDDY);
-			GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
-
-			*TheNGMPGame = *myGame;
-			TheNGMPGame->startGame(0);
+			s_startWaitingForRoster = true;
+			StartMatchWhenRosterMatches(0);
 		});
 
 

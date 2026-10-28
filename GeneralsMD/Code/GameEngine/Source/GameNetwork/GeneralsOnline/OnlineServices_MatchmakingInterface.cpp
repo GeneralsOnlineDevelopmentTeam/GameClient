@@ -1,5 +1,6 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
+#include "GameNetwork/GeneralsOnline/JsonHelpers.h"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
 
@@ -23,31 +24,38 @@ void NGMP_OnlineServices_MatchmakingInterface::RetrievePlaylists(std::function<v
 				std::vector<PlaylistEntry> vecPlaylists;
 				for (const auto& playlistEntryIter : jsonObject["playlists"])
 				{
+					try
+					{
 					PlaylistEntry playlistEntry;
-					playlistEntryIter["PlaylistID"].get_to(playlistEntry.PlaylistID);
-					playlistEntryIter["Name"].get_to(playlistEntry.Name);
-					playlistEntryIter["MinPlayers"].get_to(playlistEntry.MinPlayers);
-					playlistEntryIter["DesiredPlayers"].get_to(playlistEntry.DesiredPlayers);
-					playlistEntryIter["MinSelectedMaps"].get_to(playlistEntry.MinSelectedMaps);
-					playlistEntryIter["AllowTeams"].get_to(playlistEntry.AllowTeams);
-					playlistEntryIter["TeamSize"].get_to(playlistEntry.TeamSize);
-					playlistEntryIter["AllowArmySelection"].get_to(playlistEntry.AllowArmySelection);
-					playlistEntryIter["GracePeriodAtMinPlayersMSec"].get_to(playlistEntry.GracePeriodAtMinPlayersMSec);
+					JsonGetRequired(playlistEntryIter, "PlaylistID", playlistEntry.PlaylistID);
+					JsonGetOptional(playlistEntryIter, "Name", playlistEntry.Name);
+					JsonGetOptional(playlistEntryIter, "MinPlayers", playlistEntry.MinPlayers);
+					JsonGetOptional(playlistEntryIter, "DesiredPlayers", playlistEntry.DesiredPlayers);
+					JsonGetOptional(playlistEntryIter, "MinSelectedMaps", playlistEntry.MinSelectedMaps);
+					JsonGetOptional(playlistEntryIter, "AllowTeams", playlistEntry.AllowTeams);
+					JsonGetOptional(playlistEntryIter, "TeamSize", playlistEntry.TeamSize);
+					JsonGetOptional(playlistEntryIter, "AllowArmySelection", playlistEntry.AllowArmySelection);
+					JsonGetOptional(playlistEntryIter, "GracePeriodAtMinPlayersMSec", playlistEntry.GracePeriodAtMinPlayersMSec);
 
 					// maps
-					for (const auto& mapEntryIter : playlistEntryIter["Maps"])
+					for (const auto& mapEntryIter : playlistEntryIter.at("Maps"))
 					{
 						PlaylistMapEntry mapEntry;
 
-						mapEntryIter["Name"].get_to(mapEntry.Name);
-						mapEntryIter["Path"].get_to(mapEntry.Path);
+						JsonGetOptional(mapEntryIter, "Name", mapEntry.Name);
+						JsonGetRequired(mapEntryIter, "Path", mapEntry.Path);
 						mapEntry.Path = utf8_to_local(mapEntry.Path); // used as a local file path
-						mapEntryIter["Custom"].get_to(mapEntry.Custom);
+						JsonGetOptional(mapEntryIter, "Custom", mapEntry.Custom);
 
 						playlistEntry.Maps.push_back(mapEntry);
 					}
 
 					vecPlaylists.push_back(playlistEntry);
+					}
+					catch (...)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Skipping malformed playlist entry");
+					}
 				}
 
 				// cache
