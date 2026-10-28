@@ -114,7 +114,7 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 			const bool bPeerLeft = pJoinOrderLobby != nullptr && pJoinOrderLobby->IsJoinOrderKnown() && !pJoinOrderLobby->IsLobbyMember(userID);
 			// a match can't leave its lobby, so keep repairing the link until the service drops the player
 			const bool bInMatch = TheGameLogic != nullptr && TheGameLogic->isInInternetGame();
-			bool bShouldRetry = serviceConf.retry_signalling && ((bInMatch && !bPeerLeft) || (!bWeJoinedLater && !bPeerLeft) || signallingAttemptsBeforeDisconnect < numSignallingAttempts);
+			bool bShouldRetry = serviceConf.connection.retry_signalling && ((bInMatch && !bPeerLeft) || (!bWeJoinedLater && !bPeerLeft) || signallingAttemptsBeforeDisconnect < numSignallingAttempts);
 
 			bool bWasError = pInfo->m_info.m_eState == k_ESteamNetworkingConnectionState_ProblemDetectedLocally || pInfo->m_info.m_eEndReason != k_ESteamNetConnectionEnd_App_Generic;
 			plrConnection.SetDisconnected(bWasError, pMesh, bShouldRetry && bWasError);
@@ -716,12 +716,12 @@ NetworkMesh::NetworkMesh()
 	m_strTurnTokenString = std::format("{},{}", m_strTurnToken.c_str(), m_strTurnToken.c_str());
 
 	ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
-	m_iceEnable = (g_bForceRelay || serviceConf.relay_all_traffic)
+	m_iceEnable = (g_bForceRelay || serviceConf.connection.relay_only)
 		? k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Relay
 		: k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All;
 
 	// 0 = library default, 1 = native, 2 = WebRTC
-	m_iceImplementation = (serviceConf.ice_implementation >= 0 && serviceConf.ice_implementation <= 2) ? serviceConf.ice_implementation : 2;
+	m_iceImplementation = (serviceConf.connection.ice_engine >= 0 && serviceConf.connection.ice_engine <= 2) ? serviceConf.connection.ice_engine : 2;
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh: using ICE implementation %d (0=default, 1=native, 2=WebRTC)", m_iceImplementation);
 
 	m_pSignaling = new CSignalingClient(SteamNetworkingSockets());
@@ -772,7 +772,7 @@ NetworkMesh::NetworkMesh()
 void NetworkMesh::Flush()
 {
 	ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-	bool bDoImmediateFlushPerFrame = serviceConf.network_do_immediate_flush_per_frame;
+	bool bDoImmediateFlushPerFrame = serviceConf.send.flush_every_frame;
 
 	if (bDoImmediateFlushPerFrame)
 	{
@@ -952,7 +952,7 @@ void NetworkMesh::StartConnectionSignalling(const char* szMiddlewareID, int64_t 
 
         int g_nLocalPort = 0;
 
-        int g_nVirtualPortRemote = serviceConf.use_mapped_port ? preferredPort : 0;
+        int g_nVirtualPortRemote = serviceConf.connection.use_mapped_port ? preferredPort : 0;
 
         // Our remote and local port don't match, so we need to set it explicitly
         if (g_nVirtualPortRemote != g_nLocalPort)
@@ -1336,7 +1336,7 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 		int sendFlags = k_nSteamNetworkingSend_Reliable | k_nSteamNetworkingSend_AutoRestartBrokenSession; // default from last patch
 
 		ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-		int netSendFlags = serviceConf.network_send_flags;
+		int netSendFlags = serviceConf.send.flags;
 
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "[GAME PACKET] Sending msg of size %ld to user %lld\n", totalDataSize, m_userID);
 		EResult r = SteamNetworkingSockets()->SendMessageToConnection(
@@ -1424,7 +1424,7 @@ void PlayerConnection::UpdateLatencyHistogram()
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
 		ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-		histogram_duration = serviceConf.network_mesh_histogram_duration;
+		histogram_duration = serviceConf.connection.latency_history_ms;
 	}
 
 

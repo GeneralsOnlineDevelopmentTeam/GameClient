@@ -271,7 +271,7 @@ UnsignedInt Connection::doSend() {
 
 	if ((curtime - m_lastTimeSent) < m_frameGrouping) {
 //		DEBUG_LOG(("not sending packet, time = %d, m_lastFrameSent = %d, m_frameGrouping = %d", curtime, m_lastTimeSent, m_frameGrouping));
-		NetworkLog(ELogVerbosity::LOG_DEBUG, "not sending packet, time = %d, m_lastFrameSent = %d, m_frameGrouping = %d", curtime, m_lastTimeSent, m_frameGrouping);
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "not sending packet, time = %I64d, m_lastFrameSent = %I64d, m_frameGrouping = %I64d", (Int64)curtime, (Int64)m_lastTimeSent, (Int64)m_frameGrouping);
 		return 0;
 	}
 

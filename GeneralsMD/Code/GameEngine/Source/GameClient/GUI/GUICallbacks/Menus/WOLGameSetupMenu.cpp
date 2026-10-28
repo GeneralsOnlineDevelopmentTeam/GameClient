@@ -2510,7 +2510,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		if (pLobbyInterface != nullptr)
 		{
 			ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-			bool bHostMigrationEnabledOnService = serviceConf.enable_host_migration;
+			bool bHostMigrationEnabledOnService = serviceConf.lobby.host_migration;
 
 			if (bHostMigrationEnabledOnService)
 			{
