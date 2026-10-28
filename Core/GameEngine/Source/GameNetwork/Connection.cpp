@@ -48,12 +48,6 @@ Connection::Connection() {
 	m_frameGrouping = 1;
 	m_isQuitting = false;
 	m_quitTime = 0;
-	m_averageLatency = 0.0f;
-	Int i;
-	for(i = 0; i < CONNECTION_LATENCY_HISTORY_LENGTH; i++)
-	{
-		m_latencies[i] = 0.0f;
-	}
 }
 
 /**
@@ -84,13 +78,7 @@ void Connection::init() {
 
 	m_lastTimeSent = 0;
 	m_frameGrouping = 1;
-	m_numRetries = 0;
-	m_retryMetricsTime = 0;
-
-	for (Int i = 0; i < CONNECTION_LATENCY_HISTORY_LENGTH; ++i) {
-		m_latencies[i] = 0;
-	}
-	m_averageLatency = 0;
+	m_stats.reset();
 	m_isQuitting = FALSE;
 	m_quitTime = 0;
 }
@@ -261,6 +249,8 @@ UnsignedInt Connection::doSend() {
 	time_t curtime = timeGetTime();
 	Bool couldQueue = TRUE;
 
+	m_stats.update(curtime);
+
 	// Do this check first, since it's an important fail-safe
 	if (m_isQuitting && curtime > m_quitTime + MaxQuitFlushTime)
 	{
@@ -271,7 +261,7 @@ UnsignedInt Connection::doSend() {
 
 	if ((curtime - m_lastTimeSent) < m_frameGrouping) {
 //		DEBUG_LOG(("not sending packet, time = %d, m_lastFrameSent = %d, m_frameGrouping = %d", curtime, m_lastTimeSent, m_frameGrouping));
-		NetworkLog(ELogVerbosity::LOG_DEBUG, "not sending packet, time = %d, m_lastFrameSent = %d, m_frameGrouping = %d", curtime, m_lastTimeSent, m_frameGrouping);
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "not sending packet, time = %I64d, m_lastFrameSent = %I64d, m_frameGrouping = %I64d", (Int64)curtime, (Int64)m_lastTimeSent, (Int64)m_frameGrouping);
 		return 0;
 	}
 
@@ -297,9 +287,9 @@ UnsignedInt Connection::doSend() {
 					// the msg command was added to the packet.
 					if (CommandRequiresAck(msg->getCommand())) {
 						if (timeLastSent != -1) {
-							++m_numRetries;
+							m_stats.noteRetry(curtime);
+							msg->setRetried(TRUE);
 						}
-						doRetryMetrics();
 						msg->setTimeLastSent(curtime);
 					} else {
 						m_netCommandList->removeMessage(msg);
@@ -376,13 +366,16 @@ NetCommandRef * Connection::processAck(UnsignedShort commandID, UnsignedByte ori
 	}
 #endif
 
-	Int index = temp->getCommand()->getID() % CONNECTION_LATENCY_HISTORY_LENGTH;
-	m_averageLatency -= ((Real)(m_latencies[index])) / CONNECTION_LATENCY_HISTORY_LENGTH;
-	Real lat = timeGetTime() - temp->getTimeLastSent();
-
-	NetworkLog(ELogVerbosity::LOG_DEBUG, "Latency calc is %f, avg is %f", lat, m_averageLatency);
-	m_averageLatency += lat / CONNECTION_LATENCY_HISTORY_LENGTH;
-	m_latencies[index] = lat;
+	// A retried command was last sent after its first send, so its round trip time would be too short.
+	const time_t now = timeGetTime();
+	if (temp->isRetried()) {
+		// an ack sooner after the retry than any round trip so far answers the earlier send: the retry went out for a late ack, not a loss
+		if ((m_stats.getSampleCount() > 0) && ((now - temp->getTimeLastSent()) < (time_t)(0.9f * m_stats.getMinLatency()))) {
+			m_stats.noteLateAck(now);
+		}
+	} else {
+		m_stats.noteAcked((Real)(now - temp->getTimeLastSent()), now);
+	}
 
 #if defined(RTS_DEBUG)
 	if (doDebug == TRUE) {
@@ -396,19 +389,6 @@ NetCommandRef * Connection::processAck(UnsignedShort commandID, UnsignedByte ori
 void Connection::setFrameGrouping(time_t frameGrouping) {
 	m_frameGrouping = frameGrouping;
 //	m_retryTime = frameGrouping * 4;
-}
-
-void Connection::doRetryMetrics() {
-	static Int numSeconds = 0;
-	time_t curTime = timeGetTime();
-
-	if ((curTime - m_retryMetricsTime) > 10000) {
-		m_retryMetricsTime = curTime;
-		++numSeconds;
-//		DEBUG_LOG(("Retries in the last 10 seconds = %d, average latency = %fms", m_numRetries, m_averageLatency));
-		m_numRetries = 0;
-//		m_retryTime = m_averageLatency * 1.5;
-	}
 }
 
 #if defined(RTS_DEBUG)

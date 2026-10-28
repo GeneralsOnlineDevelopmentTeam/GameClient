@@ -62,12 +62,16 @@ public:
 	time_t getTimeLastSent() const;
 	void setTimeLastSent(time_t timeLastSent);
 
+	Bool isRetried() const;
+	void setRetried(Bool retried);
+
 protected:
 	NetCommandMsg *m_msg;
 	NetCommandRef *m_next;
 	NetCommandRef *m_prev;
 	UnsignedByte m_relay; ///< Need this in the command reference since the relay value will be different depending on where this particular reference is being sent.
 	time_t m_timeLastSent;
+	Bool m_retried; ///< Set once this command was sent again, so its last send time is not its first.
 
 #ifdef DEBUG_NETCOMMANDREF
 	UnsignedInt m_id;
@@ -136,6 +140,16 @@ inline time_t NetCommandRef::getTimeLastSent() const
 inline void NetCommandRef::setTimeLastSent(time_t timeLastSent)
 {
 	m_timeLastSent = timeLastSent;
+}
+
+inline Bool NetCommandRef::isRetried() const
+{
+	return m_retried;
+}
+
+inline void NetCommandRef::setRetried(Bool retried)
+{
+	m_retried = retried;
 }
 
 /**

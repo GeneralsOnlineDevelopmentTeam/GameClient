@@ -39,12 +39,7 @@
 #include "GameNetwork/User.h"
 #include "GameNetwork/Transport.h"
 #include "GameNetwork/NetPacket.h"
-
-#if defined(GENERALS_ONLINE)
-#define CONNECTION_LATENCY_HISTORY_LENGTH 10
-#else
-#define CONNECTION_LATENCY_HISTORY_LENGTH 200
-#endif
+#include "GameNetwork/ConnectionStats.h"
 
 class Connection : public MemoryPoolObject
 {
@@ -80,13 +75,13 @@ public:
 	void setQuitting();
 	Bool isQuitting() { return m_isQuitting; }
 
+	const ConnectionStats& getStats() const { return m_stats; }
+
 #if defined(RTS_DEBUG)
 	void debugPrintCommands();
 #endif
 
 protected:
-	void doRetryMetrics();
-
 	Bool m_isQuitting;
 	UnsignedInt m_quitTime;
 
@@ -95,11 +90,8 @@ protected:
 
 	NetCommandList *m_netCommandList;
 	time_t m_retryTime;						///< The time between sending retry packets for this connection.  Time is in milliseconds.
-	Real m_averageLatency;			///< The average time between sending a command and receiving an ACK.
-	Real m_latencies[CONNECTION_LATENCY_HISTORY_LENGTH];	///< List of the last 100 latencies.
+	ConnectionStats m_stats;			///< Latency, jitter and loss of this connection.
 
 	time_t m_frameGrouping;				///< The minimum time between packet sends.
 	time_t m_lastTimeSent;				///< The time of the last packet send.
-	Int m_numRetries;							///< The number of retries for the last second.
-	time_t m_retryMetricsTime;		///< The start time of the current retry metrics thing.
 };

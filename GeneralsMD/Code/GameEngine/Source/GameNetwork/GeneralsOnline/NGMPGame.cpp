@@ -13,6 +13,12 @@
 #include "GameClient/View.h"
 #include "../NextGenMP_defines.h"
 
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+int FRAME_GROUPING_CAP = 32;
+#else
+int FRAME_GROUPING_CAP = 64;
+#endif
+
 NGMPGameSlot::NGMPGameSlot()
 {
 	GameSlot();
@@ -410,34 +416,6 @@ void NGMPGame::launchGame(void)
 
 	//TheWritableGlobalData->m_networkPlayerTimeoutTime = 60000;
 	//TheWritableGlobalData->m_networkDisconnectScreenNotifyTime = 2500;
-
-	// process service config
-	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
-	if (pOnlineServicesMgr != nullptr)
-	{
-		ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
-
-		if (serviceConf.use_default_config)
-		{
-			TheWritableGlobalData->m_networkFPSHistoryLength = 30;
-			TheWritableGlobalData->m_networkLatencyHistoryLength = 200;
-			TheWritableGlobalData->m_networkRunAheadSlack = serviceConf.ra_slack_override_percent_in_default; // normally 10
-			TheWritableGlobalData->m_networkRunAheadMetricsTime = 5000;
-		}
-		else
-		{
-			TheWritableGlobalData->m_networkFPSHistoryLength = 10;
-			TheWritableGlobalData->m_networkLatencyHistoryLength = 10;
-
-			MIN_RUNAHEAD = serviceConf.min_run_ahead_frames;
-
-			TheWritableGlobalData->m_networkRunAheadSlack = serviceConf.ra_slack_percent;
-			TheWritableGlobalData->m_networkRunAheadMetricsTime = serviceConf.ra_update_frequency_frames * (float)(1000.f / GENERALS_ONLINE_HIGH_FPS_LIMIT);
-
-			FRAME_GROUPING_CAP = serviceConf.frame_grouping_frames * (float)(1000.f / GENERALS_ONLINE_HIGH_FPS_LIMIT);
-		}
-	}
-	
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
 	TheWritableGlobalData->m_horizontalScrollSpeedFactor = NGMP_OnlineServicesManager::Settings.Camera_MoveSpeedRatio();

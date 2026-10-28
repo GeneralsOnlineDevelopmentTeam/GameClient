@@ -165,6 +165,10 @@ public:
 
 	virtual Int getAverageFPS() override { return m_conMgr->getAverageFPS(); }
 	virtual Int getSlotAverageFPS(Int slot) override;
+	virtual const ConnectionStats* getConnectionStats(Int slot) const override;
+#if defined(GENERALS_ONLINE)
+	virtual Bool getOverlayInfo(Int slot, NetworkOverlayInfo &info) override;
+#endif
 
 	virtual void attachTransport(Transport *transport) override;
 	virtual void initTransport() override;
@@ -791,6 +795,12 @@ void Network::update()
 		QueryPerformanceCounter((LARGE_INTEGER*)&curTime);
 		m_isStalling = curTime >= m_nextFrameTime;
 	}
+
+#if defined(GENERALS_ONLINE)
+	if (m_conMgr != nullptr && m_localStatus == NETLOCALSTATUS_INGAME) {
+		m_conMgr->noteStalling(m_isStalling, TheGameLogic->getFrame());
+	}
+#endif
 }
 
 void Network::liteupdate() {
@@ -1093,6 +1103,22 @@ Int Network::getSlotAverageFPS(Int slot) {
 	}
 	return -1;
 }
+
+const ConnectionStats* Network::getConnectionStats(Int slot) const {
+	if (m_conMgr != nullptr) {
+		return m_conMgr->getConnectionStats(slot);
+	}
+	return nullptr;
+}
+
+#if defined(GENERALS_ONLINE)
+Bool Network::getOverlayInfo(Int slot, NetworkOverlayInfo &info) {
+	if (m_conMgr != nullptr) {
+		return m_conMgr->getOverlayInfo(slot, info);
+	}
+	return FALSE;
+}
+#endif
 
 #if defined(RTS_DEBUG)
 void Network::toggleNetworkOn() {

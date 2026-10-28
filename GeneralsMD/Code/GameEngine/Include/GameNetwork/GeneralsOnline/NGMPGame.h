@@ -79,6 +79,19 @@ public:
 	virtual ~NGMPGame();
 	virtual void reset(void);
 
+	Int getSlotOfUser(int64_t userID) const
+	{
+		for (Int slotNum = 0; slotNum < MAX_SLOTS; ++slotNum)
+		{
+			const NGMPGameSlot* pSlot = (const NGMPGameSlot*)getConstSlot(slotNum);
+			if (pSlot != nullptr && pSlot->m_userID == userID)
+			{
+				return slotNum;
+			}
+		}
+		return -1;
+	}
+
 	bool HasCommittedOutcome() const { return m_bHasCommittedOutcome; }
 	void SetHasCommittedOutcome() { m_bHasCommittedOutcome = true; }
 
