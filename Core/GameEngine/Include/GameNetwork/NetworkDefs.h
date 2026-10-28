@@ -35,10 +35,15 @@ static constexpr const Int MAX_COMMANDS = 256;
 // TheSuperHackers @tweak Mauller 26/08/2025 reduce the minimum runahead from 10
 // This lets network games run at latencies down to 133ms when the network conditions allow
 static constexpr const Int MIN_LOGIC_FRAMES = 5;
+#if defined(GENERALS_ONLINE)
+// The run ahead is capped at half of this: 128 frames is 2.1 s at 60 Hz, retail's limit.
+static constexpr const Int MAX_FRAMES_AHEAD = 256;
+#else
 static constexpr const Int MAX_FRAMES_AHEAD = 128;
+#endif
 
 #if defined(GENERALS_ONLINE)
-static Int MIN_RUNAHEAD = 6;
+extern Int MIN_RUNAHEAD;
 #else
 static constexpr const Int MIN_RUNAHEAD = 4;
 #endif
@@ -55,6 +60,9 @@ enum ConnectionNumbers CPP_11(: Int)
 };
 
 static constexpr const Int MAX_SLOTS = MAX_PLAYER + 1;
+
+// Sliding window over which connection latency, jitter, loss and cushion are evaluated.
+static constexpr const Int NETWORK_STATS_WINDOW_MS = 10000;
 
 #pragma pack(push, 1)
 struct TransportMessageHeader
@@ -130,6 +138,10 @@ struct TransportMessage
 	Int length;
 	UnsignedInt addr;
 	UnsignedShort port;
+#if defined(GENERALS_ONLINE)
+	Bool senderKnown;		///< The transport knows which user this packet came from, set by the receiving side only.
+	Int64 senderUserID;
+#endif
 };
 #pragma pack(pop)
 
@@ -189,6 +201,9 @@ enum NetCommandType CPP_11(: Int) {
 	NETCOMMANDTYPE_DISCONNECTFRAME,
 	NETCOMMANDTYPE_DISCONNECTSCREENOFF,
 	NETCOMMANDTYPE_DISCONNECTEND,
+
+	NETCOMMANDTYPE_SIGNEDFRAMEINFO = 32,			// A frame info with its author's signature, only on the wire.
+	NETCOMMANDTYPE_SIGNATURES,						// Signatures of an author sent apart from its frames: for its chat.
 };
 
 enum NetLocalStatus CPP_11(: Int) {
@@ -207,7 +222,12 @@ enum PlayerLeaveCode CPP_11(: Int) {
 };
 
 // Magic number for identifying a Generals packet.
+#if defined(GENERALS_ONLINE)
+// 0xF00E: packets carry the sequence envelope; builds without it fail on the magic number
+static constexpr const UnsignedShort GENERALS_MAGIC_NUMBER = 0xF00E;
+#else
 static constexpr const UnsignedShort GENERALS_MAGIC_NUMBER = 0xF00D;
+#endif
 
 // The number of fps history entries.
 //static constexpr const Int NETWORK_FPS_HISTORY_LENGTH = 30;

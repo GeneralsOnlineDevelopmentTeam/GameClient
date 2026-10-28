@@ -48,7 +48,7 @@ public:
 	NetCommandList * getCommandList();
 	void setFrameCommandCount(UnsignedInt totalCommandCount);
 	UnsignedInt getFrameCommandCount();
-	void addCommand(NetCommandMsg *msg);
+	Bool addCommand(NetCommandMsg *msg);	///< Returns FALSE when the command was already in the frame.
 	UnsignedInt getCommandCount();
 	void zeroFrame();
 	void destroyGameMessages();

@@ -507,7 +507,7 @@ bool AnticheatPlugInterface::DoesACPluginProvideSecureGameTransport()
 {
 #if defined(AC_ENABLED)
     ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-    const bool bEnabledByConfig = serviceConf.use_new_networking;
+    const bool bEnabledByConfig = serviceConf.connection.anticheat_transport;
 
     // The plugin makes this same decision internally in places the game cannot
     // reach - notably inside the EOS anti-cheat OnMessageToPeer callback, which
