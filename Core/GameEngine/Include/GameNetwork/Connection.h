@@ -39,11 +39,9 @@
 #include "GameNetwork/User.h"
 #include "GameNetwork/Transport.h"
 #include "GameNetwork/NetPacket.h"
-
+#include "GameNetwork/ConnectionStats.h"
 #if defined(GENERALS_ONLINE)
-#define CONNECTION_LATENCY_HISTORY_LENGTH 10
-#else
-#define CONNECTION_LATENCY_HISTORY_LENGTH 200
+#include "GameNetwork/NetworkSettings.h"
 #endif
 
 class Connection : public MemoryPoolObject
@@ -66,6 +64,13 @@ public:
 	void setUser(User *user);
 	User *getUser();
 	void setFrameGrouping(time_t frameGrouping);
+#if defined(GENERALS_ONLINE)
+	void setNetworkSettings(const NetworkSettings &settings, Bool unreliableTransport) { m_networkSettings = settings; m_unreliableTransport = unreliableTransport; }
+#endif
+	void setSlot(Int slot) { m_slot = slot; }
+	void setShortGrouping(Bool shortGrouping);	///< Send at one frame while the run ahead is close to its floor.
+	Int getRedundancyDepth() const { return m_redundancyDepth; }
+	time_t getFrameGrouping() const { return m_frameGrouping; }	///< The send interval in use, shorter than the configured one while redundancy is on.
 
 	void sendNetCommandMsg(NetCommandMsg *msg, UnsignedByte relay);
 
@@ -80,12 +85,27 @@ public:
 	void setQuitting();
 	Bool isQuitting() { return m_isQuitting; }
 
+	const ConnectionStats& getStats() const { return m_stats; }
+
 #if defined(RTS_DEBUG)
 	void debugPrintCommands();
 #endif
 
 protected:
-	void doRetryMetrics();
+#if defined(GENERALS_ONLINE)
+	NetworkSettings m_networkSettings;
+	Bool m_unreliableTransport;
+#endif
+
+	void resetRedundancy();
+	void updateRedundancy(time_t curtime, Bool &active, time_t &window, Int &depth);
+	Bool hasLossEvidence();	///< A packet was lost in either direction lately, or nothing says otherwise
+	Bool getOutgoingLoss(float &lossPercent, Int &longestRun);	///< FALSE when the peer sent no packet feedback
+	void noteLossEvent(time_t now, Bool burst);
+	void setRedundancyDepth(Int depth, Int cap, time_t now);
+	Bool isQueueBuilding(time_t now);	///< Round trip at 2x its low while packets are lost: a full queue
+	void applyFrameGrouping();
+	void addRedundantCommands(NetPacket *packet, time_t curtime, time_t window, Int depth);
 
 	Bool m_isQuitting;
 	UnsignedInt m_quitTime;
@@ -95,11 +115,17 @@ protected:
 
 	NetCommandList *m_netCommandList;
 	time_t m_retryTime;						///< The time between sending retry packets for this connection.  Time is in milliseconds.
-	Real m_averageLatency;			///< The average time between sending a command and receiving an ACK.
-	Real m_latencies[CONNECTION_LATENCY_HISTORY_LENGTH];	///< List of the last 100 latencies.
+	ConnectionStats m_stats;			///< Latency, jitter and loss of this connection.
 
+	Int m_redundancyDepth;					///< How many later packets each un-acked command is repeated in, 0 on a clean connection.
+	Int m_redundancyCap;						///< The deepest depth, from the longest burst to repair and the send interval.
+	time_t m_lastLossEventTime;			///< What the decay counts from.
+	time_t m_lastDepthChangeTime;		///< A burst needs a round trip to show whether the new depth helped.
+	Bool m_queueSuspected;				///< A full queue on the path, redundancy steps down instead of up.
+	Int m_slot;
+
+	Bool m_shortGrouping;
+	time_t m_configuredFrameGrouping;
 	time_t m_frameGrouping;				///< The minimum time between packet sends.
 	time_t m_lastTimeSent;				///< The time of the last packet send.
-	Int m_numRetries;							///< The number of retries for the last second.
-	time_t m_retryMetricsTime;		///< The start time of the current retry metrics thing.
 };

@@ -89,11 +89,7 @@ void showNotificationBox(AsciiString nick, UnicodeString message, bool bPlaySoun
 	#define GENERALS_ONLINE_HIGH_FPS_RENDER 1 // This is optional on 30fps, but will boost/unlock the framerate, similar to gentool
 #endif
 
-#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
-static int FRAME_GROUPING_CAP = 32;
-#else
-static int FRAME_GROUPING_CAP = 64;
-#endif
+extern int FRAME_GROUPING_CAP;
 
 //#define GENERALS_ONLINE_ENABLE_CONTROVERSIAL_NON_RETAIL_CHANGES 1
 

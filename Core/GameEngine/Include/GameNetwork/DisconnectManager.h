@@ -58,6 +58,13 @@ public:
 
 	void voteForPlayerDisconnect(Int slot, ConnectionManager *conMgr);
 
+#if !RETAIL_COMPATIBLE_NETWORKING
+	void playerClosedGracefully(Int slot, ConnectionManager *conMgr);	///< The next packet router removes the player without waiting out its timeout.
+	Bool isPlayerOutOfGame(Int slot, ConnectionManager *conMgr);
+#endif
+
+	Bool isLocalPlayerNextPacketRouter(ConnectionManager *conMgr); ///< returns true if the local player is next in line to be the packet router with all the players that have timed out being taken out of the picture.
+
 	// For disconnect blame assignment
 	UnsignedInt getPingFrame();
 	Int getPingsSent();
@@ -78,12 +85,23 @@ protected:
 	void updateWaitForPacketRouter(ConnectionManager *conMgr);
 	void recalculatePacketRouterIndex(ConnectionManager *conMgr);
 	Bool allOnSameFrame(ConnectionManager *conMgr); ///< returns true if all players are stuck on the same frame.
-	Bool isLocalPlayerNextPacketRouter(ConnectionManager *conMgr); ///< returns true if the local player is next in line to be the packet router with all the players that have timed out being taken out of the picture.
+#if !RETAIL_COMPATIBLE_NETWORKING
+	Int getActingPacketRouterSlot(ConnectionManager *conMgr);
+#endif
 	Bool hasPlayerTimedOut(Int slot); ///< returns true if this player has timed out.
 	void sendPlayerDestruct(Int slot, ConnectionManager *conMgr); ///< send a destruct player network message.
+#if RETAIL_COMPATIBLE_NETWORKING
+	void sendPendingRelays(ConnectionManager *conMgr);
+#endif
+	void removePlayer(Int slot, ConnectionManager *conMgr);
+	Bool isPlayerSilent(Int slot);	///< The slot is a translated one.
+	Bool isPlayerGone(Int slot, ConnectionManager *conMgr);	///< A silent player that timed out or was voted out by all others. The slot is a translated one.
 	Bool isPlayerVotedOut(Int slot, ConnectionManager *conMgr);	///< returns true if this player has been voted out.
 	Bool isPlayerInGame(Int slot, ConnectionManager *conMgr); ///< returns true if the player has neither timed out or been voted out.
-	UnsignedInt getMaxDisconnectFrame();	///< returns the highest frame that people have got to.
+	UnsignedInt getMaxDisconnectFrame(ConnectionManager *conMgr);	///< The highest frame that the players that have not left have got to.
+#if !RETAIL_COMPATIBLE_NETWORKING
+	Bool isGonePlayerConnected(ConnectionManager *conMgr);
+#endif
 	Int countVotesForPlayer(Int slot); ///< return the number of disconnect votes a player has.
 	void resetPlayersVotes(Int playerID, UnsignedInt frame, ConnectionManager *conMgr); ///< reset the votes for this player.
 
@@ -109,6 +127,10 @@ protected:
 	time_t m_lastKeepAliveSendTime;
 
 	time_t m_playerTimeouts[MAX_SLOTS - 1];
+#if !RETAIL_COMPATIBLE_NETWORKING
+	Bool m_closedGracefully[MAX_SLOTS - 1];	///< By translated slot.
+	Bool m_screenKept;
+#endif
 	time_t m_packetRouterTimeout;
 
 	DisconnectVoteStruct m_playerVotes[MAX_SLOTS][MAX_SLOTS];
@@ -117,6 +139,13 @@ protected:
 	UnsignedInt m_disconnectFrames[MAX_SLOTS];
 	Bool m_disconnectFramesReceived[MAX_SLOTS];
 	Bool m_haveNotifiedOtherPlayersOfCurrentFrame;
+#if RETAIL_COMPATIBLE_NETWORKING
+	UnsignedInt m_relayFrame[MAX_SLOTS];
+	UnsignedByte m_relayTo[MAX_SLOTS];
+#else
+	Bool m_removedInRound;
+	UnsignedInt m_catchUpFrame;
+#endif
 
 	time_t m_timeOfDisconnectScreenOn;
 	Int m_pingsSent;
