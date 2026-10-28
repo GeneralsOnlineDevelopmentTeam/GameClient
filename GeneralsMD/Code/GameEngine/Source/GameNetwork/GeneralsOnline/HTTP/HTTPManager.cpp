@@ -43,13 +43,14 @@ void HTTPManager::SendPUTRequest(const char* szURI, EIPProtocolVersion protover,
 }
 
 
-void HTTPManager::SendS3PUTRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, std::vector<uint8_t> vecBuffer, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/, int timeoutMS /*= -1*/)
+void HTTPManager::SendS3PUTRequest(const char* szURI, EIPProtocolVersion protover, std::map<std::string, std::string>& inHeaders, std::vector<uint8_t> vecBuffer, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/, int timeoutMS /*= -1*/, int maxSendBytesPerSec /*= 0*/)
 {
     CHECK_MAIN_THREAD;
 
     HTTPRequest* pRequest = PlatformCreateRequest(EHTTPVerb::HTTP_VERB_PUT, protover, szURI, inHeaders, completionCallback, progressCallback, timeoutMS);
 	pRequest->DisableServiceAuth();
-    pRequest->SetPostDataBuffer(vecBuffer);
+	pRequest->SetMaxSendSpeed(maxSendBytesPerSec);
+    pRequest->SetPostDataBuffer(std::move(vecBuffer));
 
     m_vecRequestsPendingStart.push_back(pRequest);
 }
@@ -158,44 +159,6 @@ void HTTPManager::Shutdown()
 }
 
 
-bool HTTPManager::DeterminePlatformProxySettings()
-{
-	CHECK_MAIN_THREAD;
-
-	WINHTTP_CURRENT_USER_IE_PROXY_CONFIG pProxyConfig;
-	WinHttpGetIEProxyConfigForCurrentUser(&pProxyConfig);
-
-	if (pProxyConfig.lpszProxy != nullptr)
-	{
-		LPWSTR ws = pProxyConfig.lpszProxy;
-		std::string strFullProxy;
-		strFullProxy.reserve(wcslen(ws));
-		for (; *ws; ws++)
-			strFullProxy += (char)*ws;
-
-		size_t ipStart = strFullProxy.find("=");
-		ipStart = (ipStart != std::string::npos) ? ipStart + 1 : 0;
-		size_t ipEnd = strFullProxy.find(":", ipStart);
-		if (ipEnd == std::string::npos) ipEnd = strFullProxy.size();
-
-		m_strProxyAddr = strFullProxy.substr(ipStart, ipEnd - ipStart);
-
-		size_t portStart = ipEnd + 1;
-		size_t portEnd = strFullProxy.find(";", portStart);
-		std::string strPort = strFullProxy.substr(portStart, portEnd != std::string::npos ? portEnd - portStart : std::string::npos);
-
-		m_proxyPort = (uint16_t)atoi(strPort.c_str());
-	}
-
-	m_bProxyEnabled = pProxyConfig.lpszProxy != nullptr;
-
-	if (pProxyConfig.lpszProxy) GlobalFree(pProxyConfig.lpszProxy);
-	if (pProxyConfig.lpszAutoConfigUrl) GlobalFree(pProxyConfig.lpszAutoConfigUrl);
-	if (pProxyConfig.lpszProxyBypass) GlobalFree(pProxyConfig.lpszProxyBypass);
-
-	return m_bProxyEnabled;
-}
-
 HTTPRequest* HTTPManager::PlatformCreateRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const char* szURI, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/, int timeoutMS /* = -1 */) noexcept
 {
 	CHECK_MAIN_THREAD;
@@ -216,7 +179,6 @@ void HTTPManager::Initialize()
 	CHECK_MAIN_THREAD;
 
 	m_pCurl = curl_multi_init();
-	m_bProxyEnabled = DeterminePlatformProxySettings();
 }
 
 void HTTPManager::Tick()
@@ -225,13 +187,19 @@ void HTTPManager::Tick()
 
 	std::vector<HTTPRequest*> vecItemsToRemove = std::vector<HTTPRequest*>();
 
-	// start anything needing starting
-	for (HTTPRequest* pRequest : m_vecRequestsPendingStart)
+	// callbacks may enqueue new requests, so do not iterate the live pending vector
+	auto pending = std::move(m_vecRequestsPendingStart);
+	m_vecRequestsPendingStart.clear();
+	for (HTTPRequest* pRequest : pending)
 	{
 		pRequest->StartRequest();
 		m_vecRequestsInFlight.push_back(pRequest);
+		// a request refused before reaching curl completes synchronously
+		if (pRequest->IsComplete())
+		{
+			vecItemsToRemove.push_back(pRequest);
+		}
 	}
-	m_vecRequestsPendingStart.clear();
 
 	// perform and poll
 	if (m_pCurl == nullptr)
@@ -288,16 +256,16 @@ void HTTPManager::Tick()
 	// remove any completed
 	for (HTTPRequest* pRequestToDestroy : vecItemsToRemove)
 	{
-		m_vecRequestsInFlight.erase(std::remove(m_vecRequestsInFlight.begin(), m_vecRequestsInFlight.end(), pRequestToDestroy));
+		m_vecRequestsInFlight.erase(std::remove(m_vecRequestsInFlight.begin(), m_vecRequestsInFlight.end(), pRequestToDestroy), m_vecRequestsInFlight.end());
 		delete pRequestToDestroy;
 	}
 }
 
-void HTTPManager::AddHandleToMulti(CURL* pNewHandle)
+bool HTTPManager::AddHandleToMulti(CURL* pNewHandle)
 {
 	CHECK_MAIN_THREAD;
 
-	curl_multi_add_handle(m_pCurl, pNewHandle);
+	return m_pCurl != nullptr && curl_multi_add_handle(m_pCurl, pNewHandle) == CURLM_OK;
 }
 
 void HTTPManager::RemoveHandleFromMulti(CURL* pHandleToRemove)

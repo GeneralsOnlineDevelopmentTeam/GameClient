@@ -1163,6 +1163,7 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/GeneralsOnline/DiscordRichPresence.cpp
     Source/GameNetwork/GeneralsOnline/NGMP_Helpers.cpp
     Source/GameNetwork/GeneralsOnline/NGMPGame.cpp
+    Source/GameNetwork/GeneralsOnline/ServiceEndpointPolicy.cpp
     Source/GameNetwork/GeneralsOnline/GeneralsOnline_Settings.cpp
     Source/GameNetwork/GeneralsOnline/HTTP/HTTPManager.cpp
     Source/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.cpp

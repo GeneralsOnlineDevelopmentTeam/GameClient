@@ -56,6 +56,8 @@
 
 #include "Lib/PathUtil.h"
 
+#include <cctype>
+
 
 DECLARE_PERF_TIMER(FileSystem)
 
@@ -119,6 +121,184 @@ FileSystem	*TheFileSystem = nullptr;
 
 
 //============================================================================
+// PathExcludeList
+//============================================================================
+
+static std::string normalizeExcludeText(const std::string& text)
+{
+	std::string value = text;
+	for (size_t i = 0; i < value.size(); ++i)
+	{
+		if (value[i] == '/')
+			value[i] = '\\';
+		value[i] = static_cast<char>(tolower(static_cast<unsigned char>(value[i])));
+	}
+	return value;
+}
+
+static Bool isAbsoluteExcludePath(const std::string& value)
+{
+	return (value.size() > 2 && isalpha(static_cast<unsigned char>(value[0])) && value[1] == ':' && value[2] == '\\')
+		|| (value.size() > 2 && value[0] == '\\' && value[1] == '\\');
+}
+
+static std::string stripCurrentFolder(const std::string& value)
+{
+	size_t start = 0;
+	while (start + 2 <= value.size() && value.compare(start, 2, ".\\") == 0)
+		start += 2;
+	return value.substr(start);
+}
+
+Bool PathExcludeList::parse(const std::string& text, std::string* pattern, AsciiString* reason)
+{
+	std::string value = text;
+	while (!value.empty() && isspace(static_cast<unsigned char>(value[value.size() - 1])))
+		value.erase(value.size() - 1);
+	size_t start = 0;
+	while (start < value.size() && isspace(static_cast<unsigned char>(value[start])))
+		++start;
+	value = normalizeExcludeText(value.substr(start));
+
+	if (value.empty())
+	{
+		if (reason != nullptr)
+			*reason = "empty";
+		return FALSE;
+	}
+	for (size_t i = 0; i < value.size(); ++i)
+	{
+		const unsigned char c = static_cast<unsigned char>(value[i]);
+		if (c < 32 || c == '<' || c == '>' || c == '"' || c == '|')
+		{
+			if (reason != nullptr)
+				*reason = "invalid character";
+			return FALSE;
+		}
+	}
+
+	std::string rest;
+	std::string prefix;
+	if (value.compare(0, 5, "game:") == 0 || value.compare(0, 5, "user:") == 0)
+	{
+		prefix = value.substr(0, 5);
+		rest = stripCurrentFolder(value.substr(5));
+		if (rest.empty() || rest[0] == '\\' || rest.find(':') != std::string::npos)
+		{
+			if (reason != nullptr)
+				*reason = "invalid path";
+			return FALSE;
+		}
+	}
+	else if (isAbsoluteExcludePath(value))
+	{
+		rest = value;
+	}
+	else
+	{
+		if (reason != nullptr)
+			*reason = "needs the prefix game: or user:, or an absolute path";
+		return FALSE;
+	}
+
+	// no parent folders
+	size_t pos = 0;
+	while (pos <= rest.size())
+	{
+		size_t next = rest.find('\\', pos);
+		if (next == std::string::npos)
+			next = rest.size();
+		if (next - pos == 2 && rest.compare(pos, 2, "..") == 0)
+		{
+			if (reason != nullptr)
+				*reason = "parent folder";
+			return FALSE;
+		}
+		pos = next + 1;
+	}
+
+	// a folder: everything in it
+	if (rest[rest.size() - 1] == '\\')
+		rest += "*";
+
+	if (pattern != nullptr)
+		*pattern = prefix + rest;
+	return TRUE;
+}
+
+std::string PathExcludeList::makeKey(const Char* path)
+{
+	std::string value = stripCurrentFolder(normalizeExcludeText(path));
+	if (isAbsoluteExcludePath(value))
+		return value;
+	return "game:" + value;
+}
+
+std::string PathExcludeList::makeKey(const Char* path, const Char* userDataPath)
+{
+	std::string value = normalizeExcludeText(path);
+	std::string userData = normalizeExcludeText(userDataPath);
+	if (!userData.empty() && userData[userData.size() - 1] != '\\')
+		userData += "\\";
+	if (!userData.empty() && value.size() > userData.size() && value.compare(0, userData.size(), userData) == 0)
+		return "user:" + value.substr(userData.size());
+	return makeKey(path);
+}
+
+void PathExcludeList::set(const std::vector<std::string>& entries)
+{
+	m_patterns.clear();
+	for (size_t i = 0; i < entries.size(); ++i)
+	{
+		std::string pattern;
+		if (parse(entries[i], &pattern, nullptr))
+			m_patterns.push_back(pattern);
+	}
+}
+
+// * matches any text, ? one character
+static Bool matchesExcludePattern(const char* pattern, const char* text)
+{
+	const char* starPattern = nullptr;
+	const char* starText = nullptr;
+	while (*text != '\0')
+	{
+		if (*pattern == '*')
+		{
+			starPattern = ++pattern;
+			starText = text;
+		}
+		else if (*pattern == '?' || *pattern == *text)
+		{
+			++pattern;
+			++text;
+		}
+		else if (starPattern != nullptr)
+		{
+			pattern = starPattern;
+			text = ++starText;
+		}
+		else
+		{
+			return FALSE;
+		}
+	}
+	while (*pattern == '*')
+		++pattern;
+	return *pattern == '\0';
+}
+
+Bool PathExcludeList::matches(const std::string& key) const
+{
+	for (size_t i = 0; i < m_patterns.size(); ++i)
+	{
+		if (matchesExcludePattern(m_patterns[i].c_str(), key.c_str()))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+//============================================================================
 // FileSystem::FileSystem
 //============================================================================
 
@@ -179,14 +359,17 @@ File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize
 
 	if ( TheLocalFileSystem != nullptr )
 	{
+		// an excluded loose file does not exist, unless the file is written
+		const Bool excluded = (access & (File::WRITE | File::APPEND | File::CREATE | File::TRUNCATE)) == 0 && isLooseFileExcluded(filename);
+
 		if (instance != 0)
 		{
-			if (TheLocalFileSystem->doesFileExist(filename))
+			if (!excluded && TheLocalFileSystem->doesFileExist(filename))
 			{
 				--instance;
 			}
 		}
-		else
+		else if (!excluded)
 		{
 			file = TheLocalFileSystem->openFile( filename, access, bufferSize );
 
@@ -242,7 +425,7 @@ Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) cons
 	}
 #endif
 
-	if (TheLocalFileSystem->doesFileExist(filename))
+	if (!isLooseFileExcluded(filename) && TheLocalFileSystem->doesFileExist(filename))
 	{
 		if (instance == 0)
 		{
@@ -286,7 +469,20 @@ Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) cons
 void FileSystem::getFileListInDirectory(const AsciiString& directory, const AsciiString& searchName, FilenameList &filenameList, Bool searchSubdirectories) const
 {
 	USE_PERF_TIMER(FileSystem)
-	TheLocalFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, directory, searchName, filenameList, searchSubdirectories);
+	if (m_excludedPaths.isEmpty())
+	{
+		TheLocalFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, directory, searchName, filenameList, searchSubdirectories);
+	}
+	else
+	{
+		FilenameList localFiles;
+		TheLocalFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, directory, searchName, localFiles, searchSubdirectories);
+		for (FilenameListIter it = localFiles.begin(); it != localFiles.end(); ++it)
+		{
+			if (!isLooseFileExcluded(it->str()))
+				filenameList.insert(*it);
+		}
+	}
 	TheArchiveFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, directory, searchName, filenameList, searchSubdirectories);
 }
 
@@ -304,7 +500,7 @@ Bool FileSystem::getFileInfo(const AsciiString& filename, FileInfo *fileInfo, Fi
 	}
 	memset(fileInfo, 0, sizeof(*fileInfo));
 
-	if (TheLocalFileSystem->getFileInfo(filename, fileInfo)) {
+	if (!isLooseFileExcluded(filename.str()) && TheLocalFileSystem->getFileInfo(filename, fileInfo)) {
 		if (instance == 0) {
 			return TRUE;
 		}

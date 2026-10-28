@@ -23,6 +23,7 @@ public:
 
 	void RefreshToken();
 	void BeginLogin();
+	void BeginLoginOnSelectedRoute();
 	void DoFullLoginFlow();
 
 	void Tick();

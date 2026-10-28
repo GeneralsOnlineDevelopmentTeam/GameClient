@@ -51,8 +51,8 @@
 
 #include "Common/ThingFactory.h"
 #include "Common/FileSystem.h"
+#include "Common/BIGFileSystem.h"
 #include "Win32Device/Common/Win32LocalFileSystem.h"
-#include "Win32Device/Common/Win32BIGFileSystem.h"
 #include "Common/SubsystemInterface.h"
 #include "GameClient/MapUtil.h"
 #include "W3DDevice/Common/W3DModuleFactory.h"
@@ -101,7 +101,6 @@
 #include <io.h>
 #include "Win32Device/GameClient/Win32Mouse.h"
 #include "Win32Device/Common/Win32LocalFileSystem.h"
-#include "Win32Device/Common/Win32BIGFileSystem.h"
 #include "WWLib/trim.h"
 
 
@@ -249,7 +248,7 @@ Int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	TheFileSystem = new FileSystem;
 
 	initSubsystem(TheLocalFileSystem, (LocalFileSystem*)new Win32LocalFileSystem);
-	initSubsystem(TheArchiveFileSystem, (ArchiveFileSystem*)new Win32BIGFileSystem);
+	initSubsystem(TheArchiveFileSystem, (ArchiveFileSystem*)new BIGFileSystem);
 	INI ini;
 	initSubsystem(TheWritableGlobalData, new GlobalData(), "Data\\INI\\Default\\GameData.ini", "Data\\INI\\GameData.ini");
 	initSubsystem(TheGameText, CreateGameTextInterface());

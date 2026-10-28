@@ -36,6 +36,11 @@ public:
 		m_bAppendAuthIfPresent = false;
 	}
 
+	void SetMaxSendSpeed(int bytesPerSec)
+	{
+		m_maxSendBytesPerSec = bytesPerSec;
+	}
+
 	void OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes);
 
 	bool HasStarted() const { return m_bIsStarted; }
@@ -70,12 +75,16 @@ private:
 
 private:
 	CURL* m_pCURL = nullptr;
+	bool m_handleAdded = false;
 
-	int m_responseCode = -1;
+	long m_responseCode = 0;
+	CURLcode m_result = CURLE_OK;
 
 	EHTTPVerb m_httpVerb;
 
 	bool m_bAppendAuthIfPresent = true;
+
+	int m_maxSendBytesPerSec = 0; // 0 = unlimited
 
 	EIPProtocolVersion m_protover;
 

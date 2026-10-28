@@ -1,4 +1,5 @@
 #include "GameNetwork/GeneralsOnline/GeneralsOnline_Settings.h"
+#include "Common/ArchiveFileSystem.h"
 #include "../json.hpp"
 #include "../OnlineServices_LobbyInterface.h"
 #include "../OnlineServices_Init.h"
@@ -30,14 +31,24 @@
 #define SETTINGS_KEY_DEBUG_VERBOSE_LOGGING "verbose_logging"
 
 #define SETTINGS_KEY_NETWORK "network"
-#define SETTINGS_KEY_NETWORK_HTTP_VERSION "http_version"
+#define SETTINGS_KEY_NETWORK_LEGACY_HTTP_VERSION "http_version"
 #define SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT "use_alternative_endpoint"
+#define SETTINGS_KEY_NETWORK_SERVER "server"
+#define SETTINGS_KEY_NETWORK_SERVER_MODE "mode"
+#define SETTINGS_KEY_NETWORK_LAST_ROUTE "last_route"
+#define LEGACY_ALTERNATIVE_ROUTE_HOST "api-ru.playgenerals.online"
 
 #define SETTINGS_KEY_PLUGINS "plugins"
 #define SETTINGS_KEY_PLUGINS_ANTICHEAT "anticheat"
 
 #define SETTINGS_KEY_DATAPACKS "data_packs"
-#define SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH "use_community_data_patch"
+#define SETTINGS_KEY_DATAPACKS_USER "user"
+#define SETTINGS_KEY_DATAPACKS_GENERALS_ONLINE "generals_online"
+#define SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH "community_patch"
+#define SETTINGS_KEY_DATAPACKS_ENABLED "enabled"
+#define SETTINGS_KEY_DATAPACKS_INCLUDE_PATHS "include_paths"
+#define SETTINGS_KEY_DATAPACKS_EXCLUDE_PATHS "exclude_paths"
+#define SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH_LEGACY "use_community_data_patch"	// before the layers, read once and dropped on save
 
 #define SETTINGS_FILENAME_LEGACY "GeneralsOnline_settings.json"
 #define SETTINGS_FILENAME "settings.json"
@@ -92,6 +103,89 @@ std::string GenOnlineSettings::GetAnticheatPlugin() const
     }
 
     return m_Plugins_Anticheat;
+}
+
+// Reads a list of paths of data_packs, an entry that is not valid is dropped. Returns FALSE and keeps the list when the field is missing or not a list.
+static bool LoadDataPackPaths(const nlohmann::json& jsonLayer, const char* layerName, const char* key, bool excludes, std::vector<std::string>& paths)
+{
+    if (!jsonLayer.contains(key))
+    {
+        return false;
+    }
+
+    if (!jsonLayer[key].is_array())
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "Data pack layer %s: %s is not a list, using the default", layerName, key);
+        return false;
+    }
+
+    paths.clear();
+    for (const auto& path : jsonLayer[key])
+    {
+        AsciiString reason;
+        bool bValid = false;
+        if (path.is_string())
+        {
+            bValid = excludes ? PathExcludeList::parse(path.get<std::string>(), nullptr, &reason) : ArchiveFileSystem::parseMountEntry(AsciiString(path.get<std::string>().c_str()), nullptr, &reason);
+        }
+
+        if (bValid)
+        {
+            paths.push_back(path.get<std::string>());
+        }
+        else
+        {
+            NetworkLog(ELogVerbosity::LOG_RELEASE, "Data pack layer %s: %s entry dropped from the settings (%s)", layerName, key, path.is_string() ? reason.str() : "not a string");
+        }
+    }
+    return true;
+}
+
+// Reads one layer of data_packs. A missing or invalid field keeps what the layer holds, its default. excludePaths is only read for the user layer.
+static void LoadDataPackLayer(const nlohmann::json& dataPacks, const char* name, GenOnlineDataPackLayer& layer, std::vector<std::string>* excludePaths)
+{
+    if (!dataPacks.contains(name))
+    {
+        return;
+    }
+
+    const nlohmann::json& jsonLayer = dataPacks[name];
+    if (!jsonLayer.is_object())
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "Data pack layer %s in the settings is not an object, using the default", name);
+        return;
+    }
+
+    if (jsonLayer.contains(SETTINGS_KEY_DATAPACKS_ENABLED))
+    {
+        if (jsonLayer[SETTINGS_KEY_DATAPACKS_ENABLED].is_boolean())
+        {
+            layer.m_enabled = jsonLayer[SETTINGS_KEY_DATAPACKS_ENABLED].get<bool>();
+        }
+        else
+        {
+            NetworkLog(ELogVerbosity::LOG_RELEASE, "Data pack layer %s: enabled is not a boolean, using the default", name);
+        }
+    }
+
+    LoadDataPackPaths(jsonLayer, name, SETTINGS_KEY_DATAPACKS_INCLUDE_PATHS, false, layer.m_includePaths);
+
+    if (excludePaths != nullptr)
+    {
+        LoadDataPackPaths(jsonLayer, name, SETTINGS_KEY_DATAPACKS_EXCLUDE_PATHS, true, *excludePaths);
+    }
+}
+
+static nlohmann::json DataPackLayerToJson(const GenOnlineDataPackLayer& layer, const std::vector<std::string>* excludePaths)
+{
+    nlohmann::json jsonLayer = nlohmann::json::object();
+    jsonLayer[SETTINGS_KEY_DATAPACKS_ENABLED] = layer.m_enabled;
+    jsonLayer[SETTINGS_KEY_DATAPACKS_INCLUDE_PATHS] = layer.m_includePaths;
+    if (excludePaths != nullptr)
+    {
+        jsonLayer[SETTINGS_KEY_DATAPACKS_EXCLUDE_PATHS] = *excludePaths;
+    }
+    return jsonLayer;
 }
 
 void GenOnlineSettings::Load(void)
@@ -163,6 +257,9 @@ void GenOnlineSettings::Load(void)
 		try
 		{
 			jsonSettings = nlohmann::json::parse(strJSON);
+			if (!jsonSettings.is_object())
+				throw std::runtime_error("Settings must be an object");
+			m_PreservedJSON = jsonSettings.dump();
 
 		}
 		catch (...)
@@ -215,28 +312,37 @@ void GenOnlineSettings::Load(void)
 				}
 			}
 
-            if (jsonSettings.contains(SETTINGS_KEY_NETWORK))
+            if (jsonSettings.contains(SETTINGS_KEY_NETWORK) && jsonSettings[SETTINGS_KEY_NETWORK].is_object())
             {
-                auto networkSettings = jsonSettings[SETTINGS_KEY_NETWORK];
+                const auto& networkSettings = jsonSettings[SETTINGS_KEY_NETWORK];
 
-                if (networkSettings.contains(SETTINGS_KEY_NETWORK_HTTP_VERSION))
+                if (networkSettings.contains(SETTINGS_KEY_NETWORK_SERVER) && networkSettings[SETTINGS_KEY_NETWORK_SERVER].is_object())
                 {
-                   int httpVersion = networkSettings[SETTINGS_KEY_NETWORK_HTTP_VERSION];
-
-				   // clamp
-				   if (httpVersion < 0 || httpVersion > HTTP_VERSION_3_0)
-				   {
-					   m_Network_HTTPVersion = EHTTPVersion::HTTP_VERSION_AUTO;
-				   }
-				   else
-				   {
-					   m_Network_HTTPVersion = (EHTTPVersion)httpVersion;
-				   }
+                    const auto& serverSettings = networkSettings[SETTINGS_KEY_NETWORK_SERVER];
+                    if (serverSettings.contains(SETTINGS_KEY_NETWORK_SERVER_MODE) && serverSettings[SETTINGS_KEY_NETWORK_SERVER_MODE].is_string())
+                    {
+                        m_ConnectionSettings.serverMode = serverSettings[SETTINGS_KEY_NETWORK_SERVER_MODE].get<std::string>();
+                    }
+                }
+                if (m_ConnectionSettings.serverMode != "automatic")
+                {
+                    m_ConnectionSettings.serverMode = "automatic";
                 }
 
-                if (networkSettings.contains(SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT))
+                if (networkSettings.contains(SETTINGS_KEY_NETWORK_LAST_ROUTE) && networkSettings[SETTINGS_KEY_NETWORK_LAST_ROUTE].is_string())
                 {
-                    m_Network_UseAlternativeEndpoint = networkSettings[SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT];
+                    m_LastRoute = networkSettings[SETTINGS_KEY_NETWORK_LAST_ROUTE].get<std::string>();
+                }
+                else if (networkSettings.contains(SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT) &&
+                    networkSettings[SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT].is_boolean() &&
+                    networkSettings[SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT].get<bool>())
+                {
+                    // the old switch from the released client now only prefers that route
+                    m_LastRoute = LEGACY_ALTERNATIVE_ROUTE_HOST;
+                }
+                if (m_LastRoute.size() > 253 || m_LastRoute.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != std::string::npos)
+                {
+                    m_LastRoute.clear();
                 }
             }
 
@@ -317,11 +423,18 @@ void GenOnlineSettings::Load(void)
 
             if (jsonSettings.contains(SETTINGS_KEY_DATAPACKS))
             {
-                auto datapackSettings = jsonSettings[SETTINGS_KEY_DATAPACKS];
+                const nlohmann::json& datapackSettings = jsonSettings[SETTINGS_KEY_DATAPACKS];
 
-                if (datapackSettings.contains(SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH))
+                LoadDataPackLayer(datapackSettings, SETTINGS_KEY_DATAPACKS_USER, m_DataPacks_User, &m_DataPacks_UserExcludePaths);
+                LoadDataPackLayer(datapackSettings, SETTINGS_KEY_DATAPACKS_GENERALS_ONLINE, m_DataPacks_GeneralsOnline, nullptr);
+                LoadDataPackLayer(datapackSettings, SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH, m_DataPacks_CommunityPatch, nullptr);
+
+                // a file from before the layers: the old community patch switch becomes community_patch.enabled
+                if (!datapackSettings.contains(SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH)
+                    && datapackSettings.contains(SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH_LEGACY)
+                    && datapackSettings[SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH_LEGACY].is_boolean())
                 {
-                    m_DataPacks_UseCommunityPatch = datapackSettings[SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH];
+                    m_DataPacks_CommunityPatch.m_enabled = datapackSettings[SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH_LEGACY].get<bool>();
                 }
             }
 		}
@@ -356,6 +469,7 @@ void GenOnlineSettings::Load(void)
 	
 	if (bReadFailed)
 	{
+		m_CanSave = false;
 		// keep the file on disk, the defaults above only apply to this session
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Could not read settings file, keeping it untouched");
 		return;
@@ -365,17 +479,28 @@ void GenOnlineSettings::Load(void)
 	{
 		// keep the unparseable file for recovery before the defaults replace it
 		std::filesystem::rename(strSettingsFilePath, strSettingsFilePath + ".bad", ec);
+		if (ec)
+		{
+			m_CanSave = false;
+			return;
+		}
+		m_PreservedJSON = "{}";
 	}
 
 	// Always save so we re-serialize anything new or missing
 	Save();
 }
 
-void GenOnlineSettings::Save()
+bool GenOnlineSettings::Save()
 {
 	if (!m_bInitialized)
 	{
 		Initialize();
+	}
+
+	if (!m_CanSave)
+	{
+		return false;
 	}
 
 	nlohmann::json root = {
@@ -400,8 +525,8 @@ void GenOnlineSettings::Save()
         {
             SETTINGS_KEY_NETWORK,
                 {
-                    {SETTINGS_KEY_NETWORK_HTTP_VERSION, m_Network_HTTPVersion},
-                    {SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT, m_Network_UseAlternativeEndpoint}
+                    {SETTINGS_KEY_NETWORK_SERVER, {{SETTINGS_KEY_NETWORK_SERVER_MODE, m_ConnectionSettings.serverMode}}},
+                    {SETTINGS_KEY_NETWORK_LAST_ROUTE, m_LastRoute}
                 }
         },
 
@@ -443,12 +568,19 @@ void GenOnlineSettings::Save()
         {
             SETTINGS_KEY_DATAPACKS,
                 {
-                    {SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH, m_DataPacks_UseCommunityPatch}
+                    {SETTINGS_KEY_DATAPACKS_USER, DataPackLayerToJson(m_DataPacks_User, &m_DataPacks_UserExcludePaths)},
+                    {SETTINGS_KEY_DATAPACKS_GENERALS_ONLINE, DataPackLayerToJson(m_DataPacks_GeneralsOnline, nullptr)},
+                    {SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH, DataPackLayerToJson(m_DataPacks_CommunityPatch, nullptr)}
                 }
         }
     };
 	
-	std::string strData = root.dump(1);
+	auto preserved = nlohmann::json::parse(m_PreservedJSON);
+	preserved.merge_patch(root);
+	preserved[SETTINGS_KEY_DATAPACKS] = root[SETTINGS_KEY_DATAPACKS];	// the client owns data_packs completely, stale keys go
+	preserved[SETTINGS_KEY_NETWORK].erase(SETTINGS_KEY_NETWORK_USE_ALTERNATIVE_ENDPOINT);
+	preserved[SETTINGS_KEY_NETWORK].erase(SETTINGS_KEY_NETWORK_LEGACY_HTTP_VERSION);
+	std::string strData = preserved.dump(1);
 
 	std::string strSettingsFilePath = std::format("{}/GeneralsOnlineData/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
 
@@ -472,4 +604,34 @@ void GenOnlineSettings::Save()
 		std::error_code ec;
 		std::filesystem::remove(strTempPath, ec);
 	}
+	else
+	{
+		m_PreservedJSON = strData;
+	}
+	return bSaved;
+}
+
+bool GenOnlineSettings::Network_SaveLastRoute(const std::string& host)
+{
+	if (host.empty() || host.size() > 253 || host.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-") != std::string::npos)
+	{
+		return false;
+	}
+	if (!m_bInitialized)
+	{
+		Initialize();
+	}
+	std::lock_guard<std::mutex> lock(m_NetworkMutex);
+	if (m_LastRoute == host)
+	{
+		return true;
+	}
+	const auto previous = m_LastRoute;
+	m_LastRoute = host;
+	if (Save())
+	{
+		return true;
+	}
+	m_LastRoute = previous;
+	return false;
 }
