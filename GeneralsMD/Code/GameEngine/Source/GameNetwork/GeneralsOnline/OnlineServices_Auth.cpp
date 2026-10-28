@@ -9,7 +9,7 @@
 #include <chrono>
 #include <random>
 #include <windows.h>
-#include <wincred.h>
+#include "GameNetwork/GeneralsOnline/CredentialStore.h"
 #include "GameNetwork/GameSpyOverlay.h"
 #include "../json.hpp"
 
@@ -173,12 +173,15 @@ void NGMP_OnlineServices_AuthInterface::SendMiddlewareToken(std::string strMWTok
 
 void NGMP_OnlineServices_AuthInterface::OnRefreshTokenFailed(const char* szReason, const std::string& strBody)
 {
-	// the body can hold a rotated refresh token, so release builds log only its size
-#if _DEBUG
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[AUTH]: Refresh response body: %s", strBody.c_str());
-#else
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[AUTH]: Refresh response body was %zu bytes", strBody.size());
-#endif
+	// the body can hold a rotated refresh token, so only its size is logged unless verbose
+	if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[AUTH]: Refresh response body: %s", strBody.c_str());
+	}
+	else
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[AUTH]: Refresh response body was %zu bytes", strBody.size());
+	}
 
 	if (m_currentRefreshAttempt < m_maxRefreshAttempts)
 	{
@@ -302,6 +305,33 @@ void NGMP_OnlineServices_AuthInterface::RefreshToken()
 }
 
 void NGMP_OnlineServices_AuthInterface::BeginLogin()
+{
+	auto* manager = NGMP_OnlineServicesManager::GetInstance();
+	if (!manager)
+	{
+		return;
+	}
+	manager->EnsureServiceRoute([](bool success)
+	{
+		auto* auth = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+		if (!auth)
+		{
+			return;
+		}
+		if (success)
+		{
+			auth->BeginLoginOnSelectedRoute();
+		}
+		else
+		{
+			ClearGSMessageBoxes();
+			const bool proxyAuth = NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->RouteFailedProxyAuth();
+			GSMessageBoxOk(UnicodeString(L"Connection failed"), UnicodeString(proxyAuth ? L"The proxy did not accept the login. Try again, or check the proxy settings in Options." : L"No trusted service route could be reached. Check Connection settings in Options, then try again."), []() { TheShell->pop(); });
+		}
+	});
+}
+
+void NGMP_OnlineServices_AuthInterface::BeginLoginOnSelectedRoute()
 {
 	m_tokenCreationTime = -1;
 
@@ -431,7 +461,10 @@ void NGMP_OnlineServices_AuthInterface::DoFullLoginFlow()
 						m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
 						m_strCode = authResp.login_code;
-						NetworkLog(ELogVerbosity::LOG_DEBUG, "Login Code is %s", m_strCode.c_str());
+						if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+						{
+							NetworkLog(ELogVerbosity::LOG_DEBUG, "Login Code is %s", m_strCode.c_str());
+						}
 
 #if defined(USE_TEST_ENV)
                         std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
@@ -536,9 +569,10 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 						AuthResponse authResp = jsonObject.get<AuthResponse>();
 
-#if _DEBUG
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "PageBody: %s", strBody.c_str());
-#endif
+						if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "PageBody: %s", strBody.c_str());
+						}
 						if (authResp.result == EAuthResponseResult::CODE_INVALID)
 						{
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Code didnt exist, trying again soon");
@@ -613,14 +647,8 @@ void NGMP_OnlineServices_AuthInterface::LogoutOfMyAccount()
 	std::map<std::string, std::string> mapHeaders;
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendDELETERequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, "", nullptr);
 
-	// delete local credentials cache
-	std::string strCredentialsCachePath = GetCredentialsFilePath();
-
-	std::error_code ec;
-	if (std::filesystem::exists(strCredentialsCachePath, ec))
-	{
-		std::filesystem::remove(strCredentialsCachePath, ec);
-	}
+	// delete the stored login token
+	ServiceConnection::DeleteRefreshToken(CredentialServerKey());
 }
 
 void NGMP_OnlineServices_AuthInterface::LoginAsSecondaryDevAccount()
@@ -633,55 +661,8 @@ void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szRefreshTok
 	m_strRefreshToken = std::string(szRefreshToken); // store the new refresh token, we'll need it for the next refresh
 	m_tokenCreationTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
-	// store in data dir
-	nlohmann::json root = { {"refresh_token", szRefreshToken} };
-
-	std::string strData = root.dump(1);
-
-	// encrypt before touching the file so a failure doesn't truncate the credentials already stored
-	std::string strFileData;
-#if defined(GENERALS_ONLINE_ENCRYPT_CREDENTIALS)
-	DATA_BLOB inputBlob;
-	DATA_BLOB outputBlob;
-
-	inputBlob.pbData = (BYTE*)strData.c_str();
-	inputBlob.cbData = static_cast<DWORD>(strData.size());
-
-	if (CryptProtectData(&inputBlob, L"GO Credentials", nullptr, nullptr, nullptr, 0, &outputBlob))
-	{
-		strFileData.assign((const char*)outputBlob.pbData, outputBlob.cbData);
-		LocalFree(outputBlob.pbData);
-	}
-	else
-	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to encrypt credentials, keeping the stored ones");
-		return;
-	}
-#else
-	strFileData = strData;
-#endif
-
-	// write to a temp file and swap it in so a failed write never leaves truncated credentials
-	std::string strCredentialsPath = GetCredentialsFilePath();
-	std::string strTempPath = strCredentialsPath + ".tmp";
-	bool bSaved = false;
-	FILE* file = fopen(strTempPath.c_str(), "wb");
-	if (file)
-	{
-		bSaved = fwrite(strFileData.data(), 1, strFileData.size(), file) == strFileData.size();
-		if (fclose(file) != 0)
-			bSaved = false;
-	}
-
-	if (bSaved)
-		bSaved = MoveFileExA(strTempPath.c_str(), strCredentialsPath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
-
-	if (!bSaved)
-	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to save credentials");
-		std::error_code ec;
-		std::filesystem::remove(strTempPath, ec);
-	}
+	// a failed save keeps the token for this session
+	ServiceConnection::SaveRefreshToken(CredentialServerKey(), m_strRefreshToken);
 }
 
 bool NGMP_OnlineServices_AuthInterface::GetCredentials()
@@ -689,75 +670,18 @@ bool NGMP_OnlineServices_AuthInterface::GetCredentials()
 #if defined(_DEBUG) && !defined(USE_TEST_ENV) && !defined(USE_DEBUG_ON_LIVE_SERVER)
 	return false;
 #endif
-	std::vector<uint8_t> vecBytes;
-	FILE* file = fopen(GetCredentialsFilePath().c_str(), "rb");
-	if (file)
+	std::string strToken;
+	if (!ServiceConnection::LoadRefreshToken(CredentialServerKey(), strToken))
 	{
-		fseek(file, 0, SEEK_END);
-		long fileSize = ftell(file);
-		fseek(file, 0, SEEK_SET);
-		if (fileSize > 0)
-		{
-			vecBytes.resize(fileSize);
-			fread(vecBytes.data(), 1, fileSize, file);
-		}
-		fclose(file);
+		return false;
 	}
+	m_strRefreshToken = strToken;
+	return true;
+}
 
-
-	if (!vecBytes.empty())
-	{
-		// needs decrypt first
-#if defined(GENERALS_ONLINE_ENCRYPT_CREDENTIALS)
-		DATA_BLOB encryptedBlob;
-		encryptedBlob.pbData = const_cast<BYTE*>(vecBytes.data());
-		encryptedBlob.cbData = static_cast<DWORD>(vecBytes.size());
-		std::string strJSON;
-
-		DATA_BLOB decryptedBlob = { 0 };
-		if (CryptUnprotectData(&encryptedBlob, nullptr, nullptr, nullptr, nullptr, 0, &decryptedBlob))
-		{
-			strJSON = std::string((char*)decryptedBlob.pbData, decryptedBlob.cbData);
-			LocalFree(decryptedBlob.pbData); // Free memory allocated by CryptUnprotectData
-		}
-		else
-		{
-			// TODO_JWT: Handle failure
-		}
-#else
-		std::string strJSON = std::string((char*)vecBytes.data(), vecBytes.size());
-#endif
-
-		
-		nlohmann::json jsonCredentials = nullptr;
-
-		try
-		{
-			jsonCredentials = nlohmann::json::parse(strJSON);
-
-			if (jsonCredentials != nullptr)
-			{
-				if (jsonCredentials.contains("refresh_token"))
-				{
-					m_strRefreshToken = jsonCredentials["refresh_token"];
-
-					if (m_strRefreshToken.empty())
-					{
-						return false;
-					}
-
-					return true;
-				}
-			}
-
-		}
-		catch (...)
-		{
-			return false;
-		}
-	}
-
-	return false;
+std::string NGMP_OnlineServices_AuthInterface::CredentialServerKey()
+{
+	return ServiceConnection::CredentialServerKey(NGMP_OnlineServicesManager::Settings.Network_GetConnectionSettings());
 }
 
 std::string NGMP_OnlineServices_AuthInterface::GetCredentialsFilePath()

@@ -1160,9 +1160,13 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h
     Include/GameNetwork/GeneralsOnline/NextGenTransport.h
     Include/GameNetwork/GeneralsOnline/PluginInterfaces.h
+    Source/GameNetwork/GeneralsOnline/CredentialStore.cpp
     Source/GameNetwork/GeneralsOnline/DiscordRichPresence.cpp
     Source/GameNetwork/GeneralsOnline/NGMP_Helpers.cpp
     Source/GameNetwork/GeneralsOnline/NGMPGame.cpp
+    Source/GameNetwork/GeneralsOnline/ProxyLogin.cpp
+    Source/GameNetwork/GeneralsOnline/ServiceConnectionPolicy.cpp
+    Source/GameNetwork/GeneralsOnline/ServiceEndpointPolicy.cpp
     Source/GameNetwork/GeneralsOnline/GeneralsOnline_Settings.cpp
     Source/GameNetwork/GeneralsOnline/HTTP/HTTPManager.cpp
     Source/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.cpp

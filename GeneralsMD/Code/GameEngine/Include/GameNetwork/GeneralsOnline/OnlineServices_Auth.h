@@ -23,6 +23,7 @@ public:
 
 	void RefreshToken();
 	void BeginLogin();
+	void BeginLoginOnSelectedRoute();
 	void DoFullLoginFlow();
 
 	void Tick();
@@ -48,6 +49,8 @@ public:
 
 	void LogoutOfMyAccount();
 
+	static std::string GetCredentialsFilePath();
+
 private:
 	void LoginAsSecondaryDevAccount();
 
@@ -56,7 +59,7 @@ private:
 
 	void OnRefreshTokenFailed(const char* szReason, const std::string& strBody = std::string());
 
-	std::string GetCredentialsFilePath();
+	static std::string CredentialServerKey();
 
 private:
 	bool m_bWaitingLogin = false;

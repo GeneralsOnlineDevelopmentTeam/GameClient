@@ -1,4 +1,5 @@
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h"
+#include "GameNetwork/GeneralsOnline/ServiceEndpointPolicy.h"
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
@@ -35,22 +36,14 @@ HTTPRequest::HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const 
 
 HTTPRequest::~HTTPRequest()
 {
-	NGMP_OnlineServicesManager* pMgr = NGMP_OnlineServicesManager::GetInstance();
-	if (pMgr == nullptr)
-		return;
-
-	HTTPManager* pHTTPManager = pMgr->GetHTTPManager();
-	pHTTPManager->RemoveHandleFromMulti(m_pCURL);
-
-	curl_easy_cleanup(m_pCURL);
-
-	m_vecBuffer.clear();
-
-    if (headers)
+	m_proxyResolution.reset();
+	NGMP_OnlineServicesManager* manager = NGMP_OnlineServicesManager::GetInstance();
+	if (m_handleAdded && manager != nullptr && manager->GetHTTPManager() != nullptr)
 	{
-        curl_slist_free_all(headers);
-		headers = nullptr;
-    }
+		manager->GetHTTPManager()->RemoveHandleFromMulti(m_pCURL);
+	}
+	curl_easy_cleanup(m_pCURL);
+	curl_slist_free_all(headers);
 }
 
 
@@ -59,7 +52,10 @@ void HTTPRequest::SetPostData(const char* szPostData)
 	// TODO_HTTP: Error if verb isnt post
 	m_strPostData = std::string(szPostData);
 
-	NetworkLog(ELogVerbosity::LOG_DEBUG, "[%p|%s|Verb %d] Transfer is created: Body is %s", this, m_strURI.c_str(), m_httpVerb, szPostData);
+	if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+	{
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "[%p|%s|Verb %d] Transfer is created: Body is %s", this, m_strURI.c_str(), m_httpVerb, szPostData);
+	}
 }
 
 void HTTPRequest::SetPostDataBuffer(std::vector<uint8_t> vecBuffer)
@@ -76,7 +72,48 @@ void HTTPRequest::StartRequest()
 
 	m_currentBufSize_Used = 0;
 
-	NetworkLog(ELogVerbosity::LOG_DEBUG, "[%p|%s|Verb %d] Transfer is starting: Body is %s", this, m_strURI.c_str(), m_httpVerb, m_strPostData.c_str());
+	if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+	{
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "[%p|%s|Verb %d] Transfer is starting: Body is %s", this, m_strURI.c_str(), m_httpVerb, m_strPostData.c_str());
+	}
+	m_setupStarted = std::chrono::steady_clock::now();
+	m_proxyResolution = ServiceConnection::StartProxyResolution(
+		NGMP_OnlineServicesManager::Settings.Network_GetConnectionSettings(), m_strURI);
+}
+
+void HTTPRequest::PollConnectionSetup()
+{
+	if (!m_proxyResolution || m_bIsComplete)
+		return;
+	if (std::chrono::steady_clock::now() - m_setupStarted >= std::chrono::milliseconds(m_timeoutMS))
+	{
+		m_proxyResolution.reset();
+		m_setupFailurePhase = "proxy-timeout";
+		Threaded_SetComplete(CURLE_OPERATION_TIMEDOUT);
+		return;
+	}
+	if (!m_proxyResolution->ready.load(std::memory_order_acquire))
+		return;
+	m_proxyPolicy = std::move(m_proxyResolution->result);
+	m_proxyResolution.reset();
+	if (!m_proxyPolicy.error.empty() || m_proxyPolicy.routes.empty())
+	{
+		m_setupFailurePhase = m_proxyPolicy.failurePhase.empty() ? "proxy-policy" : m_proxyPolicy.failurePhase;
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] Proxy policy failed: phase=%s native_code=%lu detail=%s",
+			m_setupFailurePhase.c_str(), m_proxyPolicy.nativeError, m_proxyPolicy.error.c_str());
+		Threaded_SetComplete(CURLE_FAILED_INIT);
+		return;
+	}
+	if (ServiceConnection::ShouldLogProxyPolicy(false, m_proxyPolicy))
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] Proxy route policy: %zu route(s), first=%s",
+			m_proxyPolicy.routes.size(), m_proxyPolicy.routes.front().direct ? "direct" : m_proxyPolicy.routes.front().url.c_str());
+		if (!m_proxyPolicy.fallbackReason.empty())
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] Proxy policy fallback: native_code=%lu detail=%s",
+				m_proxyPolicy.nativeError, m_proxyPolicy.fallbackReason.c_str());
+		}
+	}
 	PlatformStartRequest();
 }
 
@@ -119,7 +156,7 @@ void HTTPRequest::InvokeCallbackIfComplete()
 			{
 				strResponse.clear();
 			}
-			m_completionCallback(true, m_responseCode, strResponse, this);
+			m_completionCallback(m_result == CURLE_OK, static_cast<int>(m_responseCode), strResponse, this);
 		}
 	}
 }
@@ -138,6 +175,7 @@ bool HTTPRequest::InvokeDelayAction()
 		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 		if (currTime - m_timeRequestComplete > 2000)
 		{
+			m_timeRequestComplete = -1;
 			Threaded_SetComplete(m_pendingCURLCode);
 			return true;
 		}
@@ -150,10 +188,31 @@ bool HTTPRequest::InvokeDelayAction()
 
 void HTTPRequest::Threaded_SetComplete(CURLcode result)
 {
-	// store response code
+	long proxyStatus = 0;
+	curl_easy_getinfo(m_pCURL, CURLINFO_HTTP_CONNECTCODE, &proxyStatus);
 	curl_easy_getinfo(m_pCURL, CURLINFO_RESPONSE_CODE, &m_responseCode);
+	// CONNECT authentication failures do not populate the origin response code.
+	if (proxyStatus == 407)
+		m_responseCode = 407;
+	if (proxyStatus != 407 && m_responseCode != 407 && (result == CURLE_COULDNT_CONNECT || result == CURLE_COULDNT_RESOLVE_PROXY || result == CURLE_COULDNT_RESOLVE_HOST)
+		&& m_proxyRoute + 1 < m_proxyPolicy.routes.size()
+		&& std::chrono::steady_clock::now() - m_setupStarted < std::chrono::milliseconds(m_timeoutMS))
+	{
+		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->RemoveHandleFromMulti(m_pCURL);
+		m_handleAdded = false;
+		++m_proxyRoute;
+		curl_easy_reset(m_pCURL);
+		curl_slist_free_all(headers);
+		headers = nullptr;
+		m_currentBufSize_Used = 0;
+		m_vecBuffer.resize(g_initialBufSize);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] Trying next policy route after pre-connection failure (%d)", result);
+		PlatformStartRequest();
+		return;
+	}
+	m_result = result;
 
-	if (result == CURLE_OK)
+	if (result == CURLE_OK && m_proxyPolicy.routes[m_proxyRoute].direct && NGMP_OnlineServicesManager::IsServiceURLTrusted(m_strURI))
 	{
 		HTTPManager* pHTTPManager = static_cast<HTTPManager*>(NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager());
 		if (pHTTPManager != nullptr)
@@ -186,46 +245,63 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 	// finalize the size, so we can use .size etc
 	m_vecBuffer.resize(m_currentBufSize_Used);
 
-	std::string strURIRedacted = m_strURI;
-
-#if !_DEBUG
-	size_t tokenpos = strURIRedacted.find("token:");
-	if (tokenpos != -1)
+	long protocol = 0;
+	curl_easy_getinfo(m_pCURL, CURLINFO_HTTP_VERSION, &protocol);
+	// successful requests are only logged in verbose mode
+	const bool success = m_setupFailurePhase.empty() && result == CURLE_OK && m_responseCode >= 200 && m_responseCode < 300;
+	if (!success || g_LogVerbosity == ELogVerbosity::LOG_DEBUG || NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
 	{
-		std::string strReplace = "<redacted>";
-		const size_t tokenLen = 32;
-		strURIRedacted = strURIRedacted.replace(tokenpos + 6, tokenLen, strReplace);
+		const char* method = "UNKNOWN";
+		switch (m_httpVerb)
+		{
+		case EHTTPVerb::HTTP_VERB_GET: method = "GET"; break;
+		case EHTTPVerb::HTTP_VERB_POST: method = "POST"; break;
+		case EHTTPVerb::HTTP_VERB_PUT: method = "PUT"; break;
+		case EHTTPVerb::HTTP_VERB_DELETE: method = "DELETE"; break;
+		}
+		const auto url = ServiceConnection::RequestURLForLog(m_strURI, NGMP_OnlineServicesManager::GetAPIEndpoint(""));
+		if (!m_setupFailurePhase.empty())
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] Completed: method=%s url=%s source=proxy-policy phase=%s curl=not-started native_code=%lu",
+				method, url.c_str(), m_setupFailurePhase.c_str(), m_proxyPolicy.nativeError);
+		}
+		else
+		{
+			NetworkLog(success ? ELogVerbosity::LOG_DEBUG : ELogVerbosity::LOG_RELEASE, "[HTTP] Completed: method=%s url=%s phase=%s curl=%d status=%ld proxy_status=%ld protocol=%s bytes=%zu",
+				method, url.c_str(), ServiceConnection::FailurePhase(result, m_responseCode, proxyStatus), result, m_responseCode, proxyStatus,
+				ServiceConnection::ProtocolName(protocol), m_currentBufSize_Used);
+		}
+
+		if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+		{
+			std::string strResponse(reinterpret_cast<const char*>(m_vecBuffer.data()), m_currentBufSize_Used);
+
+	#if !_DEBUG
+			// release builds keep hiding the RNG seed and anything token related even when verbose
+			static const std::string strSeedKey = "\"RNGSeed\":";
+			for (size_t seedPos = strResponse.find(strSeedKey); seedPos != std::string::npos; seedPos = strResponse.find(strSeedKey, seedPos))
+			{
+				size_t valueStart = seedPos + strSeedKey.length();
+				size_t valueEnd = strResponse.find_first_of(",}", valueStart);
+				if (valueEnd == std::string::npos)
+					break;
+
+				strResponse.replace(valueStart, valueEnd - valueStart, "<redacted>");
+				seedPos = valueStart;
+			}
+
+			std::string strResponseLower = strResponse;
+			std::transform(strResponseLower.begin(), strResponseLower.end(), strResponseLower.begin(),
+				[](unsigned char c) { return std::tolower(c); });
+			if (strResponseLower.find("token") != std::string::npos)
+			{
+				strResponse = "<redacted>";
+			}
+	#endif
+
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] Response body for %s: %s", url.c_str(), strResponse.c_str());
+		}
 	}
-#endif
-
-	std::string strResponse = std::string(reinterpret_cast<const char*>(m_vecBuffer.data()), m_currentBufSize_Used);
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s|Verb %d] Transfer is complete: %d bytes total! Curl result is %d", this, strURIRedacted.c_str(), m_httpVerb, m_currentBufSize_Used, result);
-
-	// if we got an error, set the response code to 0
-
-#if !_DEBUG
-	static const std::string strSeedKey = "\"RNGSeed\":";
-	for (size_t seedPos = strResponse.find(strSeedKey); seedPos != std::string::npos; seedPos = strResponse.find(strSeedKey, seedPos))
-	{
-		size_t valueStart = seedPos + strSeedKey.length();
-		size_t valueEnd = strResponse.find_first_of(",}", valueStart);
-		if (valueEnd == std::string::npos)
-			break;
-
-		strResponse.replace(valueStart, valueEnd - valueStart, "<redacted>");
-		seedPos = valueStart;
-	}
-
-	std::string strResponseLower = strResponse;
-	std::transform(strResponseLower.begin(), strResponseLower.end(), strResponseLower.begin(),
-		[](unsigned char c) { return std::tolower(c); });
-	if (strResponseLower.find("token") != std::string::npos)
-	{
-		strResponse = "<redacted>";
-	}
-#endif
-
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s|Verb %d] Response was %d - %s!", this, strURIRedacted.c_str(), m_httpVerb, m_responseCode, strResponse.c_str());
 
 	// trigger callback
 	InvokeCallbackIfComplete();
@@ -233,99 +309,112 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 
 void HTTPRequest::PlatformStartRequest()
 {
-	if (m_pCURL)
+	if (m_pCURL == nullptr)
 	{
-		HTTPManager* pHTTPManager = static_cast<HTTPManager*>(NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager());
+		Threaded_SetComplete(CURLE_FAILED_INIT);
+		return;
+	}
+	if (m_proxyRoute > 0)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] Route %zu: %s", m_proxyRoute + 1, m_proxyPolicy.routes[m_proxyRoute].direct ? "direct" : m_proxyPolicy.routes[m_proxyRoute].url.c_str());
+	}
+	std::string error;
+	if (!ServiceConnection::ConfigureCurl(m_pCURL, m_strURI, m_proxyPolicy.routes[m_proxyRoute], error))
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] Connection policy: %s", error.c_str());
+		Threaded_SetComplete(CURLE_FAILED_INIT);
+		return;
+	}
 
-		curl_easy_setopt(m_pCURL, CURLOPT_URL, m_strURI.c_str());
-		curl_easy_setopt(m_pCURL, CURLOPT_FOLLOWLOCATION, 1L);
-		curl_easy_setopt(m_pCURL, CURLOPT_WRITEDATA, (void*)this);
-		curl_easy_setopt(m_pCURL, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-		curl_easy_setopt(m_pCURL, CURLOPT_USERAGENT, "GeneralsOnline Client");
-
-		
-		curl_easy_setopt(m_pCURL, CURLOPT_CONNECTTIMEOUT_MS, m_timeoutMS);
-		curl_easy_setopt(m_pCURL, CURLOPT_TIMEOUT_MS, m_timeoutMS);
-
-		curl_easy_setopt(m_pCURL, CURLOPT_HTTP_VERSION, NGMP_OnlineServicesManager::Settings.Network_GetHTTPVersionForCurl());
-
-		if (m_protover == EIPProtocolVersion::DONT_CARE)
+	// credentials only ever go to the selected service route
+	const bool trusted = NGMP_OnlineServicesManager::IsServiceURLTrusted(m_strURI);
+	for (const auto& kvPair : m_mapHeaders)
+	{
+		if (_stricmp(kvPair.first.c_str(), "Authorization") == 0 && !trusted)
 		{
-			curl_easy_setopt(m_pCURL, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_WHATEVER);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] Refused credentials outside selected service route");
+			Threaded_SetComplete(CURLE_URL_MALFORMAT);
+			return;
 		}
-		else if (m_protover == EIPProtocolVersion::FORCE_IPV4)
+	}
+
+	// Are we authenticated? attach our auth header
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (trusted && m_bAppendAuthIfPresent && pAuthInterface != nullptr && pAuthInterface->IsLoggedIn())
+	{
+		m_mapHeaders["Authorization"] = "Bearer " + pAuthInterface->GetAuthToken();
+	}
+
+	for (const auto& kvPair : m_mapHeaders)
+	{
+		const std::string strHeader = kvPair.first + ": " + kvPair.second;
+		curl_slist* updated = curl_slist_append(headers, strHeader.c_str());
+		if (updated == nullptr)
 		{
-			curl_easy_setopt(m_pCURL, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+			Threaded_SetComplete(CURLE_OUT_OF_MEMORY);
+			return;
 		}
-		else if (m_protover == EIPProtocolVersion::FORCE_IPV6)
+		headers = updated;
+	}
+
+	CURLcode result = CURLE_OK;
+	auto option = [&](CURLoption key, auto value) {
+		if (result == CURLE_OK)
 		{
-			curl_easy_setopt(m_pCURL, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+			result = curl_easy_setopt(m_pCURL, key, value);
 		}
-		
+	};
+	option(CURLOPT_URL, m_strURI.c_str());
+	option(CURLOPT_WRITEDATA, static_cast<void*>(this));
+	option(CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+	option(CURLOPT_USERAGENT, "GeneralsOnline Client");
+	// proxy lookup and earlier routes share the request deadline
+	const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_setupStarted).count();
+	const long remaining = static_cast<long>(std::max<int64_t>(1, m_timeoutMS - elapsed));
+	option(CURLOPT_CONNECTTIMEOUT_MS, remaining);
+	option(CURLOPT_TIMEOUT_MS, remaining);
+	option(CURLOPT_IPRESOLVE, static_cast<long>(m_protover == EIPProtocolVersion::FORCE_IPV4 ? CURL_IPRESOLVE_V4 :
+		m_protover == EIPProtocolVersion::FORCE_IPV6 ? CURL_IPRESOLVE_V6 : CURL_IPRESOLVE_WHATEVER));
+	option(CURLOPT_HTTPHEADER, headers);
 
-		// Are we authenticated? attach our auth header
-		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-		if (pAuthInterface != nullptr && pAuthInterface->IsLoggedIn())
+	if (m_httpVerb == EHTTPVerb::HTTP_VERB_POST || m_httpVerb == EHTTPVerb::HTTP_VERB_PUT || m_httpVerb == EHTTPVerb::HTTP_VERB_DELETE)
+	{
+		if (!m_vecPostDataBuffer.empty())
 		{
-			if (m_bAppendAuthIfPresent)
-			{
-				m_mapHeaders["Authorization"] = "Bearer " + pAuthInterface->GetAuthToken();
-			}
+			option(CURLOPT_POSTFIELDS, m_vecPostDataBuffer.data());
+			option(CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(m_vecPostDataBuffer.size()));
 		}
-
-		for (auto& kvPair : m_mapHeaders)
+		else
 		{
-			std::string strHeader = kvPair.first + ": " + kvPair.second;
-			headers = curl_slist_append(headers, strHeader.c_str());
+			option(CURLOPT_POSTFIELDS, m_strPostData.c_str());
+			option(CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(m_strPostData.size()));
 		}
-		curl_easy_setopt(m_pCURL, CURLOPT_HTTPHEADER, headers);
+	}
 
-		if (m_httpVerb == EHTTPVerb::HTTP_VERB_POST || m_httpVerb == EHTTPVerb::HTTP_VERB_PUT || m_httpVerb == EHTTPVerb::HTTP_VERB_DELETE)
-		{
-			//if (m_strPostData.length() > 0)
-			{
-				//char* pEscaped = curl_easy_escape(m_pCURL, m_strPostData.c_str(), m_strPostData.length());
+	if (m_maxSendBytesPerSec > 0)
+	{
+		option(CURLOPT_MAX_SEND_SPEED_LARGE, static_cast<curl_off_t>(m_maxSendBytesPerSec));
+	}
 
-				if (!m_vecPostDataBuffer.empty())
-				{
-                    curl_easy_setopt(m_pCURL, CURLOPT_POSTFIELDS, m_vecPostDataBuffer.data());
-					curl_easy_setopt(m_pCURL, CURLOPT_POSTFIELDSIZE, m_vecPostDataBuffer.size());
-				}
-				else
-				{
-                    curl_easy_setopt(m_pCURL, CURLOPT_POSTFIELDS, m_strPostData.c_str());
-				}
-			}
-		}
+	// needed for PUT etc
+	if (m_httpVerb == EHTTPVerb::HTTP_VERB_PUT)
+	{
+		option(CURLOPT_CUSTOMREQUEST, "PUT");
+	}
+	else if (m_httpVerb == EHTTPVerb::HTTP_VERB_DELETE)
+	{
+		option(CURLOPT_CUSTOMREQUEST, "DELETE");
+	}
 
-		// needed for PUT etc
-		if (m_httpVerb == EHTTPVerb::HTTP_VERB_PUT)
-		{
-			curl_easy_setopt(m_pCURL, CURLOPT_CUSTOMREQUEST, "PUT");
-		}
-		else if (m_httpVerb == EHTTPVerb::HTTP_VERB_DELETE)
-		{
-			curl_easy_setopt(m_pCURL, CURLOPT_CUSTOMREQUEST, "DELETE");
-		}
+	if (result != CURLE_OK)
+	{
+		Threaded_SetComplete(result);
+		return;
+	}
 
-#if _DEBUG
-		if (pHTTPManager->IsProxyEnabled())
-		{
-			curl_easy_setopt(m_pCURL, CURLOPT_PROXY, pHTTPManager->GetProxyAddress().c_str());
-			curl_easy_setopt(m_pCURL, CURLOPT_PROXYPORT, pHTTPManager->GetProxyPort());
-		}
-
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
-		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
-#else
-
-		// Use the OS cert store (needed since we build curl against OpenSSL, not schannel).
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 2L);
-#endif
-
-		pHTTPManager->AddHandleToMulti(m_pCURL);
+	m_handleAdded = NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->AddHandleToMulti(m_pCURL);
+	if (!m_handleAdded)
+	{
+		Threaded_SetComplete(CURLE_FAILED_INIT);
 	}
 }

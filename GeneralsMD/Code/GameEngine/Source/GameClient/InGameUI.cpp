@@ -7135,27 +7135,7 @@ void InGameUI::drawSystemTime(Int& x, Int& y)
 
 	UnicodeString TimeString;
 
-#if defined(GENERALS_ONLINE)
-	if (NGMP_OnlineServicesManager::Settings.Graphics_DrawStatsOverlay() && TheNetwork != nullptr)
-	{
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-		if (currTime - lastFPSUpdate >= 1000)
-		{
-			lastFPSUpdate = currTime;
-			m_lastFPS = m_currentFPS;
-			m_currentFPS = 0;
-		}
-		++m_currentFPS;
-
-		TimeString.format(L"%2.2d:%2.2d:%2.2d", systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
-	}
-	else
-	{
-		TimeString.format(L"%2.2d:%2.2d:%2.2d", systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
-	}
-#else
 	TimeString.format(L"%2.2d:%2.2d:%2.2d", systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
-#endif
 
 	m_systemTimeString->setText(TimeString);
 

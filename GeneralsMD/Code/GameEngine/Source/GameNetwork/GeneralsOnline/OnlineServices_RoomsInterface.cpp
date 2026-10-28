@@ -1,4 +1,6 @@
+#include "GameNetwork/GeneralsOnline/ProxyLogin.h"
 #include <random>
+#include "GameNetwork/GeneralsOnline/ServiceEndpointPolicy.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "GameNetwork/GeneralsOnline/NetworkPacket.h"
@@ -9,10 +11,10 @@
 #include "../HTTP/HTTPManager.h"
 #include "GameNetwork/GameSpy/PeerDefs.h"
 
-// one clock for every websocket timestamp; utc_clock also loads the time zone database on MSVC
+// steady clock, so deadlines do not move with system clock changes
 static int64_t NowMs()
 {
-	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
 // -----------------------------
@@ -138,103 +140,169 @@ WebSocket::~WebSocket()
 
 int WebSocket::Ping()
 {
-	size_t sent;
-	CURLcode result = curl_ws_send(m_pCurlWS, "wsping", strlen("wsping"), &sent, 0,
-		CURLWS_PING);
+	if (!m_bConnected)
+	{
+		return CURLE_AGAIN;
+	}
 
+	// keep the app heartbeat for older services, no raw PING, at most one queued under backpressure
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::PING;
-	std::string strBody = j.dump();
-
-	Send(strBody.c_str());
-
-	return (int)result;
+	QueueOutbound(j.dump(), true);
+	return CURLE_OK;
 }
-
 
 void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(void)> fnWebsocketConnectedCallback)
 {
-	if (m_bConnected)
+	if (m_bConnected || m_bShuttingDown)
+		return;
+	// Copy before replacing the stored address: reconnect passes its c_str().
+	const std::string destination(url);
+	m_strWebsocketAddr = destination;
+	m_fnWebsocketConnectedCallback = fnWebsocketConnectedCallback;
+	m_connectAsReconnect = bIsReconnect;
+	m_lastPong = NowMs();
+	m_proxySetupStarted = NowMs();
+	m_proxyResolution.reset();
+	m_proxyPolicy = {};
+	m_proxyRoute = 0;
+	m_proxyPrompted = false;
+	if (m_pCurlWS != nullptr)
+	{
+		curl_multi_remove_handle(m_pMulti, m_pCurlWS);
+		curl_easy_cleanup(m_pCurlWS);
+		m_pCurlWS = nullptr;
+	}
+	curl_slist_free_all(m_pHeaders);
+	m_pHeaders = nullptr;
+	if (!NGMP_OnlineServicesManager::IsWebSocketURLTrusted(destination))
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Refused untrusted service destination");
+		FailConnectionSetup();
+		return;
+	}
+	m_proxyResolution = ServiceConnection::StartProxyResolution(
+		NGMP_OnlineServicesManager::Settings.Network_GetConnectionSettings(), destination);
+}
+
+// the lobby connection is a visible flow: a proxy that wants a login gets one prompt, then the handshake runs again
+void WebSocket::ResumeAfterProxyLogin(bool loggedIn)
+{
+	if (m_bShuttingDown || m_bConnected)
 	{
 		return;
 	}
-
-	m_lastPong = NowMs();
-
-	// TODO_CACHE: Cleanup multi too
-	if (m_pCurlWS != nullptr)
+	if (!loggedIn)
 	{
-        // remove from multi before cleanup (required by libcurl)
-        if (m_pMulti != nullptr)
-        {
-            curl_multi_remove_handle(m_pMulti, m_pCurlWS);
-        }
-        // cleanup
-        curl_easy_cleanup(m_pCurlWS);
-        m_pCurlWS = nullptr;
+		FailConnectionSetup();
+		return;
 	}
+	m_proxySetupStarted = NowMs();
+	StartResolvedConnection();
+}
 
-    // Free old headers before creating new ones
-	if (m_pHeaders != nullptr)
+void WebSocket::FailConnectionSetup()
+{
+	m_proxyResolution.reset();
+	m_bConnected = false;
+	m_vecWSPartialBuffer.clear();
+	if (m_bReconnecting)
 	{
-		curl_slist_free_all(m_pHeaders);
-		m_pHeaders = nullptr;
+		m_reconnectAttemptStarted = -1;
+		m_nextReconnectAttempt = NowMs() + ComputeReconnectDelay();
 	}
-
-	m_pCurlWS = curl_easy_init();
-
-	if (m_pCurlWS != nullptr)
+	else
 	{
-		m_fnWebsocketConnectedCallback = fnWebsocketConnectedCallback;
+		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
+	}
+}
 
-		int httpResponseCode = -1;
-		m_strWebsocketAddr = std::string(url);
-		curl_easy_setopt(m_pCurlWS, CURLOPT_URL, url);
-
-		curl_easy_getinfo(m_pCurlWS, CURLINFO_RESPONSE_CODE, &httpResponseCode);
-
-		curl_easy_setopt(m_pCurlWS, CURLOPT_CONNECT_ONLY, 2L); /* websocket style */
-
-        // HTTP v1 seems to have a higher success rate of bypassing DPI
-		curl_easy_setopt(m_pCurlWS, CURLOPT_HTTP_VERSION, NGMP_OnlineServicesManager::Settings.Network_GetHTTPVersionForCurl());
-
-#if _DEBUG
-		curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
-
-		curl_easy_setopt(m_pCurlWS, CURLOPT_VERBOSE, 1L);
-#else
-        // Use the OS cert store (needed since we build curl against OpenSSL, not schannel).
-        curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
-        curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 2L);
-#endif
-
-
-		// ws needs auth
-		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-		if (pAuthInterface == nullptr)
+void WebSocket::PollConnectionSetup()
+{
+	if (!m_proxyResolution)
+		return;
+	if (NowMs() - m_proxySetupStarted >= m_reconnectAttemptTimeout)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Proxy policy failed: phase=proxy-timeout native_code=0");
+		FailConnectionSetup();
+		return;
+	}
+	if (!m_proxyResolution->ready.load(std::memory_order_acquire))
+		return;
+	m_proxyPolicy = std::move(m_proxyResolution->result);
+	m_proxyResolution.reset();
+	if (!m_proxyPolicy.error.empty() || m_proxyPolicy.routes.empty())
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Proxy policy failed: phase=%s native_code=%lu detail=%s",
+			m_proxyPolicy.failurePhase.empty() ? "proxy-policy" : m_proxyPolicy.failurePhase.c_str(),
+			m_proxyPolicy.nativeError, m_proxyPolicy.error.c_str());
+		FailConnectionSetup();
+		return;
+	}
+	if (ServiceConnection::ShouldLogProxyPolicy(true, m_proxyPolicy))
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Proxy route policy: %zu route(s), first=%s",
+			m_proxyPolicy.routes.size(), m_proxyPolicy.routes.front().direct ? "direct" : m_proxyPolicy.routes.front().url.c_str());
+		if (!m_proxyPolicy.fallbackReason.empty())
 		{
-			curl_easy_cleanup(m_pCurlWS);
-			m_pCurlWS = nullptr;
-			return;
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Proxy policy fallback: native_code=%lu detail=%s",
+				m_proxyPolicy.nativeError, m_proxyPolicy.fallbackReason.c_str());
 		}
-
-		char szHeaderBuffer[8192] = { 0 };
-		sprintf_s(szHeaderBuffer, "Authorization: Bearer %s", pAuthInterface->GetAuthToken().c_str());
-		m_pHeaders = curl_slist_append(m_pHeaders, szHeaderBuffer);
-
-        sprintf_s(szHeaderBuffer, "is-reconnect: %s", bIsReconnect ? "true": "false");
-		m_pHeaders = curl_slist_append(m_pHeaders, szHeaderBuffer);
-
-		curl_easy_setopt(m_pCurlWS, CURLOPT_HTTPHEADER, m_pHeaders);
-
-		//curl_easy_setopt(m_pCurl, CURLOPT_TIMEOUT_MS, 1000);
-
-		/* Perform the request, res gets the return code */
-		//CURLcode res = curl_easy_perform(m_pCurl);
-		curl_multi_add_handle(m_pMulti, m_pCurlWS);
 	}
+	StartResolvedConnection();
+}
+
+void WebSocket::StartResolvedConnection()
+{
+	if (m_pCurlWS != nullptr)
+	{
+		curl_multi_remove_handle(m_pMulti, m_pCurlWS);
+		curl_easy_cleanup(m_pCurlWS);
+	}
+	curl_slist_free_all(m_pHeaders);
+	m_pHeaders = nullptr;
+	m_pCurlWS = curl_easy_init();
+	if (m_proxyRoute > 0)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Route %zu: %s", m_proxyRoute + 1, m_proxyPolicy.routes[m_proxyRoute].direct ? "direct" : m_proxyPolicy.routes[m_proxyRoute].url.c_str());
+	}
+	std::string error;
+	auto* auth = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (m_pCurlWS == nullptr || auth == nullptr || !auth->IsLoggedIn() || !NGMP_OnlineServicesManager::IsWebSocketURLTrusted(m_strWebsocketAddr)
+		|| !ServiceConnection::ConfigureCurl(m_pCurlWS, m_strWebsocketAddr, m_proxyPolicy.routes[m_proxyRoute], error))
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Connection policy: %s", error.c_str());
+		FailConnectionSetup();
+		return;
+	}
+	const std::string authorization = "Authorization: Bearer " + auth->GetAuthToken();
+	m_pHeaders = curl_slist_append(nullptr, authorization.c_str());
+	if (m_pHeaders == nullptr)
+	{
+		FailConnectionSetup();
+		return;
+	}
+	curl_slist* updated = curl_slist_append(m_pHeaders, m_connectAsReconnect ? "is-reconnect: true" : "is-reconnect: false");
+	if (updated == nullptr)
+	{
+		FailConnectionSetup();
+		return;
+	}
+	m_pHeaders = updated;
+	CURLcode result = CURLE_OK;
+	auto option = [&](CURLoption key, auto value) {
+		if (result == CURLE_OK)
+			result = curl_easy_setopt(m_pCurlWS, key, value);
+	};
+	option(CURLOPT_URL, m_strWebsocketAddr.c_str());
+	option(CURLOPT_CONNECT_ONLY, 2L);
+	option(CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+	const long remaining = static_cast<long>(std::max<int64_t>(1, m_reconnectAttemptTimeout - (NowMs() - m_proxySetupStarted)));
+	option(CURLOPT_CONNECTTIMEOUT_MS, remaining);
+	option(CURLOPT_TIMEOUT_MS, remaining);
+	option(CURLOPT_HTTPHEADER, m_pHeaders);
+	if (result != CURLE_OK || curl_multi_add_handle(m_pMulti, m_pCurlWS) != CURLM_OK)
+		FailConnectionSetup();
 }
 
 void WebSocket::SendData_RoomChatMessage(UnicodeString& msg, bool bIsAction)
@@ -275,33 +343,23 @@ void WebSocket::SendData_JoinNetworkRoom(int roomID, uint64_t requestID)
 
 void WebSocket::Disconnect()
 {
+	m_proxyResolution.reset();
+	EndReconnect();
 	if (!m_bConnected)
 	{
+		ClearOutbound();
 		return;
 	}
 
 	if (m_pCurlWS != nullptr)
 	{
-		// best-effort flush of anything queued since the last Tick() before closing
-		std::vector<std::string> outboundBatch;
+		// best effort, never insert CLOSE into a partially sent frame
+		const CURLcode result = FlushOutbound();
+		if (result == CURLE_OK)
 		{
-			std::scoped_lock<std::mutex> lock(m_outboundQueueMutex);
-			outboundBatch.swap(m_vecQueuedOutboungMsgs);
+			size_t sent = 0;
+			(void)curl_ws_send(m_pCurlWS, "", 0, &sent, 0, CURLWS_CLOSE);
 		}
-
-		for (std::string& strPayload : outboundBatch)
-		{
-			size_t sentPayload;
-			CURLcode sendResult = curl_ws_send(m_pCurlWS, strPayload.c_str(), strPayload.length(), &sentPayload, 0, CURLWS_BINARY);
-			if (sendResult != CURLE_OK)
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Disconnect: failed to flush queued message: %s", curl_easy_strerror(sendResult));
-			}
-		}
-
-		// send close
-		size_t sent;
-		(void)curl_ws_send(m_pCurlWS, "", 0, &sent, 0, CURLWS_CLOSE);
 
 		// release headers
 		if (m_pHeaders != nullptr)
@@ -323,23 +381,104 @@ void WebSocket::Disconnect()
 		m_pCurlWS = nullptr;
 	}
 
+	ClearOutbound();
 	m_vecWSPartialBuffer.clear();
 	m_bConnected = false;
 }
 
 void WebSocket::Send(const char* send_payload)
 {
-	// Thread-safe; always queues. Tick() flushes on the main thread.
-	std::scoped_lock<std::mutex> lock(m_outboundQueueMutex);
+	QueueOutbound(std::string(send_payload), false);
+}
 
-	static constexpr size_t kMaxQueuedOutboundMsgs = 256;
-	if (m_vecQueuedOutboungMsgs.size() >= kMaxQueuedOutboundMsgs)
+void WebSocket::QueueOutbound(std::string payload, bool heartbeat)
+{
+	std::scoped_lock<std::mutex> lock(m_outboundQueueMutex);
+	if (m_bShuttingDown || !m_acceptOutbound)
 	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Outbound queue full (%zu), discarding oldest message", m_vecQueuedOutboungMsgs.size());
-		m_vecQueuedOutboungMsgs.erase(m_vecQueuedOutboungMsgs.begin());
+		if (!heartbeat && !m_bShuttingDown)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Rejecting message while disconnected; actions are not replayed after reconnect");
+		}
+		return;
+	}
+	if (heartbeat && m_heartbeatQueued)
+	{
+		return;
 	}
 
-	m_vecQueuedOutboungMsgs.push_back(std::string(send_payload));
+	static constexpr size_t kMaxQueuedOutboundMsgs = 256;
+	static constexpr size_t kMaxQueuedOutboundBytes = 2 * 1024 * 1024;
+	if (m_vecQueuedOutboungMsgs.size() >= kMaxQueuedOutboundMsgs ||
+		payload.size() > kMaxQueuedOutboundBytes - m_queuedOutboundBytes)
+	{
+		// the front may be partially transmitted, do not evict it
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Outbound queue full (%zu messages, %zu bytes), rejecting new message", m_vecQueuedOutboungMsgs.size(), m_queuedOutboundBytes);
+		return;
+	}
+
+	m_queuedOutboundBytes += payload.size();
+	m_vecQueuedOutboungMsgs.push_back({ std::move(payload), heartbeat });
+	m_heartbeatQueued |= heartbeat;
+}
+
+void WebSocket::ClearOutbound()
+{
+	std::scoped_lock<std::mutex> lock(m_outboundQueueMutex);
+	// delivery is ambiguous after a socket failure, so old actions are not replayed on a new socket
+	if (!m_vecQueuedOutboungMsgs.empty())
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Discarding %zu messages from closed connection (%zu bytes, %zu bytes consumed from current message)", m_vecQueuedOutboungMsgs.size(), m_queuedOutboundBytes, m_outboundOffset);
+	}
+	m_vecQueuedOutboungMsgs.clear();
+	m_queuedOutboundBytes = 0;
+	m_outboundOffset = 0;
+	m_heartbeatQueued = false;
+	m_acceptOutbound = false;
+}
+
+CURLcode WebSocket::FlushOutbound()
+{
+	// bounded work on the game thread, each call passes the remaining payload of the same frame (curl_ws_send partial writes)
+	size_t bytesSent = 0;
+	for (int attempt = 0; attempt < 16; ++attempt)
+	{
+		std::scoped_lock<std::mutex> lock(m_outboundQueueMutex);
+		if (m_vecQueuedOutboungMsgs.empty())
+		{
+			return CURLE_OK;
+		}
+		const OutboundMessage& message = m_vecQueuedOutboungMsgs.front();
+		size_t sent = 0;
+		const size_t remaining = message.payload.size() - m_outboundOffset;
+		CURLcode result = curl_ws_send(m_pCurlWS, message.payload.data() + m_outboundOffset,
+			remaining, &sent, 0, CURLWS_BINARY);
+		if (sent > remaining)
+		{
+			return CURLE_SEND_ERROR;
+		}
+		m_outboundOffset += sent;
+		bytesSent += sent;
+		if (result != CURLE_OK && result != CURLE_AGAIN)
+		{
+			return result;
+		}
+		if (m_outboundOffset == message.payload.size())
+		{
+			m_queuedOutboundBytes -= message.payload.size();
+			if (message.heartbeat)
+			{
+				m_heartbeatQueued = false;
+			}
+			m_vecQueuedOutboungMsgs.erase(m_vecQueuedOutboungMsgs.begin());
+			m_outboundOffset = 0;
+		}
+		if (result == CURLE_AGAIN || sent == 0 || bytesSent >= 256 * 1024)
+		{
+			return CURLE_AGAIN;
+		}
+	}
+	return CURLE_AGAIN;
 }
 
 class WebSocketMessageBase
@@ -542,12 +681,26 @@ static bool JSONDeserialize(const char* szBuffer, nlohmann::json* jsonObject)
 	}
 	catch (nlohmann::json::exception& jsonException)
 	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONDeserialize: Unparsable JSON: %s (%s)", szBuffer, jsonException.what());
+		if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONDeserialize: Unparsable JSON: %s (%s)", szBuffer, jsonException.what());
+		}
+		else
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONDeserialize: Invalid message JSON");
+		}
 		return false;
 	}
 	catch (...)
 	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONDeserialize: Unparsable JSON: %s", szBuffer);
+		if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONDeserialize: Unparsable JSON: %s", szBuffer);
+		}
+		else
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONDeserialize: Invalid message JSON");
+		}
 		return false;
 	}
 
@@ -566,7 +719,14 @@ static bool JSONGetAsObject(nlohmann::json& jsonObject, T* outMsg)
 	catch (nlohmann::json::exception& jsonException)
 	{
 		std::string targetTypeName = typeid(T).name();
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONGetAsObject: Unparsable JSON: Target Type is %s (%s)", targetTypeName.c_str(), jsonException.what());
+		if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONGetAsObject: Unparsable JSON: Target Type is %s (%s)", targetTypeName.c_str(), jsonException.what());
+		}
+		else
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONGetAsObject: Invalid message type %s", targetTypeName.c_str());
+		}
 		return false;
 	}
 	catch (...)
@@ -589,6 +749,7 @@ void WebSocket::BeginReconnect()
 		return;
 	}
 
+	ClearOutbound();
 	m_bReconnecting = true;
 	m_numReconnectAttempts = 0;
 	m_bFreshSession = false;
@@ -748,8 +909,13 @@ void WebSocket::UpdateReconnect()
 
 void WebSocket::Tick()
 {
+	if (m_bShuttingDown || m_pMulti == nullptr)
+	{
+		return;
+	}
 	// Main thread only; m_pCurlWS/m_vecWSPartialBuffer/m_bConnected are unlocked here.
 	UpdateReconnect();
+	PollConnectionSetup();
 
 
 
@@ -773,13 +939,7 @@ void WebSocket::Tick()
 	pWS->SendData_Signalling(strSignal);
 	*/
 
-	// ping?
 	int64_t currTime = NowMs();
-	if ((currTime - m_lastPing) > m_timeBetweenUserPings)
-	{
-		m_lastPing = currTime;
-		Ping();
-	};
 
     int numReqs = 0;
     curl_multi_perform(m_pMulti, &numReqs);
@@ -797,15 +957,43 @@ void WebSocket::Tick()
 
                 if (pCurlHandle == m_pCurlWS) // shouldnt hear about anything else
                 {
-					int httpResponseCode = -1;
+					long httpResponseCode = 0;
+					long proxyStatus = 0;
 					curl_easy_getinfo(pCurlHandle, CURLINFO_RESPONSE_CODE, &httpResponseCode);
+					curl_easy_getinfo(pCurlHandle, CURLINFO_HTTP_CONNECTCODE, &proxyStatus);
+					if (proxyStatus == 407)
+						httpResponseCode = 407;
 
 					/* Check for errors */
                     if (m->data.result != CURLE_OK)
                     {
+						const CURLcode failure = m->data.result;
+						if (httpResponseCode != 407 && (failure == CURLE_COULDNT_CONNECT || failure == CURLE_COULDNT_RESOLVE_PROXY || failure == CURLE_COULDNT_RESOLVE_HOST)
+							&& m_proxyRoute + 1 < m_proxyPolicy.routes.size() && NowMs() - m_proxySetupStarted < m_reconnectAttemptTimeout)
+						{
+							++m_proxyRoute;
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Trying next policy route after pre-connection failure (%d)", failure);
+							StartResolvedConnection();
+							continue;
+						}
                         m_bConnected = false;
                         m_vecWSPartialBuffer.clear();
-                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Failed to connect (%d - %s)", m->data.result, curl_easy_strerror(m->data.result));
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Handshake failed: phase=%s curl=%d status=%ld proxy_status=%ld",
+                            ServiceConnection::FailurePhase(m->data.result, httpResponseCode, proxyStatus), m->data.result, httpResponseCode, proxyStatus);
+						if (httpResponseCode == 407 && !m_bReconnecting && !m_proxyPrompted && m_proxyRoute < m_proxyPolicy.routes.size() && !m_proxyPolicy.routes[m_proxyRoute].direct)
+						{
+							m_proxyPrompted = true;
+							ServiceConnection::RequestProxyLogin(m_proxyPolicy.routes[m_proxyRoute], [](bool loggedIn)
+							{
+								auto* manager = NGMP_OnlineServicesManager::GetInstance();
+								auto socket = manager ? manager->Internal_GetWebSocket() : nullptr;
+								if (socket)
+								{
+									socket->ResumeAfterProxyLogin(loggedIn);
+								}
+							});
+							continue;
+						}
 
                         if (m_bReconnecting)
                         {
@@ -843,8 +1031,16 @@ void WebSocket::Tick()
                             NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Connected");
                         }
 
+                        long protocol = 0;
+                        curl_easy_getinfo(pCurlHandle, CURLINFO_HTTP_VERSION, &protocol);
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Handshake status=%ld protocol=%s", httpResponseCode, ServiceConnection::ProtocolName(protocol));
+
                         /* connected and ready */
                         m_bConnected = true;
+                        {
+                            std::scoped_lock<std::mutex> lock(m_outboundQueueMutex);
+                            m_acceptOutbound = true;
+                        }
                         m_vecWSPartialBuffer.clear();
 
                         EndReconnect();
@@ -867,42 +1063,81 @@ void WebSocket::Tick()
         return;
     }
 
-	// send anything we have queued (things sent while not connected, or from any other thread)
-	std::vector<std::string> outboundBatch;
+	if ((currTime - m_lastPing) > m_timeBetweenUserPings)
 	{
-		std::scoped_lock<std::mutex> lock(m_outboundQueueMutex);
-		outboundBatch.swap(m_vecQueuedOutboungMsgs);
+		m_lastPing = currTime;
+		Ping();
 	}
 
-	for (std::string& strPayload : outboundBatch)
+	const CURLcode sendResult = FlushOutbound();
+	if (sendResult != CURLE_OK && sendResult != CURLE_AGAIN)
 	{
-        size_t sent;
-        CURLcode result = curl_ws_send(m_pCurlWS, strPayload.c_str(), strPayload.length(), &sent, 0, CURLWS_BINARY);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Send failed: %s, attempting reconnect", curl_easy_strerror(sendResult));
+		m_bConnected = false;
+		m_vecWSPartialBuffer.clear();
+		BeginReconnect();
+		return;
+	}
 
-        if (result != CURLE_OK)
+	// drain what the server queued, a signalling burst shouldn't take one frame per tick
+	static constexpr int MAX_WS_FRAMES_PER_TICK = 64;
+	CURLcode ret = CURL_LAST;
+	for (int numFrames = 0; numFrames < MAX_WS_FRAMES_PER_TICK; ++numFrames)
+	{
+		ret = ReceiveOneFrame();
+		if (ret != CURLE_OK || !m_bConnected)
+		{
+			break;
+		}
+	}
+
+	// time since last pong?
+	if (m_bConnected && m_lastPong != -1 && (currTime - m_lastPong) >= m_timeForWSTimeout)
+	{
+        // send event to sentry
+#if defined(GENERALS_ONLINE_USE_SENTRY)
+        if (TheNGMPGame != nullptr)
         {
-            NetworkLog(ELogVerbosity::LOG_RELEASE, "curl_ws_send() failed: %s\n", curl_easy_strerror(result));
+            AsciiString sentryMsg;
+            sentryMsg.format("Got websocket disconnect (Timeout: %s), timeout is %lld, last pong was at %lld, current time is %lld, attempting reconnect", curl_easy_strerror(ret), currTime - m_lastPong, m_lastPong, currTime);
+            sentry_capture_event(sentry_value_new_message_event(SENTRY_LEVEL_ERROR, "WEBSOCKET_DISCONNECT_TIMEOUT", sentryMsg.str()));
         }
-	}
+#endif
 
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (Timeout: %s), timeout is %lld, last pong was at %lld, current time is %lld, attempting reconnect", curl_easy_strerror(ret), currTime - m_lastPong, m_lastPong, currTime);
+        m_bConnected = false;
+		BeginReconnect();
+        m_vecWSPartialBuffer.clear();
+	};
+}
+
+// Reads and handles at most one frame, returns the curl_ws_recv result (CURL_LAST if nothing was read)
+CURLcode WebSocket::ReceiveOneFrame()
+{
 	// do recv
 	size_t rlen = 0;
 	const struct curl_ws_frame* meta = nullptr;
 	char bufferThisRecv[8196 * 4] = { 0 };
 
-	CURLcode ret = CURL_LAST;
-	ret = curl_ws_recv(m_pCurlWS, bufferThisRecv, sizeof(bufferThisRecv), &rlen, &meta);
+	CURLcode ret = curl_ws_recv(m_pCurlWS, bufferThisRecv, sizeof(bufferThisRecv) - 1, &rlen, &meta);
 
 	// SECURITY FIX: Validate rlen is within buffer bounds
-	if (rlen > sizeof(bufferThisRecv))
+	if (rlen >= sizeof(bufferThisRecv))
 	{
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Received data size %zu exceeds buffer size %zu, discarding", rlen, sizeof(bufferThisRecv));
-		return;
+		return CURL_LAST;
 	}
 
-	if (ret != CURLE_RECV_ERROR && ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
+	if (ret == CURLE_OK)
 	{
-		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket msg: %s", bufferThisRecv);
+		if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+		{
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket msg: %s", bufferThisRecv);
+		}
+		else
+		{
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "[WebSocket] Received %zu bytes", rlen);
+		}
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket len: %d", rlen);
 
 		// any server frame proves liveness, not just a JSON PONG
@@ -925,7 +1160,7 @@ void WebSocket::Tick()
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Partial buffer overflow, discarding message");
 					m_vecWSPartialBuffer.clear();
-					return;
+					return CURL_LAST;
 				}
 				
 				// SECURITY FIX: Store old size BEFORE resize to avoid off-by-one error in memcpy
@@ -1535,7 +1770,14 @@ void WebSocket::Tick()
 
 										if (bParsed)
 										{
-											NetworkLog(ELogVerbosity::LOG_RELEASE, "[PROBE] GOT PROBE REQUEST: %s!", probe.url.c_str());
+											if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+											{
+												NetworkLog(ELogVerbosity::LOG_RELEASE, "[PROBE] GOT PROBE REQUEST: %s!", probe.url.c_str());
+											}
+											else
+											{
+												NetworkLog(ELogVerbosity::LOG_RELEASE, "[PROBE] Received request");
+											}
 
 											NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshotForProbe(EScreenshotType::SCREENSHOT_TYPE_GAMEPLAY, probe.url);
 
@@ -1724,21 +1966,41 @@ void WebSocket::Tick()
 					}
 					catch (nlohmann::json::exception& jsonException)
 					{
-
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage 101: %s (JSON: %s)", bufferThisRecv, jsonException.what());
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "Buildup buffer is: %s", m_vecWSPartialBuffer.data());
+						if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage 101: %s (JSON: %s)", bufferThisRecv, jsonException.what());
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "Buildup buffer is: %s", m_vecWSPartialBuffer.data());
+						}
+						else
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Invalid JSON message");
+						}
 
 						m_vecWSPartialBuffer.clear();
 					}
 					catch (std::exception& e)
 					{
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage 100: %s (%s)", bufferThisRecv, e.what());
+						if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage 100: %s (%s)", bufferThisRecv, e.what());
+						}
+						else
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Message processing failed");
+						}
 
 						m_vecWSPartialBuffer.clear();
 					}
 					catch (...)
 					{
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage 102: %s", bufferThisRecv);
+						if (NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "Unparsable WebSocketMessage 102: %s", bufferThisRecv);
+						}
+						else
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Message processing failed");
+						}
 
 						m_vecWSPartialBuffer.clear();
 					}
@@ -1774,7 +2036,7 @@ void WebSocket::Tick()
 			NetworkLog(ELogVerbosity::LOG_DEBUG, "websocket meta was null");
 		}
 	}
-	else if (ret == CURLE_RECV_ERROR)
+	else if (ret != CURLE_AGAIN)
 	{
 
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (ERROR: %s), Attempting reconnect", curl_easy_strerror(ret));
@@ -1795,24 +2057,7 @@ void WebSocket::Tick()
 #endif
 	}
 
-	// time since last pong?
-	if (m_lastPong != -1 && (currTime - m_lastPong) >= m_timeForWSTimeout)
-	{
-        // send event to sentry
-#if defined(GENERALS_ONLINE_USE_SENTRY)
-        if (TheNGMPGame != nullptr)
-        {
-            AsciiString sentryMsg;
-            sentryMsg.format("Got websocket disconnect (Timeout: %s), timeout is %lld, last pong was at %lld, current time is %lld, attempting reconnect", curl_easy_strerror(ret), currTime - m_lastPong, m_lastPong, currTime);
-            sentry_capture_event(sentry_value_new_message_event(SENTRY_LEVEL_ERROR, "WEBSOCKET_DISCONNECT_TIMEOUT", sentryMsg.str()));
-        }
-#endif
-
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (Timeout: %s), timeout is %lld, last pong was at %lld, current time is %lld, attempting reconnect", curl_easy_strerror(ret), currTime - m_lastPong, m_lastPong, currTime);
-        m_bConnected = false;
-		BeginReconnect();
-        m_vecWSPartialBuffer.clear();
-	};
+	return ret;
 }
 
 NGMP_OnlineServices_RoomsInterface::NGMP_OnlineServices_RoomsInterface()
