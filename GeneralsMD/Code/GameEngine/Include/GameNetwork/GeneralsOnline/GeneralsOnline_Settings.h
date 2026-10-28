@@ -10,6 +10,13 @@ enum EHTTPVersion
     HTTP_VERSION_3_0
 };
 
+// One layer of data_packs in settings.json: BIG paths in priority order, the first one wins
+struct GenOnlineDataPackLayer
+{
+	bool m_enabled = true;
+	std::vector<std::string> m_includePaths;
+};
+
 class GenOnlineSettings
 {
 public:
@@ -70,7 +77,10 @@ public:
 		Load();
 	}
 
-	bool DataPacks_UseCommunityPatch() const { return m_DataPacks_UseCommunityPatch; }
+	const GenOnlineDataPackLayer& DataPacks_User() const { return m_DataPacks_User; }
+	const GenOnlineDataPackLayer& DataPacks_GeneralsOnline() const { return m_DataPacks_GeneralsOnline; }
+	const GenOnlineDataPackLayer& DataPacks_CommunityPatch() const { return m_DataPacks_CommunityPatch; }
+	const std::vector<std::string>& DataPacks_UserExcludePaths() const { return m_DataPacks_UserExcludePaths; }
 
 	bool Network_UseAlternativeEndpoint() const { return m_Network_UseAlternativeEndpoint; }
 	EHTTPVersion Network_GetHTTPVersion() const { return m_Network_HTTPVersion; }
@@ -139,7 +149,11 @@ private:
 	bool m_Social_Notification_PlayerSendsRequest_Menus = true;
 	bool m_Social_Notification_PlayerSendsRequest_Gameplay = true;
 
-	bool m_DataPacks_UseCommunityPatch = true;
+	// BIG archives above the retail ones. The layers load in this order, highest priority first. A missing or invalid field keeps its default.
+	GenOnlineDataPackLayer m_DataPacks_User;
+	std::vector<std::string> m_DataPacks_UserExcludePaths;	// loose files of the game folder, BIGs of the game folders and BIGs of the user layer that are left out
+	GenOnlineDataPackLayer m_DataPacks_GeneralsOnline = { true, { "user:GeneralsOnlineGameData/GeneralsOnline_Core.big" } };
+	GenOnlineDataPackLayer m_DataPacks_CommunityPatch = { true, { "user:GeneralsOnlineGameData/500_900_CommunityPatch_CoreINI.big" } };
 
 	std::string m_Plugins_Anticheat = std::string();
 
