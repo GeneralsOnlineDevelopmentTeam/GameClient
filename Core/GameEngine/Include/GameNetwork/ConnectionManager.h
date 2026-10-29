@@ -155,6 +155,7 @@ public:
 	void notifyOthersOfNewFrame(UnsignedInt frame);
 
 	UnsignedInt getNextPacketRouterSlot(UnsignedInt playerID); ///< returns the packet router player that comes after the given player.
+	Int getCurrentSenderSlot() const { return m_currentSenderSlot; }
 
 	Int getAverageFPS();
 	Int getSlotAverageFPS(Int slot);
@@ -204,6 +205,7 @@ private:
 	Real getMaximumLatency(); ///< Returns the average of the two highest average latencies between players.
 
 	void requestFrameDataResend(Int playerID, UnsignedInt frame); ///< request of this player that he send the specified frame's data.
+	Int getSlotOfAddress(UnsignedInt addr, UnsignedShort port);
 
 	// The connections are set up like the slot list. The connection corresponding to the local
 	// player's position in the slot list will be null.  Connections corresponding to slots that
@@ -224,9 +226,7 @@ private:
 
 	NetCommandList *m_pendingCommands;
 	NetCommandList *m_relayedCommands;
-#if !RETAIL_COMPATIBLE_NETWORKING
 	Int m_currentSenderSlot;	///< The slot of the peer the packet being read came from, -1 when not known.
-#endif
 
 	FrameMetrics m_frameMetrics;
 

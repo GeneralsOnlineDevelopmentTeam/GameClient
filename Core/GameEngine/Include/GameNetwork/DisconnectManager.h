@@ -81,6 +81,7 @@ protected:
 	Bool isLocalPlayerNextPacketRouter(ConnectionManager *conMgr); ///< returns true if the local player is next in line to be the packet router with all the players that have timed out being taken out of the picture.
 	Bool hasPlayerTimedOut(Int slot); ///< returns true if this player has timed out.
 	void sendPlayerDestruct(Int slot, ConnectionManager *conMgr); ///< send a destruct player network message.
+	void sendPendingRelays(ConnectionManager *conMgr); ///< passes a leave on to the players that are stalled on its frame.
 	Bool isPlayerVotedOut(Int slot, ConnectionManager *conMgr);	///< returns true if this player has been voted out.
 	Bool isPlayerInGame(Int slot, ConnectionManager *conMgr); ///< returns true if the player has neither timed out or been voted out.
 	UnsignedInt getMaxDisconnectFrame();	///< returns the highest frame that people have got to.
@@ -108,6 +109,8 @@ protected:
 
 	time_t m_lastKeepAliveSendTime;
 
+	Bool m_destroySent[MAX_SLOTS];
+
 	time_t m_playerTimeouts[MAX_SLOTS - 1];
 	time_t m_packetRouterTimeout;
 
@@ -117,6 +120,8 @@ protected:
 	UnsignedInt m_disconnectFrames[MAX_SLOTS];
 	Bool m_disconnectFramesReceived[MAX_SLOTS];
 	Bool m_haveNotifiedOtherPlayersOfCurrentFrame;
+	UnsignedInt m_relayFrame[MAX_SLOTS];	///< The frame of the leave of the slot that is passed on.
+	UnsignedByte m_relayTo[MAX_SLOTS];	///< The players the leave of the slot still has to be passed on to.
 
 	time_t m_timeOfDisconnectScreenOn;
 	Int m_pingsSent;

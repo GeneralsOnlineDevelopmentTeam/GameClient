@@ -332,6 +332,7 @@ void ConnectionManager::init()
 	for (i = 0; i < MAX_SLOTS; ++i) {
 		m_packetRouterFallback[i] = -1;
 	}
+	m_currentSenderSlot = -1;
 
 	for (i = 0; i < MAX_SLOTS; ++i) {
 		deleteInstance(m_frameData[i]);
@@ -3774,3 +3775,12 @@ Bool ConnectionManager::getOverlayInfo(Int slot, NetworkOverlayInfo &info) {
 	return TRUE;
 }
 #endif
+
+Int ConnectionManager::getSlotOfAddress(UnsignedInt addr, UnsignedShort port) {
+	for (Int i = 0; i < MAX_SLOTS; ++i) {
+		if ((m_connections[i] != nullptr) && (m_connections[i]->getUser()->GetIPAddr() == addr) && (m_connections[i]->getUser()->GetPort() == port)) {
+			return i;
+		}
+	}
+	return -1;
+}

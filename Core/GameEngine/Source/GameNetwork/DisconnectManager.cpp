@@ -43,11 +43,16 @@ DisconnectManager::DisconnectManager()
 	m_lastFrame = 0;
 	m_lastFrameTime = 0;
 	m_lastKeepAliveSendTime = 0;
+	for (i = 0; i < MAX_SLOTS; ++i) {
+		m_destroySent[i] = FALSE;
+	}
 	m_haveNotifiedOtherPlayersOfCurrentFrame = FALSE;
 	m_timeOfDisconnectScreenOn = 0;
 
 	for( i = 0; i < MAX_SLOTS; ++i) {
 		m_packetRouterFallback[i] = 0;
+		m_relayFrame[i] = 0;
+		m_relayTo[i] = 0;
 	}
 
 	m_packetRouterTimeout = 0;
@@ -86,6 +91,9 @@ void DisconnectManager::init() {
 	for (i = 0; i < MAX_SLOTS; ++i) {
 		m_disconnectFrames[i] = 0;
 		m_disconnectFramesReceived[i] = FALSE;
+		m_relayFrame[i] = 0;
+		m_relayTo[i] = 0;
+		m_destroySent[i] = FALSE;
 	}
 
 	m_pingFrame = 0;
@@ -112,6 +120,8 @@ void DisconnectManager::update(ConnectionManager *conMgr) {
 	} else {
 		nextFrame(TheGameLogic->getFrame(), conMgr);
 	}
+
+	sendPendingRelays(conMgr);
 
 	if (m_disconnectState != DISCONNECTSTATETYPE_SCREENOFF) {
 		updateDisconnectStatus(conMgr);
@@ -312,16 +322,74 @@ void DisconnectManager::processDisconnectKeepAlive(NetCommandMsg *msg, Connectio
 void DisconnectManager::processDisconnectPlayer(NetCommandMsg *msg, ConnectionManager *conMgr) {
 	NetDisconnectPlayerCommandMsg *cmdMsg = (NetDisconnectPlayerCommandMsg *)msg;
 	DEBUG_LOG(("DisconnectManager::processDisconnectPlayer - Got disconnect player command from player %d.  Disconnecting player %d on frame %d", msg->getPlayerID(), cmdMsg->getDisconnectSlot(), cmdMsg->getDisconnectFrame()));
+	const Int slot = cmdMsg->getDisconnectSlot();
+	if ((slot < MAX_SLOTS) && (slot != (Int)conMgr->getLocalPlayerID()) && (conMgr->isPlayerConnected(slot) == FALSE)) {
+		DEBUG_LOG(("DisconnectManager::processDisconnectPlayer - player %d is already disconnected", slot));
+		return;
+	}
+	// a disconnect player command is always sent directly, so it has to come from the address of the player it claims to be from
+	if (conMgr->getCurrentSenderSlot() != (Int)msg->getPlayerID()) {
+		DEBUG_LOG(("DisconnectManager::processDisconnectPlayer - command of player %d did not come from its address, ignored", msg->getPlayerID()));
+		return;
+	}
 	DEBUG_ASSERTCRASH(TheGameLogic->getFrame() == cmdMsg->getDisconnectFrame(), ("disconnecting player on the wrong frame!!!"));
-    	Int slot = cmdMsg->getDisconnectSlot();
+	disconnectPlayer(slot, conMgr);
 
-	// if this is a self initiated quit (Quit button on DC menu),
-	// send a destroy-player command so assets are removed.
-	if (cmdMsg->getPlayerID() == slot) {
-		// sendPlayerDestruct assumes we are (or we will become) the router.
+	// TheSuperHackers @bugfix arcticdolphin 12/10/2026 A player that quits from the disconnect screen sends no destroy command, so every player that stays sends it.
+	if (msg->getPlayerID() == (UnsignedInt)slot) {
 		sendPlayerDestruct(slot, conMgr);
 	}
-	disconnectPlayer(cmdMsg->getDisconnectSlot(), conMgr);
+
+	// a leave that some players did not get would wait for a disconnect command that only the packet router sends, so the next router passes it on
+	if (msg->getPlayerID() == (UnsignedInt)slot && isLocalPlayerNextPacketRouter(conMgr) == TRUE && TheGameLogic->getFrame() == cmdMsg->getDisconnectFrame()) {
+		m_relayFrame[slot] = cmdMsg->getDisconnectFrame();
+		m_relayTo[slot] = 0;
+		for (Int i = 0; i < MAX_SLOTS; ++i) {
+			if ((i != slot) && (i != (Int)conMgr->getLocalPlayerID()) && (conMgr->isPlayerConnected(i) == TRUE)) {
+				m_relayTo[slot] |= (UnsignedByte)(1 << i);
+			}
+		}
+	}
+}
+
+void DisconnectManager::sendPendingRelays(ConnectionManager *conMgr) {
+	for (Int slot = 0; slot < MAX_SLOTS; ++slot) {
+		if (m_relayTo[slot] == 0) {
+			continue;
+		}
+		if (isLocalPlayerNextPacketRouter(conMgr) == FALSE) {
+			m_relayTo[slot] = 0;
+			continue;
+		}
+		UnsignedByte sendTo = 0;
+		for (Int i = 0; i < MAX_SLOTS; ++i) {
+			const UnsignedByte bit = (UnsignedByte)(1 << i);
+			if ((m_relayTo[slot] & bit) == 0) {
+				continue;
+			}
+			if (conMgr->isPlayerConnected(i) == FALSE) {
+				m_relayTo[slot] &= (UnsignedByte)~bit;
+			}
+			// A leave is applied on the frame its receiver is on, so it only goes to a player that reported being stalled on the frame of the leave.
+			else if ((m_disconnectFramesReceived[i] == TRUE) && (m_disconnectFrames[i] == m_relayFrame[slot])) {
+				sendTo |= bit;
+				m_relayTo[slot] &= (UnsignedByte)~bit;
+			}
+		}
+		if (sendTo == 0) {
+			continue;
+		}
+		DEBUG_LOG(("DisconnectManager::sendPendingRelays - passing on the leave of player %d on frame %d to mask %X", slot, m_relayFrame[slot], sendTo));
+		NetDisconnectPlayerCommandMsg *relayMsg = newInstance(NetDisconnectPlayerCommandMsg);
+		relayMsg->setDisconnectSlot(slot);
+		relayMsg->setDisconnectFrame(m_relayFrame[slot]);
+		relayMsg->setPlayerID(conMgr->getLocalPlayerID());
+		if (DoesCommandRequireACommandID(relayMsg->getNetCommandType())) {
+			relayMsg->setID(GenerateNextCommandID());
+		}
+		conMgr->sendLocalCommand(relayMsg, sendTo);
+		relayMsg->detach();
+	}
 }
 
 void DisconnectManager::processPacketRouterQuery(NetCommandMsg *msg, ConnectionManager *conMgr) {
@@ -731,6 +799,11 @@ Bool DisconnectManager::hasPlayerTimedOut(Int slot) {
 // this function assumes that we are the packet router. (or at least that
 // we will be after everyone is getting disconnected)
 void DisconnectManager::sendPlayerDestruct(Int slot, ConnectionManager *conMgr) {
+	if ((slot < 0) || (slot >= MAX_SLOTS) || m_destroySent[slot]) {
+		return;
+	}
+	m_destroySent[slot] = TRUE;
+
 	UnsignedShort currentID = 0;
 	if (DoesCommandRequireACommandID(NETCOMMANDTYPE_DESTROYPLAYER))
 	{
