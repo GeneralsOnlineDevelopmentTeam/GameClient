@@ -10,6 +10,7 @@
 #include <ws2tcpip.h>
 #include "GameClient/DisplayStringManager.h"
 #include "GameNetwork/NetworkInterface.h"
+#include "GameNetwork/ConnectionManager.h"
 #include "Common/MultiplayerSettings.h"
 #include "GameNetwork/GameSpyOverlay.h"
 #include "GameClient/Display.h"
@@ -23,7 +24,10 @@
 #include "GameNetwork/GeneralsOnline/Vendor/stb_image/stb_image_write.h"
 #include "GameNetwork/GeneralsOnline/Vendor/stb_image/stb_image_resize.h"
 #include "GameClient/GameText.h"
+#include "GameLogic/GameLogic.h"
 #include <unordered_set>
+#include <random>
+#include <algorithm>
 
 extern "C"
 {
@@ -39,7 +43,7 @@ std::mutex NGMP_OnlineServicesManager::m_ScreenshotMutex;
 std::vector<S3ScreenshotEntry> NGMP_OnlineServicesManager::m_vecGuardedSSData;
 
 
-bool NGMP_OnlineServicesManager::g_bAdvancedNetworkStats;
+int NGMP_OnlineServicesManager::g_networkOverlayMode;
 
 NetworkMesh* NGMP_OnlineServicesManager::GetNetworkMesh()
 {
@@ -99,6 +103,34 @@ void NGMP_OnlineServicesManager::GetAndParseServiceConfig(std::function<void(voi
 		});
 }
 
+// time this client may upload its screenshot, staggered by match slot so players do not saturate their links at once
+static std::chrono::steady_clock::time_point GetScreenshotUploadTime()
+{
+	int slotIndex = 0;
+
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pAuthInterface != nullptr && pLobbyInterface != nullptr)
+	{
+		const int64_t localUserID = pAuthInterface->GetUserID();
+		for (const LobbyMemberEntry& lobbyMember : pLobbyInterface->GetMembersListForCurrentRoom())
+		{
+			if (lobbyMember.user_id == localUserID)
+			{
+				slotIndex = lobbyMember.m_SlotIndex < MAX_SLOTS ? lobbyMember.m_SlotIndex : 0;
+				break;
+			}
+		}
+	}
+
+	const int slotOffsetMS = std::clamp(NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig().telemetry.screenshot_slot_offset_ms, 0, 10000);
+
+	static thread_local std::mt19937 rng{ std::random_device{}() };
+	const int jitterMS = std::uniform_int_distribution<int>(0, 500)(rng);
+
+	return std::chrono::steady_clock::now() + std::chrono::milliseconds(slotIndex * slotOffsetMS + jitterMS);
+}
+
 void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType screenshotType, std::string strURI)
 {
 	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
@@ -106,15 +138,22 @@ void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType scree
 	{
 		ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
 
-		if (serviceConf.do_probes)
+		if (serviceConf.telemetry.screenshot_probes)
 		{
 			CHECK_MAIN_THREAD;
+
+			// the capture stalls every client at the same time, the run ahead controller must not read that as the network
+			if (TheNetwork != nullptr && TheNetwork->GetConnectionManager() != nullptr)
+			{
+				TheNetwork->GetConnectionManager()->noteScreenshotCapture(screenshotType == EScreenshotType::SCREENSHOT_TYPE_GAMEPLAY);
+			}
 
 			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 			if (pLobbyInterface != nullptr)
 			{
 				const uint64_t matchID = pLobbyInterface->GetCurrentMatchID();
-				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshot(true, [strURI = std::move(strURI), screenshotType, matchID](std::vector<uint8_t> vecData)
+				const std::chrono::steady_clock::time_point uploadTime = GetScreenshotUploadTime();
+				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshot(true, [strURI = std::move(strURI), screenshotType, matchID, uploadTime](std::vector<uint8_t> vecData)
 					{
 						CHECK_WORKER_THREAD;
 
@@ -127,7 +166,7 @@ void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType scree
                         // certain screenshots require caching for later upload when we have a valid match id, so we store them
 						if (screenshotType == EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN)
 						{
-							NGMP_OnlineServicesManager::GetInstance()->CacheScreenshotBytes_StartMatch(vecData);
+							NGMP_OnlineServicesManager::GetInstance()->CacheScreenshotBytes_StartMatch(std::move(vecData));
 						}
                         else if (screenshotType == EScreenshotType::SCREENSHOT_TYPE_SCORESCREEN)
                         {
@@ -143,7 +182,8 @@ void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType scree
                             newEntry.vecBytes = std::move(vecData);
                             newEntry.strSignedURI = strURI;
                             newEntry.screenshotType = screenshotType;
-                            m_vecGuardedSSData.push_back(newEntry);
+                            newEntry.notBefore = uploadTime;
+                            m_vecGuardedSSData.push_back(std::move(newEntry));
 						}
 					});
 			}
@@ -242,7 +282,7 @@ void NGMP_OnlineServicesManager::CommitReplay(AsciiString absoluteReplayPath)
 	{
 		ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
 
-		if (serviceConf.do_replay_upload)
+		if (serviceConf.telemetry.replay_upload)
 		{
 			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 			const uint64_t matchID = pLobbyInterface == nullptr ? 0 : pLobbyInterface->GetCurrentMatchID();
@@ -579,7 +619,6 @@ void NGMP_OnlineServicesManager::CaptureScreenshot(bool bResizeForTransmit, std:
 	}
 
 	SurfaceClass* surface = DX8Wrapper::_Get_DX8_Back_Buffer();
-	LPDIRECT3DSURFACE8 surf = nullptr;
 	SurfaceClass* surfaceCopy = nullptr;
 	void* pBits = nullptr;
 	IDirect3DSurface8* pDXsurf = nullptr;
@@ -599,119 +638,96 @@ void NGMP_OnlineServicesManager::CaptureScreenshot(bool bResizeForTransmit, std:
 			{
 				DX8Wrapper::_Copy_DX8_Rects(surface->Peek_D3D_Surface(), NULL, 0, surfaceCopy->Peek_D3D_Surface(), NULL);
 
-				HRESULT hr;
+				// gather all our data
+				int pitch = 0;
+				pBits = surfaceCopy->Lock(&pitch);
 
-				D3DDISPLAYMODE mode;
-				if (SUCCEEDED(hr = DX8Wrapper::_Get_D3D_Device8()->GetDisplayMode(&mode)))
+				if (pBits != nullptr)
 				{
-					if (SUCCEEDED(hr = DX8Wrapper::_Get_D3D_Device8()->CreateImageSurface(mode.Width, mode.Height,
-						D3DFMT_A8R8G8B8, &surf)))
-					{
-						if (SUCCEEDED(hr = DX8Wrapper::_Get_D3D_Device8()->GetFrontBuffer(surf)))
+					int width = surfaceDesc.Width;
+					int height = surfaceDesc.Height;
+
+					// Copy pixel data into an owned buffer before spawning the thread so
+					// the surface can be safely unlocked on the main thread immediately after.
+					const uint8_t* pSurfaceBytes = static_cast<const uint8_t*>(pBits);
+					std::vector<uint8_t> pixelData(pSurfaceBytes, pSurfaceBytes + height * pitch);
+
+					// process on thread - track the thread so we can join it during shutdown
+					std::thread* pNewThread = new std::thread([cbOnDataAvailable, width, height, pixelData = std::move(pixelData), pitch, bResizeForTransmit]() mutable
 						{
-							// gather all our data
-							int pitch = 0;
-							pBits = surfaceCopy->Lock(&pitch);
+							CHECK_WORKER_THREAD;
 
-							if (pBits != nullptr)
+							const int channels = 3;
+							int finalWidth = width;
+							int finalHeight = height;
+
+							// Pack the BGRA rows to tight RGB in place. The write position never passes the read position.
+							uint8_t* pixels = pixelData.data();
+							for (int y = 0; y < height; ++y)
 							{
-								int width = surfaceDesc.Width;
-								int height = surfaceDesc.Height;
+								const uint8_t* src = pixels + y * pitch;
+								uint8_t* dst = pixels + y * width * channels;
+								for (int x = 0; x < width; ++x, src += 4, dst += channels)
+								{
+									const uint8_t blue = src[0];
+									dst[0] = src[2]; // R
+									dst[1] = src[1]; // G
+									dst[2] = blue;   // B
+								}
+							}
 
-								// Copy pixel data into an owned buffer before spawning the thread so
-								// the surface can be safely unlocked on the main thread immediately after.
-								std::vector<uint8_t> pixelData(height * pitch);
-								memcpy(pixelData.data(), pBits, height * pitch);
+							// resize
+							std::vector<uint8_t> resized;
+							if (bResizeForTransmit)
+							{
+								ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
+								finalWidth = serviceConf.telemetry.screenshot_width;
+								finalHeight = serviceConf.telemetry.screenshot_height;
+								resized.resize(finalWidth * finalHeight * channels);
 
-								// process on thread - track the thread so we can join it during shutdown
-								std::thread* pNewThread = new std::thread([cbOnDataAvailable, width, height, pixelData = std::move(pixelData), pitch, bResizeForTransmit]()
-									{
-										CHECK_WORKER_THREAD;
-
-										unsigned char* rgbData = new unsigned char[width * height * 3];
-
-										std::vector<unsigned char> vecData;
-
-										int finalWidth = width;
-										int finalHeight = height;
-
-										for (int y = 0; y < height; ++y) {
-											const uint8_t* row = pixelData.data() + y * pitch;
-											int rowOffset = y * width * 3;
-											int srcOffset = 0;
-											for (int x = 0; x < width; ++x, srcOffset += 4)
-											{
-												int dstIndex = rowOffset + x * 3;
-												rgbData[dstIndex + 0] = row[srcOffset + 2]; // R
-												rgbData[dstIndex + 1] = row[srcOffset + 1]; // G
-												rgbData[dstIndex + 2] = row[srcOffset + 0]; // B
-											}
-										}
-
-										// resize
-										unsigned char* pBufferToWrite = rgbData;
-										if (bResizeForTransmit)
-										{
-											ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-											int new_width = serviceConf.screenshot_width;
-											int new_height = serviceConf.screenshot_height;
-											int channels = 3;
-											unsigned char* resized = new unsigned char[new_width * new_height * channels];
-
-											stbir_resize_uint8(rgbData, width, height, 0,
-												resized, new_width, new_height, 0,
-												channels
-											);
-
-											// update data
-											finalWidth = new_width;
-											finalHeight = new_height;
-											pBufferToWrite = resized;
-										}
-										// end resize
-
-										stbi_write_jpg_to_func([](void* context, void* data, int size)
-											{
-												std::vector<unsigned char>* buffer = static_cast<std::vector<unsigned char>*>(context);
-												buffer->insert(buffer->end(), (unsigned char*)data, (unsigned char*)data + size);
-											}, &vecData, finalWidth, finalHeight, 3, pBufferToWrite, bResizeForTransmit ? 0 : 90);
-
-										// cleanup
-										if (bResizeForTransmit)
-										{
-											delete[] pBufferToWrite; // This is 'resized'
-											pBufferToWrite = nullptr;
-										}
-
-										delete[] rgbData;
-										rgbData = nullptr;
-
-										// invoke cb
-										if (cbOnDataAvailable != nullptr)
-										{
-											cbOnDataAvailable(vecData);
-										}
-									}
+								stbir_resize_uint8(pixels, width, height, 0,
+									resized.data(), finalWidth, finalHeight, 0,
+									channels
 								);
 
-							// Store the thread so we can join it during shutdown
-							// SECURITY FIX: Capture manager pointer before spawning thread to avoid TOCTOU race
-							NGMP_OnlineServicesManager* pMgr = NGMP_OnlineServicesManager::GetInstance();
-							if (pMgr != nullptr)
-							{
-								std::scoped_lock<std::mutex> lock(pMgr->m_mutexScreenshotThreads);
-								pMgr->m_vecScreenshotThreads.push_back(pNewThread);
+								// the capture is no longer needed
+								std::vector<uint8_t>().swap(pixelData);
 							}
-							else
-							{
-								// Manager was destroyed, cannot store thread. Thread will leak but won't crash.
-								NetworkLog(ELogVerbosity::LOG_RELEASE, "[Screenshot] Manager destroyed before thread could be registered");
-							}
+							// end resize
 
-								bSucceeded = true;
+							// room for a typical JPEG, so the write callback rarely has to grow it
+							std::vector<unsigned char> vecData;
+							vecData.reserve(256 * 1024);
+
+							stbi_write_jpg_to_func([](void* context, void* data, int size)
+								{
+									std::vector<unsigned char>* buffer = static_cast<std::vector<unsigned char>*>(context);
+									buffer->insert(buffer->end(), (unsigned char*)data, (unsigned char*)data + size);
+								}, &vecData, finalWidth, finalHeight, channels, bResizeForTransmit ? resized.data() : pixelData.data(), bResizeForTransmit ? 0 : 90);
+
+							// invoke cb
+							if (cbOnDataAvailable != nullptr)
+							{
+								cbOnDataAvailable(std::move(vecData));
 							}
 						}
+					);
+
+					// Store the thread so we can join it during shutdown
+					// SECURITY FIX: Capture manager pointer before spawning thread to avoid TOCTOU race
+					NGMP_OnlineServicesManager* pMgr = NGMP_OnlineServicesManager::GetInstance();
+					if (pMgr != nullptr)
+					{
+						std::scoped_lock<std::mutex> lock(pMgr->m_mutexScreenshotThreads);
+						pMgr->m_vecScreenshotThreads.push_back(pNewThread);
 					}
+					else
+					{
+						// Manager was destroyed, cannot store thread. Thread will leak but won't crash.
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[Screenshot] Manager destroyed before thread could be registered");
+					}
+
+					bSucceeded = true;
 				}
 			}
 		}
@@ -719,18 +735,9 @@ void NGMP_OnlineServicesManager::CaptureScreenshot(bool bResizeForTransmit, std:
 
 	// clean everything up, whether we succeeded or not
 
-	// release the image surface
-	if (surf != nullptr)
-	{
-		surf->Release();
-		//delete surf;
-		surf = nullptr;
-	}
-
 	// unlock
 	if (surface != nullptr)
 	{
-		surface->Unlock();
 		surface->Release_Ref();
  		surface = nullptr;
 	}
@@ -953,20 +960,40 @@ void NGMP_OnlineServicesManager::Tick()
 		std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
 
 
+		const int uploadBytesPerSec = std::clamp(m_ServiceConfig.telemetry.screenshot_upload_bytes_per_sec, 16384, 10485760);
+		const std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+		const bool bMatchOver = TheGameLogic == nullptr || !TheGameLogic->isInMultiplayerGame(); // uploads no longer compete with game traffic
+
 		// screenshot types that already have a presigned URL
-		for (S3ScreenshotEntry screenshotEntry : m_vecGuardedSSData)
+		for (auto it = m_vecGuardedSSData.begin(); it != m_vecGuardedSSData.end();)
 		{
+			S3ScreenshotEntry& screenshotEntry = *it;
+			const bool bUnthrottled = bMatchOver || screenshotEntry.screenshotType == EScreenshotType::SCREENSHOT_TYPE_SCORESCREEN;
+
+			// not this client's turn to upload yet
+			if (!bUnthrottled && screenshotEntry.notBefore > now)
+			{
+				++it;
+				continue;
+			}
+
 			// NOTE: Screenshot types start and end of match are captures and cached in memory until the server tells us where to upload them, so we need to wait for the upload URI
 
 			if ((screenshotEntry.screenshotType == EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN || screenshotEntry.screenshotType == EScreenshotType::SCREENSHOT_TYPE_SCORESCREEN) && screenshotEntry.strSignedURI.empty())
 			{
+				it = m_vecGuardedSSData.erase(it);
 				continue;
 			}
 			else // we have the data we need, send away
 			{
+                // the delayed upload starts long after the capture, hold the controller from here
+                if (screenshotEntry.screenshotType == EScreenshotType::SCREENSHOT_TYPE_GAMEPLAY && TheNetwork != nullptr && TheNetwork->GetConnectionManager() != nullptr)
+                {
+                    TheNetwork->GetConnectionManager()->noteScreenshotCapture(true);
+                }
                 std::map<std::string, std::string> mapHeaders;
                 mapHeaders["Content-Type"] = "image/jpeg";
-                NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendS3PUTRequest(screenshotEntry.strSignedURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, screenshotEntry.vecBytes, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+                NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendS3PUTRequest(screenshotEntry.strSignedURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, std::move(screenshotEntry.vecBytes), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
                     {
 #if _DEBUG
                         if (statusCode != 200)
@@ -975,12 +1002,15 @@ void NGMP_OnlineServicesManager::Tick()
                         }
 #endif
                         NetworkLog(ELogVerbosity::LOG_RELEASE, "Screenshot upload, result: %d", statusCode);
-                    }, nullptr, HTTP_UPLOAD_TIMEOUT);
+                        if (screenshotEntry.screenshotType == EScreenshotType::SCREENSHOT_TYPE_GAMEPLAY && TheNetwork != nullptr && TheNetwork->GetConnectionManager() != nullptr)
+                        {
+                            TheNetwork->GetConnectionManager()->noteScreenshotDone();
+                        }
+                    }, nullptr, HTTP_UPLOAD_TIMEOUT, bUnthrottled ? 0 : uploadBytesPerSec);
 			}
-            
-		}
 
-		m_vecGuardedSSData.clear();
+			it = m_vecGuardedSSData.erase(it);
+		}
 
 		// screenshots and replays that are cached and awaiting S3 url, and now have said URL
 		if (!m_vecCachedScreenshotBytes_MatchStart.empty()) // we have data waiting
@@ -990,9 +1020,10 @@ void NGMP_OnlineServicesManager::Tick()
 				// queue it
 				S3ScreenshotEntry newEntry;
 				newEntry.screenshotType = EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN;
-				newEntry.vecBytes = m_vecCachedScreenshotBytes_MatchStart;
-				newEntry.strSignedURI = m_strCachedScreenshot_MatchStart_S3URI;
-				m_vecGuardedSSData.push_back(newEntry);
+				newEntry.vecBytes = std::move(m_vecCachedScreenshotBytes_MatchStart);
+				newEntry.strSignedURI = std::move(m_strCachedScreenshot_MatchStart_S3URI);
+				newEntry.notBefore = GetScreenshotUploadTime();
+				m_vecGuardedSSData.push_back(std::move(newEntry));
 
 				// clear data
                 m_vecCachedScreenshotBytes_MatchStart = std::vector<uint8_t>();
@@ -1023,7 +1054,7 @@ void NGMP_OnlineServicesManager::Tick()
 				// do the upload
                 std::map<std::string, std::string> mapHeaders;
                 mapHeaders["Content-Type"] = "application/octet-stream";
-                NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendS3PUTRequest(m_cachedReplayUpload.signedURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, m_cachedReplayUpload.bytes, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+                NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendS3PUTRequest(m_cachedReplayUpload.signedURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, std::move(m_cachedReplayUpload.bytes), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
                     {
 #if _DEBUG
                         if (statusCode != 200)

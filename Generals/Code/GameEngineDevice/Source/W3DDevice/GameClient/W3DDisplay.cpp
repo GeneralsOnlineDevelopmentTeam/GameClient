@@ -1446,6 +1446,20 @@ void W3DDisplay::gatherDebugStats()
 			// Network performance stats
 			unibuffer.format(L"Run Ahead: %d, Net FPS: %d, Packet arrival cushion: %d",
 				TheNetwork->getRunAhead(), TheNetwork->getFrameRate(), TheNetwork->getPacketArrivalCushion());
+
+			// per-connection latency, jitter and loss
+			for (Int slot = 0; slot < MAX_SLOTS; ++slot) {
+				const ConnectionStats* stats = TheNetwork->getConnectionStats(slot);
+				if (stats != nullptr && stats->getSampleCount() > 0) {
+					UnicodeString statsstr;
+					if (stats->getLatePercent() > 0.0f) {
+						statsstr.format(L" P%d %.0fms j%.1f l%.0f/%.0f%%", slot, stats->getLatency(), stats->getJitter(), stats->getLossPercent(), stats->getLatePercent());
+					} else {
+						statsstr.format(L" P%d %.0fms j%.1f l%.0f%%", slot, stats->getLatency(), stats->getJitter(), stats->getLossPercent());
+					}
+					unibuffer.concat(statsstr);
+				}
+			}
 			m_displayStrings[NetStats]->setText( unibuffer );
 
 			// Client frame rate averages for all players in the game.  This only works right for the packet router.

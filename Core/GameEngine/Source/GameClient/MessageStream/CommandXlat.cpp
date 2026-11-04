@@ -54,6 +54,7 @@
 #include "Common/OptionPreferences.h"
 
 #include "GameClient/InGameUI.h"
+#include "GameClient/Keyboard.h"
 #include "GameClient/CommandXlat.h"
 #include "GameClient/DebugDisplay.h"
 #include "GameClient/Drawable.h"
@@ -3936,7 +3937,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
             }
             else if (key == KEY_F10)
             {
-                NGMP_OnlineServicesManager::ToggleAdvancedNetworkStats();
+                NGMP_OnlineServicesManager::ToggleNetworkOverlay((TheKeyboard != nullptr && TheKeyboard->isShift()) ? 2 : 1);
 
                 disp = DESTROY_MESSAGE;
             }
