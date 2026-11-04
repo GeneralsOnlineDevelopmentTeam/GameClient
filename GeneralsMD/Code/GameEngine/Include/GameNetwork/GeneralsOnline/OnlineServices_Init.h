@@ -1,9 +1,13 @@
 #pragma once
 
+#include "GameNetwork/NetworkSettings.h"
 #include "NGMP_include.h"
 
+#include <algorithm>
+#include <stdexcept>
 #include <thread>
 #include <memory>
+#include <chrono>
 
 class HTTPManager;
 
@@ -28,6 +32,7 @@ struct S3ScreenshotEntry
     std::vector<uint8_t> vecBytes;
     std::string strSignedURI;
 	EScreenshotType screenshotType;
+	std::chrono::steady_clock::time_point notBefore; // upload is held back until this time
 
     bool operator==(const S3ScreenshotEntry& other) const
 	{
@@ -200,8 +205,16 @@ public:
 	// Queues the message; Tick() flushes it on the main thread. Thread-safe.
 	void Send(const char* message);
 
+	// An inbound P2P signal and the user the service says it came from. The service sets the sender itself
+	// from the authenticated websocket session, the payload is whatever the peer wrote.
+	struct PendingSignal
+	{
+		int64_t senderUserID = -1;
+		std::vector<uint8_t> payload;
+	};
+
 	// Thread-safe queue of inbound P2P signal payloads; drained by CSignalingClient::Poll().
-	void PushPendingSignal(std::vector<uint8_t> payload)
+	void PushPendingSignal(int64_t senderUserID, std::vector<uint8_t> payload)
 	{
 		std::scoped_lock<std::mutex> lock(m_pendingSignalsMutex);
 
@@ -212,13 +225,16 @@ public:
 			m_pendingSignals.pop();
 		}
 
-		m_pendingSignals.push(std::move(payload));
+		PendingSignal signal;
+		signal.senderUserID = senderUserID;
+		signal.payload = std::move(payload);
+		m_pendingSignals.push(std::move(signal));
 	}
 
-	std::queue<std::vector<uint8_t>> DrainPendingSignals()
+	std::queue<PendingSignal> DrainPendingSignals()
 	{
 		std::scoped_lock<std::mutex> lock(m_pendingSignalsMutex);
-		std::queue<std::vector<uint8_t>> drained;
+		std::queue<PendingSignal> drained;
 		drained.swap(m_pendingSignals);
 		return drained;
 	}
@@ -262,7 +278,7 @@ private:
 	std::vector<std::string> m_vecQueuedOutboungMsgs;
 
 	std::mutex m_pendingSignalsMutex;
-	std::queue<std::vector<uint8_t>> m_pendingSignals;
+	std::queue<PendingSignal> m_pendingSignals;
 };
 
 enum class ERoomFlags : int
@@ -308,51 +324,194 @@ struct RegionResponse
 
 struct ServiceConfig
 {
-	bool retry_signalling = false;
-	bool use_mapped_port = true;
-	int min_run_ahead_frames = 4;
-	int ra_update_frequency_frames = 10;
-	bool relay_all_traffic = false;
-	int ra_slack_percent = 20;
-	int frame_grouping_frames = 2;
-	bool enable_host_migration = true;
+	// Peer connections: signalling, NAT traversal, latency probes, and the per-connection ping history
+	struct Connection
+	{
+		bool relay_only = false;
+		int ice_engine = 2;             // ICE library: 0 = library default, 1 = native, 2 = WebRTC; the key also takes "default", "native" or "webrtc"
+		bool use_mapped_port = true;
+		bool retry_signalling = true;
+		bool anticheat_transport = false; // game traffic through the anticheat plugin's transport
+		int probe_lobby_interval_ms = 250; // time between latency probes sent to each peer while not in a match
+		int probe_match_interval_ms = 1000; // the same in a match, the command acks already measure the round trip
+		int latency_history_ms = 20000;
+	} connection;
 
-	bool network_do_immediate_flush_per_frame = true;
-	int network_send_flags = -1;
-
-	int network_latency_logic_model = 0;
-
-	bool use_default_config = false;
-	int ra_slack_override_percent_in_default = 10;
-	bool do_probes = true;
-	bool do_replay_upload = true;
-
-	int network_mesh_histogram_duration = 20000;
-
+	// Not read from the service: the live values
+	int network_latency_logic_model = 2;
 	bool ibra_ra_tweaks = false;
 	float ibra_minslack_default = 0.25f;
 	float ibra_maxslack_default = 1.f;
-
     float ibra_minslack_greaterthan300ms = 0.35f;
     float ibra_maxslack_greaterthan300ms = 1.f;
-
     float ibra_minslack_greaterthan200ms = 0.3f;
     float ibra_maxslack_greaterthan200ms = 1.f;
+	using Send = NetworkSettings::Send;
+	using InputDelay = NetworkSettings::InputDelay;
+	using Disconnect = NetworkSettings::Disconnect;
+	Send send;
+	InputDelay input_delay;
+	Disconnect disconnect;
 
-	int screenshot_width = 557;
-	int screenshot_height = 333;
+	struct Lobby
+	{
+		bool host_migration = false;
+	} lobby;
 
-	// ICE client used for P2P NAT traversal: 0 = library default, 1 = native, 2 = WebRTC.
-	int ice_implementation = 2;
-
-	bool use_new_networking = false;
-
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(ServiceConfig, retry_signalling, use_mapped_port, min_run_ahead_frames, ra_update_frequency_frames, relay_all_traffic,
-		ra_slack_percent, frame_grouping_frames, enable_host_migration, network_do_immediate_flush_per_frame, network_send_flags, network_latency_logic_model,
-		use_default_config, ra_slack_override_percent_in_default, do_probes, do_replay_upload, network_mesh_histogram_duration,
-		ibra_ra_tweaks, ibra_minslack_default, ibra_maxslack_default, ibra_minslack_greaterthan300ms, ibra_maxslack_greaterthan300ms, ibra_minslack_greaterthan200ms, ibra_maxslack_greaterthan200ms,
-		screenshot_width, screenshot_height, ice_implementation, use_new_networking)
+	struct Telemetry
+	{
+		bool screenshot_probes = true;
+		bool replay_upload = true;
+		int screenshot_width = 960;
+		int screenshot_height = 600;
+		int screenshot_upload_bytes_per_sec = 131072; // 128 KB/s
+		int screenshot_slot_offset_ms = 2000;
+	} telemetry;
 };
+
+// Reads key into value when present; a missing key keeps the default
+template <typename T>
+inline void ReadServiceConfigValue(const nlohmann::json& j, const char* key, T& value)
+{
+	if (!j.is_object())
+	{
+		throw std::invalid_argument("Service config sections must be objects");
+	}
+	const auto it = j.find(key);
+	if (it != j.end() && !it->is_null())
+	{
+		value = it->get<T>();
+	}
+}
+
+// The ICE library by name or by number
+inline void ReadIceEngine(const nlohmann::json& j, int& value)
+{
+	if (!j.is_object())
+	{
+		throw std::invalid_argument("Service config sections must be objects");
+	}
+	const auto it = j.find("ice_engine");
+	if (it == j.end() || it->is_null())
+	{
+		return;
+	}
+	if (it->is_string())
+	{
+		const std::string name = it->get<std::string>();
+		if (name == "default")
+		{
+			value = 0;
+		}
+		else if (name == "native")
+		{
+			value = 1;
+		}
+		else if (name == "webrtc")
+		{
+			value = 2;
+		}
+		return;
+	}
+	value = it->get<int>();
+}
+
+// A key the service sets replaces the compiled default, a missing key keeps it
+inline void ReadServiceConfig(const nlohmann::json& j, ServiceConfig& c)
+{
+	if (j.contains("connection"))
+	{
+		const nlohmann::json& s = j["connection"];
+		ReadServiceConfigValue(s, "relay_only", c.connection.relay_only);
+		ReadIceEngine(s, c.connection.ice_engine);
+		ReadServiceConfigValue(s, "use_mapped_port", c.connection.use_mapped_port);
+		ReadServiceConfigValue(s, "retry_signalling", c.connection.retry_signalling);
+		ReadServiceConfigValue(s, "anticheat_transport", c.connection.anticheat_transport);
+		ReadServiceConfigValue(s, "probe_lobby_interval_ms", c.connection.probe_lobby_interval_ms);
+		ReadServiceConfigValue(s, "probe_match_interval_ms", c.connection.probe_match_interval_ms);
+		ReadServiceConfigValue(s, "latency_history_ms", c.connection.latency_history_ms);
+	}
+	if (j.contains("send"))
+	{
+		const nlohmann::json& s = j["send"];
+		ReadServiceConfigValue(s, "mode", c.send.mode);
+		ReadServiceConfigValue(s, "direct", c.send.direct);
+		ReadServiceConfigValue(s, "frames_per_packet", c.send.frames_per_packet);
+		ReadServiceConfigValue(s, "frames_per_packet_lossy", c.send.frames_per_packet_lossy);
+		ReadServiceConfigValue(s, "flush_every_frame", c.send.flush_every_frame);
+		ReadServiceConfigValue(s, "redundancy", c.send.redundancy);
+		ReadServiceConfigValue(s, "redundancy_window_ms", c.send.redundancy_window_ms);
+		ReadServiceConfigValue(s, "redundancy_burst_ms", c.send.redundancy_burst_ms);
+		ReadServiceConfigValue(s, "fast_resend", c.send.fast_resend);
+	}
+	if (j.contains("input_delay"))
+	{
+		const nlohmann::json& s = j["input_delay"];
+		ReadServiceConfigValue(s, "min_frames", c.input_delay.min_frames);
+		ReadServiceConfigValue(s, "decision_interval_ms", c.input_delay.decision_interval_ms);
+		ReadServiceConfigValue(s, "fps_history_samples", c.input_delay.fps_history_samples);
+		ReadServiceConfigValue(s, "slack_percent", c.input_delay.slack_percent);
+		if (s.contains("formula"))
+		{
+			const nlohmann::json& f = s["formula"];
+			ReadServiceConfigValue(f, "latency_history_samples", c.input_delay.formula.latency_history_samples);
+		}
+	}
+	if (j.contains("disconnect"))
+	{
+		const nlohmann::json& s = j["disconnect"];
+		ReadServiceConfigValue(s, "freeze_before_screen_ms", c.disconnect.freeze_before_screen_ms);
+		ReadServiceConfigValue(s, "remove_after_ms", c.disconnect.remove_after_ms);
+	}
+	if (j.contains("lobby"))
+	{
+		ReadServiceConfigValue(j["lobby"], "host_migration", c.lobby.host_migration);
+	}
+	if (j.contains("telemetry"))
+	{
+		const nlohmann::json& s = j["telemetry"];
+		ReadServiceConfigValue(s, "screenshot_probes", c.telemetry.screenshot_probes);
+		ReadServiceConfigValue(s, "replay_upload", c.telemetry.replay_upload);
+		ReadServiceConfigValue(s, "screenshot_width", c.telemetry.screenshot_width);
+		ReadServiceConfigValue(s, "screenshot_height", c.telemetry.screenshot_height);
+		ReadServiceConfigValue(s, "screenshot_upload_bytes_per_sec", c.telemetry.screenshot_upload_bytes_per_sec);
+		ReadServiceConfigValue(s, "screenshot_slot_offset_ms", c.telemetry.screenshot_slot_offset_ms);
+	}
+}
+
+// Keeps values from the service inside the ranges the game can run with
+inline void ClampServiceConfig(ServiceConfig& c)
+{
+	c.connection.latency_history_ms = (std::max)(c.connection.latency_history_ms, 1000);
+	c.connection.probe_lobby_interval_ms = std::clamp(c.connection.probe_lobby_interval_ms, 50, 5000);
+	c.connection.probe_match_interval_ms = std::clamp(c.connection.probe_match_interval_ms, 50, 10000);
+	c.send.redundancy_window_ms = std::clamp(c.send.redundancy_window_ms, 0, 5000);
+	c.send.redundancy_burst_ms = std::clamp(c.send.redundancy_burst_ms, 0, 1000);
+	c.send.frames_per_packet_lossy = std::clamp(c.send.frames_per_packet_lossy, 0, 8);
+
+	c.input_delay.min_frames = std::clamp(c.input_delay.min_frames, 1, 64);
+	c.input_delay.slack_percent = std::clamp(c.input_delay.slack_percent, 0, 200);
+	c.input_delay.decision_interval_ms = std::clamp(c.input_delay.decision_interval_ms, 100, 60000);
+	c.input_delay.fps_history_samples = std::clamp(c.input_delay.fps_history_samples, 1, 128);
+	c.input_delay.formula.latency_history_samples = std::clamp(c.input_delay.formula.latency_history_samples, 128, 3600); // FrameMetrics drops pending acks when the window is smaller than the frames in flight
+	c.send.frames_per_packet = std::clamp(c.send.frames_per_packet, 1, 16);
+
+	c.disconnect.freeze_before_screen_ms = std::clamp(c.disconnect.freeze_before_screen_ms, 1000, 30000);
+	c.disconnect.remove_after_ms = std::clamp(c.disconnect.remove_after_ms, 10000, 180000);
+
+	c.telemetry.screenshot_width = std::clamp(c.telemetry.screenshot_width, 16, 4096);
+	c.telemetry.screenshot_height = std::clamp(c.telemetry.screenshot_height, 16, 4096);
+}
+
+inline void from_json(const nlohmann::json& j, ServiceConfig& c)
+{
+	if (!j.is_object())
+	{
+		throw std::invalid_argument("Service config must be an object");
+	}
+	ReadServiceConfig(j, c);
+	ClampServiceConfig(c);
+}
 
 class NGMP_OnlineServicesManager
 {
@@ -534,9 +693,10 @@ public:
 	static void CaptureScreenshot(bool bResizeForTransmit, std::function<void(std::vector<unsigned char>)> cbOnDataAvailable);
 	static void CaptureScreenshotForProbe(EScreenshotType screenshotType, std::string strURI);
 
-	static bool g_bAdvancedNetworkStats;
-	static void ToggleAdvancedNetworkStats() { g_bAdvancedNetworkStats = !g_bAdvancedNetworkStats; }
-	static bool IsAdvancedNetworkStatsEnabled() { return g_bAdvancedNetworkStats; }
+	// the network overlay: 0 off, 1 player view (F10), 2 dev view (Shift+F10)
+	static int g_networkOverlayMode;
+	static void ToggleNetworkOverlay(int mode) { g_networkOverlayMode = (g_networkOverlayMode == mode) ? 0 : mode; }
+	static int GetNetworkOverlayMode() { return g_networkOverlayMode; }
 
 	void OnLogin(ELoginResult loginResult, const char* szWSAddr, std::function<void(void)> fnWebsocketConnectedCallback);
 	
@@ -586,10 +746,10 @@ public:
 	ServiceConfig& GetServiceConfig() { return m_ServiceConfig; }
 
 public:
-	void CacheScreenshotBytes_StartMatch(std::vector<uint8_t>& vecData)
+	void CacheScreenshotBytes_StartMatch(std::vector<uint8_t> vecData)
 	{
 		std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
-        m_vecCachedScreenshotBytes_MatchStart = vecData;
+        m_vecCachedScreenshotBytes_MatchStart = std::move(vecData);
 	}
 
 	void CacheScreenshotBytes_EndMatch(uint64_t matchID, std::vector<uint8_t> data);

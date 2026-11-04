@@ -50,6 +50,7 @@ public:
 	Real getAverageLatency();
 	Int getAverageFPS();
 	Int getMinimumCushion();
+	Bool isPending(UnsignedInt frame);
 
 	void SeedLatencyData(int latency);
 
@@ -59,6 +60,9 @@ protected:
 	Real *m_fpsList;								///< A record of how many game logic frames per second there were for the last 60 seconds.
 	time_t m_lastFpsTimeThing;																///< The time when the last fps entry started being recorded.
 	Int m_fpsListIndex;																				///< Index into the array of the current fps list entry being measured.
+#if defined(GENERALS_ONLINE)
+	UnsignedInt m_fpsListLength;																						///< Entries m_fpsList holds, the history length can change after construction.
+#endif
 	Real m_averageFps;																				///< The current average logic fps, computed just like m_averageLatency below but with the fps numbers.
 
 	// round trip time to packet router variables.
