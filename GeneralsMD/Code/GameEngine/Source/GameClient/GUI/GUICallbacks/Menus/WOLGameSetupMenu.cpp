@@ -262,10 +262,6 @@ enum
 };
 static Int connectionIndicatorState[MAX_SLOTS];
 
-static const Int CONNECTION_LEVEL_COUNT = 5;
-static const Int connectionLevelThresholds[CONNECTION_LEVEL_COUNT - 1] = { 40, 60, 75, 90 }; ///< score needed for 2..5 bars
-static const Int CONNECTION_LEVEL_HYSTERESIS = 3;
-
 WindowLayout *WOLMapSelectLayout = NULL;
 
 void PopBackToLobby()
@@ -515,10 +511,11 @@ static void playerTooltip(GameWindow *window,
 	}
 
 	bool bIsConnected = false;
-	int connectionScore = -1;
+	int connectionBars = -1;
 	int connectionLatency = -1;
 	int connectionJitter = -1;
-	int connectionQualityPct = -1;
+	int connectionLossPct = -1;
+	int connectionDelayMs = -1;
 	std::string strConnectionType = "";
 
 	LobbyMemberEntry member = pLobbyInterface->GetRoomMemberFromID(slot->m_userID);
@@ -540,11 +537,17 @@ static void playerTooltip(GameWindow *window,
 				{
 					bIsConnected = false;
 				}
-				connectionScore = pConnection->ComputeConnectionScore();
-				connectionLatency = pConnection->GetLatency();
+				connectionBars = pConnection->ComputeConnectionRating();
+				// the same values the rating uses
+				connectionLatency = pConnection->GetSeedLatency();
+				if (connectionLatency < 0)
+				{
+					connectionLatency = pConnection->GetLatency();
+				}
 				connectionJitter = pConnection->GetJitter();
-				float rawQuality = pConnection->GetConnectionQuality();
-				connectionQualityPct = (rawQuality >= 0.0f) ? static_cast<int>(rawQuality * 100.0f) : -1;
+				const float sustainedLoss = pConnection->GetSustainedLossPercent(60000);
+				connectionLossPct = (sustainedLoss >= 0.0f) ? static_cast<int>(sustainedLoss + 0.5f) : -1;
+				connectionDelayMs = (connectionBars > 0) ? pConnection->m_rating.delayMs : -1;
 			}
 		}
 	}
@@ -562,19 +565,26 @@ static void playerTooltip(GameWindow *window,
 	}
 	else if (bIsConnected)
 	{
-		UnicodeString scoreStr, latencyStr, jitterStr, qualityStr;
-		if (connectionScore >= 0) scoreStr.format(L"%d%%", connectionScore); else scoreStr = L"Unknown";
+		UnicodeString latencyStr, jitterStr, qualityStr, delayStr;
 		if (connectionLatency >= 0) latencyStr.format(L"%d ms", connectionLatency); else latencyStr = L"Unknown";
+		if (connectionDelayMs >= 0)
+		{
+			delayStr.format(L"%d ms", connectionDelayMs);
+		}
+		else
+		{
+			delayStr = L"Unknown";
+		}
 		if (connectionJitter >= 0) jitterStr.format(L"%d ms", connectionJitter); else jitterStr = L"Unknown";
-		if (connectionQualityPct >= 0) qualityStr.format(L"%d%%", connectionQualityPct); else qualityStr = L"Unknown";
+		if (connectionLossPct >= 0) qualityStr.format(L"%d%%", connectionLossPct); else qualityStr = L"Unknown";
 
 #if defined(WORLD_SERIES_CLIENT)
-		playerInfo.format(L"\nConnection State: Connected (%hs)\nConnection Score: %s\nLatency: %s\nJitter: %s\nReliability: %s\nRegion: %hs\nOverall Elo Rating: %d (in %d matches)\nWS Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
-			strConnectionType.c_str(), scoreStr.str(), latencyStr.str(), jitterStr.str(), qualityStr.str(),
+		playerInfo.format(L"\nConnection State: Connected (%hs)\nPing (round trip): %s\nPacket loss: %s\nJitter: %s\nExpected input delay: %s\nRegion: %hs\nOverall Elo Rating: %d (in %d matches)\nWS Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+			strConnectionType.c_str(), latencyStr.str(), qualityStr.str(), jitterStr.str(), delayStr.str(),
 			member.region.c_str(), stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
 #else
-        playerInfo.format(L"\nConnection State: Connected (%hs)\nConnection Score: %s\nLatency: %s\nJitter: %s\nReliability: %s\nRegion: %hs\nOverall Elo Rating: %d (in %d matches)\nMonthly Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
-            strConnectionType.c_str(), scoreStr.str(), latencyStr.str(), jitterStr.str(), qualityStr.str(),
+        playerInfo.format(L"\nConnection State: Connected (%hs)\nPing (round trip): %s\nPacket loss: %s\nJitter: %s\nExpected input delay: %s\nRegion: %hs\nOverall Elo Rating: %d (in %d matches)\nMonthly Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+            strConnectionType.c_str(), latencyStr.str(), qualityStr.str(), jitterStr.str(), delayStr.str(),
             member.region.c_str(), stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
 #endif
 	}
@@ -977,6 +987,29 @@ static void WOLLockSettings()
 	}
 }
 
+// The host does not start while a member is not connected or has not exchanged keys with everyone.
+static Bool WOLLobbyReadyToStart(void)
+{
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	if (pLobbyInterface == nullptr || pMesh == nullptr)
+	{
+		return TRUE;
+	}
+
+	std::vector<NetworkMesh::LobbyStartBlocker> blockers;
+	pMesh->GetLobbyStartBlockers(blockers);
+	for (const NetworkMesh::LobbyStartBlocker& blocker : blockers)
+	{
+		const LobbyMemberEntry member = pLobbyInterface->GetRoomMemberFromID(blocker.userID);
+		UnicodeString text;
+		text.format(blocker.notConnected ? L"Connections: Waiting for %s to connect." : L"Connections: Waiting for %s to exchange keys.", from_utf8(member.display_name).c_str());
+		GadgetListBoxAddEntryText(listboxGameSetupChat, text, GameMakeColor(255, 194, 15, 255), -1, -1);
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[START] Not starting, waiting for user %lld to %s", static_cast<long long>(blocker.userID), blocker.notConnected ? "connect" : "exchange keys");
+	}
+	return blockers.empty();
+}
+
 static void StartPressed()
 {
 	Bool isReady = TRUE;
@@ -1036,6 +1069,11 @@ static void StartPressed()
 			}
 		}
 		
+		return;
+	}
+
+	if (!WOLLobbyReadyToStart())
+	{
 		return;
 	}
 
@@ -1399,26 +1437,6 @@ void WOLDisplayGameOptions()
 }
 
 
-//  -----------------------------------------------------------------------------------------
-// The Bad munkee slot list displaying function
-//-------------------------------------------------------------------------------------------------
-static Int WOLUpdateConnectionLevel(Int level, Int score)
-{
-    if (level < 0)
-    {
-        level = 0;
-        while (level < CONNECTION_LEVEL_COUNT - 1 && score >= connectionLevelThresholds[level])
-            ++level;
-        return level;
-    }
-
-    while (level < CONNECTION_LEVEL_COUNT - 1 && score >= connectionLevelThresholds[level] + CONNECTION_LEVEL_HYSTERESIS)
-        ++level;
-    while (level > 0 && score < connectionLevelThresholds[level - 1] - CONNECTION_LEVEL_HYSTERESIS)
-        --level;
-    return level;
-}
-
 static void WOLRefreshConnectionIndicators(void)
 {
     NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
@@ -1445,7 +1463,7 @@ static void WOLRefreshConnectionIndicators(void)
         genericPingWindow[i]->winHide(FALSE);
 
         EConnectionState connectionState = EConnectionState::NOT_CONNECTED;
-        int connectionScore = -1;
+        int connectionBars = -1;
 
         if (pMesh != nullptr)
         {
@@ -1453,17 +1471,17 @@ static void WOLRefreshConnectionIndicators(void)
             if (pConnection != nullptr)
             {
                 connectionState = pConnection->GetState();
-                connectionScore = pConnection->ComputeConnectionScore();
+                connectionBars = pConnection->ComputeConnectionRating();
             }
         }
 
         Int& state = connectionIndicatorState[i];
         if (connectionState == EConnectionState::CONNECTION_FAILED || connectionState == EConnectionState::CONNECTION_DISCONNECTED)
             state = CONNECTION_INDICATOR_WARNING;
-        else if (connectionState != EConnectionState::CONNECTED_DIRECT || connectionScore < 0)
+        else if (connectionState != EConnectionState::CONNECTED_DIRECT || connectionBars < 0)
             state = CONNECTION_INDICATOR_CONNECTING;
         else
-            state = WOLUpdateConnectionLevel(state, connectionScore);
+            state = connectionBars - 1; // the rating is 1..5 bars, the state is the level 0..4
     }
 }
 
@@ -1484,6 +1502,8 @@ static void WOLConnectionIndicatorDraw(GameWindow *window, WinInstanceData *inst
     if (slot < 0)
         return;
 
+    ScopedDisplayBatch batch;
+
     Int x, y, width, height;
     window->winGetScreenPosition(&x, &y);
     window->winGetSize(&width, &height);
@@ -1492,26 +1512,11 @@ static void WOLConnectionIndicatorDraw(GameWindow *window, WinInstanceData *inst
     const Int left = x + (width - size) / 2;
     const Int top = y + (height - size) / 2;
     const Real centerX = left + size * 0.5f;
-    const Real centerY = top + size * 0.5f;
     const Int state = connectionIndicatorState[slot];
 
     if (state == CONNECTION_INDICATOR_CONNECTING)
     {
-        // Faint full ring with a solid arc rotating around it, drawn as short segments.
-        const Int segmentCount = 24;
-        const Int arcSegments = 7;
-        const Real radius = size * 0.4f;
-        const Real rotation = (timeGetTime() % 900) * 2.0f * PI / 900.0f;
-        const Color ringColor = GameMakeColor(47, 55, 168, 70); // Zero Hour UI blue
-        const Color arcColor = GameMakeColor(47, 55, 168, 255);
-        for (Int segment = 0; segment < segmentCount; ++segment)
-        {
-            const Real startAngle = rotation + segment * 2.0f * PI / segmentCount;
-            const Real endAngle = startAngle + 2.0f * PI / segmentCount;
-            TheDisplay->drawLine((Int)(centerX + std::cos(startAngle) * radius), (Int)(centerY + std::sin(startAngle) * radius),
-                (Int)(centerX + std::cos(endAngle) * radius), (Int)(centerY + std::sin(endAngle) * radius),
-                3.0f, segment < arcSegments ? arcColor : ringColor);
-        }
+        ConnectionRating::DrawSpinner(left, top, size);
     }
     else if (state == CONNECTION_INDICATOR_WARNING)
     {
@@ -1528,21 +1533,7 @@ static void WOLConnectionIndicatorDraw(GameWindow *window, WinInstanceData *inst
     }
     else
     {
-        Color levelColor = GameMakeColor(220, 40, 40, 255);
-        if (state >= 3)
-            levelColor = GameMakeColor(0, 200, 0, 255);
-        else if (state == 2)
-            levelColor = GameMakeColor(255, 190, 0, 255);
-        const Color emptyColor = GameMakeColor(90, 90, 90, 200);
-
-        const Int gap = 1;
-        const Int barWidth = max(1, (size - gap * (CONNECTION_LEVEL_COUNT - 1)) / CONNECTION_LEVEL_COUNT);
-        for (Int bar = 0; bar < CONNECTION_LEVEL_COUNT; ++bar)
-        {
-            const Int barHeight = max(1, size * (bar + 1) / CONNECTION_LEVEL_COUNT);
-            TheDisplay->drawFillRect(left + bar * (barWidth + gap), top + size - barHeight, barWidth, barHeight,
-                bar <= state ? levelColor : emptyColor);
-        }
+        ConnectionRating::DrawBars(left, top, size, state);
     }
 }
 
@@ -2510,7 +2501,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		if (pLobbyInterface != nullptr)
 		{
 			ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
-			bool bHostMigrationEnabledOnService = serviceConf.enable_host_migration;
+			bool bHostMigrationEnabledOnService = serviceConf.lobby.host_migration;
 
 			if (bHostMigrationEnabledOnService)
 			{
@@ -2642,15 +2633,20 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 				// are we done?
 				if (secondsRemaining <= 0)
 				{
-					s_matchStartCountdownWasRunning = false;
 					// stop countdown
 					TheNGMPGame->StopCountdown();
 
-					// send start game packet
-					std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
-					if (pWS != nullptr)
+					// a member that joined during the countdown is not ready yet, the buttons come back with the stopped countdown
+					if (WOLLobbyReadyToStart())
 					{
-						pWS->SendData_StartGame();
+						s_matchStartCountdownWasRunning = false;
+
+						// send start game packet
+						std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
+						if (pWS != nullptr)
+						{
+							pWS->SendData_StartGame();
+						}
 					}
 				}
 			}
@@ -3646,6 +3642,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/maxcameraheight <value> - Set the camera height limit (host only)."), helpColor, -1, -1);
 		// GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/leave - Return to the main lobby."), helpColor, -1, -1);
 		// GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/quit - Exit the game."), helpColor, -1, -1);
+		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/net - Show how you reach each player. /net relay and /net engine change your settings."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/support - Open the GeneralsOnline Discord."), helpColor, -1, -1);
 		GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"/help - Show these commands. You can also use /commands."), helpColor, -1, -1);
 		return TRUE; // was a slash command
@@ -3654,6 +3651,18 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 	{
 		ShellExecuteA(NULL, "open", "https://discord.playgenerals.online", NULL, NULL, SW_SHOWNORMAL);
 		return TRUE;
+	}
+	else if (token == "net")
+	{
+		void handleNetSlashCommand(AsciiString subcommand, AsciiString value, GameWindow* listbox);
+		AsciiString subcommand;
+		AsciiString value;
+		remainder.nextToken(&subcommand);
+		remainder.nextToken(&value);
+		subcommand.toLower();
+		value.toLower();
+		handleNetSlashCommand(subcommand, value, listboxGameSetupChat);
+		return TRUE; // was a slash command
 	}
 	else if (token == "friendsonly")
     {
