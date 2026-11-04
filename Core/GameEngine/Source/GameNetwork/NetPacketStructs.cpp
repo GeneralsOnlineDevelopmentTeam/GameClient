@@ -241,6 +241,14 @@ NetCommandMsg *SmallNetPacketCommandBase::constructNetCommandMsg(const CommandBa
 	case NETCOMMANDTYPE_FRAMERESENDREQUEST:
 		msg = newInstance(NetFrameResendRequestCommandMsg);
 		break;
+	case NETCOMMANDTYPE_SIGNEDFRAMEINFO:
+		// read back into a plain frame info that keeps the signature, see NetFrameCommandMsg::readMessageData
+		msg = newInstance(NetFrameCommandMsg);
+		msg->setNetCommandType(NETCOMMANDTYPE_SIGNEDFRAMEINFO);
+		break;
+	case NETCOMMANDTYPE_SIGNATURES:
+		msg = newInstance(NetSignaturesCommandMsg);
+		break;
 	default:
 		DEBUG_CRASH(("SmallNetPacketCommandBase::constructNetCommandMsg: Unexpected command type '%d' encountered.", commandType));
 		return nullptr;
@@ -538,6 +546,10 @@ size_t NetPacketDisconnectPlayerCommandData::copyBytes(UnsignedByte *buffer, con
 	FixedData data;
 	data.disconnectSlot = cmdMsg->getDisconnectSlot();
 	data.disconnectFrame = cmdMsg->getDisconnectFrame();
+#if !RETAIL_COMPATIBLE_NETWORKING
+	data.hasSignature = cmdMsg->hasSignature() ? 1 : 0;
+	memcpy(data.signature, cmdMsg->getSignature(), sizeof(data.signature));
+#endif
 
 	return network::writeObject(buffer, data);
 }
@@ -548,10 +560,19 @@ size_t NetPacketDisconnectPlayerCommandData::readMessage(NetCommandRef &ref, Net
 	FixedData data;
 	data.disconnectSlot = 0;
 	data.disconnectFrame = 0;
+#if !RETAIL_COMPATIBLE_NETWORKING
+	data.hasSignature = 0;
+	memset(data.signature, 0, sizeof(data.signature));
+#endif
 
 	size_t size = network::readObject(data, buf);
 	cmdMsg->setDisconnectSlot(data.disconnectSlot);
 	cmdMsg->setDisconnectFrame(data.disconnectFrame);
+#if !RETAIL_COMPATIBLE_NETWORKING
+	if (data.hasSignature != 0) {
+		cmdMsg->setSignature(data.signature);
+	}
+#endif
 
 	return size;
 }
@@ -1423,6 +1444,115 @@ size_t NetPacketFrameResendRequestCommandBase::copyBytes(UnsignedByte *buffer, c
 	base.commandType.commandType = msg->getNetCommandType();
 	base.relay.relay = ref.getRelay();
 	//base.frame.frame = msg->getExecutionFrame();
+	base.playerId.playerId = msg->getPlayerID();
+	base.commandId.commandId = msg->getID();
+
+	return network::writeObject(buffer, base);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// NetPacketSignedFrameCommand
+////////////////////////////////////////////////////////////////////////////////
+
+size_t NetPacketSignedFrameCommandData::copyBytes(UnsignedByte *buffer, const NetCommandRef &ref)
+{
+	const CommandMsg *cmdMsg = static_cast<const CommandMsg *>(ref.getCommand());
+	FixedData data;
+	data.commandCount = cmdMsg->getCommandCount();
+	memcpy(data.signature, cmdMsg->getSignature(), NET_SIGNATURE_SIZE);
+
+	return network::writeObject(buffer, data);
+}
+
+size_t NetPacketSignedFrameCommandData::readMessage(NetCommandRef &ref, NetPacketBuf buf)
+{
+	CommandMsg *cmdMsg = static_cast<CommandMsg *>(ref.getCommand());
+	FixedData data;
+	memset(&data, 0, sizeof(data));
+
+	size_t size = network::readObject(data, buf);
+	cmdMsg->setCommandCount(data.commandCount);
+	cmdMsg->setSignature(data.signature);
+
+	return size;
+}
+
+size_t NetPacketSignedFrameCommandData::readIntoFrame(NetFrameCommandMsg *frameMsg, NetPacketBuf buf)
+{
+	FixedData data;
+	memset(&data, 0, sizeof(data));
+
+	size_t size = network::readObject(data, buf);
+	frameMsg->setCommandCount(data.commandCount);
+	frameMsg->setSignature(data.signature);
+
+	return size;
+}
+
+size_t NetPacketSignedFrameCommandBase::copyBytes(UnsignedByte *buffer, const NetCommandRef &ref)
+{
+	const NetCommandMsg *msg = ref.getCommand();
+	CommandBase base;
+	base.commandType.commandType = msg->getNetCommandType();
+	base.relay.relay = ref.getRelay();
+	base.frame.frame = msg->getExecutionFrame();
+	base.playerId.playerId = msg->getPlayerID();
+	base.commandId.commandId = msg->getID();
+
+	return network::writeObject(buffer, base);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// NetPacketSignaturesCommand
+////////////////////////////////////////////////////////////////////////////////
+
+size_t NetPacketSignaturesCommandData::getSize(const NetCommandMsg &msg)
+{
+	const CommandMsg *cmdMsg = static_cast<const CommandMsg *>(&msg);
+	return sizeof(UnsignedByte) + cmdMsg->getEntryCount() * sizeof(Entry);
+}
+
+size_t NetPacketSignaturesCommandData::copyBytes(UnsignedByte *buffer, const NetCommandRef &ref)
+{
+	const CommandMsg *cmdMsg = static_cast<const CommandMsg *>(ref.getCommand());
+
+	size_t size = 0;
+	size += network::writePrimitive(buffer + size, (UnsignedByte)cmdMsg->getEntryCount());
+	for (Int i = 0; i < cmdMsg->getEntryCount(); ++i)
+	{
+		size += network::writeObject(buffer + size, cmdMsg->getEntry(i));
+	}
+	return size;
+}
+
+size_t NetPacketSignaturesCommandData::readMessage(NetCommandRef &ref, NetPacketBuf buf)
+{
+	CommandMsg *cmdMsg = static_cast<CommandMsg *>(ref.getCommand());
+	UnsignedByte count = 0;
+
+	size_t size = 0;
+	size += network::readObject(count, buf.offset(size));
+	for (Int i = 0; i < (Int)count; ++i)
+	{
+		Entry entry;
+		memset(&entry, 0, sizeof(entry));
+		const size_t read = network::readObject(entry, buf.offset(size));
+		if (read < sizeof(entry))
+		{
+			break;
+		}
+		size += read;
+		cmdMsg->addEntry(entry.frame, entry.commandId, entry.signature);
+	}
+	return size;
+}
+
+size_t NetPacketSignaturesCommandBase::copyBytes(UnsignedByte *buffer, const NetCommandRef &ref)
+{
+	const NetCommandMsg *msg = ref.getCommand();
+	CommandBase base;
+	base.commandType.commandType = msg->getNetCommandType();
+	base.relay.relay = ref.getRelay();
 	base.playerId.playerId = msg->getPlayerID();
 	base.commandId.commandId = msg->getID();
 

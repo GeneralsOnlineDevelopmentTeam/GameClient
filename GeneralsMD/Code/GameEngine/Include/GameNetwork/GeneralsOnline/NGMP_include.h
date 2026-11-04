@@ -10,7 +10,9 @@ enum class ELogVerbosity
 enum class ENetworkChannel : BYTE
 {
 	NETWORK_CHANNEL_GAME = 0,
-	NETWORK_CHANNEL_AC = 1
+	NETWORK_CHANNEL_AC = 1,
+	NETWORK_CHANNEL_PING = 2,
+	NETWORK_CHANNEL_KEYS = 3	// match signing keys, sent reliably
 };
 
 #define CHECK_MAIN_THREAD assert(std::this_thread::get_id() == NGMP_OnlineServicesManager::g_MainThreadID);
@@ -34,7 +36,6 @@ std::wstring WidenFormatSpecifiers(const std::wstring& format);
 
 int RoundUpLatencyToFrameInterval(int latency, int frameInterval);
 int ConvertMSLatencyToFrames(int ms);
-int ConvertMSLatencyToGenToolFrames(int ms);
 // NGMP_NOTE: Plr Templates look like this:
 /*
 | NAME							|	GAME INDEX	|	SERVICE INDEX	|	PLAYABLE	|

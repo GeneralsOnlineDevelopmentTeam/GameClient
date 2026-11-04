@@ -1140,7 +1140,11 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/GeneralsOnline/DiscordRichPresence.h
     Include/GameNetwork/GeneralsOnline/Vendor/DiscordRPC/discord_rpc.h
     Include/GameNetwork/GeneralsOnline/NetworkBitstream.h
+    Include/GameNetwork/GeneralsOnline/ConnectionRating.h
+    Include/GameNetwork/GeneralsOnline/MatchKeys.h
     Include/GameNetwork/GeneralsOnline/NetworkMesh.h
+    Include/GameNetwork/GeneralsOnline/NetBytes.h
+    Include/GameNetwork/GeneralsOnline/PacketFeedback.h
     Include/GameNetwork/GeneralsOnline/NetworkPacket.h
     Include/GameNetwork/GeneralsOnline/NextGenMP_defines.h
     Include/GameNetwork/GeneralsOnline/NGMPGame.h
@@ -1166,7 +1170,10 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/GeneralsOnline/GeneralsOnline_Settings.cpp
     Source/GameNetwork/GeneralsOnline/HTTP/HTTPManager.cpp
     Source/GameNetwork/GeneralsOnline/HTTP/HTTPRequest.cpp
+    Source/GameNetwork/GeneralsOnline/ConnectionRating.cpp
+    Source/GameNetwork/GeneralsOnline/MatchKeys.cpp
     Source/GameNetwork/GeneralsOnline/NetworkMesh.cpp
+    Source/GameNetwork/GeneralsOnline/PacketFeedback.cpp
     Source/GameNetwork/GeneralsOnline/OnlineServices_Init.cpp
     Source/GameNetwork/GeneralsOnline/OnlineServices_Auth.cpp
     Source/GameNetwork/GeneralsOnline/OnlineServices_LobbyInterface.cpp

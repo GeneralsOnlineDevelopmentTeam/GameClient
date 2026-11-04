@@ -332,8 +332,26 @@ Bool NextGenTransport::doRecv(void)
         std::map<int64_t, PlayerConnection>& connections = pMesh->GetAllConnections();
         for (auto& kvPair : connections)
         {
+            // Only take as many messages as there are free slots, the rest stay queued in GNS
+            int numFreeSlots = 0;
+            for (int iSlot = 0; iSlot < MAX_MESSAGES; ++iSlot)
+            {
+                if (!m_inBufferOccupied[iSlot] || m_inBuffer[iSlot].length == 0)
+                {
+                    ++numFreeSlots;
+                }
+            }
+
+            if (numFreeSlots == 0)
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE,
+                    "Game Packet Recv: m_inBuffer is full, leaving packets from user %lld queued",
+                    static_cast<long long>(kvPair.second.m_userID));
+                continue;
+            }
+
             SteamNetworkingMessage_t* pMsg[255] = { nullptr };
-            int numPackets = kvPair.second.Recv(pMsg);
+            int numPackets = kvPair.second.Recv(pMsg, std::min<int>(numFreeSlots, static_cast<int>(std::size(pMsg))));
 
             if (numPackets <= 0)
                 continue;
@@ -381,11 +399,33 @@ Bool NextGenTransport::doRecv(void)
                         msg->Release();
                         continue;
                     }
+                    else if (netChannel == ENetworkChannel::NETWORK_CHANNEL_KEYS)
+                    {
+                        kvPair.second.HandleKeyMessage(reinterpret_cast<const uint8_t*>(vecPacketDataWithoutHeader.data()), vecPacketDataWithoutHeader.size());
+                        msg->Release();
+                        continue;
+                    }
+                    else if (netChannel == ENetworkChannel::NETWORK_CHANNEL_PING)
+                    {
+                        kvPair.second.HandleProbe(reinterpret_cast<const uint8_t*>(vecPacketDataWithoutHeader.data()), vecPacketDataWithoutHeader.size(), PlayerConnection::GetArrivalMs(msg));
+                        msg->Release();
+                        continue;
+                    }
                     else if (netChannel == ENetworkChannel::NETWORK_CHANNEL_GAME)
                     {
                         NetworkLog(ELogVerbosity::LOG_DEBUG,
                             "[GAME PACKET] Received message of size %u from user %lld",
                             vecPacketDataWithoutHeader.size(), static_cast<long long>(kvPair.second.m_userID));
+
+                        // the packet envelope: sequence number and receiver feedback
+                        const size_t envelopeSize = kvPair.second.ConsumeEnvelope(reinterpret_cast<const uint8_t*>(vecPacketDataWithoutHeader.data()), vecPacketDataWithoutHeader.size());
+                        if (envelopeSize == 0)
+                        {
+                            NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Dropping packet without a valid envelope from user %lld, probably another game version", static_cast<long long>(kvPair.second.m_userID));
+                            msg->Release();
+                            continue;
+                        }
+                        vecPacketDataWithoutHeader.erase(vecPacketDataWithoutHeader.begin(), vecPacketDataWithoutHeader.begin() + envelopeSize);
 
                         // Must at least contain the header
                         if (vecPacketDataWithoutHeader.size() < sizeof(TransportMessageHeader))
@@ -514,6 +554,10 @@ Bool NextGenTransport::doRecv(void)
                             // Clear slot
                             std::memset(&m_inBuffer[i], 0, sizeof(m_inBuffer[i]));
 
+                            // the connection the packet arrived on says which user sent it
+                            m_inBuffer[i].senderKnown = true;
+                            m_inBuffer[i].senderUserID = static_cast<Int64>(kvPair.second.m_userID);
+
                             // Copy header
                             m_inBuffer[i].header = incomingMessage.header;
 
@@ -565,6 +609,12 @@ Bool NextGenTransport::doRecv(void)
                             bRet = TRUE;
                         }
                     }
+                    else
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Dropping packet with unknown channel %u from user %lld", static_cast<unsigned>(vecDataWithHeader[0]), static_cast<long long>(kvPair.second.m_userID));
+                        msg->Release();
+                        continue;
+                    }
                 }
                 else if (vecDataWithHeader.size() != -1)
                 {
@@ -582,6 +632,18 @@ Bool NextGenTransport::doRecv(void)
         "Game Packet Recv: Read %d packets this frame", numRead);
 
     return bRet;
+}
+
+Bool NextGenTransport::sendFailureLogDue()
+{
+	const UnsignedInt nowMs = timeGetTime();
+	if (static_cast<Int>(nowMs - m_nextSendFailLogMs) < 0)
+	{
+		++m_skippedSendFailLogs;
+		return FALSE;
+	}
+	m_nextSendFailLogMs = nowMs + 1000;
+	return TRUE;
 }
 
 Bool NextGenTransport::doSend(void)
@@ -692,19 +754,27 @@ Bool NextGenTransport::doSend(void)
                 
                 if (m_outPacketState[i].retryCount < OutgoingPacketState::MAX_RETRIES)
                 {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE,
-                        "Game Packet Send: SendGamePacket failed (err=%d), retry %d/%d for packet to user %lld",
-                        sendResult, m_outPacketState[i].retryCount, 
-                        OutgoingPacketState::MAX_RETRIES, pSlot->m_userID);
+                    if (sendFailureLogDue())
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE,
+                            "Game Packet Send: SendGamePacket failed (err=%d), retry %d/%d for packet to user %lld, %d lines skipped",
+                            sendResult, m_outPacketState[i].retryCount,
+                            OutgoingPacketState::MAX_RETRIES, pSlot->m_userID, m_skippedSendFailLogs);
+                        m_skippedSendFailLogs = 0;
+                    }
                     // Keep packet in queue for retry
                     retval = FALSE;
                 }
                 else
                 {
                     // Max retries exceeded - drop packet
-                    NetworkLog(ELogVerbosity::LOG_RELEASE,
-                        "Game Packet Send: Dropping packet after %d failed retries to user %lld",
-                        m_outPacketState[i].retryCount, pSlot->m_userID);
+                    if (sendFailureLogDue())
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE,
+                            "Game Packet Send: Dropping packet after %d failed retries to user %lld, %d lines skipped",
+                            m_outPacketState[i].retryCount, pSlot->m_userID, m_skippedSendFailLogs);
+                        m_skippedSendFailLogs = 0;
+                    }
                     m_outBuffer[i].length = 0;
                     m_outPacketState[i].retryCount = 0;
                     retval = FALSE;
@@ -800,7 +870,11 @@ Bool NextGenTransport::queueSend(UnsignedInt addr,
         return TRUE;
     }
 
-    NetworkLog(ELogVerbosity::LOG_RELEASE,
-        "Game Packet QueueSend: m_outBuffer full, dropping packet");
+    if (sendFailureLogDue())
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE,
+            "Game Packet QueueSend: m_outBuffer full, dropping packet, %d lines skipped", m_skippedSendFailLogs);
+        m_skippedSendFailLogs = 0;
+    }
     return FALSE;
 }

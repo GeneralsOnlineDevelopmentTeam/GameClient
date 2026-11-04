@@ -298,6 +298,11 @@ void HTTPRequest::PlatformStartRequest()
 			}
 		}
 
+		if (m_maxSendBytesPerSec > 0)
+		{
+			curl_easy_setopt(m_pCURL, CURLOPT_MAX_SEND_SPEED_LARGE, (curl_off_t)m_maxSendBytesPerSec);
+		}
+
 		// needed for PUT etc
 		if (m_httpVerb == EHTTPVerb::HTTP_VERB_PUT)
 		{

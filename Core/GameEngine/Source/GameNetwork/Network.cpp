@@ -52,6 +52,7 @@
 #include "Common/Recorder.h"
 #include "GameClient/MessageBox.h"
 #include "../NGMP_include.h"
+#include "../ngmp_interfaces.h"
 
 
 #if defined(DEBUG_CRC) && !RETAIL_COMPATIBLE_NETWORKING
@@ -114,6 +115,8 @@ public:
 
 #if defined(GENERALS_ONLINE)
 	virtual void SeedLatencyData(int latency);
+	virtual void requireMatchKeys() override { m_matchKeysRequired = TRUE; }
+	virtual Bool matchKeysRequired() const override { return m_matchKeysRequired; }
 #endif
 
 	void setLocalAddress(UnsignedInt ip, UnsignedInt port);
@@ -121,6 +124,10 @@ public:
 	UnsignedInt getFrameRate(void) { return m_frameRate; }
 	UnsignedInt getPacketArrivalCushion(void);								///< Returns the smallest packet arrival cushion since this was last called.
 	Bool isFrameDataReady(void);
+#if defined(GENERALS_ONLINE)
+	virtual Bool isGameExitPending() const override { return m_localStatus == NETLOCALSTATUS_POSTGAME; }
+	virtual UnsignedInt getMeasuredLogicRate() override;
+#endif
 	virtual Bool isStalling();
 	void parseUserList(const GameInfo* game);
 	void startGame(void);																			///< Sets the network game frame counter to -1
@@ -165,6 +172,10 @@ public:
 
 	virtual Int getAverageFPS() override { return m_conMgr->getAverageFPS(); }
 	virtual Int getSlotAverageFPS(Int slot) override;
+	virtual const ConnectionStats* getConnectionStats(Int slot) const override;
+#if defined(GENERALS_ONLINE)
+	virtual Bool getOverlayInfo(Int slot, NetworkOverlayInfo &info) override;
+#endif
 
 	virtual void attachTransport(Transport *transport) override;
 	virtual void initTransport() override;
@@ -218,6 +229,11 @@ protected:
 	Int m_lastExecutionFrame;																	///< The highest frame number that a command could have been executed on.
 	Int m_lastFrameCompleted;
 	Bool m_didSelfSlug;
+#if defined(GENERALS_ONLINE)
+	DWORD m_rateSampleMs;
+	UnsignedInt m_rateSampleFrame;
+	UnsignedInt m_measuredLogicRate;
+#endif
 	__int64 m_perfCountFreq;														///< The frequency of the performance counter.
 
 	__int64 m_nextFrameTime;														///< When did we execute the last frame?  For slugging the GameLogic...
@@ -234,6 +250,13 @@ protected:
 
 #if defined(RTS_DEBUG)
 	Bool m_networkOn;
+#endif
+
+#if defined(GENERALS_ONLINE)
+	Bool m_matchKeysRequired;
+	Bool m_matchStartFailed;
+	Bool startPrerequisitesReady() const;
+	void failMatchStart();		///< Leaves rather than starting without authentication.
 #endif
 };
 
@@ -307,6 +330,15 @@ Network::~Network()
  */
 Bool Network::deinit()
 {
+#if defined(GENERALS_ONLINE)
+	if (m_matchKeysRequired) {
+		NetworkMesh* mesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+		if (mesh != nullptr) {
+			mesh->EndMatchKeys();
+		}
+		m_matchKeysRequired = FALSE;
+	}
+#endif
 	if (m_conMgr)
 	{
 		m_conMgr->destroyGameMessages();
@@ -353,6 +385,14 @@ void Network::init()
 
 	m_localStatus = NETLOCALSTATUS_PREGAME;
 
+#if defined(GENERALS_ONLINE)
+	m_matchKeysRequired = FALSE;
+	m_matchStartFailed = FALSE;
+	m_rateSampleMs = 0;
+	m_rateSampleFrame = 0;
+	m_measuredLogicRate = 0;
+#endif
+
 	QueryPerformanceFrequency((LARGE_INTEGER*)&m_perfCountFreq);
 	m_nextFrameTime = 0;
 	m_sawCRCMismatch = FALSE;
@@ -385,6 +425,7 @@ void Network::SeedLatencyData(int highestLatency)
 
 	m_conMgr->SeedLatencyData(highestLatency);
 }
+
 #endif
 
 #if defined(GENERALS_ONLINE)
@@ -542,6 +583,13 @@ Bool Network::processCommand(GameMessage* msg)
 #else
 			if (TheGameLogic->getFrame() == 1) {
 #endif
+#if defined(GENERALS_ONLINE)
+				// Pregame updates drive loading; only entering gameplay requires completed setup.
+				if (!startPrerequisitesReady()) {
+					failMatchStart();
+					return TRUE;
+				}
+#endif
 				m_localStatus = NETLOCALSTATUS_INGAME;
 				NetCommandList *netcmdlist = m_conMgr->getFrameCommandList(0); // clear out frame 0 since we skipped it
 				deleteInstance(netcmdlist);
@@ -567,6 +615,13 @@ Bool Network::processCommand(GameMessage* msg)
 		//DEBUG_LOG(("Next Execution Frame - %d, last frame completed - %d", getExecutionFrame(), m_lastFrameCompleted));
 		m_lastFrame = TheGameLogic->getFrame();
 	}
+
+#if defined(GENERALS_ONLINE)
+	if (msg->getType() == GameMessage::MSG_CLEAR_GAME_DATA &&
+		(m_localStatus == NETLOCALSTATUS_LEAVING || m_localStatus == NETLOCALSTATUS_LEFT)) {
+		return TRUE; // the exit is already under way
+	}
+#endif
 
 	// Are we leaving the game?
 	// This has to happen after the check to see if this is the start of a new logic frame.
@@ -686,7 +741,13 @@ void Network::processFrameSynchronizedNetCommand(NetCommandRef* msg) {
 }
 
 void Network::processRunAheadCommand(NetRunAheadCommandMsg* msg) {
+#if defined(GENERALS_ONLINE)
+	const Int previousRunAhead = m_runAhead;
+#endif
 	m_runAhead = msg->getRunAhead();
+#if defined(GENERALS_ONLINE)
+	m_conMgr->noteRunAheadApplied(previousRunAhead, m_runAhead);
+#endif
 	m_frameRate = msg->getFrameRate();
 	time_t frameGrouping = (1000 * m_runAhead) / m_frameRate; // number of miliseconds between packet sends
 	frameGrouping = frameGrouping / 2; // since we only want the latency for one way to be a factor.
@@ -755,7 +816,20 @@ void Network::update()
 	}
 #endif
 
+#if defined(GENERALS_ONLINE)
+	if (m_matchStartFailed) {
+		// Discard gameplay input, but leave the queued exit command for normal teardown.
+		GetCommandsFromCommandList();
+		return;
+	}
+#endif
+
 	GetCommandsFromCommandList(); // Remove commands from TheCommandList and send them to the connection manager.
+#if defined(GENERALS_ONLINE)
+	if (m_matchStartFailed) {
+		return;
+	}
+#endif
 	if (m_conMgr != NULL) {
 		if (m_localStatus == NETLOCALSTATUS_INGAME) {
 #if defined(GENERALS_ONLINE_RUN_FAST)
@@ -773,10 +847,23 @@ void Network::update()
 	}
 
 	liteupdate();
+#if defined(GENERALS_ONLINE)
+	if (m_matchStartFailed) {
+		return;
+	}
+#endif
 
 	if (m_localStatus == NETLOCALSTATUS_LEFT) {// || (m_localStatus == NETLOCALSTATUS_LEAVING)) {
 		endOfGameCheck();
+#if defined(GENERALS_ONLINE)
+		return;
+#endif
 	}
+#if defined(GENERALS_ONLINE)
+	if (m_localStatus == NETLOCALSTATUS_POSTGAME) {
+		return;
+	}
+#endif
 
 	if (AllCommandsReady(TheGameLogic->getFrame())) { // If all the commands are ready for the next frame...
 		m_conMgr->handleAllCommandsReady();
@@ -791,9 +878,20 @@ void Network::update()
 		QueryPerformanceCounter((LARGE_INTEGER*)&curTime);
 		m_isStalling = curTime >= m_nextFrameTime;
 	}
+
+#if defined(GENERALS_ONLINE)
+	if (m_conMgr != nullptr && m_localStatus == NETLOCALSTATUS_INGAME) {
+		m_conMgr->noteStalling(m_isStalling, TheGameLogic->getFrame());
+	}
+#endif
 }
 
 void Network::liteupdate() {
+#if defined(GENERALS_ONLINE)
+	if (m_matchStartFailed) {
+		return;
+	}
+#endif
 
 #if defined(RTS_DEBUG)
 	if (m_networkOn == FALSE) {
@@ -840,7 +938,12 @@ Bool Network::timeForNewFrame() {
 	 */
 	if (m_conMgr != NULL) {
 		Real cushion = m_conMgr->getMinimumCushion();
+#if defined(GENERALS_ONLINE)
+		// the controller keeps a margin of one frame, slow down when the commands of the slowest player arrive less than that early
+		Real runAheadPercentage = 1.0f;
+#else
 		Real runAheadPercentage = m_runAhead * (TheGlobalData->m_networkRunAheadSlack / (Real)100.0); // If we are at least 50% into our slack, we need to slow down.
+#endif
 		if (cushion < runAheadPercentage) {
 			__int64 oldFrameDelay = frameDelay;
 			frameDelay += oldFrameDelay / 10; // temporarily decrease the frame rate by 20%.
@@ -855,9 +958,13 @@ Bool Network::timeForNewFrame() {
 	if (curTime >= m_nextFrameTime) {
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Allowing a new frame, frameDelay = %I64d, curTime - m_nextFrameTime = %I64d", frameDelay, curTime - m_nextFrameTime);
 
-//		if (m_nextFrameTime + frameDelay < curTime) {
-		if (m_nextFrameTime + frameDelay < curTime) {
-		//if ((m_nextFrameTime + ((GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER * 2) * frameDelay)) < curTime) {
+		__int64 catchUpFrames = 1;
+#if defined(GENERALS_ONLINE)
+		if (m_conMgr != nullptr) {
+			catchUpFrames = m_conMgr->getNetworkSettings().input_delay.catch_up_frames;
+		}
+#endif
+		if (m_nextFrameTime + catchUpFrames * frameDelay < curTime) {
 			// If we get too far behind on our framerate we need to reset the nextFrameTime thing.
 			m_nextFrameTime = curTime;
 			NetworkLog(ELogVerbosity::LOG_DEBUG, "Initializing m_nextFrameTime to %I64d", m_nextFrameTime);
@@ -877,7 +984,11 @@ Bool Network::timeForNewFrame() {
  * Returns true if the game commands for the next frame have been put on the command list.
  */
 Bool Network::isFrameDataReady() {
+#if defined(GENERALS_ONLINE)
+	return m_frameDataReady;
+#else
 	return (m_frameDataReady || (m_localStatus == NETLOCALSTATUS_LEFT));
+#endif
 }
 
 Bool Network::isStalling()
@@ -1045,8 +1156,43 @@ void Network::updateLoadProgress(Int percent)
 	}
 }
 
+#if defined(GENERALS_ONLINE)
+Bool Network::startPrerequisitesReady() const
+{
+	if (m_matchStartFailed) {
+		return FALSE;
+	}
+	if (m_matchKeysRequired) {
+		NetworkMesh* mesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+		return mesh != nullptr && mesh->GetMatchKeys().IsReady();
+	}
+	return TRUE;
+}
+
+void Network::failMatchStart()
+{
+	if (m_matchStartFailed) {
+		return;
+	}
+	NetworkMesh* mesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[START] Missing match keys, leaving (keys=%zu/%zu)",
+		mesh != nullptr ? mesh->GetMatchKeys().GetPeerKeyCount() : 0,
+		mesh != nullptr ? mesh->GetMatchKeys().GetExpectedPeers() : 0);
+	m_matchStartFailed = TRUE;
+	quitGame();
+	if (m_conMgr != nullptr) {
+		TheGameLogic->processProgressComplete((Int)m_conMgr->getLocalPlayerID());
+	}
+}
+#endif
+
 void Network::loadProgressComplete()
 {
+#if defined(GENERALS_ONLINE)
+	if (m_matchStartFailed) {
+		return;
+	}
+#endif
 	if (m_conMgr != nullptr) {
 		m_conMgr->loadProgressComplete();
 	}
@@ -1093,6 +1239,38 @@ Int Network::getSlotAverageFPS(Int slot) {
 	}
 	return -1;
 }
+
+#if defined(GENERALS_ONLINE)
+UnsignedInt Network::getMeasuredLogicRate() {
+	const DWORD now = timeGetTime();
+	const UnsignedInt frame = TheGameLogic->getFrame();
+	if (m_rateSampleMs == 0 || frame < m_rateSampleFrame) {
+		m_rateSampleMs = now;
+		m_rateSampleFrame = frame;
+	} else if (now - m_rateSampleMs >= 1000) {
+		m_measuredLogicRate = (UnsignedInt)(((frame - m_rateSampleFrame) * 1000.0f) / (Real)(now - m_rateSampleMs) + 0.5f);
+		m_rateSampleMs = now;
+		m_rateSampleFrame = frame;
+	}
+	return m_measuredLogicRate;
+}
+#endif
+
+const ConnectionStats* Network::getConnectionStats(Int slot) const {
+	if (m_conMgr != nullptr) {
+		return m_conMgr->getConnectionStats(slot);
+	}
+	return nullptr;
+}
+
+#if defined(GENERALS_ONLINE)
+Bool Network::getOverlayInfo(Int slot, NetworkOverlayInfo &info) {
+	if (m_conMgr != nullptr) {
+		return m_conMgr->getOverlayInfo(slot, info);
+	}
+	return FALSE;
+}
+#endif
 
 #if defined(RTS_DEBUG)
 void Network::toggleNetworkOn() {

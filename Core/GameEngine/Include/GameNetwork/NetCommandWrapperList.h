@@ -38,6 +38,7 @@ public:
 
 	Bool isComplete();
 	UnsignedShort getCommandID();
+	UnsignedByte getPlayerID();
 	UnsignedInt getRawDataLength();
 	void copyChunkData(NetWrapperCommandMsg *msg);
 	UnsignedByte * getRawData();
@@ -48,6 +49,7 @@ public:
 
 protected:
 	UnsignedShort m_commandID;
+	UnsignedByte m_playerID;
 	UnsignedByte *m_data;
 	UnsignedInt m_totalDataLength;
 	Bool *m_chunksPresent;
@@ -72,7 +74,17 @@ public:
 	Int getPercentComplete(UnsignedShort wrappedCommandID);
 
 protected:
+	enum { RECENT_COMPLETED_COUNT = 16 };
+
 	void removeFromList(NetCommandWrapperListNode *node);
+	Bool wasRecentlyCompleted(UnsignedByte playerID, UnsignedShort wrappedCommandID) const;
+	void noteCompleted(UnsignedByte playerID, UnsignedShort wrappedCommandID);
 
 	NetCommandWrapperListNode *m_list;
+
+	// A late copy of a chunk must not start a second assembly of a command that was already delivered.
+	UnsignedByte m_recentCompletedPlayers[RECENT_COMPLETED_COUNT];
+	UnsignedShort m_recentCompletedIDs[RECENT_COMPLETED_COUNT];
+	Int m_recentCompletedCount;
+	Int m_recentCompletedNext;
 };

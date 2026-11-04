@@ -381,7 +381,7 @@ static void gameTooltip(GameWindow* window,
 	tooltip.concat(region);
 
 	UnicodeString latency;
-	latency.format(L"\nLatency: %d (%d frames)\n", lobbyEntry.latency, ConvertMSLatencyToGenToolFrames(lobbyEntry.latency));
+	latency.format(L"\nLatency: %d [%dms]\n", ConvertMSLatencyToFrames(lobbyEntry.latency), lobbyEntry.latency);
 	tooltip.concat(latency);
 #else
 	tooltip.format(TheGameText->fetch("TOOLTIP:GameInfoGameName"), room->getGameName().str());
