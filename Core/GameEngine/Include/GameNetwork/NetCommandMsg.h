@@ -269,10 +269,17 @@ public:
 	void setCommandCount(UnsignedShort commandCount);
 	UnsignedShort getCommandCount() const;
 
+	Bool hasSignature() const { return m_hasSignature; }
+	const UnsignedByte *getSignature() const { return m_signature; }
+	void setSignature(const UnsignedByte *signature);
+
 	virtual Select getSmallNetPacketSelect() const override;
+	virtual size_t readMessageData(NetCommandRef& ref, NetPacketBuf buf) const override;
 
 protected:
 	UnsignedShort m_commandCount;
+	Bool m_hasSignature;
+	UnsignedByte m_signature[NET_SIGNATURE_SIZE];
 };
 
 //-----------------------------------------------------------------------------
@@ -305,11 +312,30 @@ public:
 	Int  getAverageFps() const;
 	void setAverageFps(Int fps);
 
+#if defined(GENERALS_ONLINE)
+	enum { NO_CUSHION = 32767 };	///< cushion value when the player has no sample of a sender
+
+	Int getCushionMin(Int sender) const { return m_cushionMin[sender]; }
+	void setCushionMin(Int sender, Int cushion) { m_cushionMin[sender] = cushion; }
+	Int getLate(Int sender) const { return m_late[sender]; }
+	void setLate(Int sender, Int count) { m_late[sender] = count; }
+	Int getStallMs() const { return m_stallMs; }
+	void setStallMs(Int ms) { m_stallMs = ms; }
+	Bool getScreenshot() const { return m_screenshot; }
+	void setScreenshot(Bool screenshot) { m_screenshot = screenshot; }
+#endif
+
 	virtual Select getSmallNetPacketSelect() const override;
 
 protected:
 	Real m_averageLatency;
 	Int  m_averageFps;
+#if defined(GENERALS_ONLINE)
+	Int m_cushionMin[MAX_SLOTS];	///< per sender, the lowest arrival cushion of the commands issued under the current run ahead since the last report, in frames
+	Int m_late[MAX_SLOTS];		///< per sender, commands that arrived late since the last metrics message
+	Int m_stallMs;				///< ms spent waiting for commands since the last metrics message
+	Bool m_screenshot;			///< the player captured a screenshot on its main thread during this report, its stall is not the network's
+#endif
 };
 
 //-----------------------------------------------------------------------------
@@ -386,11 +412,17 @@ public:
 	UnsignedInt getDisconnectFrame() const;
 	void setDisconnectFrame(UnsignedInt frame);
 
+	Bool hasSignature() const { return m_hasSignature; }
+	const UnsignedByte *getSignature() const { return m_signature; }
+	void setSignature(const UnsignedByte *signature);
+
 	virtual Select getSmallNetPacketSelect() const override;
 
 protected:
 	UnsignedByte m_disconnectSlot;
 	UnsignedInt m_disconnectFrame;
+	Bool m_hasSignature;
+	UnsignedByte m_signature[NET_SIGNATURE_SIZE];
 };
 
 //-----------------------------------------------------------------------------
@@ -677,4 +709,47 @@ public:
 	//virtual ~NetTimeOutGameStartCommandMsg();
 
 	virtual Select getSmallNetPacketSelect() const override;
+};
+
+//-----------------------------------------------------------------------------
+// The wire form of a frame info with its author's signature, read back into a NetFrameCommandMsg.
+class NetSignedFrameCommandMsg : public NetCommandMsgT<NetPacketSignedFrameCommand, SmallNetPacketSignedFrameCommand>
+{
+	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(NetSignedFrameCommandMsg, "NetSignedFrameCommandMsg")
+public:
+	NetSignedFrameCommandMsg();
+	NetSignedFrameCommandMsg(const NetFrameCommandMsg *frameMsg);
+
+	UnsignedShort getCommandCount() const { return m_commandCount; }
+	void setCommandCount(UnsignedShort commandCount) { m_commandCount = commandCount; }
+	const UnsignedByte *getSignature() const { return m_signature; }
+	void setSignature(const UnsignedByte *signature);
+
+	virtual Select getSmallNetPacketSelect() const override;
+
+protected:
+	UnsignedShort m_commandCount;
+	UnsignedByte m_signature[NET_SIGNATURE_SIZE];
+};
+
+//-----------------------------------------------------------------------------
+// The signatures of chat that the router relays, frame signatures ride inline in the frame info.
+class NetSignaturesCommandMsg : public NetCommandMsgT<NetPacketSignaturesCommand, SmallNetPacketSignaturesCommand>
+{
+	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE(NetSignaturesCommandMsg, "NetSignaturesCommandMsg")
+public:
+	enum { MAX_ENTRIES = 12 };
+	typedef NetPacketSignaturesCommandData::Entry Entry;
+
+	NetSignaturesCommandMsg();
+
+	Int getEntryCount() const { return m_entryCount; }
+	const Entry &getEntry(Int index) const { return m_entries[index]; }
+	Bool addEntry(UnsignedInt frame, UnsignedShort commandID, const UnsignedByte *signature);
+
+	virtual Select getSmallNetPacketSelect() const override;
+
+protected:
+	Int m_entryCount;
+	Entry m_entries[MAX_ENTRIES];
 };

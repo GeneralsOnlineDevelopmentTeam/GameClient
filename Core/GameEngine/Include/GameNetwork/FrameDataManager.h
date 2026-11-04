@@ -38,7 +38,7 @@ public:
 	void reset();
 	void update();
 
-	void addNetCommandMsg(NetCommandMsg *msg);
+	Bool addNetCommandMsg(NetCommandMsg *msg);	///< Returns FALSE when the command was already in its frame.
 	void setIsLocal(Bool isLocal);
 	FrameDataReturnType allCommandsReady(UnsignedInt frame, Bool debugSpewage);
 	NetCommandList * getFrameCommandList(UnsignedInt frame);
