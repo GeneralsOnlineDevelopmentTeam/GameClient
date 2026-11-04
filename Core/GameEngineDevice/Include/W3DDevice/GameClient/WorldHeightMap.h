@@ -238,6 +238,7 @@ public:  // Boundary info
 public:  // height map info.
 	static Int getMinHeightValue() {return K_MIN_HEIGHT;}
 	static Int getMaxHeightValue() {return K_MAX_HEIGHT;}
+	static Bool isValidMapSize(Int width, Int height, Int borderSize); ///< Within MAX_MAP_DIMENSION and MAX_MAP_AREA, width and height include the border
 
 	UnsignedByte *getDataPtr() {return m_data;}
 

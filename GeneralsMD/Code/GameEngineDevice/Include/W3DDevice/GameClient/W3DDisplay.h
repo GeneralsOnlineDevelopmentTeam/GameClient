@@ -212,6 +212,7 @@ protected:
 
 	DisplayString* m_displayStrings[DisplayStringCount];
 	DisplayString* m_benchmarkDisplayString;
+	DisplayString* m_cinematicDisplayString;
 
 	W3DDebugDisplay* m_nativeDebugDisplay;		///< W3D specific debug display interface
 

@@ -189,14 +189,13 @@ public:
 	//
 	void	Build_Sentence (const WCHAR *text, int *hkX, int *hkY);
 	void	Draw_Sentence (uint32 color = 0xFFFFFFFF);
+	bool	Has_Sentence_Data () const						{ return SentenceData.Count () > 0; }
 
 	//
 	//	Texture hint
 	//
 	void	Set_Texture_Size_Hint( int hint )				{ TextureSizeHint = hint; }
 	int	Get_Texture_Size_Hint() const				{ return TextureSizeHint; }
-
-	void	Set_Mono_Spaced( bool onoff )						{ MonoSpaced = onoff; }
 
 private:
 
@@ -253,7 +252,6 @@ private:
 	int													CurrTextureSize;
 	int													TextureSizeHint;
 	SurfaceClass *							CurSurface;
-	bool												MonoSpaced;
 	float												WrapWidth;
 	bool												Centered;			// Determines whether or not to center each line
 	RectClass										ClipRect;
