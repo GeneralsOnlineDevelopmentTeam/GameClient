@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "AdaptiveQualityLevels.h"
 #include "Common/GameCommon.h"	// ensure we get DUMP_PERF_STATS, or not
 #include "Common/AsciiString.h"
 #include "Common/GameType.h"
@@ -97,6 +98,12 @@ public:
 	Bool setTimeOfDay( TimeOfDay tod );		///< Use this function to set the Time of day;
 
 	static void parseGameDataDefinition( INI* ini );
+
+	// the options with the adaptive quality reduction applied, for the renderers
+	Bool drawsHeatEffects() const { return m_useHeatEffects && !AdaptiveQualityLevels::heatEffectsOff(m_adaptiveQualityLevel); }
+	Bool drawsShadowVolumes() const { return m_useShadowVolumes && !AdaptiveQualityLevels::shadowVolumesOff(m_adaptiveQualityLevel); }
+	Bool drawsShadowDecals() const { return m_useShadowDecals && !AdaptiveQualityLevels::shadowDecalsOff(m_adaptiveQualityLevel); }
+	Int getEffectiveMaxParticleCount() const { return AdaptiveQualityLevels::particleCap(m_maxParticleCount, m_adaptiveQualityLevel); }
 	void parseCustomDefinition();
 
 	//-----------------------------------------------------------------------------------------------
@@ -119,6 +126,7 @@ public:
 	Bool m_useTreeSway;
 	Bool m_useDrawModuleLOD;
 	Bool m_useHeatEffects;
+	Int m_adaptiveQualityLevel;	///< client only reduction on top of the options below, set by the adaptive quality and never saved.
 	Bool m_useFpsLimit;
 	Bool m_dumpAssetUsage;
 	Int m_framesPerSecondLimit;

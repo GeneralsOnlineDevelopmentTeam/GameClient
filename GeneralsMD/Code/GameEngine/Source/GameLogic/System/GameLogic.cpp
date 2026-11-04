@@ -1193,6 +1193,43 @@ void GameLogic::updateLoadProgress(Int progress)
 	}
 }
 
+void GameLogic::revealFromLoadScreen(Bool loadingSaveGame)
+{
+	// if we're in a load game, don't fade yet
+	if (loadingSaveGame == FALSE && TheTransitionHandler != NULL && m_loadScreen)
+	{
+		TheFramePacer->reset();
+		TheTransitionHandler->setGroup("FadeWholeScreen");
+		while (!TheTransitionHandler->isFinished())
+		{
+			TheWindowManager->update();
+			if (!TheTransitionHandler->isFinished())
+			{
+				TheDisplay->draw();
+				setFPMode();
+				TheFramePacer->update();
+			}
+
+		}
+	}
+
+	if (m_loadScreen)
+	{
+		TheMouse->setVisibility(TRUE);
+
+		/*
+				//
+				// delete load screen only when not loading a save game, for save games we still
+				// have more work to do and the load screen will be deleted elsewhere after
+				// we're all done with the load game progress
+				//
+				if( loadingSaveGame == FALSE )
+		*/
+		deleteLoadScreen();
+
+	}
+}
+
 // ------------------------------------------------------------------------------------------------
 /** Delete the load screen */
 // ------------------------------------------------------------------------------------------------
@@ -2355,6 +2392,9 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 		TheNetwork->loadProgressComplete();
 		TheNetwork->liteupdate();
 	}
+#if defined(GENERALS_ONLINE)
+	const UnsignedInt loadCompleteTime = timeGetTime();
+#endif
 
 #if defined(GENERALS_ONLINE)
 	// set a minimum display time for the load screen on GO to allow players to read ELO, army, stats, etc.
@@ -2371,38 +2411,29 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 		Sleep(100);
 	}
 
-	// if we're in a load game, don't fade yet
-	if (loadingSaveGame == FALSE && TheTransitionHandler != NULL && m_loadScreen)
+	Bool syncedStart = FALSE;
+#if defined(GENERALS_ONLINE)
+	// stay on the load screen until every player is ready to run frames, so nobody runs ahead into a stall
+	if (isInInternetGame() && !m_forceGameStartByTimeOut)
 	{
-		TheFramePacer->reset();
-		TheTransitionHandler->setGroup("FadeWholeScreen");
-		while (!TheTransitionHandler->isFinished())
+		NetworkMesh* pStartMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+		if (pStartMesh != nullptr && pStartMesh->BeginSyncedStart(0))
 		{
-			TheWindowManager->update();
-			if (!TheTransitionHandler->isFinished())
+			syncedStart = TRUE;
+			while (!pStartMesh->SyncedStartDone(0))
 			{
-				TheDisplay->draw();
-				setFPMode();
-				TheFramePacer->update();
+				updateLoadProgress(101);
+				Sleep(5);
 			}
-
 		}
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[SYNC] left the load screen %u ms after the load was complete", timeGetTime() - loadCompleteTime);
 	}
+#endif
 
-	if (m_loadScreen)
+	// with a synced start the load screen stays up until the other players are ready
+	if (!syncedStart)
 	{
-		TheMouse->setVisibility(TRUE);
-
-		/*
-				//
-				// delete load screen only when not loading a save game, for save games we still
-				// have more work to do and the load screen will be deleted elsewhere after
-				// we're all done with the load game progress
-				//
-				if( loadingSaveGame == FALSE )
-		*/
-		deleteLoadScreen();
-
+		revealFromLoadScreen(loadingSaveGame);
 	}
 
 #ifdef DUMP_PERF_STATS
@@ -2508,7 +2539,7 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 	{
 		HideControlBar();
 	}
-	else
+	else if (!syncedStart)
 	{
 		ShowControlBar(FALSE);
 	}
@@ -2517,7 +2548,10 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 	// Turn off the UI
 	HideControlBar();
 #endif
-	TheWritableGlobalData->m_loadScreenRender = FALSE;	///< mark to resume rendering as normal
+	if (!syncedStart)
+	{
+		TheWritableGlobalData->m_loadScreenRender = FALSE;	///< mark to resume rendering as normal
+	}
 
 	// if we're in a gamespy game, mark us as playing
 	if (TheGameSpyBuddyMessageQueue && TheGameSpyGame && isInInternetGame())
@@ -2541,6 +2575,28 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 			drawable->onLevelStart();
 			drawable = drawable->getNextDrawable();
 		}
+	}
+
+	// the local setup took a different time on every machine, start the first frames together while the load screen is still up
+#if defined(GENERALS_ONLINE)
+	if (syncedStart)
+	{
+		NetworkMesh* pStartMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+		if (pStartMesh != nullptr && pStartMesh->BeginSyncedStart(1))
+		{
+			while (!pStartMesh->SyncedStartDone(1))
+			{
+				updateLoadProgress(101);
+				Sleep(2);
+			}
+		}
+	}
+#endif
+	if (syncedStart)
+	{
+		revealFromLoadScreen(loadingSaveGame);
+		ShowControlBar(FALSE);
+		TheWritableGlobalData->m_loadScreenRender = FALSE;	///< mark to resume rendering as normal
 	}
 
 	//ReAllows quit menu to work during loading scene

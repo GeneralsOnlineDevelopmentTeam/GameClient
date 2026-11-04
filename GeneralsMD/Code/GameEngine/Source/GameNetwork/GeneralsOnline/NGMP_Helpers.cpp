@@ -335,11 +335,6 @@ int ConvertMSLatencyToFrames(int ms)
 	return (int)ceil((ms / 1000.f) * (float)GENERALS_ONLINE_HIGH_FPS_LIMIT);
 }
 
-int ConvertMSLatencyToGenToolFrames(int ms)
-{
-	return (int)ceil((float)ConvertMSLatencyToFrames(ms) / (float)GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER);
-}
-
 #include <windows.h>
 #include <iphlpapi.h>
 #include <iostream>
