@@ -61,7 +61,7 @@ public:
 	virtual void setLocalAddress(UnsignedInt ip, UnsignedInt port) = 0;	///< Tell the network what local ip and port to bind to.
 	virtual Bool isFrameDataReady() = 0;												///< Are the commands for the next frame available?
 #if defined(GENERALS_ONLINE)
-	virtual Bool isGameExitPending() const = 0;
+	virtual Bool isGameExitPending() const { return FALSE; }
 #endif
 	virtual Bool isStalling() = 0;
 	virtual void parseUserList(const GameInfo* game) = 0;						///< Parse a userlist, creating connections

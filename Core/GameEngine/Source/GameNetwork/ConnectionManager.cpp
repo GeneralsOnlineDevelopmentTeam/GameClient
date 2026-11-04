@@ -265,6 +265,8 @@ ConnectionManager::ConnectionManager()
 {
 	for (Int i = 0; i < MAX_SLOTS; ++i) {
 		m_frameData[i] = nullptr;
+		m_lastSeenCommandID[i] = 0;
+		m_haveLastSeenCommandID[i] = FALSE;
 	}
 	m_transport = nullptr;
 	m_disconnectManager = nullptr;
@@ -292,6 +294,7 @@ void ConnectionManager::init()
 		const ServiceConfig &overrides = services->GetServiceConfig();
 		m_networkSettings.send = overrides.send;
 		m_networkSettings.input_delay = overrides.input_delay;
+		m_networkSettings.disconnect = overrides.disconnect;
 	}
 	const NetworkSettings::InputDelay &runAhead = m_networkSettings.input_delay;
 	TheWritableGlobalData->m_networkFPSHistoryLength = (std::max)(1, runAhead.fps_history_samples);
@@ -300,6 +303,8 @@ void ConnectionManager::init()
 	TheWritableGlobalData->m_networkRunAheadMetricsTime = runAhead.decision_interval_ms;
 	MIN_RUNAHEAD = runAhead.min_frames;
 	FRAME_GROUPING_CAP = (int)(m_networkSettings.send.frames_per_packet * (float)(1000.f / GENERALS_ONLINE_HIGH_FPS_LIMIT));
+	TheWritableGlobalData->m_networkDisconnectTime = m_networkSettings.disconnect.freeze_before_screen_ms;
+	TheWritableGlobalData->m_networkPlayerTimeoutTime = m_networkSettings.disconnect.remove_after_ms;
 #endif
 
 //	if (m_transport == nullptr) {
@@ -331,6 +336,8 @@ void ConnectionManager::init()
 	m_packetRouterSlot = 0; /// @todo The LAN/WOL interface should be telling us who the packet router is based on machine specs passed around through game options.
 	for (i = 0; i < MAX_SLOTS; ++i) {
 		m_packetRouterFallback[i] = -1;
+		m_lastSeenCommandID[i] = 0;
+		m_haveLastSeenCommandID[i] = FALSE;
 	}
 	m_currentSenderSlot = -1;
 
@@ -351,6 +358,9 @@ void ConnectionManager::init()
 	m_smallestPacketArrivalCushion = -1;
 #if !RETAIL_COMPATIBLE_NETWORKING
 	m_currentSenderSlot = -1;
+	m_outFrameAskedSlot = -1;
+	m_outFrameAskedFrame = 0;
+	m_outFrameAskedTime = 0;
 #endif
 #if defined(GENERALS_ONLINE)
 	m_stallActive = FALSE;
@@ -644,6 +654,12 @@ Bool ConnectionManager::isDirectSendActive() {
 		if (slot == m_localSlot || !isPeerActive(slot)) {
 			continue;
 		}
+#if !RETAIL_COMPATIBLE_NETWORKING
+		// a player that is out needs no commands
+		if (m_disconnectManager != nullptr && m_disconnectManager->isPlayerOutOfGame(slot, this)) {
+			continue;
+		}
+#endif
 		const NGMPGameSlot *gameSlot = (const NGMPGameSlot *)TheNGMPGame->getConstSlot(slot);
 		PlayerConnection *connection = (mesh != nullptr && gameSlot != nullptr) ? mesh->GetConnectionForUser(gameSlot->m_userID) : nullptr;
 		if (connection == nullptr || connection->GetState() != EConnectionState::CONNECTED_DIRECT) {
@@ -658,7 +674,7 @@ Bool ConnectionManager::isDirectSendActive() {
 	return m_directSendActive;
 }
 
-// Checks that a command names its sender, or that the packet router or a former one passes it on.
+// Checks that a command names its sender, or that a router, a former router or a peer holding a removed player's frames passes it on.
 Bool ConnectionManager::isCommandFromSender(NetCommandMsg *msg, Int senderSlot) {
 	const Int claimedSlot = (Int)msg->getPlayerID();
 	if (claimedSlot == senderSlot && claimedSlot >= 0 && claimedSlot < MAX_SLOTS) {
@@ -672,10 +688,22 @@ Bool ConnectionManager::isCommandFromSender(NetCommandMsg *msg, Int senderSlot) 
 	} else if (nameOk && cls == 2) {
 		maySendForOthers = (senderSlot == m_packetRouterSlot);
 	}
+#if !RETAIL_COMPATIBLE_NETWORKING
+	// a player that is out sends nothing more, so its last signed frames may come from any peer that has them
+	if (nameOk && cls == 1 && !maySendForOthers && m_disconnectManager != nullptr && m_disconnectManager->isPlayerOutOfGame(claimedSlot, this)) {
+		maySendForOthers = TRUE;
+	}
+#endif
 	// forwarded frames are checked in isPassedOnFrameAuthentic
 	if (maySendForOthers) {
 		return TRUE;
 	}
+	// late frames of a removed player: acked, then ignored
+	if (nameOk && cls == 1 && m_connections[claimedSlot] == nullptr
+		&& m_signerUserID[claimedSlot] >= 0 && IsCommandSynchronized(msg->getNetCommandType())) {
+		return TRUE;
+	}
+
 	if (noteSecurityDrop()) {
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[SECURITY] dropped %s claiming slot %d from slot %d (%d dropped so far)",
 			GetNetCommandTypeAsString(msg->getNetCommandType()), claimedSlot, (Int)senderSlot, m_securityDrops);
@@ -1203,6 +1231,8 @@ void ConnectionManager::doRelay() {
 #if !RETAIL_COMPATIBLE_NETWORKING
 #if defined(GENERALS_ONLINE)
 			m_currentSenderSlot = (senderSlot >= 0) ? senderSlot : -1;
+#else
+			m_currentSenderSlot = getSlotOfAddress(m_transport->m_inBuffer[i].addr, m_transport->m_inBuffer[i].port);
 #endif
 #endif
 
@@ -1295,6 +1325,16 @@ void ConnectionManager::doRelay() {
 Bool ConnectionManager::processNetCommand(NetCommandRef *ref) {
 	NetCommandMsg *msg = ref->getCommand();
 	NetCommandType cmdType = msg->getNetCommandType();
+
+	// Track the command ids of each player, the ids far away from them are free for passed on frame infos.
+	if (DoesCommandRequireACommandID(cmdType) && msg->getPlayerID() < MAX_SLOTS && msg->getPlayerID() != m_localSlot) {
+		const UnsignedInt from = msg->getPlayerID();
+		const UnsignedShort distance = (UnsignedShort)(msg->getID() - m_lastSeenCommandID[from]);
+		if (m_haveLastSeenCommandID[from] == FALSE || distance < 0x4000 || distance > 0xC000) {
+			m_lastSeenCommandID[from] = msg->getID();
+			m_haveLastSeenCommandID[from] = TRUE;
+		}
+	}
 
 	// Handle ACK commands first (before connection validation)
 	if ((cmdType == NETCOMMANDTYPE_ACKSTAGE1) ||
@@ -2027,6 +2067,15 @@ void ConnectionManager::ackCommand(NetCommandRef *ref, UnsignedInt localSlot) {
 	}
 
 	ackmsg->setPlayerID(localSlot); // Tell the player who this ack is coming from.
+
+#if !RETAIL_COMPATIBLE_NETWORKING
+	// a peer other than the router that passed on another player's command waits for the ack itself
+	if ((m_currentSenderSlot >= 0) && (m_currentSenderSlot != (Int)msg->getPlayerID()) && (m_currentSenderSlot != (Int)m_packetRouterSlot) && (m_connections[m_currentSenderSlot] != nullptr)) {
+		m_connections[m_currentSenderSlot]->sendNetCommandMsg(ackmsg, 1 << m_currentSenderSlot);
+		ackmsg->detach();
+		return;
+	}
+#endif
 
 	// A command that came straight from its author and needs no relaying is acked straight back to it, one the router
 	// passed on is acked to the router. The arrival decides, not our own direct send mode: peers can be in different modes.
@@ -2768,6 +2817,11 @@ Bool ConnectionManager::allCommandsReady(UnsignedInt frame, Bool justTesting /* 
 			frameRetVal = m_frameData[i]->allCommandsReady(frame, (frame != commandsReadyDebugSpewage) && (justTesting == FALSE));
 			if (frameRetVal == FRAMEDATA_NOTREADY) {
 				retval = FALSE;
+#if !RETAIL_COMPATIBLE_NETWORKING
+				if ((justTesting == FALSE) && (i != (Int)m_localSlot)) {
+					askForOutPlayerFrame(i, frame);
+				}
+#endif
 			} else if (frameRetVal == FRAMEDATA_RESEND) {
 				requestFrameDataResend(i, frame);
 				retval = FALSE;
@@ -2992,8 +3046,23 @@ PlayerLeaveCode ConnectionManager::disconnectPlayer(Int slot) {
 }
 
 #if defined(GENERALS_ONLINE)
+void ConnectionManager::playerClosedGracefully(Int64 userID)
+{
+	Int slot = slotForUserID(userID);
+	if (slot >= 0 && slot < MAX_SLOTS && m_disconnectManager != nullptr)
+	{
+		m_disconnectManager->playerClosedGracefully(slot, this);
+	}
+}
+
 PlayerLeaveCode ConnectionManager::disconnectPlayer(int64_t userID)
 {
+	// a player whose connection ended before the load finished must not hold the others at the load screen, the disconnect handling removes it once the match runs
+	const Int slot = slotForUserID(userID);
+	if (slot >= 0 && slot != (Int)m_localSlot && TheGameLogic != nullptr && TheGameLogic->isInInternetGame() && !TheGameLogic->isProgressComplete()) {
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[LOAD] slot %d is gone before the load finished, not waiting for it", (Int)slot);
+		TheGameLogic->processProgressComplete(slot);
+	}
 	return PLAYERLEAVECODE_UNKNOWN;
 // 	if (TheNGMPGame != nullptr)
 // 	{
@@ -3023,6 +3092,9 @@ void ConnectionManager::quitGame() {
 	if (DoesCommandRequireACommandID(disconnectMsg->getNetCommandType())) {
 		disconnectMsg->setID(GenerateNextCommandID());
 	}
+#if defined(GENERALS_ONLINE)
+	signLeaveNotice(disconnectMsg); // lets the peers pass the notice on
+#endif
 	//DEBUG_LOG(("ConnectionManager::disconnectLocalPlayer - about to send disconnect command"));
 	sendLocalCommandDirect(disconnectMsg, 0xff ^ (1 << m_localSlot));
 
@@ -3374,6 +3446,8 @@ void ConnectionManager::sendDisconnectChat(UnicodeString text) {
 
 	sendLocalCommandDirect(msg, 0xff ^ (1 << m_localSlot));
 	processDisconnectChat(msg);
+
+	msg->detach();
 }
 
 UnsignedShort ConnectionManager::sendFileAnnounce(AsciiString path, UnsignedByte playerMask)
@@ -3648,15 +3722,26 @@ void ConnectionManager::notifyOthersOfNewFrame(UnsignedInt frame) {
 	msg->detach();
 }
 
+// An id half the counter away from the player's own, so a passed on frame info never collides with its commands.
+UnsignedShort ConnectionManager::generateImpersonatedCommandID(Int playerID, UnsignedInt frame) {
+	return (UnsignedShort)(((m_lastSeenCommandID[playerID] + 0x8000) & 0xF000) | (frame & 0x0FFF));
+}
+
 void ConnectionManager::sendFrameDataToPlayer(UnsignedInt playerID, UnsignedInt startingFrame) {
 	DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::sendFrameDataToPlayer - sending frame data to player %d starting with frame %d", playerID, startingFrame));
 	for (UnsignedInt frame = startingFrame; frame < TheGameLogic->getFrame(); ++frame) {
 		sendSingleFrameToPlayer(playerID, frame);
 	}
+#if defined(GENERALS_ONLINE)
+	// a peer that dropped a passed on frame asks for it while we have not run it yet: our own data for it is final
+	if (startingFrame >= TheGameLogic->getFrame() && startingFrame <= m_lastFrameInfoSent) {
+		sendSingleFrameToPlayer(playerID, startingFrame, TRUE);
+	}
+#endif
 	DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::sendFrameDataToPlayer - done sending commands to player %d", playerID));
 }
 
-void ConnectionManager::sendSingleFrameToPlayer(UnsignedInt playerID, UnsignedInt frame) {
+void ConnectionManager::sendSingleFrameToPlayer(UnsignedInt playerID, UnsignedInt frame, Bool ownOnly) {
 	if (frame + FRAMES_TO_KEEP < TheGameLogic->getFrame()) {
 		DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::sendSingleFrameToPlayer - player %d requested frame %d when we are on frame %d, this is too far in the past.", playerID, frame, TheGameLogic->getFrame()));
 		return;
@@ -3664,8 +3749,31 @@ void ConnectionManager::sendSingleFrameToPlayer(UnsignedInt playerID, UnsignedIn
 
 	UnsignedByte relay = 1 << playerID;
 
+#if !RETAIL_COMPATIBLE_NETWORKING
+	const Bool isActingRouter = m_disconnectManager->isLocalPlayerNextPacketRouter(this);
+#endif
+
 	DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::sendFrameDataToPlayer - sending data for frame %d", frame));
 	for (Int i = 0; i < MAX_SLOTS; ++i) {
+#if !RETAIL_COMPATIBLE_NETWORKING
+		// Own data and that of a player that is out go from everyone, the rest only from the acting packet router.
+		if ((isActingRouter == FALSE) && (i != (Int)m_localSlot) && (m_disconnectManager->isPlayerOutOfGame(i, this) == FALSE)) {
+			continue;
+		}
+#endif
+#if defined(GENERALS_ONLINE)
+		// For a frame we have not run yet only our own data is final, and that of a player that is out once we hold all of it.
+		if (ownOnly && (i != (Int)m_localSlot)) {
+			Bool finalOfOutPlayer = FALSE;
+#if !RETAIL_COMPATIBLE_NETWORKING
+			finalOfOutPlayer = (m_frameData[i] != nullptr) && m_disconnectManager->isPlayerOutOfGame(i, this)
+				&& (m_frameData[i]->getFrameCommandCount(frame) == m_frameData[i]->getCommandCount(frame));
+#endif
+			if (!finalOfOutPlayer) {
+				continue;
+			}
+		}
+#endif
 		if ((m_frameData[i] != nullptr) && (i != playerID)) { // no need to send his own commands to him.
 			NetCommandList *list = m_frameData[i]->getFrameCommandList(frame);
 			if (list != nullptr) {
@@ -3681,7 +3789,7 @@ void ConnectionManager::sendSingleFrameToPlayer(UnsignedInt playerID, UnsignedIn
 			msg->setExecutionFrame(frame);
 			msg->setCommandCount(frameCommandCount);
 			if (DoesCommandRequireACommandID(msg->getNetCommandType())) {
-				msg->setID(GenerateNextCommandID());
+				msg->setID(i == (Int)m_localSlot ? GenerateNextCommandID() : generateImpersonatedCommandID(i, frame));
 			}
 			msg->setPlayerID(i);
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::sendFrameDataToPlayer - sending frame info from player %d to player %d for frame %d with command count %d and ID %d and relay %d", i, playerID, msg->getExecutionFrame(), msg->getCommandCount(), msg->getID(), relay));
@@ -3716,6 +3824,15 @@ void ConnectionManager::requestFrameDataResend(Int playerID, UnsignedInt frame) 
 		msg->setID(GenerateNextCommandID());
 	}
 
+#if !RETAIL_COMPATIBLE_NETWORKING
+	// A player that is out answers no more, so the others that may hold its frames are asked instead.
+	if (m_disconnectManager->isPlayerOutOfGame(playerID, this) == TRUE) {
+		sendLocalCommandDirect(msg, (UnsignedByte)(0xff & ~(1 << m_localSlot) & ~(1 << playerID)));
+		msg->detach();
+		return;
+	}
+#endif
+
 	if (isPlayerConnected(playerID) == FALSE) {
 		playerID = 0;
 		while ((playerID < MAX_SLOTS) && (isPlayerConnected(playerID) == FALSE)) {
@@ -3729,6 +3846,22 @@ void ConnectionManager::requestFrameDataResend(Int playerID, UnsignedInt frame) 
 
 	msg->detach();
 }
+
+#if !RETAIL_COMPATIBLE_NETWORKING
+void ConnectionManager::askForOutPlayerFrame(Int slot, UnsignedInt frame) {
+	if (m_disconnectManager->isPlayerOutOfGame(slot, this) == FALSE) {
+		return;
+	}
+	const UnsignedInt now = timeGetTime();
+	if ((slot == m_outFrameAskedSlot) && (frame == m_outFrameAskedFrame) && ((now - m_outFrameAskedTime) < 1000)) {
+		return;
+	}
+	m_outFrameAskedSlot = slot;
+	m_outFrameAskedFrame = frame;
+	m_outFrameAskedTime = now;
+	requestFrameDataResend(slot, frame);
+}
+#endif
 
 #if defined(GENERALS_ONLINE)
 void ConnectionManager::noteStalling(Bool stalling, UnsignedInt frame) {

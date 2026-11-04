@@ -348,8 +348,10 @@ struct ServiceConfig
     float ibra_maxslack_greaterthan200ms = 1.f;
 	using Send = NetworkSettings::Send;
 	using InputDelay = NetworkSettings::InputDelay;
+	using Disconnect = NetworkSettings::Disconnect;
 	Send send;
 	InputDelay input_delay;
+	Disconnect disconnect;
 
 	struct Lobby
 	{
@@ -455,6 +457,12 @@ inline void ReadServiceConfig(const nlohmann::json& j, ServiceConfig& c)
 			ReadServiceConfigValue(f, "latency_history_samples", c.input_delay.formula.latency_history_samples);
 		}
 	}
+	if (j.contains("disconnect"))
+	{
+		const nlohmann::json& s = j["disconnect"];
+		ReadServiceConfigValue(s, "freeze_before_screen_ms", c.disconnect.freeze_before_screen_ms);
+		ReadServiceConfigValue(s, "remove_after_ms", c.disconnect.remove_after_ms);
+	}
 	if (j.contains("lobby"))
 	{
 		ReadServiceConfigValue(j["lobby"], "host_migration", c.lobby.host_migration);
@@ -487,6 +495,9 @@ inline void ClampServiceConfig(ServiceConfig& c)
 	c.input_delay.fps_history_samples = std::clamp(c.input_delay.fps_history_samples, 1, 128);
 	c.input_delay.formula.latency_history_samples = std::clamp(c.input_delay.formula.latency_history_samples, 128, 3600); // FrameMetrics drops pending acks when the window is smaller than the frames in flight
 	c.send.frames_per_packet = std::clamp(c.send.frames_per_packet, 1, 16);
+
+	c.disconnect.freeze_before_screen_ms = std::clamp(c.disconnect.freeze_before_screen_ms, 1000, 30000);
+	c.disconnect.remove_after_ms = std::clamp(c.disconnect.remove_after_ms, 10000, 180000);
 
 	c.telemetry.screenshot_width = std::clamp(c.telemetry.screenshot_width, 16, 4096);
 	c.telemetry.screenshot_height = std::clamp(c.telemetry.screenshot_height, 16, 4096);

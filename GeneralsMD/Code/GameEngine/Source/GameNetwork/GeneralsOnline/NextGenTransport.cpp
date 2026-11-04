@@ -634,6 +634,18 @@ Bool NextGenTransport::doRecv(void)
     return bRet;
 }
 
+Bool NextGenTransport::sendFailureLogDue()
+{
+	const UnsignedInt nowMs = timeGetTime();
+	if (static_cast<Int>(nowMs - m_nextSendFailLogMs) < 0)
+	{
+		++m_skippedSendFailLogs;
+		return FALSE;
+	}
+	m_nextSendFailLogMs = nowMs + 1000;
+	return TRUE;
+}
+
 Bool NextGenTransport::doSend(void)
 {
     Bool retval = TRUE;
@@ -742,19 +754,27 @@ Bool NextGenTransport::doSend(void)
                 
                 if (m_outPacketState[i].retryCount < OutgoingPacketState::MAX_RETRIES)
                 {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE,
-                        "Game Packet Send: SendGamePacket failed (err=%d), retry %d/%d for packet to user %lld",
-                        sendResult, m_outPacketState[i].retryCount, 
-                        OutgoingPacketState::MAX_RETRIES, pSlot->m_userID);
+                    if (sendFailureLogDue())
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE,
+                            "Game Packet Send: SendGamePacket failed (err=%d), retry %d/%d for packet to user %lld, %d lines skipped",
+                            sendResult, m_outPacketState[i].retryCount,
+                            OutgoingPacketState::MAX_RETRIES, pSlot->m_userID, m_skippedSendFailLogs);
+                        m_skippedSendFailLogs = 0;
+                    }
                     // Keep packet in queue for retry
                     retval = FALSE;
                 }
                 else
                 {
                     // Max retries exceeded - drop packet
-                    NetworkLog(ELogVerbosity::LOG_RELEASE,
-                        "Game Packet Send: Dropping packet after %d failed retries to user %lld",
-                        m_outPacketState[i].retryCount, pSlot->m_userID);
+                    if (sendFailureLogDue())
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE,
+                            "Game Packet Send: Dropping packet after %d failed retries to user %lld, %d lines skipped",
+                            m_outPacketState[i].retryCount, pSlot->m_userID, m_skippedSendFailLogs);
+                        m_skippedSendFailLogs = 0;
+                    }
                     m_outBuffer[i].length = 0;
                     m_outPacketState[i].retryCount = 0;
                     retval = FALSE;
@@ -850,7 +870,11 @@ Bool NextGenTransport::queueSend(UnsignedInt addr,
         return TRUE;
     }
 
-    NetworkLog(ELogVerbosity::LOG_RELEASE,
-        "Game Packet QueueSend: m_outBuffer full, dropping packet");
+    if (sendFailureLogDue())
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE,
+            "Game Packet QueueSend: m_outBuffer full, dropping packet, %d lines skipped", m_skippedSendFailLogs);
+        m_skippedSendFailLogs = 0;
+    }
     return FALSE;
 }

@@ -34,6 +34,12 @@ struct NetworkSettings
 		} formula;
 	} input_delay;
 
+	struct Disconnect
+	{
+		int freeze_before_screen_ms = 5000; // stuck on a frame this long, then the disconnect screen comes up
+		int remove_after_ms = 60000;    // a player silent this long on the disconnect screen is removed
+	} disconnect;
+
 	static NetworkSettings LocalDefaults()
 	{
 		return NetworkSettings();

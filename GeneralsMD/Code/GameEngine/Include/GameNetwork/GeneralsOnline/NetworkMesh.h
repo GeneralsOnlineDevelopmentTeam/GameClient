@@ -50,6 +50,8 @@ public:
 	EConnectionState GetState() const { return m_State; }
 
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize);
+	bool LogInvalidDue();	///< true about every 5 s while the connection stays invalid, the rest of its lines stay out of the log
+	int64_t m_nextInvalidLogMs = 0;
 
 	void SendACPacket(const void* pData, uint32_t dataLen);
 

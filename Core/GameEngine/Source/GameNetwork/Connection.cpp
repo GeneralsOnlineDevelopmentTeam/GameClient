@@ -684,7 +684,8 @@ NetCommandRef * Connection::processAck(UnsignedShort commandID, UnsignedByte ori
 		// Need to check for both the command ID and the player ID.
 		temp = temp->getNext();
 	}
-	if (temp == nullptr) {
+	// an ack for a command not sent yet belongs to another command with the same id
+	if (temp == nullptr || temp->getTimeLastSent() == -1) {
 		return nullptr;
 	}
 

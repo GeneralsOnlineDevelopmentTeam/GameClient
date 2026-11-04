@@ -112,6 +112,7 @@ public:
 	UnsignedInt getPacketRouterSlot();																///< Returns the current packet router's slot.
 	PlayerLeaveCode disconnectPlayer(Int slot);												///< Disconnect this player immediately.  This should only be called by the disconnect manager.
 #if defined(GENERALS_ONLINE)
+	void playerClosedGracefully(Int64 userID);
 	PlayerLeaveCode disconnectPlayer(int64_t userID);												///< Disconnect this player immediately.  This should only be called by the disconnect manager.
 #endif
 	void disconnectLocalPlayer();																			///< Does whatever is necessary to get TheNetwork to realize that it should be leaving the game now.
@@ -151,7 +152,7 @@ public:
 
 	void notifyOthersOfCurrentFrame(Int frame);
 	void sendFrameDataToPlayer(UnsignedInt playerID, UnsignedInt startingFrame);
-	void sendSingleFrameToPlayer(UnsignedInt playerID, UnsignedInt frame);
+	void sendSingleFrameToPlayer(UnsignedInt playerID, UnsignedInt frame, Bool ownOnly = FALSE);
 	void notifyOthersOfNewFrame(UnsignedInt frame);
 
 	UnsignedInt getNextPacketRouterSlot(UnsignedInt playerID); ///< returns the packet router player that comes after the given player.
@@ -206,6 +207,10 @@ private:
 
 	void requestFrameDataResend(Int playerID, UnsignedInt frame); ///< request of this player that he send the specified frame's data.
 	Int getSlotOfAddress(UnsignedInt addr, UnsignedShort port);
+	UnsignedShort generateImpersonatedCommandID(Int playerID, UnsignedInt frame);
+#if !RETAIL_COMPATIBLE_NETWORKING
+	void askForOutPlayerFrame(Int slot, UnsignedInt frame);
+#endif
 
 	// The connections are set up like the slot list. The connection corresponding to the local
 	// player's position in the slot list will be null.  Connections corresponding to slots that
@@ -227,6 +232,13 @@ private:
 	NetCommandList *m_pendingCommands;
 	NetCommandList *m_relayedCommands;
 	Int m_currentSenderSlot;	///< The slot of the peer the packet being read came from, -1 when not known.
+	UnsignedShort m_lastSeenCommandID[MAX_SLOTS];
+	Bool m_haveLastSeenCommandID[MAX_SLOTS];
+#if !RETAIL_COMPATIBLE_NETWORKING
+	Int m_outFrameAskedSlot;
+	UnsignedInt m_outFrameAskedFrame;
+	UnsignedInt m_outFrameAskedTime;
+#endif
 
 	FrameMetrics m_frameMetrics;
 

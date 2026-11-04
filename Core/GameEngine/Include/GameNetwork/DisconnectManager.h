@@ -58,6 +58,13 @@ public:
 
 	void voteForPlayerDisconnect(Int slot, ConnectionManager *conMgr);
 
+#if !RETAIL_COMPATIBLE_NETWORKING
+	void playerClosedGracefully(Int slot, ConnectionManager *conMgr);	///< The connection to the player closed, which counts like a leave notice of another player.
+	Bool isPlayerOutOfGame(Int slot, ConnectionManager *conMgr);
+#endif
+
+	Bool isLocalPlayerNextPacketRouter(ConnectionManager *conMgr); ///< returns true if the local player is next in line to be the packet router with all the players that have timed out being taken out of the picture.
+
 	// For disconnect blame assignment
 	UnsignedInt getPingFrame();
 	Int getPingsSent();
@@ -78,7 +85,6 @@ protected:
 	void updateWaitForPacketRouter(ConnectionManager *conMgr);
 	void recalculatePacketRouterIndex(ConnectionManager *conMgr);
 	Bool allOnSameFrame(ConnectionManager *conMgr); ///< returns true if all players are stuck on the same frame.
-	Bool isLocalPlayerNextPacketRouter(ConnectionManager *conMgr); ///< returns true if the local player is next in line to be the packet router with all the players that have timed out being taken out of the picture.
 #if !RETAIL_COMPATIBLE_NETWORKING
 	Int getActingPacketRouterSlot(ConnectionManager *conMgr, Int removedSlot);
 	Bool hasPlayerLeft(Int slot);
@@ -90,6 +96,9 @@ protected:
 #if RETAIL_COMPATIBLE_NETWORKING
 	void sendPendingRelays(ConnectionManager *conMgr); ///< passes a leave on to the players that are stalled on its frame.
 #endif
+	void removePlayer(Int slot, ConnectionManager *conMgr);
+	Bool isPlayerSilent(Int slot);	///< The slot is a translated one.
+	Bool isPlayerGone(Int slot, ConnectionManager *conMgr);	///< A silent player that timed out or was voted out by all others. The slot is a translated one.
 	Bool isPlayerVotedOut(Int slot, ConnectionManager *conMgr);	///< returns true if this player has been voted out.
 	Bool isPlayerInGame(Int slot, ConnectionManager *conMgr); ///< returns true if the player has neither timed out or been voted out.
 	UnsignedInt getMaxDisconnectFrame(ConnectionManager *conMgr);	///< returns the highest frame that people have got to.
@@ -124,6 +133,8 @@ protected:
 	Bool m_playerLeft[MAX_SLOTS - 1];	///< The player of the translated slot has left and waits for its removal.
 	Bool m_ownLeaveReceived[MAX_SLOTS - 1];	///< The leave came from the player itself, not from a notice of another player.
 	Bool m_leftPlayerHold;
+	Bool m_removedInRound;
+	UnsignedInt m_catchUpFrame;
 	Int m_heldRemovalFrom[MAX_SLOTS];	///< The sender of a removal of the slot that came before it was the acting packet router here, or -1.
 	UnsignedInt m_heldRemovalFrame[MAX_SLOTS];	///< The frame of that removal.
 #endif
