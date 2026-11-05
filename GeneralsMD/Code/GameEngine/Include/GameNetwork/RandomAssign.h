@@ -16,7 +16,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// TheSuperHackers @feature bill-rich 15/09/2026 Lobby "Randomize" button: resolves every slot still set
+// Lobby "Randomize" button: resolves every slot still set
 // to Random (faction, color, start position) in the lobby, so a group no longer has
 // to start and abandon a match just to learn the engine's random draw.
 

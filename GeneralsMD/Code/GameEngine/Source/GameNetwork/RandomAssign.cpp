@@ -16,7 +16,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// TheSuperHackers @feature bill-rich 15/09/2026 Lobby "Randomize" button. The placement mirrors
+// Lobby "Randomize" button. The placement mirrors
 // populateRandomSideAndColor / populateRandomStartPosition in GameLogic.cpp so the
 // lobby result looks like what a match start would have produced, but it is drawn
 // from an independent, clock-seeded RNG: nothing here consumes or predicts the

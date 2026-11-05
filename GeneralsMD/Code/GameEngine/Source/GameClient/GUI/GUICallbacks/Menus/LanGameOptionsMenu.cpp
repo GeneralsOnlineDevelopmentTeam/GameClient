@@ -122,7 +122,7 @@ static GameWindow *parentLanGameOptions = nullptr;
 static GameWindow *buttonBack = nullptr;
 static GameWindow *buttonStart = nullptr;
 static GameWindow *buttonRandomize = nullptr;
-// TheSuperHackers @feature bill-rich 15/09/2026 How many times the host pressed Randomize in this
+// How many times the host pressed Randomize in this
 // lobby; announced with every roll so re-rolling is visible to everyone present.
 static Int s_randomizeCount = 0;
 static GameWindow *buttonSelectMap = nullptr;
@@ -1291,7 +1291,7 @@ WindowMsgHandledType LanGameOptionsMenuSystem( GameWindow *window, UnsignedInt m
 				}
 				else if ( controlID == buttonRandomizeID )
 				{
-					// TheSuperHackers @feature bill-rich 15/09/2026 host-only Randomize: resolve the random slots,
+					// Host-only Randomize: resolve the random slots,
 					// broadcast the new options and tell the room it happened.
 					if (TheLAN->AmIHost())
 					{

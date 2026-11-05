@@ -523,7 +523,7 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 							break;
 						}
 					}
-					// TheSuperHackers @bugfix bill-rich 24/09/2026 A slot whose colour combo is disabled (every
+					// A slot whose colour combo is disabled (every
 					// remote slot, on the host) is skipped by the populate above, so a colour it has not
 					// listed before is missing and the cell keeps showing whatever it showed last. Rebuild
 					// it once and look again, rather than leaving the host's lobby disagreeing with the

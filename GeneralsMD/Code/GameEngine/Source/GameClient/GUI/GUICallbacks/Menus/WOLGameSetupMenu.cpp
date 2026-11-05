@@ -223,10 +223,10 @@ static GameWindow *buttonBack = NULL;
 static GameWindow *buttonStart = NULL;
 static GameWindow *buttonSelectMap = NULL;
 static GameWindow *buttonRandomize = NULL;
-// TheSuperHackers @feature bill-rich 15/09/2026 How many times the host pressed Randomize in this
+// How many times the host pressed Randomize in this
 // lobby; announced with every roll so re-rolling is visible to everyone present.
 static Int s_randomizeCount = 0;
-// TheSuperHackers @feature bill-rich 24/09/2026 The lobby remembers a faction and colour as the player's
+// The lobby remembers a faction and colour as the player's
 // preference only when the player picked them here. A value that arrived from the service, because
 // the host pressed Randomize or moved this slot, is not a choice and must not be stored.
 // Colour and faction are tracked apart, so picking one does not make a rolled value of the other a choice.
@@ -4176,7 +4176,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 				}
 				else if ( controlID == buttonRandomizeID )
 				{
-					// TheSuperHackers @feature bill-rich 15/09/2026 host-only Randomize. The lobby service owns the
+					// Host-only Randomize. The lobby service owns the
 					// slots, so the roll is computed on a scratch copy, only the slots it changed are sent, and
 					// the room is told once the service has accepted them; the next lobby push shows the result.
 					NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();

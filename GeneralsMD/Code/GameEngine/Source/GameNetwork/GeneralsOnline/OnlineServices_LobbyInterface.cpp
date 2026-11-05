@@ -496,7 +496,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_BulkSlotUpdate(const std::vector<RandomSlotAssignment>& changes, std::function<void(bool bSuccess)> onDone)
 {
-	// TheSuperHackers @feature bill-rich 15/09/2026 Randomize: one host action for all rolled slots.
+	// Randomize: one host action for all rolled slots.
 	// reset autostart if host changes anything (because ready flag will reset too)
 #if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
 	ClearAutoReadyCountdown();
