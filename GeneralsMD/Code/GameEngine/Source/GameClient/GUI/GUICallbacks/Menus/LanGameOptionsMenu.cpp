@@ -1296,13 +1296,14 @@ WindowMsgHandledType LanGameOptionsMenuSystem( GameWindow *window, UnsignedInt m
 					if (TheLAN->AmIHost())
 					{
 						std::vector<RandomSlotAssignment> changes;
-						performRandomAssign(TheLAN->GetMyGame(), &changes);
+						performRandomAssign(TheLAN->GetMyGame(), changes);
 						if (changes.empty())
 						{
 							TheLAN->RequestChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:RandomizeNothingToDo", L"Randomize: every slot already has a faction, color and start position"), LANAPIInterface::LANCHAT_SYSTEM);
 						}
 						else
 						{
+							TheLAN->GetMyGame()->resetAccepted(); // settings changed, so everyone accepts again
 							TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
 							lanUpdateSlotList();
 

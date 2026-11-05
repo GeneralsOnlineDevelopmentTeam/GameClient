@@ -42,7 +42,7 @@ struct RandomSlotAssignment
 // observer slots are left alone (observers are resolved at match start, as in
 // retail). Draws from a private RNG seeded from the clock, deliberately NOT from
 // the game-logic RNG, so the result says nothing about the draw the engine will
-// make from the lobby seed at match start. outChanges, when given, receives the
-// slots that changed and what changed, for callers that must push the roll
-// through an authoritative service instead of applying it locally.
-void performRandomAssign(GameInfo *game, std::vector<RandomSlotAssignment> *outChanges = nullptr);
+// make from the lobby seed at match start. outChanges receives the slots that
+// changed and what changed, for callers that must push the roll through an
+// authoritative service instead of applying it locally.
+void performRandomAssign(GameInfo *game, std::vector<RandomSlotAssignment> &outChanges);

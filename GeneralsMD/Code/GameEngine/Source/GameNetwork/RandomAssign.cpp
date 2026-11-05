@@ -216,16 +216,8 @@ static void assignRandomPositions(GameInfo *game)
 
 		if (!hasStartSpotBeenPicked)
 		{
-			// First player: pick randomly
-			posIdx = -1;
-			for (Int attempt = 0; attempt < numPlayers * 2 && posIdx == -1; ++attempt)
-			{
-				Int candidate = rollBelow(numPlayers);
-				if (!taken[candidate])
-					posIdx = candidate;
-			}
-			if (posIdx < 0)
-				continue;
+			// First player: nothing is taken yet, so any spot is free
+			posIdx = rollBelow(numPlayers);
 			hasStartSpotBeenPicked = TRUE;
 			slot->setStartPos(posIdx);
 			taken[posIdx] = TRUE;
@@ -287,7 +279,7 @@ static void assignRandomPositions(GameInfo *game)
 	// Observer slots are left alone: they take a player's spot at match start.
 }
 
-void performRandomAssign(GameInfo *game, std::vector<RandomSlotAssignment> *outChanges)
+void performRandomAssign(GameInfo *game, std::vector<RandomSlotAssignment> &outChanges)
 {
 	if (!game)
 		return;
@@ -310,27 +302,21 @@ void performRandomAssign(GameInfo *game, std::vector<RandomSlotAssignment> *outC
 	// Phase 2: Assign start positions using distance-based placement
 	assignRandomPositions(game);
 
-	if (outChanges)
+	outChanges.clear();
+	for (i = 0; i < MAX_SLOTS; ++i)
 	{
-		outChanges->clear();
-		for (i = 0; i < MAX_SLOTS; ++i)
-		{
-			const GameSlot *slot = game->getConstSlot(i);
-			if (!slot)
-				continue;
-			RandomSlotAssignment change;
-			change.slotIndex = i;
-			if (slot->getPlayerTemplate() != before[i][0])
-				change.side = slot->getPlayerTemplate();
-			if (slot->getColor() != before[i][1])
-				change.color = slot->getColor();
-			if (slot->getStartPos() != before[i][2])
-				change.startPos = slot->getStartPos();
-			if (change.side != -1 || change.color != -1 || change.startPos != -1)
-				outChanges->push_back(change);
-		}
+		const GameSlot *slot = game->getConstSlot(i);
+		if (!slot)
+			continue;
+		RandomSlotAssignment change;
+		change.slotIndex = i;
+		if (slot->getPlayerTemplate() != before[i][0])
+			change.side = slot->getPlayerTemplate();
+		if (slot->getColor() != before[i][1])
+			change.color = slot->getColor();
+		if (slot->getStartPos() != before[i][2])
+			change.startPos = slot->getStartPos();
+		if (change.side != -1 || change.color != -1 || change.startPos != -1)
+			outChanges.push_back(change);
 	}
-
-	// Reset accepted state since we changed settings
-	game->resetAccepted();
 }
