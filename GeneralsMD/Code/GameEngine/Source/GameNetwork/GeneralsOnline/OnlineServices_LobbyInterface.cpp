@@ -74,7 +74,8 @@ enum class ELobbyUpdateField
 	AI_TEAM = 15,
 	AI_START_POS = 16,
 	MAX_CAMERA_HEIGHT = 17,
-	JOINABILITY = 18
+	JOINABILITY = 18,
+	HOST_ACTION_BULK_SLOT_UPDATE = 19
 };
 
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(UnicodeString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
@@ -490,6 +491,61 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 		{
 			UnicodeString msg = UnicodeString(L"Ready check: All players are now marked ready.");
 			SendAnnouncementMessageToCurrentLobby(msg, true);
+		});
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_BulkSlotUpdate(const std::vector<RandomSlotAssignment>& changes, std::function<void(bool bSuccess)> onDone)
+{
+	// Randomize: one host action for all rolled slots.
+	// reset autostart if host changes anything (because ready flag will reset too)
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
+	ClearAutoReadyCountdown();
+#endif
+	if (TheNGMPGame && TheNGMPGame->IsCountdownStarted())
+		TheNGMPGame->StopCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::HOST_ACTION_BULK_SLOT_UPDATE;
+
+	nlohmann::json slotsArray = nlohmann::json::array();
+	for (const RandomSlotAssignment& change : changes)
+	{
+		// AI slots are members too (with the service's placeholder user id), so match on
+		// the slot rather than on a real user id.
+		const LobbyMemberEntry* occupant = nullptr;
+		for (const LobbyMemberEntry& member : m_CurrentLobby.members)
+		{
+			if (member.m_SlotIndex == change.slotIndex)
+				occupant = &member;
+		}
+		if (occupant == nullptr)
+			continue; // nobody in that slot any more
+		nlohmann::json slotEntry;
+		slotEntry["slot_index"] = change.slotIndex;
+		slotEntry["user_id"] = occupant->user_id;
+		if (change.side != -1)
+			slotEntry["side"] = change.side;
+		if (change.color != -1)
+			slotEntry["color"] = change.color;
+		if (change.startPos != -1)
+			slotEntry["start_pos"] = change.startPos;
+		slotsArray.push_back(slotEntry);
+	}
+	j["slots"] = slotsArray;
+	std::string strPostData = j.dump();
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [onDone](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			const bool bOK = bSuccess && statusCode >= 200 && statusCode < 300;
+			if (!bOK)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "UpdateCurrentLobby_BulkSlotUpdate failed: success=%d, status=%d", bSuccess, statusCode);
+			}
+			if (onDone)
+				onDone(bOK);
 		});
 }
 

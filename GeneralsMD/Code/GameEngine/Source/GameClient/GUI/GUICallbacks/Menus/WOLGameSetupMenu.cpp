@@ -68,6 +68,7 @@
 #include "GameNetwork/GameSpy/GSConfig.h"
 
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#include "GameNetwork/RandomAssign.h"
 #include <ws2ipdef.h>
 #include <format>
 #include <cmath>
@@ -203,6 +204,7 @@ static NameKeyType buttonBackID = NAMEKEY_INVALID;
 static NameKeyType buttonStartID = NAMEKEY_INVALID;
 static NameKeyType buttonEmoteID = NAMEKEY_INVALID;
 static NameKeyType buttonSelectMapID = NAMEKEY_INVALID;
+static NameKeyType buttonRandomizeID = NAMEKEY_INVALID;
 static NameKeyType windowMapID = NAMEKEY_INVALID;
 
 #if defined(GENERALS_ONLINE_ENABLE_MATCH_START_COUNTDOWN)
@@ -220,6 +222,19 @@ static GameWindow *parentWOLGameSetup = NULL;
 static GameWindow *buttonBack = NULL;
 static GameWindow *buttonStart = NULL;
 static GameWindow *buttonSelectMap = NULL;
+static GameWindow *buttonRandomize = NULL;
+// How many times the host pressed Randomize in this
+// lobby; announced with every roll so re-rolling is visible to everyone present.
+static Int s_randomizeCount = 0;
+// The lobby remembers a faction and colour as the player's
+// preference only when the player picked them here. A value that arrived from the service, because
+// the host pressed Randomize or moved this slot, is not a choice and must not be stored.
+// Colour and faction are tracked apart, so picking one does not make a rolled value of the other a choice.
+// s_applyingLobbyUpdate marks the repaint that a service push drives: it fires the same combo
+// callbacks as a real click, so without it the push that delivers a roll looks like a choice.
+static Bool s_localColorChosen = FALSE;
+static Bool s_localFactionChosen = FALSE;
+static Bool s_applyingLobbyUpdate = FALSE;
 static GameWindow *buttonEmote = NULL;
 static GameWindow *textEntryChat = NULL;
 static GameWindow *textEntryMapDisplay = NULL;
@@ -360,8 +375,10 @@ static void savePlayerInfo()
 			{
 				// save off some prefs
 				CustomMatchPreferences pref;
-				pref.setPreferredColor(slot->getColor());
-				pref.setPreferredFaction(slot->getPlayerTemplate());
+				if (s_localColorChosen)
+					pref.setPreferredColor(slot->getColor());
+				if (s_localFactionChosen)
+					pref.setPreferredFaction(slot->getPlayerTemplate());
 				if (TheNGMPGame->amIHost())
 				{
 					pref.setPreferredMap(TheNGMPGame->getMap());
@@ -686,6 +703,8 @@ NameKeyType listboxGameSetupChatID = NAMEKEY_INVALID;
 
 static void handleColorSelection(int index)
 {
+	if (!s_applyingLobbyUpdate && TheNGMPGame && index == TheNGMPGame->getLocalSlotNum())
+		s_localColorChosen = TRUE; // picked here, so it is worth remembering
 	GameWindow *combo = comboBoxColor[index];
 	Int color, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
@@ -747,6 +766,8 @@ static void handleColorSelection(int index)
 
 static void handlePlayerTemplateSelection(int index, bool bInitialSetup = false)
 {
+	if (!bInitialSetup && !s_applyingLobbyUpdate && TheNGMPGame && index == TheNGMPGame->getLocalSlotNum())
+		s_localFactionChosen = TRUE; // picked here, so it is worth remembering
 	GameWindow *combo = comboBoxPlayerTemplate[index];
 	Int playerTemplate, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
@@ -1559,10 +1580,12 @@ void WOLDisplaySlotList(void)
 
     DEBUG_ASSERTCRASH(!game->getConstSlot(0)->isOpen(), ("Open host!"));
 
+    s_applyingLobbyUpdate = TRUE;
     UpdateSlotList(game, comboBoxPlayer, comboBoxColor,
         comboBoxPlayerTemplate, comboBoxTeam, buttonAccept, buttonStart, buttonMapStartPosition);
 
-    WOLDisplayGameOptions();
+    WOLDisplayGameOptions(); // repopulates the army combos too, so still part of the push
+    s_applyingLobbyUpdate = FALSE;
 
     for (Int i = 0; i < MAX_SLOTS; ++i)
     {
@@ -1620,6 +1643,7 @@ void InitWOLGameGadgets()
 	listboxGameSetupChatID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:ListboxChatWindowGameSpyGameSetup" );
 	buttonEmoteID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:ButtonEmote" );
 	buttonSelectMapID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:ButtonSelectMap" );
+	buttonRandomizeID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:ButtonRandomize" );
 	checkBoxUseStatsID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:CheckBoxUseStats" );
 	windowMapID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:MapWindow" );
   checkBoxLimitSuperweaponsID = TheNameKeyGenerator->nameToKey("GameSpyGameOptionsMenu.wnd:CheckboxLimitSuperweapons");
@@ -1633,6 +1657,9 @@ void InitWOLGameGadgets()
 	parentWOLGameSetup = TheWindowManager->winGetWindowFromId( NULL, parentWOLGameSetupID );
 	buttonEmote = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,buttonEmoteID  );
 	buttonSelectMap = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,buttonSelectMapID  );
+	buttonRandomize = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, buttonRandomizeID ); // absent from older .wnd layouts
+	if (buttonRandomize)
+		buttonRandomize->winSetText(TheGameText->FETCH_OR_SUBSTITUTE("GUI:Randomize", L"Randomize")); // no .csf change needed
 	checkBoxUseStats = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, checkBoxUseStatsID );
 	buttonStart = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,buttonStartID  );
 	buttonBack = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,  buttonBackID);
@@ -1679,6 +1706,7 @@ void InitWOLGameGadgets()
   {
     checkBoxLimitSuperweapons->winEnable( false );
     comboBoxStartingCash->winEnable( false );
+    if (buttonRandomize) buttonRandomize->winEnable( false );
 		NameKeyType labelID = TheNameKeyGenerator->nameToKey("GameSpyGameOptionsMenu.wnd:StartingCashLabel");
 		TheWindowManager->winGetWindowFromId(parentWOLGameSetup, labelID)->winEnable( FALSE );
   }
@@ -1687,6 +1715,7 @@ void InitWOLGameGadgets()
   {
 	  checkBoxLimitSuperweapons->winEnable(true);
 	  comboBoxStartingCash->winEnable(true);
+	  if (buttonRandomize) buttonRandomize->winEnable(true);
   }
 #endif
 
@@ -1699,6 +1728,7 @@ void InitWOLGameGadgets()
 		checkBoxLimitSuperweapons->winEnable( FALSE );
 		comboBoxStartingCash->winEnable( FALSE );
 		checkBoxLimitArmies->winEnable( FALSE );
+		if (buttonRandomize) buttonRandomize->winEnable( FALSE );
 		NameKeyType labelID = TheNameKeyGenerator->nameToKey("GameSpyGameOptionsMenu.wnd:StartingCashLabel");
 		TheWindowManager->winGetWindowFromId(parentWOLGameSetup, labelID)->winEnable( FALSE );
 	}
@@ -1840,6 +1870,7 @@ void DeinitWOLGameGadgets()
 	parentWOLGameSetup = NULL;
 	buttonEmote = NULL;
 	buttonSelectMap = NULL;
+	buttonRandomize = NULL;
 	buttonStart = NULL;
 	buttonBack = NULL;
 	listboxGameSetupChat = NULL;
@@ -1878,6 +1909,10 @@ Bool initialAcceptEnable = FALSE;
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 {
+	s_randomizeCount = 0;
+	s_localColorChosen = FALSE;
+	s_localFactionChosen = FALSE;
+	s_applyingLobbyUpdate = FALSE;
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface == nullptr)
 	{
@@ -2240,6 +2275,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		buttonStart->winSetText(TheGameText->fetch("GUI:Accept"));
 		buttonStart->winEnable( FALSE );
 		buttonSelectMap->winEnable( FALSE );
+		if (buttonRandomize) buttonRandomize->winEnable( FALSE );
 		initialAcceptEnable = FALSE;
 
 		WOLDisplaySlotList();
@@ -2531,6 +2567,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 							buttonStart->winSetText(TheGameText->fetch("GUI:Start"));
 							buttonStart->winEnable(TRUE);
 							buttonSelectMap->winEnable(TRUE);
+							if (buttonRandomize) buttonRandomize->winEnable(TRUE);
 							initialAcceptEnable = TRUE;
 
 							comboBoxStartingCash->winEnable(TRUE);
@@ -4136,6 +4173,61 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 					WOLMapSelectLayout->runInit();
 					WOLMapSelectLayout->hide( FALSE );
 					WOLMapSelectLayout->bringForward();
+				}
+				else if ( controlID == buttonRandomizeID )
+				{
+					// Host-only Randomize. The lobby service owns the
+					// slots, so the roll is computed on a scratch copy, only the slots it changed are sent, and
+					// the room is told once the service has accepted them; the next lobby push shows the result.
+					NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+					if (pLobbyInterface != nullptr && pLobbyInterface->IsHost())
+					{
+						NGMPGame* game = pLobbyInterface->GetCurrentGame();
+						if (game)
+						{
+							GameSlot saved[MAX_SLOTS];
+							Int i;
+							for (i = 0; i < MAX_SLOTS; ++i)
+							{
+								if (game->getSlot(i))
+									saved[i] = *game->getSlot(i);
+							}
+							std::vector<RandomSlotAssignment> changes;
+							performRandomAssign(game, changes);
+							for (i = 0; i < MAX_SLOTS; ++i)
+							{
+								if (game->getSlot(i))
+									*game->getSlot(i) = saved[i];
+							}
+
+							if (changes.empty())
+							{
+								UnicodeString strNothing = TheGameText->FETCH_OR_SUBSTITUTE("GUI:RandomizeNothingToDo", L"Randomize: every slot already has a faction, color and start position");
+								pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strNothing, true);
+							}
+							else
+							{
+								// The button is held down only while the request is in flight, and goes back to
+								// whatever it was when the roll started: a stats match or a guest must not end
+								// up with it enabled.
+								const Bool bWasEnabled = (buttonRandomize != NULL) && BitIsSet(buttonRandomize->winGetStatus(), WIN_STATUS_ENABLED);
+								if (buttonRandomize)
+									buttonRandomize->winEnable(FALSE);
+								pLobbyInterface->UpdateCurrentLobby_BulkSlotUpdate(changes, [pLobbyInterface, bWasEnabled](bool bSuccess)
+									{
+										if (bSuccess)
+										{
+											++s_randomizeCount;
+											UnicodeString strInform;
+											strInform.format(TheGameText->FETCH_OR_SUBSTITUTE("GUI:HostRandomizedSlots", L"Randomize: the host resolved the random factions, colors and start positions (roll %d)"), s_randomizeCount);
+											pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, true);
+										}
+										if (buttonRandomize)
+											buttonRandomize->winEnable(bWasEnabled);
+									});
+							}
+						}
+					}
 				}
 				else if ( controlID == buttonStartID )
 				{
