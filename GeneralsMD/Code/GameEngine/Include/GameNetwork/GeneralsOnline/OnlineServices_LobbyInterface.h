@@ -250,8 +250,6 @@ public:
 	void UpdateCurrentLobby_AITeam(int slot, int team);
 	void UpdateCurrentLobby_AIStartPos(int slot, int startpos);
 
-	void UpdateCurrentLobby_BulkSlotUpdate(NGMPGame* game);
-
 	// TheSuperHackers @feature bill-rich 11/10/2026 Resume-from-replay: place every slot the way the recording
 	// had it, in one host action the service applies whole or not at all. On refusal `error` says why.
 	void UpdateCurrentLobby_AlignSlots(const std::vector<LobbySlotSpec>& slots, std::function<void(bool bSuccess, const std::string& error)> onDone);

@@ -550,48 +550,6 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 		});
 }
 
-void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_BulkSlotUpdate(NGMPGame* game)
-{
-	// reset autostart if host changes anything (because ready flag will reset too)
-#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
-	ClearAutoReadyCountdown();
-#endif
-	if (TheNGMPGame && TheNGMPGame->IsCountdownStarted())
-		TheNGMPGame->StopCountdown();
-
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
-	std::map<std::string, std::string> mapHeaders;
-
-	nlohmann::json j;
-	j["field"] = ELobbyUpdateField::HOST_ACTION_BULK_SLOT_UPDATE;
-
-	nlohmann::json slotsArray = nlohmann::json::array();
-	for (int i = 0; i < MAX_SLOTS; ++i)
-	{
-		const GameSlot *slot = game->getConstSlot(i);
-		if (slot && slot->isOccupied())
-		{
-			nlohmann::json slotEntry;
-			slotEntry["slot_index"] = i;
-			slotEntry["side"] = slot->getPlayerTemplate();
-			slotEntry["color"] = slot->getColor();
-			slotEntry["start_pos"] = slot->getStartPos();
-			slotEntry["team"] = slot->getTeamNumber();
-			slotsArray.push_back(slotEntry);
-		}
-	}
-	j["slots"] = slotsArray;
-	std::string strPostData = j.dump();
-
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-		{
-			if (!bSuccess || statusCode < 200 || statusCode >= 300)
-			{
-				DEBUG_LOG(("UpdateCurrentLobby_BulkSlotUpdate failed: success=%d, status=%d", bSuccess, statusCode));
-			}
-		});
-}
-
 // TheSuperHackers @feature bill-rich 11/10/2026 Resume-from-replay: the whole slot table in one host action.
 // The service rebuilds its member table from this (humans moved, AI and empty slots re-created) or refuses
 // the lot with a reason; nothing is half-applied. The next lobby push shows the result everywhere.
