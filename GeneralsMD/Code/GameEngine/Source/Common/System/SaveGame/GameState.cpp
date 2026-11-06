@@ -933,10 +933,18 @@ AsciiString GameState::portableMapPathToRealMapPath(const AsciiString& in) const
 	}
 	else if (in.startsWithNoCase(PORTABLE_REPLAYS))
 	{
-		// the replay dir ends with "\\"; only the leaf name travels, so nothing can escape it
+		// the replay dir ends with "\\". Only the resume source may land here, so a peer
+		// cannot name another replay on this machine.
+		AsciiString resumeLeaf = RecorderClass::getResumeReplayFileName();
+		resumeLeaf.concat(RecorderClass::getReplayExtention());
+		if (getMapLeafName(in).compareNoCase(resumeLeaf) != 0)
+		{
+			DEBUG_LOG(("Transferred replay '%s' is not the resume source.", in.str()));
+			return AsciiString::TheEmptyString;
+		}
 		prefix = RecorderClass::getReplayDir();
 		containingBasePath = prefix;
-		prefix.concat(getMapLeafName(in));
+		prefix.concat(resumeLeaf);
 	}
 	else
 	{
