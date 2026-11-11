@@ -2780,7 +2780,13 @@ void GameLogic::processCommandList(CommandList* list)
 		logicMessageDispatcher(msg, NULL);
 	}
 
-	if (m_shouldValidateCRCs && !TheNetwork->sawCRCMismatch())
+	// Skip CRC validation while in resume-from-replay
+	// catchup (the CRC messages of that window come out of the resume source, not from the
+	// live peers) and for one run-ahead after the handoff, until the first set the peers
+	// exchanged live can have arrived.
+	const Bool resumeSuppressed = (TheRecorder && TheRecorder->isResumeCRCValidationSuppressed());
+
+	if (m_shouldValidateCRCs && !TheNetwork->sawCRCMismatch() && !resumeSuppressed)
 	{
 		Bool sawCRCMismatch = FALSE;
 		Int numPlayers = 0;

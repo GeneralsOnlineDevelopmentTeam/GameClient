@@ -220,6 +220,13 @@ public:
 	void setCRCInterval( Int val ) { m_crcInterval = (val > 0 && val < 100) ? val : 100; }
 	Int getCRCInterval() const { return m_crcInterval; }
 
+	// Resume-from-replay arming. When non-zero, every client
+	// replays its copy of the resume source (Resume.rep, pushed from the host) in lockstep
+	// up to this frame on game start before live control resumes (see ResumeFromReplay).
+	void setResumeHandoffFrame( UnsignedInt f ) { m_resumeHandoffFrame = f; }
+	UnsignedInt getResumeHandoffFrame() const   { return m_resumeHandoffFrame; }
+	Bool isResumeArmed() const                  { return m_resumeHandoffFrame != 0; }
+
 	Bool haveWeSurrendered() { return m_surrendered; }
 	void markAsSurrendered() { m_surrendered = TRUE; }
 
@@ -254,6 +261,9 @@ protected:
   Money         m_startingCash;
   UnsignedShort m_superweaponRestriction;
   Bool m_oldFactionsOnly; // Only USA, China, GLA -- not USA Air Force General, GLA Toxic General, et al
+
+	// resume-from-replay arming (appended last so existing member offsets are untouched)
+	UnsignedInt m_resumeHandoffFrame;
 };
 
 extern GameInfo *TheGameInfo;

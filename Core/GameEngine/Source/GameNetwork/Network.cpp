@@ -485,6 +485,13 @@ void Network::attachTransport(Transport* transport) {
 }
 
 Bool Network::isMessageTypeWithinNetworkRange(GameMessage::Type type) {
+	// During resume-from-replay catchup every peer injects
+	// the same commands from its own copy of the replay, so re-broadcasting them
+	// would double them on the receiver. Treat everything as non-transfer so it flows
+	// through processCommand instead, which also drives the per-frame tick forward.
+	if (TheRecorder && TheRecorder->isResumeCatchupMode()) {
+		return FALSE;
+	}
 	return type > GameMessage::MSG_BEGIN_NETWORK_MESSAGES && type < GameMessage::MSG_END_NETWORK_MESSAGES;
 }
 
@@ -492,11 +499,20 @@ Bool Network::isMessageTypeWithinNetworkRange(GameMessage::Type type) {
  * Take commands from TheCommandList and give them to the connection manager for transport.
  */
 void Network::GetCommandsFromCommandList() {
+	// During resume-from-replay catchup the local CRCs
+	// are not exchanged (every peer is replaying the source's recorded CRC messages instead),
+	// and leaving one in TheCommandList would have it execute a frame later on its own: on
+	// the handoff frame that is a lone CRC with validation back on, a false "Not enough CRCs".
+	const Bool inCatchup = TheRecorder && TheRecorder->isResumeCatchupMode();
 	GameMessage* msg = TheCommandList->getFirstMessage();
 	GameMessage* next = NULL;
 	while (msg != NULL) {
 		next = msg->next();
-		if (isMessageTypeWithinNetworkRange(msg->getType())) { // Is this something we should be sending to the other players?
+		if (inCatchup && msg->getType() == GameMessage::MSG_LOGIC_CRC) {
+			TheCommandList->removeMessage(msg);
+			deleteInstance(msg);
+		}
+		else if (isMessageTypeWithinNetworkRange(msg->getType())) { // Is this something we should be sending to the other players?
 			if (m_localStatus == NETLOCALSTATUS_INGAME) {
 				m_conMgr->sendLocalGameMessage(msg, getExecutionFrame());
 			}
@@ -631,7 +647,8 @@ void Network::RelayCommandsToCommandList(UnsignedInt frame) {
 			if (isMessageTypeWithinNetworkRange(gmsg->getGameMessageType())) {
 				//DEBUG_LOG(("Network::RelayCommandsToCommandList - appending command %d of type %s to command list on frame %d", msg->getCommand()->getID(), gmsg->getCommandAsString(), TheGameLogic->getFrame()));
 				TheCommandList->appendMessage(gmsg->constructGameMessage());
-			} else {
+			} else if (!(TheRecorder && TheRecorder->isResumeCatchupMode())) {
+				// (during resume-from-replay catchup every type is non-transfer, so this would log every message)
 				DEBUG_LOG(("Network::RelayCommandsToCommandList - rejecting game message from player %d of type %s, which is not a network type.",
 					gmsg->getPlayerID(), GameMessage::getCommandTypeAsString(gmsg->getGameMessageType())));
 			}
@@ -778,10 +795,19 @@ void Network::update()
 		endOfGameCheck();
 	}
 
-	if (AllCommandsReady(TheGameLogic->getFrame())) { // If all the commands are ready for the next frame...
+	// Resume-from-replay: the freeze after the handoff holds
+	// the simulation on this frame for a wall-clock countdown while the network keeps
+	// pumping, and catchup before it skips the realtime timing gate (timeForNewFrame) so
+	// frames advance as fast as lockstep allows; the lead-in (last seconds before the
+	// handoff) keeps the gate so it runs at the logic rate whatever the render rate does.
+	// AllCommandsReady stays enforced either way.
+	const Bool resumeFrozen = TheRecorder && TheRecorder->updateResumeFreeze();
+	const Bool inCatchup = TheRecorder && TheRecorder->isResumeCatchupMode() && !TheRecorder->isResumeCatchupLeadIn();
+
+	if (!resumeFrozen && AllCommandsReady(TheGameLogic->getFrame())) { // If all the commands are ready for the next frame...
 		m_conMgr->handleAllCommandsReady();
 		//		DEBUG_LOG(("Network::update - frame %d is ready", TheGameLogic->getFrame()));
-		if (timeForNewFrame()) { // This needs to come after any other pre-frame execution checks as this changes the timing variables.
+		if (inCatchup || timeForNewFrame()) { // This needs to come after any other pre-frame execution checks as this changes the timing variables.
 			RelayCommandsToCommandList(TheGameLogic->getFrame());	// Put the commands for the next frame on TheCommandList.
 			m_frameDataReady = TRUE; // Tell the GameEngine to run the commands for the new frame.
 		}

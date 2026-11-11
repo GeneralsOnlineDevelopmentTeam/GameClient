@@ -59,6 +59,8 @@
 #include "Common/MultiplayerSettings.h"
 #include "GameClient/GameText.h"
 #include "GameNetwork/GUIUtil.h"
+#include "GameClient/MapUtil.h"
+#include "GameNetwork/ResumeFromReplay.h"
 
 
 extern char *LANnextScreen;
@@ -112,6 +114,8 @@ static NameKeyType buttonBackID = NAMEKEY_INVALID;
 static NameKeyType buttonStartID = NAMEKEY_INVALID;
 static NameKeyType buttonEmoteID = NAMEKEY_INVALID;
 static NameKeyType buttonSelectMapID = NAMEKEY_INVALID;
+// Resume-from-replay button, back on the layout: the host arms or cancels, guests see the state.
+static NameKeyType buttonResumeFromReplayID = NAMEKEY_INVALID;
 static NameKeyType checkboxLimitSuperweaponsID = NAMEKEY_INVALID;
 static NameKeyType comboBoxStartingCashID = NAMEKEY_INVALID;
 static NameKeyType windowMapID = NAMEKEY_INVALID;
@@ -120,6 +124,26 @@ static GameWindow *parentLanGameOptions = nullptr;
 static GameWindow *buttonBack = nullptr;
 static GameWindow *buttonStart = nullptr;
 static GameWindow *buttonSelectMap = nullptr;
+static GameWindow *buttonResumeFromReplay = nullptr;
+
+// What the Resume button says: RESUME or CANCEL RESUME for the host, RESUME ARMED
+// (disabled) for a guest while one is pending, so the state is visible without the chat.
+static void lanUpdateResumeButton()
+{
+	if (buttonResumeFromReplay == nullptr || TheLAN == nullptr)
+		return;
+	const Bool host = TheLAN->AmIHost();
+	const Bool armed = TheLAN->GetMyGame() != nullptr && TheLAN->GetMyGame()->isResumeArmed();
+	buttonResumeFromReplay->winEnable(host);
+	if (host)
+		buttonResumeFromReplay->winSetText(armed
+			? TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeCancel", L"CANCEL RESUME")
+			: TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeFromReplay", L"RESUME"));
+	else
+		buttonResumeFromReplay->winSetText(armed
+			? TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeArmedButton", L"RESUME ARMED")
+			: TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeFromReplay", L"RESUME"));
+}
 static GameWindow *buttonEmote = nullptr;
 static GameWindow *textEntryChat = nullptr;
 static GameWindow *textEntryMapDisplay = nullptr;
@@ -218,6 +242,9 @@ static void playerTooltip(GameWindow *window,
 	setLANPlayerTooltip(player);
 }
 
+static Bool lanArmedResumeStillMatches(LANGameInfo *game);
+static void lanDisarmResumeForSettingsChange();
+static void lanCheckResumeArmChange(LANGameInfo *game);
 void StartPressed()
 {
 	LANGameInfo *myGame = TheLAN->GetMyGame();
@@ -256,6 +283,12 @@ void StartPressed()
 			text.format(TheGameText->fetch("LAN:TooManyPlayers"), (md)?md->m_numPlayers:0);
 			TheLAN->OnChat(L"SYSTEM", TheLAN->GetLocalIP(), text, LANAPI::LANCHAT_SYSTEM);
 		}
+		return;
+	}
+
+	// An armed resume-from-replay only works if the lobby still matches the recording.
+	if (TheLAN->AmIHost() && myGame->isResumeArmed() && !lanArmedResumeStillMatches(myGame))
+	{
 		return;
 	}
 
@@ -617,6 +650,7 @@ static void handleStartingCashSelection()
     {
       if (!s_isIniting)
       {
+        lanDisarmResumeForSettingsChange();
         // send around the new data
         TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
         lanUpdateSlotList(); // Update the accepted button UI
@@ -647,6 +681,7 @@ static void handleLimitSuperweaponsClick()
     {
       if (!s_isIniting)
       {
+        lanDisarmResumeForSettingsChange();
         // send around a new slotlist
         TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
         lanUpdateSlotList(); // Update the accepted button UI
@@ -668,6 +703,201 @@ void lanUpdateSlotList()
 //-------------------------------------------------------------------------------------------------
 /** Initialize the Gadgets Options Menu */
 //-------------------------------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// Resume-from-replay arming (host only).
+//
+// /resume copies the host's last recording to Resume.rep (ResumeFromReplay::prepareHostSource),
+// aligns the lobby with it (slot order, factions, colors, start spots, teams, map, seed,
+// starting cash and superweapon limit) and broadcasts the handoff frame in the game options
+// (RH=). The file itself is pushed to every guest over the map transfer path when the game
+// starts (LANAPI::OnGameStart), where every client validates its copy against the lobby
+// before the recorder replays it in lockstep (see RecorderClass).
+// -----------------------------------------------------------------------------
+
+static UnsignedInt s_lanLastSeenResumeHandoff = 0; ///< the arm the last game options carried, to notice changes
+
+// Everyone in the lobby sees resume messages: the player who has to fix
+// something (wrong name, wrong slot) is usually not the host.
+static void lanSystemChat(const UnicodeString &text)
+{
+	if (TheLAN)
+		TheLAN->RequestChat(text, LANAPIInterface::LANCHAT_SYSTEM);
+}
+
+static void lanLocalSystemChat(const UnicodeString &text)
+{
+	if (TheLAN)
+		TheLAN->OnChat(L"SYSTEM", TheLAN->GetLocalIP(), text, LANAPI::LANCHAT_SYSTEM);
+}
+
+// Called from StartPressed while a resume is armed. Re-reads the resume source and refuses
+// the start when the lobby has drifted from it since arming (someone left, rejoined under
+// another name, joined into a recorded slot, or a setting changed).
+static Bool lanArmedResumeStillMatches(LANGameInfo *game)
+{
+	ResumeFromReplay::SourceReplay replay;
+	UnicodeString why;
+	if (ResumeFromReplay::readSource(replay, why)
+		&& ResumeFromReplay::sourceMatchesGame(replay, game, game->getResumeHandoffFrame(), why))
+		return TRUE;
+	lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeStartRefused",
+		L"Resume is armed and the lobby no longer matches the recording (%ls). Fix it, or type /resume off to start a fresh game.", why.str()));
+	return FALSE;
+}
+
+// Put every human back into the slot they held in the replay and restore the
+// recorded faction, color, start position and team on every occupied slot whose kind
+// (human, or AI at the recorded difficulty) already matches. Recorded commands are
+// indexed by slot position, so the lobby must line up with the recording exactly.
+// Slot 0 is never swapped: the LAN protocol treats it as the host's slot and validation
+// has already checked the host matches. Slot kinds are never changed here: setState()
+// has destructive side effects on LAN slot identity, so a missing or wrong AI is
+// reported by the full check afterwards for the host to fix.
+static void reorderLobbyForResume(const ReplayGameInfo &replayInfo, LANGameInfo *lobby)
+{
+	Int i;
+	for (i = 1; i < MAX_SLOTS; ++i)
+	{
+		const GameSlot *rs = replayInfo.getConstSlot(i);
+		if (!rs || !rs->isHuman())
+			continue;
+		Int currentIdx = -1;
+		for (Int j = 1; j < MAX_SLOTS; ++j)
+		{
+			const GameSlot *ls = lobby->getConstSlot(j);
+			if (ls && ls->isHuman() && ls->getName().compare(rs->getName()) == 0)
+			{
+				currentIdx = j;
+				break;
+			}
+		}
+		if (currentIdx < 0 || currentIdx == i)
+			continue;
+		LANGameSlot saved = *lobby->getLANSlot(i);
+		lobby->setSlot(i, *lobby->getLANSlot(currentIdx));
+		lobby->setSlot(currentIdx, saved);
+	}
+	for (i = 0; i < MAX_SLOTS; ++i)
+	{
+		const GameSlot *rs = replayInfo.getConstSlot(i);
+		LANGameSlot *ls = lobby->getLANSlot(i);
+		if (!rs || !rs->isOccupied() || !ls || !ls->isOccupied() || rs->getState() != ls->getState())
+			continue;
+		ls->setColor(rs->getColor());
+		ls->setPlayerTemplate(rs->getPlayerTemplate());
+		ls->setStartPos(rs->getStartPos());
+		ls->setTeamNumber(rs->getTeamNumber());
+	}
+}
+
+static void lanClearResumeArm()
+{
+	if (TheLAN && TheLAN->GetMyGame())
+		TheLAN->GetMyGame()->setResumeHandoffFrame(0);
+	s_lanLastSeenResumeHandoff = 0;
+}
+
+// "/resume off": disarm and tell the lobby the next start is a fresh game.
+static void disarmResumeFromReplay()
+{
+	if (!TheLAN || !TheLAN->GetMyGame() || !TheLAN->AmIHost())
+		return;
+	const Bool wasArmed = TheLAN->GetMyGame()->isResumeArmed();
+	lanClearResumeArm();
+	if (wasArmed)
+	{
+		TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
+		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeDisarmed", L"Resume disarmed: the next start is a fresh game"));
+	}
+	lanUpdateResumeButton();
+}
+
+// A host change to a setting the recording fixes (map, starting cash, superweapon limit)
+// disarms; the caller sends the game options right after.
+static void lanDisarmResumeForSettingsChange()
+{
+	if (!TheLAN || !TheLAN->GetMyGame() || !TheLAN->AmIHost() || !TheLAN->GetMyGame()->isResumeArmed())
+		return;
+	lanClearResumeArm();
+	lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeDisarmedSettings", L"Resume disarmed: the game settings changed"));
+	lanUpdateResumeButton();
+}
+
+// Guests: the arm arrives in the host's game options (RH=). The file itself is sent when the
+// game starts, so all a guest can do here is say so, and note a disarm.
+static void lanCheckResumeArmChange(LANGameInfo *game)
+{
+	if (!TheLAN || !game || TheLAN->AmIHost())
+		return;
+	const UnsignedInt handoff = game->getResumeHandoffFrame();
+	if (handoff == s_lanLastSeenResumeHandoff)
+		return;
+	s_lanLastSeenResumeHandoff = handoff;
+	lanUpdateResumeButton();
+	if (handoff != 0)
+		lanLocalSystemChat(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeArmedGuest",
+			L"Resume armed by the host: the replay is sent when the game starts and replays to %ls", ResumeFromReplay::formatGameTime(handoff).str()));
+	else
+		lanLocalSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeDisarmed", L"Resume disarmed: the next start is a fresh game"));
+}
+
+// Copies the last recorded replay to the resume source, validates it against the current
+// lobby, aligns the lobby with it and arms. Reports success or the reason for refusal in
+// the lobby chat.
+static void tryArmResumeFromReplay()
+{
+	if (!TheLAN || !TheLAN->GetMyGame() || !TheLAN->AmIHost())
+		return;
+	LANGameInfo *game = TheLAN->GetMyGame();
+
+	ResumeFromReplay::SourceReplay replay;
+	UnsignedInt handoff = 0;
+	UnicodeString why;
+	if (!ResumeFromReplay::prepareHostSource(replay, handoff, why)
+		|| !ResumeFromReplay::validateRoster(replay.game, game, why))
+	{
+		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeRefused", L"Resume: %ls", why.str()));
+		return;
+	}
+
+	reorderLobbyForResume(replay.game, game);
+	game->setMap(replay.game.getMap());
+	game->setMapCRC(replay.game.getMapCRC());
+	game->setMapSize(replay.game.getMapSize());
+	game->setSeed(replay.game.getSeed());
+	game->setStartingCash(replay.game.getStartingCash());
+	game->setSuperweaponRestriction(replay.game.getSuperweaponRestriction());
+	game->setResumeHandoffFrame(handoff);
+
+	// The alignment above cannot add or change AI slots; the full check reports what is left for the host to fix.
+	if (!ResumeFromReplay::sourceMatchesGame(replay, game, handoff, why))
+	{
+		lanClearResumeArm();
+		TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
+		lanUpdateSlotList();
+		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeRefused", L"Resume: %ls", why.str()));
+		return;
+	}
+
+	// The options travel in one LAN packet; refuse to arm rather than let the field be cut off.
+	AsciiString options = GenerateGameOptionsString();
+	if (options.getLength() >= m_lanMaxOptionsLength)
+	{
+		lanClearResumeArm();
+		lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeOptionsTooLong", L"Resume: the game options are too long to carry the resume, shorten the player names"));
+		return;
+	}
+	TheLAN->RequestGameOptions(options, true);
+	lanUpdateSlotList();
+	updateGameOptions();
+	s_lanLastSeenResumeHandoff = handoff;
+
+	lanSystemChat(TheGameText->FETCH_OR_SUBSTITUTE_FORMAT("GUI:ResumeArmed",
+		L"Resume armed: the next start replays the last match to %ls, then hands control back", ResumeFromReplay::formatGameTime(handoff).str()));
+	lanUpdateResumeButton();
+}
+
 void InitLanGameGadgets()
 {
 	//Initialize the gadget IDs
@@ -679,6 +909,7 @@ void InitLanGameGadgets()
 	listboxChatWindowLanGameID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:ListboxChatWindowLanGame" );
 	buttonEmoteID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:ButtonEmote" );
 	buttonSelectMapID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:ButtonSelectMap" );
+	buttonResumeFromReplayID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:ButtonResumeFromReplay" );
   checkboxLimitSuperweaponsID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:CheckboxLimitSuperweapons" );
   comboBoxStartingCashID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:ComboBoxStartingCash" );
 	windowMapID = TheNameKeyGenerator->nameToKey( "LanGameOptionsMenu.wnd:MapWindow" );
@@ -692,6 +923,8 @@ void InitLanGameGadgets()
 	DEBUG_ASSERTCRASH(buttonSelectMap, ("Could not find the buttonSelectMap"));
 	buttonStart = TheWindowManager->winGetWindowFromId( parentLanGameOptions,buttonStartID  );
 	DEBUG_ASSERTCRASH(buttonStart, ("Could not find the buttonStart"));
+	buttonResumeFromReplay = TheWindowManager->winGetWindowFromId( parentLanGameOptions, buttonResumeFromReplayID ); // absent from older .wnd layouts
+	lanUpdateResumeButton();
 	buttonBack = TheWindowManager->winGetWindowFromId( parentLanGameOptions,  buttonBackID);
 	DEBUG_ASSERTCRASH(buttonBack, ("Could not find the buttonBack"));
 	listboxChatWindowLanGame = TheWindowManager->winGetWindowFromId( parentLanGameOptions, listboxChatWindowLanGameID );
@@ -790,11 +1023,14 @@ void InitLanGameGadgets()
 
 void DeinitLanGameGadgets()
 {
+	// Disarm any pending resume so it cannot survive into a future lobby session.
+	lanClearResumeArm();
 	parentLanGameOptions = nullptr;
 	buttonEmote = nullptr;
 	buttonSelectMap = nullptr;
 	buttonStart = nullptr;
 	buttonBack = nullptr;
+	buttonResumeFromReplay = nullptr;
 	listboxChatWindowLanGame = nullptr;
 	textEntryChat = nullptr;
 	textEntryMapDisplay = nullptr;
@@ -885,6 +1121,7 @@ void LanGameOptionsMenuInit( WindowLayout *layout, void *userData )
 		//DEBUG_LOG(("LanGameOptionsMenuInit(): map is %s", TheLAN->GetMyGame()->getMap().str()));
 		buttonStart->winSetText(TheGameText->fetch("GUI:Accept"));
 		buttonSelectMap->winEnable( FALSE );
+		lanUpdateResumeButton();
     checkboxLimitSuperweapons->winEnable( FALSE ); // Can look but only host can touch
     comboBoxStartingCash->winEnable( FALSE );      // Ditto
 		TheLAN->GetMyGame()->setMapCRC( TheLAN->GetMyGame()->getMapCRC() );		// force a recheck
@@ -940,6 +1177,7 @@ void updateGameOptions()
 {
 	LANGameInfo *theGame = TheLAN->GetMyGame();
 	UnicodeString mapDisplayName;
+	lanCheckResumeArmChange(theGame);
 	if (theGame && AreSlotListUpdatesEnabled())
 	{
 		const GameSlot *localSlot = theGame->getConstSlot(theGame->getLocalSlotNum());
@@ -1247,6 +1485,17 @@ WindowMsgHandledType LanGameOptionsMenuSystem( GameWindow *window, UnsignedInt m
 					if (!txtInput.isEmpty())
 						TheLAN->RequestChat(txtInput, LANAPIInterface::LANCHAT_EMOTE);
 				}
+				else if ( controlID == buttonResumeFromReplayID )
+				{
+					// Same as /resume and /resume off.
+					if (TheLAN->AmIHost())
+					{
+						if (TheLAN->GetMyGame() && TheLAN->GetMyGame()->isResumeArmed())
+							disarmResumeFromReplay();
+						else
+							tryArmResumeFromReplay();
+					}
+				}
 				else if ( controlID == buttonSelectMapID )
 				{
 					//buttonBack->winEnable( false );
@@ -1381,6 +1630,17 @@ WindowMsgHandledType LanGameOptionsMenuSystem( GameWindow *window, UnsignedInt m
 					txtInput.trim();
 					// Echo the user's input to the chat window
 					if (!txtInput.isEmpty())
+						// "/resume" arms resume-from-replay, "/resume off" disarms
+						if (txtInput.compareNoCase(L"/resume") == 0 || txtInput.compareNoCase(L"/resume off") == 0)
+						{
+							if (!TheLAN->AmIHost())
+								TheLAN->OnChat(L"SYSTEM", TheLAN->GetLocalIP(), TheGameText->FETCH_OR_SUBSTITUTE("GUI:ResumeHostOnly", L"Only the host can resume a game"), LANAPI::LANCHAT_SYSTEM);
+							else if (txtInput.compareNoCase(L"/resume off") == 0)
+								disarmResumeFromReplay();
+							else
+								tryArmResumeFromReplay();
+						}
+						else
 						TheLAN->RequestChat(txtInput, LANAPIInterface::LANCHAT_NORMAL);
 
 				}
@@ -1408,6 +1668,7 @@ void PostToLanGameOptions( PostToLanGameType post )
 		{
 			LANGameInfo *game = TheLAN->GetMyGame();
 			game->resetAccepted();
+			lanDisarmResumeForSettingsChange(); // a new map is not the recording's
 			updateGameOptions();
 			lanUpdateSlotList();
 

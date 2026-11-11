@@ -74,10 +74,55 @@ enum class ELobbyUpdateField
 	AI_TEAM = 15,
 	AI_START_POS = 16,
 	MAX_CAMERA_HEIGHT = 17,
-	JOINABILITY = 18
+	JOINABILITY = 18,
+	HOST_ACTION_BULK_SLOT_UPDATE = 19,
+	HOST_ACTION_ARM_RESUME = 20,            // Resume-from-replay arming (see ResumeFromReplay)
+	LOCAL_PLAYER_HAS_RESUME_REPLAY = 21,    // This member holds a usable copy of the resume source
+	HOST_ACTION_ALIGN_SLOTS = 22            // Resume-from-replay: the whole slot table at once
 };
 
-void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(UnicodeString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers)
+std::string Base64Encode(const std::vector<uint8_t>& data);
+std::vector<uint8_t> Base64Decode(const std::string& encodedData);
+
+namespace
+{
+	// Resume-from-replay source transfer: replays are command logs, a long match is a few MB.
+	const size_t RESUME_REPLAY_CHUNK_BYTES = 256 * 1024;
+	const size_t RESUME_REPLAY_MAX_BYTES = 16 * 1024 * 1024;
+	const int RESUME_REPLAY_MAX_CONFLICT_RETRIES = 3; // 409s in a row before an upload gives up
+
+	std::vector<uint8_t> ReadWholeFile(const char* path)
+	{
+		std::vector<uint8_t> bytes;
+		FILE* fp = fopen(path, "rb");
+		if (fp == nullptr)
+			return bytes;
+		if (fseek(fp, 0, SEEK_END) == 0)
+		{
+			const long len = ftell(fp);
+			if (len > 0 && fseek(fp, 0, SEEK_SET) == 0)
+			{
+				bytes.resize((size_t)len);
+				const size_t n = fread(bytes.data(), 1, bytes.size(), fp);
+				bytes.resize(n);
+			}
+		}
+		fclose(fp);
+		return bytes;
+	}
+
+	bool WriteWholeFile(const char* path, const std::vector<uint8_t>& bytes)
+	{
+		FILE* fp = fopen(path, "wb");
+		if (fp == nullptr)
+			return false;
+		const size_t n = fwrite(bytes.data(), 1, bytes.size(), fp);
+		fclose(fp);
+		return n == bytes.size();
+	}
+}
+
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(UnicodeString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers, std::function<void(bool bSuccess)> onDone)
 {
 	// reset autostart if host changes anything (because ready flag will reset too)
 #if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
@@ -108,13 +153,17 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_Map(UnicodeString st
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [onDone](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
-			
+			const bool bOK = bSuccess && statusCode >= 200 && statusCode < 300;
+			if (!bOK)
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "UpdateCurrentLobby_Map failed: success=%d, status=%d", bSuccess, statusCode);
+			if (onDone)
+				onDone(bOK);
 		});
 }
 
-void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons)
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons, std::function<void(bool bSuccess)> onDone)
 {
 	// reset autostart if host changes anything (because ready flag will reset too)
 #if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
@@ -132,13 +181,17 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_LimitSuperweapons(bo
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [onDone](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
-
+			const bool bOK = bSuccess && statusCode >= 200 && statusCode < 300;
+			if (!bOK)
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "UpdateCurrentLobby_LimitSuperweapons failed: success=%d, status=%d", bSuccess, statusCode);
+			if (onDone)
+				onDone(bOK);
 		});
 }
 
-void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue)
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue, std::function<void(bool bSuccess)> onDone)
 {
 	// reset autostart if host changes anything (because ready flag will reset too)
 #if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
@@ -156,9 +209,13 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 	std::string strPostData = j.dump();
 
 	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [onDone](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
-
+			const bool bOK = bSuccess && statusCode >= 200 && statusCode < 300;
+			if (!bOK)
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "UpdateCurrentLobby_StartingCash failed: success=%d, status=%d", bSuccess, statusCode);
+			if (onDone)
+				onDone(bOK);
 		});
 }
 
@@ -490,6 +547,266 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 		{
 			UnicodeString msg = UnicodeString(L"Ready check: All players are now marked ready.");
 			SendAnnouncementMessageToCurrentLobby(msg, true);
+		});
+}
+
+// Resume-from-replay: the whole slot table in one host action.
+// The service rebuilds its member table from this (humans moved, AI and empty slots re-created) or refuses
+// the lot with a reason; nothing is half-applied. The next lobby push shows the result everywhere.
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_AlignSlots(const std::vector<LobbySlotSpec>& slots, std::function<void(bool bSuccess, const std::string& error)> onDone)
+{
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
+	ClearAutoReadyCountdown();
+#endif
+	if (TheNGMPGame && TheNGMPGame->IsCountdownStarted())
+		TheNGMPGame->StopCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::HOST_ACTION_ALIGN_SLOTS;
+	nlohmann::json slotsArray = nlohmann::json::array();
+	for (const LobbySlotSpec& spec : slots)
+	{
+		nlohmann::json e;
+		e["slot_index"] = spec.slotIndex;
+		e["slot_state"] = spec.slotState;
+		if (spec.slotState == SlotState::SLOT_PLAYER)
+			e["user_id"] = spec.userID;
+		e["side"] = spec.side;
+		e["color"] = spec.color;
+		e["start_pos"] = spec.startPos;
+		e["team"] = spec.team;
+		slotsArray.push_back(e);
+	}
+	j["slots"] = slotsArray;
+	std::string strPostData = j.dump();
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "UpdateCurrentLobby_AlignSlots: %s", strPostData.c_str());
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [onDone](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			bool bOK = bSuccess && statusCode >= 200 && statusCode < 300;
+			std::string error;
+			try
+			{
+				nlohmann::json jResp = nlohmann::json::parse(strBody);
+				if (bOK)
+					bOK = jResp.value("success", false);
+				error = jResp.value("error", std::string());
+			}
+			catch (...)
+			{
+				bOK = false;
+			}
+			if (!bOK)
+			{
+				if (error.empty())
+					error = std::format("service error {}", statusCode);
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "UpdateCurrentLobby_AlignSlots failed: success=%d, status=%d, error=%s", bSuccess, statusCode, error.c_str());
+			}
+			if (onDone)
+				onDone(bOK, error);
+		});
+}
+
+// Resume-from-replay: arm (handoff 0 disarms) the resume source
+// the host uploaded. The service stores the handoff frame on the lobby and takes the replay's seed
+// as the lobby seed, so the next start replays that file in lockstep before live control resumes.
+// The caller announces the arm only from the success callback: the service refuses an arm without
+// an uploaded source or with a bad frame, and a lobby that announced an arm it does not hold
+// would start a fresh match on every guest.
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ArmResume(uint32_t handoffFrame, int rngSeed, std::function<void(bool bSuccess)> onComplete)
+{
+	// reset autostart if host changes anything (because ready flag will reset too)
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
+	ClearAutoReadyCountdown();
+#endif
+	if (TheNGMPGame && TheNGMPGame->IsCountdownStarted())
+		TheNGMPGame->StopCountdown();
+
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::HOST_ACTION_ARM_RESUME;
+	j["handoff_frame"] = handoffFrame;
+	j["rng_seed"] = rngSeed;
+	std::string strPostData = j.dump();
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [onComplete](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			bool bArmed = bSuccess && statusCode >= 200 && statusCode < 300;
+			if (bArmed)
+			{
+				try
+				{
+					nlohmann::json jResp = nlohmann::json::parse(strBody);
+					bArmed = jResp.value("success", false);
+				}
+				catch (...)
+				{
+					bArmed = false;
+				}
+			}
+			if (!bArmed)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "UpdateCurrentLobby_ArmResume failed: success=%d, status=%d", bSuccess, statusCode);
+			}
+			if (onComplete != nullptr)
+			{
+				onComplete(bArmed);
+			}
+		});
+}
+
+// Whether this member holds a usable copy of the resume source;
+// the host's start is refused until every human does (the way has_map gates the map).
+void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_HasResumeReplay(bool bHasResumeReplay)
+{
+	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["field"] = ELobbyUpdateField::LOCAL_PLAYER_HAS_RESUME_REPLAY;
+	j["has_resume_replay"] = bHasResumeReplay;
+	std::string strPostData = j.dump();
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			if (!bSuccess || statusCode < 200 || statusCode >= 300)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "UpdateCurrentLobby_HasResumeReplay failed: success=%d, status=%d", bSuccess, statusCode);
+			}
+		});
+}
+
+// Host: push the resume source to the service in chunks (the
+// service keeps it in memory with the lobby). The first chunk (offset 0) replaces whatever the lobby held.
+void NGMP_OnlineServices_LobbyInterface::UploadResumeReplay(const AsciiString& path, std::function<void(bool bSuccess)> onComplete)
+{
+	std::vector<uint8_t> bytes = ReadWholeFile(path.str());
+	if (bytes.empty() || bytes.size() > RESUME_REPLAY_MAX_BYTES)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "UploadResumeReplay: %s is empty or too large (%u bytes)", path.str(), (unsigned)bytes.size());
+		if (onComplete != nullptr)
+			onComplete(false);
+		return;
+	}
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "UploadResumeReplay: uploading %s (%u bytes)", path.str(), (unsigned)bytes.size());
+	SendResumeReplayChunk(m_CurrentLobby.lobbyID, std::make_shared<std::vector<uint8_t>>(std::move(bytes)), 0, 0, onComplete);
+}
+
+void NGMP_OnlineServices_LobbyInterface::SendResumeReplayChunk(int64_t lobbyID, std::shared_ptr<std::vector<uint8_t>> data, size_t offset, int conflictRetries, std::function<void(bool bSuccess)> onComplete)
+{
+	if (offset >= data->size())
+	{
+		if (onComplete != nullptr)
+			onComplete(true);
+		return;
+	}
+	const size_t remaining = data->size() - offset;
+	const size_t len = remaining < RESUME_REPLAY_CHUNK_BYTES ? remaining : RESUME_REPLAY_CHUNK_BYTES; // (std::min collides with the Windows min macro here)
+	std::vector<uint8_t> chunk(data->begin() + offset, data->begin() + offset + len);
+
+	std::string strURI = std::format("{}/{}/resume_replay", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), lobbyID);
+	std::map<std::string, std::string> mapHeaders;
+
+	nlohmann::json j;
+	j["offset"] = offset;
+	j["total"] = data->size();
+	j["data"] = Base64Encode(chunk);
+	std::string strPostData = j.dump();
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [this, lobbyID, data, offset, len, conflictRetries, onComplete](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			if (bSuccess && statusCode == 200 && m_CurrentLobby.lobbyID == lobbyID)
+			{
+				SendResumeReplayChunk(lobbyID, data, offset + len, 0, onComplete);
+				return;
+			}
+
+			// 409 carries the service's real length (a lost reply, a duplicate send, or the service
+			// dropped the file): resume from there, or from 0 when it does not fit our file.
+			if (statusCode == 409 && m_CurrentLobby.lobbyID == lobbyID && conflictRetries < RESUME_REPLAY_MAX_CONFLICT_RETRIES)
+			{
+				size_t resumeAt = 0;
+				try
+				{
+					nlohmann::json jResp = nlohmann::json::parse(strBody);
+					const int64_t total = jResp.value("total", (int64_t)0);
+					if (total > 0 && (uint64_t)total < (uint64_t)data->size())
+						resumeAt = (size_t)total;
+				}
+				catch (...)
+				{
+				}
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "UploadResumeReplay: chunk at %u conflicted, resuming from %u (retry %d)", (unsigned)offset, (unsigned)resumeAt, conflictRetries + 1);
+				SendResumeReplayChunk(lobbyID, data, resumeAt, conflictRetries + 1, onComplete);
+				return;
+			}
+
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "UploadResumeReplay: chunk at %u failed (success=%d, status=%d)", (unsigned)offset, bSuccess, statusCode);
+			if (onComplete != nullptr)
+				onComplete(false);
+		});
+}
+
+// Guest: pull the resume source back from the service into the
+// replay directory, in the chunks the service serves.
+void NGMP_OnlineServices_LobbyInterface::DownloadResumeReplay(const AsciiString& path, std::function<void(bool bSuccess)> onComplete)
+{
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "DownloadResumeReplay: downloading to %s", path.str());
+	FetchResumeReplayChunk(m_CurrentLobby.lobbyID, path, std::make_shared<std::vector<uint8_t>>(), onComplete);
+}
+
+void NGMP_OnlineServices_LobbyInterface::FetchResumeReplayChunk(int64_t lobbyID, AsciiString path, std::shared_ptr<std::vector<uint8_t>> data, std::function<void(bool bSuccess)> onComplete)
+{
+	std::string strURI = std::format("{}/{}/resume_replay?from={}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), lobbyID, data->size());
+	std::map<std::string, std::string> mapHeaders;
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [this, lobbyID, path, data, onComplete](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			bool bDone = false;
+			bool bOK = false;
+			if (bSuccess && statusCode == 200 && m_CurrentLobby.lobbyID == lobbyID)
+			{
+				try
+				{
+					nlohmann::json jResp = nlohmann::json::parse(strBody);
+					const int64_t total = jResp.value("total", (int64_t)0);
+					const std::string strData = jResp.value("data", std::string());
+					if (jResp.value("success", false) && total > 0 && (int64_t)total <= (int64_t)RESUME_REPLAY_MAX_BYTES)
+					{
+						if (!strData.empty())
+						{
+							std::vector<uint8_t> bytes = Base64Decode(strData);
+							data->insert(data->end(), bytes.begin(), bytes.end());
+						}
+						if ((int64_t)data->size() < total && !strData.empty())
+						{
+							FetchResumeReplayChunk(lobbyID, path, data, onComplete);
+							return; // more to come
+						}
+						bDone = true;
+						bOK = (int64_t)data->size() == total && WriteWholeFile(path.str(), *data);
+					}
+				}
+				catch (...)
+				{
+					bOK = false;
+				}
+			}
+			if (!bOK)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "DownloadResumeReplay: failed at %u bytes (success=%d, status=%d, done=%d)", (unsigned)data->size(), bSuccess, statusCode, bDone);
+			}
+			else
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "DownloadResumeReplay: wrote %u bytes to %s", (unsigned)data->size(), path.str());
+			}
+			if (onComplete != nullptr)
+				onComplete(bOK);
 		});
 }
 
@@ -921,6 +1238,11 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryIter["MaxPlayers"].get_to(lobbyEntry.max_players);
 						lobbyEntryIter["IsVanillaTeamsOnly"].get_to(lobbyEntry.vanilla_teams);
 						lobbyEntryIter["RNGSeed"].get_to(lobbyEntry.rng_seed);
+						// Resume-from-replay arming; optional so older services still parse
+						if (lobbyEntryIter.contains("ResumeHandoffFrame"))
+							lobbyEntryIter["ResumeHandoffFrame"].get_to(lobbyEntry.resume_handoff_frame);
+						if (lobbyEntryIter.contains("ResumeReplayGeneration"))
+							lobbyEntryIter["ResumeReplayGeneration"].get_to(lobbyEntry.resume_replay_generation);
 						lobbyEntryIter["StartingCash"].get_to(lobbyEntry.starting_cash);
 						lobbyEntryIter["IsLimitSuperweapons"].get_to(lobbyEntry.limit_superweapons);
 						lobbyEntryIter["IsTrackingStats"].get_to(lobbyEntry.track_stats);
@@ -1008,6 +1330,8 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 								memberEntryIter["Team"].get_to(memberEntry.team);
 								memberEntryIter["StartingPosition"].get_to(memberEntry.startpos);
 								memberEntryIter["HasMap"].get_to(memberEntry.has_map);
+								if (memberEntryIter.contains("HasResumeReplay")) // Optional, see UpdateCurrentLobby_HasResumeReplay
+									memberEntryIter["HasResumeReplay"].get_to(memberEntry.has_resume_replay);
 								memberEntryIter["SlotState"].get_to(memberEntry.m_SlotState);
 								memberEntryIter["SlotIndex"].get_to(memberEntry.m_SlotIndex);
 								memberEntryIter["Region"].get_to(memberEntry.region);

@@ -3292,7 +3292,8 @@ Coord2D InGameUI::getScrollAmount()
 	//-------------------------------------------------------------------------------------------------
 void InGameUI::setGUICommand(const CommandButton* command)
 {
-	if (TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK)
+	// Resume-from-replay catchup: no GUI commands until control is handed back
+	if (TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK || TheRecorder->isResumeInputBlocked())
 		return;
 
 	// sanity

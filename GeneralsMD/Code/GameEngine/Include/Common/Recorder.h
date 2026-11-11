@@ -50,7 +50,8 @@ enum RecorderModeType CPP_11(: Int) {
 	RECORDERMODETYPE_RECORD,
 	RECORDERMODETYPE_PLAYBACK,
 	RECORDERMODETYPE_SIMULATION_PLAYBACK, // Play back replay without any graphics
-	RECORDERMODETYPE_NONE // this is a valid state to be in on the shell map, or in saved games
+	RECORDERMODETYPE_NONE, // this is a valid state to be in on the shell map, or in saved games
+	RECORDERMODETYPE_RESUME_CATCHUP // Resume-from-replay: feed replay commands into a live network game until the handoff frame.
 };
 
 class RecorderClass : public SubsystemInterface
@@ -138,6 +139,32 @@ public:
 
 	RecorderModeType getMode();												///< Returns the current operating mode.
 	Bool isPlaybackMode() const { return m_mode == RECORDERMODETYPE_PLAYBACK || m_mode == RECORDERMODETYPE_SIMULATION_PLAYBACK; }
+
+	// Resume-from-replay.
+	//
+	// The lobby's start path validates this client's copy of the resume source (Resume.rep,
+	// see ResumeFromReplay) and arms the recorder. On the next MSG_NEW_GAME a brand new
+	// recording of the resumed match is started as for any other game, and the source's
+	// commands are injected into TheCommandList frame by frame while the live network game
+	// runs in lockstep at an uncapped rate (catchup); every injected command is written to the
+	// new recording as it goes, so the new replay holds the whole match. The last
+	// RESUME_LEADIN_SECONDS before the handoff frame run at normal speed (lead-in), then the
+	// simulation is held for RESUME_FREEZE_SECONDS of wall-clock time with a countdown (freeze),
+	// and finally control is handed back to the players. Camera scrolling works throughout;
+	// every other interaction is blocked until the freeze ends (see isResumeInputBlocked).
+	static const Int RESUME_LEADIN_SECONDS = 10;
+	static const Int RESUME_FREEZE_SECONDS = 10;
+	static AsciiString getResumeReplayFileName();    ///< name (without extension) of the resume source every client replays
+	void armResumeForNextGame(UnsignedInt handoffFrame, UnsignedInt sourceLastFrame); ///< validated by ResumeFromReplay::prepareGameStart
+	void disarmResume();
+	Bool isResumeArmed() const { return m_resumeArmedHandoffFrame != 0; }
+	Bool isResumeCatchupMode() const { return m_mode == RECORDERMODETYPE_RESUME_CATCHUP; }
+	Bool isResumeCatchupLeadIn() const;              ///< catchup, within the last RESUME_LEADIN_SECONDS before handoff
+	Bool isResumeFreezeActive() const { return m_resumeFreezeStartMs != 0; } ///< handoff reached, holding the sim with a countdown
+	Bool isResumeInputBlocked() const { return isResumeCatchupMode() || isResumeFreezeActive(); }
+	Bool isResumeCRCValidationSuppressed() const;    ///< catchup, and the run-ahead window after the handoff
+	Bool updateResumeFreeze();                       ///< pumped every engine frame by Network::update; TRUE while frames must not advance
+	UnsignedInt scanReplayLastFrame(AsciiString filename); ///< last frame with a complete record; walks the records, for recordings whose header was never finalized (crash) or whose tail is torn
 	void initControls();															///< Show or Hide the Replay controls
 
 	static AsciiString getReplayDir();								///< Returns the directory that holds the replay files.
@@ -169,9 +196,9 @@ protected:
 	AsciiString readAsciiString();										///< Read the next string from m_file using ascii characters.
 	UnicodeString readUnicodeString();								///< Read the next string from m_file using unicode characters.
 	void readNextFrame();															///< Read the next frame number to execute a command on.
-	void appendNextCommand();													///< Read the next GameMessage and append it to TheCommandList.
+	Bool appendNextCommand();													///< Read the next GameMessage and append it to TheCommandList. FALSE on a torn record.
 	void writeArgument(GameMessageArgumentDataType type, const GameMessageArgumentType arg);
-	void readArgument(GameMessageArgumentDataType type, GameMessage *msg);
+	Bool readArgument(GameMessageArgumentDataType type, GameMessage *msg);	///< FALSE on a short read.
 
 	struct CullBadCommandsResult
 	{
@@ -198,6 +225,23 @@ protected:
 	Int m_originalGameMode; // valid in replays
 
 	UnsignedInt m_nextFrame;												///< The Frame that the next message is to be executed on.  This can be -1.
+
+	// resume-from-replay state (see the accessors above)
+	File* m_resumeSourceFile;												///< the resume source (Resume.rep) being read during catchup; m_file is the new recording
+	UnsignedInt m_resumeArmedHandoffFrame;					///< handoff frame for the next MSG_NEW_GAME, 0 when not armed
+	UnsignedInt m_resumeArmedSourceLastFrame;				///< last complete frame of the resume source, from scanReplayLastFrame
+	UnsignedInt m_resumeHandoffFrame;								///< frame at which injection stops and the freeze begins; stays set after the handoff for the CRC window
+	UnsignedInt m_resumeSourceLastFrame;						///< injection never reads past this frame, so a torn tail cannot be replayed
+	Bool m_resumeLeadInAnnounced;										///< the lead-in message has been shown
+	UnsignedInt m_resumeFreezeStartMs;							///< wall-clock start of the freeze, 0 when not frozen
+	Int m_resumeFreezeLastAnnounced;								///< last countdown second shown
+
+	Bool startResumeCatchup();											///< open the resume source and switch to catchup; the recording is already started
+	void updateResumeCatchup();											///< inject the source's commands for this frame, hand off at the handoff frame
+	void injectResumeCommands(UnsignedInt curFrame);	///< read the source's records for curFrame into TheCommandList
+	void endResumeCatchup();												///< close the source and leave catchup without handing off
+	void abortResume(const UnicodeString &why);			///< leave the game: the source cannot be replayed to the handoff
+	void clearResumeState();
 };
 
 extern RecorderClass *TheRecorder;

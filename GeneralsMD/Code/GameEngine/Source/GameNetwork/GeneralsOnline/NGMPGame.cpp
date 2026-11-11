@@ -9,6 +9,7 @@
 #include "Common/RandomValue.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/NetworkInterface.h"
+#include "GameNetwork/ResumeFromReplay.h"
 #include "Common/GlobalData.h"
 #include "GameClient/View.h"
 #include "../NextGenMP_defines.h"
@@ -114,6 +115,9 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 
 	// rng seed
 	setSeed(lobby.rng_seed);
+
+	// Resume-from-replay arming (see ResumeFromReplay)
+	setResumeHandoffFrame(lobby.resume_handoff_frame);
 
 	// observers
 	setAllowObservers(lobby.allow_observers);
@@ -504,6 +508,27 @@ void NGMPGame::launchGame(void)
 			TheNetwork = NULL;
 		}
 		GSMessageBoxOk(TheGameText->fetch("GUI:Error"), TheGameText->fetch("GUI:CouldNotTransferMap"));
+
+		void PopBackToLobby(void);
+		PopBackToLobby();
+		return;
+	}
+
+	// An armed resume-from-replay needs this client's copy
+	// of the resume source to match the lobby; when it does not, back out the same way as for a
+	// missing map rather than start a fresh match that would desync everyone.
+	UnicodeString resumeWhy;
+	if (!ResumeFromReplay::prepareGameStart(this, resumeWhy))
+	{
+		DEBUG_LOG(("Resume-from-replay validation failed.  Bailing..."));
+		if (TheNetwork != NULL) {
+			delete TheNetwork;
+			TheNetwork = NULL;
+		}
+		NGMP_OnlineServices_LobbyInterface* pResumeLobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+		if (pResumeLobby != nullptr)
+			pResumeLobby->SendAnnouncementMessageToCurrentLobby(resumeWhy, true);
+		GSMessageBoxOk(TheGameText->fetch("GUI:Error"), resumeWhy);
 
 		void PopBackToLobby(void);
 		PopBackToLobby();

@@ -323,6 +323,7 @@ void GameInfo::reset()
 	m_mapSize = 0;
   m_superweaponRestriction = 0;
   m_startingCash = TheGlobalData->m_defaultStartingCash;
+	m_resumeHandoffFrame = 0;
 
 	for (Int i=0; i<MAX_SLOTS; ++i)
 	{
@@ -937,6 +938,16 @@ AsciiString GameInfoToAsciiString( const GameInfo *game )
 		game->getStartingCash().countMoney(), game->oldFactionsOnly() ? 'Y' : 'N' );
 #endif
 
+	// Resume-from-replay handoff frame. Only emitted when
+	// armed so unarmed games still round-trip bit-identically through the serializer, and
+	// emitted before the slot list so the slot-name truncation below accounts for it.
+	if (game->isResumeArmed())
+	{
+		AsciiString resume;
+		resume.format("RH=%u;", game->getResumeHandoffFrame());
+		optionsString.concat(resume);
+	}
+
 	//add player info for each slot
 	optionsString.concat(slotListID);
 	optionsString.concat('=');
@@ -1028,6 +1039,7 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 	Int useStats = TRUE;
   Money startingCash = TheGlobalData->m_defaultStartingCash;
   UnsignedShort restriction = 0; // Always the default
+	UnsignedInt resumeHandoffFrame = 0;
 
 	Bool sawMap = FALSE;
 	Bool sawMapCRC = FALSE;
@@ -1147,6 +1159,11 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
       oldFactionsOnly = ( val.compareNoCase( "Y" ) == 0 );
       sawOldFactions = TRUE;
     }
+		else if (key.compare("RH") == 0)
+		{
+			// resume-from-replay handoff frame (see GameInfoToAsciiString)
+			resumeHandoffFrame = (UnsignedInt)strtoul(val.str(), nullptr, 10);
+		}
 		else if (key.getLength() == 1 && *key.str() == slotListID)
 		{
 			sawSlotlist = true;
@@ -1515,6 +1532,7 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 		game->setSuperweaponRestriction(restriction);
 		game->setStartingCash(startingCash);
 		game->setOldFactionsOnly(oldFactionsOnly);
+		game->setResumeHandoffFrame(resumeHandoffFrame);
 
 		return true;
 	}

@@ -101,6 +101,7 @@ static const char *gadgetsToHide[] =
 	"ButtonStart",
 	"StaticTextMapPreview",
 
+	"ButtonResume",
 	nullptr
 };
 static const char *perPlayerGadgetsToHide[] =

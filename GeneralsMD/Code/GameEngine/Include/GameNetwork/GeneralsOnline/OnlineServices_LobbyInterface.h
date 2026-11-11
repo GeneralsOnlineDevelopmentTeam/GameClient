@@ -9,7 +9,9 @@
 #include "GameClient/InGameUI.h"
 #include "GameLogic/VictoryConditions.h"
 #include <atomic>
+#include <memory>
 #include <set>
+#include <vector>
 
 extern NGMPGame* TheNGMPGame;
 
@@ -24,6 +26,7 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	int team = -1;
 	int startpos = -1;
 	bool has_map = false;
+	bool has_resume_replay = false; // Holds a usable copy of the resume-from-replay source
 
 	uint16_t m_SlotIndex = 999999;
 	uint16_t m_SlotState = SlotState::SLOT_OPEN;
@@ -72,6 +75,11 @@ struct LobbyEntry
 
 	int rng_seed = -1;
 
+	// Resume-from-replay arming (0 when not armed); see ResumeFromReplay.
+	// The generation counts the service's arms, so a guest can tell a fresh upload from the one it already holds.
+	uint32_t resume_handoff_frame = 0;
+	uint32_t resume_replay_generation = 0;
+
 	bool passworded = false;
 	std::string password;
 
@@ -79,6 +87,20 @@ struct LobbyEntry
 
 	std::string region;
 	int latency = 0;
+};
+
+// One slot of a HOST_ACTION_ALIGN_SLOTS request: what the
+// slot must hold once the service has applied the whole arrangement. A human is named by user id, an
+// AI by its difficulty state; open and closed slots carry nothing else.
+struct LobbySlotSpec
+{
+	int slotIndex = -1;
+	int slotState = SlotState::SLOT_OPEN;
+	int64_t userID = -1;
+	int side = -1;
+	int color = -1;
+	int startPos = -1;
+	int team = -1;
 };
 
 enum class EJoinLobbyResult
@@ -209,9 +231,11 @@ public:
 	
 
 	// updates
-	void UpdateCurrentLobby_Map(UnicodeString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers);
-	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons);
-	void UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue);
+	// The three settings a resume has to align carry an optional
+	// completion callback, so the arm can run them one after another and only then send the arm.
+	void UpdateCurrentLobby_Map(UnicodeString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers, std::function<void(bool bSuccess)> onDone = nullptr);
+	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons, std::function<void(bool bSuccess)> onDone = nullptr);
+	void UpdateCurrentLobby_StartingCash(UnsignedInt startingCashValue, std::function<void(bool bSuccess)> onDone = nullptr);
 
 	void UpdateCurrentLobby_HasMap();
 
@@ -225,6 +249,18 @@ public:
 	void UpdateCurrentLobby_AISide(int slot, int side, int updatedStartPos);
 	void UpdateCurrentLobby_AITeam(int slot, int team);
 	void UpdateCurrentLobby_AIStartPos(int slot, int startpos);
+
+	// Resume-from-replay: place every slot the way the recording
+	// had it, in one host action the service applies whole or not at all. On refusal `error` says why.
+	void UpdateCurrentLobby_AlignSlots(const std::vector<LobbySlotSpec>& slots, std::function<void(bool bSuccess, const std::string& error)> onDone);
+
+	// Resume-from-replay (see ResumeFromReplay). The host uploads
+	// the resume source, then arms with the handoff frame and the replay's seed (handoff 0 disarms);
+	// guests download the source when the arm reaches them and flag themselves as holding it.
+	void UpdateCurrentLobby_ArmResume(uint32_t handoffFrame, int rngSeed, std::function<void(bool bSuccess)> onComplete);
+	void UpdateCurrentLobby_HasResumeReplay(bool bHasResumeReplay);
+	void UploadResumeReplay(const AsciiString& path, std::function<void(bool bSuccess)> onComplete);
+	void DownloadResumeReplay(const AsciiString& path, std::function<void(bool bSuccess)> onComplete);
 
 	void UpdateCurrentLobbyMaxCameraHeight(uint16_t maxCameraHeight);
 
@@ -531,6 +567,9 @@ public:
 	}
 
 private:
+	void SendResumeReplayChunk(int64_t lobbyID, std::shared_ptr<std::vector<uint8_t>> data, size_t offset, int conflictRetries, std::function<void(bool bSuccess)> onComplete);
+	void FetchResumeReplayChunk(int64_t lobbyID, AsciiString path, std::shared_ptr<std::vector<uint8_t>> data, std::function<void(bool bSuccess)> onComplete);
+
 	std::function<void(bool)> m_cb_CreateLobbyPendingCallback = nullptr;
 
 	std::function<void(EJoinLobbyResult)> m_callbackJoinedLobby = nullptr;
