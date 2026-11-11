@@ -106,7 +106,7 @@ UnicodeString GetReplayFilenameFromListbox(GameWindow *listbox, Int index)
 
 //-------------------------------------------------------------------------------------------------
 
-// TheSuperHackers @refactor bill-rich 15/09/2026 No longer static: resume-from-replay reads replay headers too (declared in ResumeFromReplay.h).
+// No longer static: resume-from-replay reads replay headers too (declared in ResumeFromReplay.h).
 Bool readReplayMapInfo(const AsciiString& filename, RecorderClass::ReplayHeader &header, ReplayGameInfo &info, const MapMetaData *&mapData)
 {
 	header.forPlayback = FALSE;

@@ -206,7 +206,7 @@ std::string Base64Encode(const std::vector<uint8_t>& data)
 	std::string encoded;
 	encoded.reserve((data.size() + 2) / 3 * 4);
 
-	// TheSuperHackers @bugfix bill-rich 24/09/2026 A one-byte tail was emitted as "XXX=" instead of "XX==":
+	// A one-byte tail was emitted as "XXX=" instead of "XX==":
 	// the old padding test compared the consumed index against size + 1, which can never be
 	// true, so every input whose length is 1 mod 3 decoded to one byte too many.
 	for (size_t i = 0; i < data.size(); i += 3)

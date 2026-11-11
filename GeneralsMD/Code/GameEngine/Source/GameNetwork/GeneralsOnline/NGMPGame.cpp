@@ -116,7 +116,7 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 	// rng seed
 	setSeed(lobby.rng_seed);
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 resume-from-replay arming (see ResumeFromReplay)
+	// Resume-from-replay arming (see ResumeFromReplay)
 	setResumeHandoffFrame(lobby.resume_handoff_frame);
 
 	// observers
@@ -514,7 +514,7 @@ void NGMPGame::launchGame(void)
 		return;
 	}
 
-	// TheSuperHackers @feature bill-rich 24/09/2026 An armed resume-from-replay needs this client's copy
+	// An armed resume-from-replay needs this client's copy
 	// of the resume source to match the lobby; when it does not, back out the same way as for a
 	// missing map rather than start a fresh match that would desync everyone.
 	UnicodeString resumeWhy;

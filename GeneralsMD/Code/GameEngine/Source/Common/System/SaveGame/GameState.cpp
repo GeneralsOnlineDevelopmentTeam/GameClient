@@ -864,7 +864,7 @@ static AsciiString getMapLeafAndDirName(const AsciiString& in)
 const char* PORTABLE_SAVE				= "Save\\";
 const char* PORTABLE_MAPS				= "Maps\\";
 const char* PORTABLE_USER_MAPS	= "UserData\\Maps\\";
-const char* PORTABLE_REPLAYS		= "Replays\\"; // TheSuperHackers @feature bill-rich 24/09/2026 the resume-from-replay source travels the map transfer path
+const char* PORTABLE_REPLAYS		= "Replays\\"; // The resume-from-replay source travels the map transfer path
 
 // ------------------------------------------------------------------------------------------------
 AsciiString GameState::realMapPathToPortableMapPath(const AsciiString& in) const

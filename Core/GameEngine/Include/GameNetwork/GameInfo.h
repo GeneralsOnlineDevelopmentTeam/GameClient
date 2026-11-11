@@ -220,7 +220,7 @@ public:
 	void setCRCInterval( Int val ) { m_crcInterval = (val > 0 && val < 100) ? val : 100; }
 	Int getCRCInterval() const { return m_crcInterval; }
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay arming. When non-zero, every client
+	// Resume-from-replay arming. When non-zero, every client
 	// replays its copy of the resume source (Resume.rep, pushed from the host) in lockstep
 	// up to this frame on game start before live control resumes (see ResumeFromReplay).
 	void setResumeHandoffFrame( UnsignedInt f ) { m_resumeHandoffFrame = f; }

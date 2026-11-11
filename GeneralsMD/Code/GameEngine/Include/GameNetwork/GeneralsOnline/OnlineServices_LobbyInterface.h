@@ -26,7 +26,7 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	int team = -1;
 	int startpos = -1;
 	bool has_map = false;
-	bool has_resume_replay = false; // TheSuperHackers @feature bill-rich 24/09/2026 holds a usable copy of the resume-from-replay source
+	bool has_resume_replay = false; // Holds a usable copy of the resume-from-replay source
 
 	uint16_t m_SlotIndex = 999999;
 	uint16_t m_SlotState = SlotState::SLOT_OPEN;
@@ -75,7 +75,7 @@ struct LobbyEntry
 
 	int rng_seed = -1;
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 resume-from-replay arming (0 when not armed); see ResumeFromReplay.
+	// Resume-from-replay arming (0 when not armed); see ResumeFromReplay.
 	// The generation counts the service's arms, so a guest can tell a fresh upload from the one it already holds.
 	uint32_t resume_handoff_frame = 0;
 	uint32_t resume_replay_generation = 0;
@@ -89,7 +89,7 @@ struct LobbyEntry
 	int latency = 0;
 };
 
-// TheSuperHackers @feature bill-rich 11/10/2026 One slot of a HOST_ACTION_ALIGN_SLOTS request: what the
+// One slot of a HOST_ACTION_ALIGN_SLOTS request: what the
 // slot must hold once the service has applied the whole arrangement. A human is named by user id, an
 // AI by its difficulty state; open and closed slots carry nothing else.
 struct LobbySlotSpec
@@ -231,7 +231,7 @@ public:
 	
 
 	// updates
-	// TheSuperHackers @feature bill-rich 11/10/2026 The three settings a resume has to align carry an optional
+	// The three settings a resume has to align carry an optional
 	// completion callback, so the arm can run them one after another and only then send the arm.
 	void UpdateCurrentLobby_Map(UnicodeString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers, std::function<void(bool bSuccess)> onDone = nullptr);
 	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons, std::function<void(bool bSuccess)> onDone = nullptr);
@@ -250,11 +250,11 @@ public:
 	void UpdateCurrentLobby_AITeam(int slot, int team);
 	void UpdateCurrentLobby_AIStartPos(int slot, int startpos);
 
-	// TheSuperHackers @feature bill-rich 11/10/2026 Resume-from-replay: place every slot the way the recording
+	// Resume-from-replay: place every slot the way the recording
 	// had it, in one host action the service applies whole or not at all. On refusal `error` says why.
 	void UpdateCurrentLobby_AlignSlots(const std::vector<LobbySlotSpec>& slots, std::function<void(bool bSuccess, const std::string& error)> onDone);
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay (see ResumeFromReplay). The host uploads
+	// Resume-from-replay (see ResumeFromReplay). The host uploads
 	// the resume source, then arms with the handoff frame and the replay's seed (handoff 0 disarms);
 	// guests download the source when the arm reaches them and flag themselves as holding it.
 	void UpdateCurrentLobby_ArmResume(uint32_t handoffFrame, int rngSeed, std::function<void(bool bSuccess)> onComplete);

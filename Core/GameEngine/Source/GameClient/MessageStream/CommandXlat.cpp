@@ -2550,7 +2550,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 	GameMessage::Type t = msg->getType();
 	GameMessageDisposition disp = KEEP_MESSAGE;
 	// We want to always be able to get to the options menu even during no input times and a clear game data message should always go through
-	// TheSuperHackers @feature bill-rich 15/09/2026 resume-from-replay catchup blocks every command the
+	// Resume-from-replay catchup blocks every command the
 	// same way disabled input does (camera scrolling lives in LookAtTranslator and
 	// stays available); the options menu stays reachable so a stuck catchup can be left.
 	const Bool resumeBlocked = TheRecorder && TheRecorder->isResumeInputBlocked();

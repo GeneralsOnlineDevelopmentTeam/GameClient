@@ -273,7 +273,7 @@ void HTTPRequest::PlatformStartRequest()
 			}
 		}
 
-		// TheSuperHackers @bugfix bill-rich 24/09/2026 Say what the body is. Without a Content-Type
+		// Say what the body is. Without a Content-Type
 		// libcurl sends application/x-www-form-urlencoded, and a service that form-parses on that
 		// header rejects any body large enough to exceed its form key limit, because the whole
 		// payload reads as one enormous key. Every request built here carries JSON unless the

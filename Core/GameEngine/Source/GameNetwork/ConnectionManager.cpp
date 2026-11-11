@@ -68,7 +68,7 @@ static Bool hasValidTransferFileExtension(const AsciiString& filePath)
 		"wak",
 		"tga",
 		"txt",
-		"rep" // TheSuperHackers @feature bill-rich 24/09/2026 the resume-from-replay source (see ResumeFromReplay)
+		"rep" // The resume-from-replay source (see ResumeFromReplay)
 	};
 
 	const char* fileExt = strrchr(filePath.str(), '.');
@@ -1525,7 +1525,7 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 
 			newRunAhead = clamp<Int>(minRunAheadForClamp, newRunAhead, MAX_FRAMES_AHEAD / 2);
 
-			// TheSuperHackers @feature bill-rich 15/09/2026 During resume-from-replay catchup Network::update()
+			// During resume-from-replay catchup Network::update()
 			// drops the realtime frame gate, so the only thing bounding how fast we
 			// replay is lockstep: a frame advances once every peer's commands for it have
 			// arrived. Throughput is (frames in flight) / (packet send interval), and

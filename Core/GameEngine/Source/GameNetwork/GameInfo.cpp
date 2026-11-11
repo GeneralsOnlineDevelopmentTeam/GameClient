@@ -938,7 +938,7 @@ AsciiString GameInfoToAsciiString( const GameInfo *game )
 		game->getStartingCash().countMoney(), game->oldFactionsOnly() ? 'Y' : 'N' );
 #endif
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay handoff frame. Only emitted when
+	// Resume-from-replay handoff frame. Only emitted when
 	// armed so unarmed games still round-trip bit-identically through the serializer, and
 	// emitted before the slot list so the slot-name truncation below accounts for it.
 	if (game->isResumeArmed())

@@ -146,7 +146,7 @@ void FrameMetrics::doPerFrameMetrics(UnsignedInt frame) {
 	// Do the measurement of the fps.
 	time_t curTime = timeGetTime();
 	if ((curTime - m_lastFpsTimeThing) >= 1000) {
-		// TheSuperHackers @feature bill-rich 15/09/2026 This history is the input to
+		// This history is the input to
 		// ConnectionManager::updateRunAhead, i.e. how this machine tells the rest of
 		// the game how fast it can run. During resume-from-replay catchup the renderer
 		// is deliberately throttled while logic fast-forwards, so display FPS measures

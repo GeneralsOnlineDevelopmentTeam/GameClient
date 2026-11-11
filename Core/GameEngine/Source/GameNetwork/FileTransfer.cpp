@@ -82,7 +82,7 @@ static Bool doFileTransfer( AsciiString filename, MapTransferLoadScreen *ls, Int
 			fileTransferPercent = 100;
 			for (i=1; i<MAX_SLOTS; ++i)
 			{
-				// TheSuperHackers @refactor bill-rich 24/09/2026 Wait on the slots in the mask (the callers build it
+				// Wait on the slots in the mask (the callers build it
 				// from the slots that lack the file), so the same loop serves the resume-from-replay transfer.
 				if (TheGameInfo->getConstSlot(i)->isHuman() && (mask & (1<<i)))
 				{
@@ -287,7 +287,7 @@ Bool DoAnyMapTransfers(GameInfo *game)
 //-------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------
 
-// TheSuperHackers @feature bill-rich 24/09/2026 Push the resume-from-replay source from the host to every
+// Push the resume-from-replay source from the host to every
 // human guest. Every guest needs it (there is no "has file" state for replays), so the mask is
 // every human slot but the host's; the file lands in the guest's replay directory under the same
 // name (see GameState::portableMapPathToRealMapPath).

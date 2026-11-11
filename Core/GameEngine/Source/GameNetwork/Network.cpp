@@ -485,7 +485,7 @@ void Network::attachTransport(Transport* transport) {
 }
 
 Bool Network::isMessageTypeWithinNetworkRange(GameMessage::Type type) {
-	// TheSuperHackers @feature bill-rich 15/09/2026 During resume-from-replay catchup every peer injects
+	// During resume-from-replay catchup every peer injects
 	// the same commands from its own copy of the replay, so re-broadcasting them
 	// would double them on the receiver. Treat everything as non-transfer so it flows
 	// through processCommand instead, which also drives the per-frame tick forward.
@@ -499,7 +499,7 @@ Bool Network::isMessageTypeWithinNetworkRange(GameMessage::Type type) {
  * Take commands from TheCommandList and give them to the connection manager for transport.
  */
 void Network::GetCommandsFromCommandList() {
-	// TheSuperHackers @feature bill-rich 24/09/2026 During resume-from-replay catchup the local CRCs
+	// During resume-from-replay catchup the local CRCs
 	// are not exchanged (every peer is replaying the source's recorded CRC messages instead),
 	// and leaving one in TheCommandList would have it execute a frame later on its own: on
 	// the handoff frame that is a lone CRC with validation back on, a false "Not enough CRCs".
@@ -795,7 +795,7 @@ void Network::update()
 		endOfGameCheck();
 	}
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay: the freeze after the handoff holds
+	// Resume-from-replay: the freeze after the handoff holds
 	// the simulation on this frame for a wall-clock countdown while the network keeps
 	// pumping, and catchup before it skips the realtime timing gate (timeForNewFrame) so
 	// frames advance as fast as lockstep allows; the lead-in (last seconds before the

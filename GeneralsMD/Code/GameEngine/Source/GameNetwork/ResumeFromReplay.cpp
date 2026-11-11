@@ -16,7 +16,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// TheSuperHackers @feature bill-rich 24/09/2026 Resume-from-replay arming and validation. See the header.
+// Resume-from-replay arming and validation. See the header.
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 

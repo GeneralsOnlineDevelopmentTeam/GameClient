@@ -937,7 +937,7 @@ Bool GameEngine::canUpdateRegularGameLogic(UnsignedInt logicTimeQueryFlags)
 	const Bool useFastMode = TheGlobalData->m_TiVOFastMode && TheGameLogic->isInReplayGame();
 #endif
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay catchup fast-forwards by running
+	// Resume-from-replay catchup fast-forwards by running
 	// one logic frame per render frame; the logic time scale must not throttle it.
 	const Bool inCatchup = TheRecorder && TheRecorder->isResumeCatchupMode()
 		&& !TheRecorder->isResumeCatchupLeadIn();
@@ -968,7 +968,7 @@ Bool GameEngine::canUpdateRegularGameLogic(UnsignedInt logicTimeQueryFlags)
 extern NGMPGame* TheNGMPGame;
 #endif
 
-// TheSuperHackers @feature bill-rich 15/09/2026 Wall-clock cadence of the render passes during
+// Wall-clock cadence of the render passes during
 // resume-from-replay catchup (about 30 fps), see GameEngine::update.
 static constexpr const UnsignedInt CATCHUP_RENDER_INTERVAL_MS = 33;
 
@@ -982,7 +982,7 @@ void GameEngine::update()
 {
 	USE_PERF_TIMER(GameEngine_update)
 	{
-		// TheSuperHackers @feature bill-rich 15/09/2026 During resume-from-replay catchup, render on a
+		// During resume-from-replay catchup, render on a
 		// wall-clock cadence rather than once per logic frame: logic is fast-forwarding
 		// at many times realtime, so drawing every logic frame would burn the CPU on
 		// frames no one can perceive, while drawing at ~30 fps keeps the catchup

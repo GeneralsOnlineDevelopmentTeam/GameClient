@@ -121,7 +121,7 @@ CBCommandStatus ControlBar::processCommandTransitionUI( GameWindow *control, Gad
 CBCommandStatus ControlBar::processCommandUI( GameWindow *control,
 																							GadgetGameMessage gadgetMessage )
 {
-	// TheSuperHackers @feature bill-rich 15/09/2026 resume-from-replay catchup: control bar buttons and
+	// Resume-from-replay catchup: control bar buttons and
 	// their hotkeys (which re-dispatch into this path) are inert until control is handed back
 	if( TheRecorder && TheRecorder->isResumeInputBlocked() )
 		return CBC_COMMAND_NOT_USED;

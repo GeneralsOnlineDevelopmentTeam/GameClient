@@ -110,7 +110,7 @@ Bool FramePacer::isActualFramesPerSecondLimitEnabled() const
 #endif
 	}
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay catchup runs one logic frame per
+	// Resume-from-replay catchup runs one logic frame per
 	// render frame and fast-forwards many times faster than realtime, so the render
 	// cap has to get out of the way until the lead-in.
 	if (TheRecorder != nullptr && TheRecorder->isResumeCatchupMode() && !TheRecorder->isResumeCatchupLeadIn())

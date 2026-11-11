@@ -55,7 +55,7 @@
 
 extern NGMPGame* TheNGMPGame;
 
-// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay milestones go to the release log online.
+// Resume-from-replay milestones go to the release log online.
 #if defined(GENERALS_ONLINE)
 #define RESUME_LOG(...) NetworkLog(ELogVerbosity::LOG_RELEASE, __VA_ARGS__)
 #else
@@ -420,7 +420,7 @@ void RecorderClass::reset() {
  */
 void RecorderClass::update() {
 	if (m_mode == RECORDERMODETYPE_RESUME_CATCHUP) {
-		// TheSuperHackers @feature bill-rich 15/09/2026 Inject the resume source's commands for this
+		// Inject the resume source's commands for this
 		// frame, then record them like any other frame: the new recording is a normal replay of
 		// the resumed match from frame 0. The handoff (or an abort) switches the mode inside.
 		updateResumeCatchup();
@@ -511,7 +511,7 @@ void RecorderClass::updateRecord()
 			if (msg->getArgumentCount() >= 4)
 				maxFPS = msg->getArgument(3)->integer;
 
-			// TheSuperHackers @feature bill-rich 15/09/2026 The new recording starts as for any game.
+			// The new recording starts as for any game.
 			// When the lobby's start path armed a resume-from-replay (ResumeFromReplay::prepareGameStart
 			// validated this client's copy of the source), the source is then replayed into it.
 			// startRecording resets the recorder, so the arming is carried across by hand. A source
@@ -1346,7 +1346,7 @@ void RecorderClass::readNextFrame() {
 	if (bytesRead != sizeof(m_nextFrame)) {
 		DEBUG_LOG(("RecorderClass::readNextFrame - read failed on frame %d", TheGameLogic->getFrame()));
 		m_nextFrame = -1;
-		// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay catchup: running out of
+		// Resume-from-replay catchup: running out of
 		// records is handled by updateResumeCatchup (which never ends the live game here).
 		if (m_mode == RECORDERMODETYPE_RESUME_CATCHUP)
 			return;
@@ -1356,7 +1356,7 @@ void RecorderClass::readNextFrame() {
 
 /**
  * This reads the next command from the replay file and appends it to TheCommandList.
- * TheSuperHackers @feature bill-rich 24/09/2026 Returns FALSE when the record is incomplete (a
+ * Returns FALSE when the record is incomplete (a
  * recording cut short by a crash ends in a torn record); the torn record is discarded and
  * m_nextFrame is set to -1 so the callers treat it as the end of the usable data.
  */
@@ -1818,7 +1818,7 @@ Bool RecorderClass::isMultiplayer()
 }
 
 //-------------------------------------------------------------------------------------------------
-// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay. See Recorder.h for the phase overview.
+// Resume-from-replay. See Recorder.h for the phase overview.
 //-------------------------------------------------------------------------------------------------
 
 AsciiString RecorderClass::getResumeReplayFileName()

@@ -204,7 +204,7 @@ static NameKeyType buttonBackID = NAMEKEY_INVALID;
 static NameKeyType buttonStartID = NAMEKEY_INVALID;
 static NameKeyType buttonEmoteID = NAMEKEY_INVALID;
 static NameKeyType buttonSelectMapID = NAMEKEY_INVALID;
-// TheSuperHackers @feature bill-rich 11/10/2026 Resume-from-replay button (host arms or cancels; guests see the state).
+// Resume-from-replay button (host arms or cancels; guests see the state).
 static NameKeyType buttonResumeID = NAMEKEY_INVALID;
 static NameKeyType windowMapID = NAMEKEY_INVALID;
 
@@ -985,7 +985,7 @@ static Bool wolArmedResumeStillMatches(NGMPGame *game);
 static void wolCheckResumeArmChange();
 static void StartPressed()
 {
-	// TheSuperHackers @feature bill-rich 15/09/2026 An armed resume-from-replay only works if the lobby still
+	// An armed resume-from-replay only works if the lobby still
 	// matches the recording and every human holds the resume source.
 	{
 		NGMP_OnlineServices_LobbyInterface* pResumeLobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
@@ -1611,7 +1611,7 @@ void WOLDisplaySlotList(void)
 /** Initialize the Gadgets Options Menu */
 //-------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay arming for online lobbies (host only).
+// Resume-from-replay arming for online lobbies (host only).
 //
 // Same contract as the LAN lobby (LanGameOptionsMenu.cpp): /resume copies the host's last
 // recording to Resume.rep and aligns the lobby with it. Online the file is uploaded to the
@@ -1678,7 +1678,7 @@ static Bool wolArmedResumeStillMatches(NGMPGame *game)
 }
 
 // -----------------------------------------------------------------------------
-// TheSuperHackers @feature bill-rich 11/10/2026 The arm is a chain of service
+// The arm is a chain of service
 // requests, each started from the previous one's completion: the map, the
 // starting cash and the superweapon limit (only those that differ from the
 // recording), then the whole slot table in one piece, then the upload and the
@@ -2481,7 +2481,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 		{
 			WOLDisplaySlotList();
 			WOLDisplayGameOptions();
-			wolCheckResumeArmChange(); // TheSuperHackers @feature bill-rich 24/09/2026 resume-from-replay arm arrived or left
+			wolCheckResumeArmChange(); // Resume-from-replay arm arrived or left
 		});
 
 	pLobbyInterface->RegisterForGameStartPacket([]()
@@ -4116,7 +4116,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 #if defined(GENERALS_ONLINE)
 	else if (token == "resume")
 	{
-		// TheSuperHackers @feature bill-rich 15/09/2026 resume-from-replay arming lives behind a chat command so no layout change is needed
+		// Resume-from-replay arming lives behind a chat command so no layout change is needed
 		AsciiString arg;
 		remainder.nextToken(&arg);
 		arg.toLower();
@@ -4628,7 +4628,7 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 				}
 				else if ( controlID == buttonResumeID )
 				{
-					// TheSuperHackers @feature bill-rich 11/10/2026 Same as /resume and /resume off.
+					// Same as /resume and /resume off.
 					NGMP_OnlineServices_LobbyInterface* pResumeLobby = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 					NGMPGame *resumeGame = pResumeLobby ? pResumeLobby->GetCurrentGame() : nullptr;
 					wolTryArmResumeFromReplay(resumeGame != nullptr && resumeGame->isResumeArmed());

@@ -244,7 +244,7 @@ void LANAPI::OnGameStart()
 			return;
 		}
 
-		// TheSuperHackers @feature bill-rich 24/09/2026 An armed resume-from-replay first pushes the host's
+		// An armed resume-from-replay first pushes the host's
 		// resume source to every guest over the map transfer path, then every client checks its
 		// copy against the lobby and arms the recorder. Either failing backs out the same way as
 		// a missing map rather than start a fresh match that would desync everyone.

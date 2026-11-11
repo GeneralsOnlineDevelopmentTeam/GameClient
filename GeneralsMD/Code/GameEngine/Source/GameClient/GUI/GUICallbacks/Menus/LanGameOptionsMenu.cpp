@@ -114,7 +114,7 @@ static NameKeyType buttonBackID = NAMEKEY_INVALID;
 static NameKeyType buttonStartID = NAMEKEY_INVALID;
 static NameKeyType buttonEmoteID = NAMEKEY_INVALID;
 static NameKeyType buttonSelectMapID = NAMEKEY_INVALID;
-// TheSuperHackers @feature bill-rich 11/10/2026 Resume-from-replay button, back on the layout: the host arms or cancels, guests see the state.
+// Resume-from-replay button, back on the layout: the host arms or cancels, guests see the state.
 static NameKeyType buttonResumeFromReplayID = NAMEKEY_INVALID;
 static NameKeyType checkboxLimitSuperweaponsID = NAMEKEY_INVALID;
 static NameKeyType comboBoxStartingCashID = NAMEKEY_INVALID;
@@ -286,7 +286,7 @@ void StartPressed()
 		return;
 	}
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 An armed resume-from-replay only works if the lobby still matches the recording.
+	// An armed resume-from-replay only works if the lobby still matches the recording.
 	if (TheLAN->AmIHost() && myGame->isResumeArmed() && !lanArmedResumeStillMatches(myGame))
 	{
 		return;
@@ -705,7 +705,7 @@ void lanUpdateSlotList()
 //-------------------------------------------------------------------------------------------------
 
 // -----------------------------------------------------------------------------
-// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay arming (host only).
+// Resume-from-replay arming (host only).
 //
 // /resume copies the host's last recording to Resume.rep (ResumeFromReplay::prepareHostSource),
 // aligns the lobby with it (slot order, factions, colors, start spots, teams, map, seed,
@@ -1487,7 +1487,7 @@ WindowMsgHandledType LanGameOptionsMenuSystem( GameWindow *window, UnsignedInt m
 				}
 				else if ( controlID == buttonResumeFromReplayID )
 				{
-					// TheSuperHackers @feature bill-rich 11/10/2026 Same as /resume and /resume off.
+					// Same as /resume and /resume off.
 					if (TheLAN->AmIHost())
 					{
 						if (TheLAN->GetMyGame() && TheLAN->GetMyGame()->isResumeArmed())
@@ -1630,7 +1630,7 @@ WindowMsgHandledType LanGameOptionsMenuSystem( GameWindow *window, UnsignedInt m
 					txtInput.trim();
 					// Echo the user's input to the chat window
 					if (!txtInput.isEmpty())
-						// TheSuperHackers @feature bill-rich 15/09/2026 "/resume" arms resume-from-replay, "/resume off" disarms
+						// "/resume" arms resume-from-replay, "/resume off" disarms
 						if (txtInput.compareNoCase(L"/resume") == 0 || txtInput.compareNoCase(L"/resume off") == 0)
 						{
 							if (!TheLAN->AmIHost())

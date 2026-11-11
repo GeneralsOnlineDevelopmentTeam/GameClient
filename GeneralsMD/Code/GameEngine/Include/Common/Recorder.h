@@ -140,7 +140,7 @@ public:
 	RecorderModeType getMode();												///< Returns the current operating mode.
 	Bool isPlaybackMode() const { return m_mode == RECORDERMODETYPE_PLAYBACK || m_mode == RECORDERMODETYPE_SIMULATION_PLAYBACK; }
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 Resume-from-replay.
+	// Resume-from-replay.
 	//
 	// The lobby's start path validates this client's copy of the resume source (Resume.rep,
 	// see ResumeFromReplay) and arms the recorder. On the next MSG_NEW_GAME a brand new

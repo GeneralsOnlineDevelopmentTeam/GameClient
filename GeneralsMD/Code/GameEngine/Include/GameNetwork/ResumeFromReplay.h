@@ -16,7 +16,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// TheSuperHackers @feature bill-rich 24/09/2026 Resume-from-replay: the arming and validation
+// Resume-from-replay: the arming and validation
 // shared by the LAN lobby, the online lobby and the game start path.
 //
 // After a match dies, the same players resume it from the host's recording. The host arms it

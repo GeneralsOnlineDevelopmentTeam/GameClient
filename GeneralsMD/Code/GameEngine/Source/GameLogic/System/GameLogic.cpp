@@ -2780,7 +2780,7 @@ void GameLogic::processCommandList(CommandList* list)
 		logicMessageDispatcher(msg, NULL);
 	}
 
-	// TheSuperHackers @feature bill-rich 15/09/2026 Skip CRC validation while in resume-from-replay
+	// Skip CRC validation while in resume-from-replay
 	// catchup (the CRC messages of that window come out of the resume source, not from the
 	// live peers) and for one run-ahead after the handoff, until the first set the peers
 	// exchanged live can have arrived.
