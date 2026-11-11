@@ -36,6 +36,15 @@ class WeatherSetting : public Overridable
 	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE( WeatherSetting, "WeatherSetting"  )
 
 	public:
+		enum DynamicProfile
+		{
+			DYNAMIC_AUTO,
+			DYNAMIC_DRY,
+			DYNAMIC_SNOW,
+			DYNAMIC_RAIN
+		};
+
+		Int m_dynamicWeatherProfile = DYNAMIC_AUTO;
 		AsciiString m_snowTexture;
 		Real	m_snowFrequencyScaleX;	///<used to adjust snow position.
 		Real	m_snowFrequencyScaleY;	///<used to adjust snow position.
@@ -92,9 +101,12 @@ class SnowManager : public SubsystemInterface
 	virtual void init() override;
 	virtual void reset() override;
 	virtual void updateIniSettings ();
+	virtual void reloadWeather() { updateIniSettings(); }
 	void setVisible(Bool showWeather);	///<enable/disable rendering of weather - assuming it's available on map.
+	void setDynamicWeatherVisible(Bool visible);
 
   protected :
+	Bool isWeatherVisible() const { return m_useDynamicVisibility ? m_dynamicVisible : m_isVisible; }
 
 	Real				*m_startingHeights;
 	Real				m_time;	///<time elapsed since it started snowing.
@@ -110,6 +122,8 @@ class SnowManager : public SubsystemInterface
 	Real				m_boxDimensions;	///<used to set dimensions of box surrounding camera.
 	Real				m_emitterSpacing;		///<used to control how many emitters are present per world unit
 	Bool				m_isVisible;		///<used to prevent map weather (if defined) from rendering.
+	Bool				m_useDynamicVisibility = FALSE;
+	Bool				m_dynamicVisible = FALSE;
 };
 
 extern SnowManager *TheSnowManager;  ///< the ray effects singleton external

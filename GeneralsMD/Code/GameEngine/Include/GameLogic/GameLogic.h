@@ -171,6 +171,9 @@ public:
 	// super hack
 	void startNewGame(Bool loadSaveGame);
 	void loadMapINI(AsciiString mapName);
+#if defined(GENERALS_ONLINE)
+	void startDynamicWeather(const Player *sender);
+#endif
 
 	void updateLoadProgress( Int progress );
 	void deleteLoadScreen();
@@ -430,6 +433,22 @@ private:
 	/// @todo remove this hack
 	Bool m_startNewGame;
 	WindowLayout* m_background;
+
+#if defined(GENERALS_ONLINE)
+	struct WeatherPhase
+	{
+		TimeOfDay time;
+		UnsignedInt duration;
+		Bool precipitation;
+	};
+
+	void updateDynamicWeather();
+	WeatherPhase m_weatherCycle[TIME_OF_DAY_COUNT - TIME_OF_DAY_FIRST];
+	UnsignedInt m_nextWeatherFrame = 0;
+	Int m_nextWeatherPhase = 0;
+	NameKeyType m_weatherHost = NAMEKEY_INVALID;
+	Bool m_schedulePrecipitation = FALSE;
+#endif
 
 	Object* m_objList;																			///< All of the objects in the world.
 	//	ObjectPtrHash m_objHash;																///< Used for ObjectID lookups

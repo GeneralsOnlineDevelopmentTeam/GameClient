@@ -85,9 +85,16 @@ void SnowManager::setVisible(Bool showWeather)
 	m_isVisible = showWeather;
 }
 
+void SnowManager::setDynamicWeatherVisible(Bool visible)
+{
+	m_useDynamicVisibility = TRUE;
+	m_dynamicVisible = visible;
+}
+
 void SnowManager::reset()
 {
 	m_isVisible = TRUE;	//default to showing if it's enabled via INI.
+	m_useDynamicVisibility = FALSE;
 }
 
 SnowManager::~SnowManager()
@@ -102,9 +109,12 @@ SnowManager::~SnowManager()
 
 OVERRIDE<WeatherSetting> TheWeatherSetting = nullptr;
 
+static const char *const dynamicWeatherProfiles[] = { "AUTO", "DRY", "SNOW", "RAIN", nullptr };
+
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 const FieldParse WeatherSetting::m_weatherSettingFieldParseTable[] =
 {
+	{ "DynamicWeatherProfile", INI::parseIndexList, dynamicWeatherProfiles, offsetof( WeatherSetting, m_dynamicWeatherProfile ) },
 	{ "SnowTexture",							INI::parseAsciiString,nullptr,			offsetof( WeatherSetting, m_snowTexture ) },
 	{ "SnowFrequencyScaleX",					INI::parseReal,nullptr,			offsetof( WeatherSetting, m_snowFrequencyScaleX ) },
 	{ "SnowFrequencyScaleY",					INI::parseReal,nullptr,			offsetof( WeatherSetting, m_snowFrequencyScaleY ) },

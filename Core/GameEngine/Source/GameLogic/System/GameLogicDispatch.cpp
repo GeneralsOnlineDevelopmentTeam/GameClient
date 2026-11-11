@@ -367,6 +367,14 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 		return;
 	}
 
+#if defined(GENERALS_ONLINE)
+	if (msg->getType() == GameMessage::MSG_START_DYNAMIC_WEATHER)
+	{
+		startDynamicWeather(msgPlayer);
+		return;
+	}
+#endif
+
 	AIGroupPtr currentlySelectedGroup = nullptr;
 
 	if (isInGame())

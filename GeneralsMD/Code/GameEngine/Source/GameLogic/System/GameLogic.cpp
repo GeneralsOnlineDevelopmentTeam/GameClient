@@ -120,6 +120,10 @@ struct QuitGameException {};
 
 #include "../NextGenMP_defines.h"
 
+#if defined(GENERALS_ONLINE)
+#include <random>
+#endif
+
 DECLARE_PERF_TIMER(SleepyMaintenance)
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
@@ -314,6 +318,10 @@ void GameLogic::setDefaults(Bool loadingSaveGame)
 {
 	m_frame = 0;
 	m_hasUpdated = FALSE;
+#if defined(GENERALS_ONLINE)
+	m_nextWeatherFrame = 0;
+	m_weatherHost = NAMEKEY_INVALID;
+#endif
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	m_frameLegacy = 0;
 	m_frameLegacyLast = 0;
@@ -558,6 +566,9 @@ void GameLogic::reset()
 	// clear any table of contents we have
 	m_objectTOC.clear();
 
+#if defined(GENERALS_ONLINE)
+	const Bool hadWeatherCycle = m_nextWeatherFrame != 0 && m_schedulePrecipitation;
+#endif
 	setDefaults(FALSE);
 
 	m_isScoringEnabled = TRUE;
@@ -573,6 +584,10 @@ void GameLogic::reset()
 	// Clean up any weather overrides that were generated for this map.
 	WeatherSetting* ws = (WeatherSetting*)TheWeatherSetting.getNonOverloadedPointer();
 	TheWeatherSetting = (WeatherSetting*)ws->deleteOverrides();
+#if defined(GENERALS_ONLINE)
+	if (hadWeatherCycle && TheSnowManager && TheWeatherSetting != nullptr)
+		TheSnowManager->reloadWeather();
+#endif
 
 	m_rankPointsToAddAtGameStart = 0;
 }
@@ -1392,6 +1407,29 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 			m_superweaponRestriction = 0;
 		}
 	}
+
+#if defined(GENERALS_ONLINE)
+	m_nextWeatherFrame = 0;
+	m_weatherHost = NAMEKEY_INVALID;
+	if (TheNetwork && TheNGMPGame && game == TheNGMPGame && !TheNGMPGame->isQMGame())
+	{
+		auto *lobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+		if (lobbyInterface)
+		{
+			const LobbyEntry &lobby = lobbyInterface->GetCurrentLobby();
+			for (const LobbyMemberEntry &member : lobby.members)
+			{
+				if (member.IsHuman() && member.user_id == lobby.owner && member.m_SlotIndex < MAX_SLOTS)
+				{
+					AsciiString name;
+					name.format("player%d", static_cast<Int>(member.m_SlotIndex));
+					m_weatherHost = TheNameKeyGenerator->nameToKey(name);
+					break;
+				}
+			}
+		}
+	}
+#endif
 
 	checkForDuplicateColors(game);
 
@@ -2604,6 +2642,117 @@ static void findAndSelectCommandCenter(Object *obj, void* alreadyFound)
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
+#if defined(GENERALS_ONLINE)
+void GameLogic::startDynamicWeather(const Player *sender)
+{
+	if (!TheGameInfo || m_nextWeatherFrame != 0)
+		return;
+
+	const Bool replay = TheRecorder && TheRecorder->isPlaybackMode();
+	if (!replay && (m_weatherHost == NAMEKEY_INVALID || sender->getPlayerNameKey() != m_weatherHost))
+		return;
+
+	m_schedulePrecipitation = FALSE;
+	if (TheSnowManager && TheWeatherSetting != nullptr)
+	{
+		const AsciiString &texture = TheWeatherSetting->m_snowTexture;
+		const Bool rainTexture = texture.compareNoCase("EXRainDrop.tga") == 0
+			|| texture.compareNoCase("EXRainDrop.dds") == 0;
+		const Bool snowTexture = texture.compareNoCase("EXSnowFlake.tga") == 0
+			|| texture.compareNoCase("EXSnowFlake.dds") == 0
+			|| texture.compareNoCase("EXSnowFlake1.tga") == 0
+			|| texture.compareNoCase("EXSnowFlake1.dds") == 0;
+		Int profile = TheWeatherSetting->m_dynamicWeatherProfile;
+		if (profile == WeatherSetting::DYNAMIC_AUTO)
+		{
+			const AsciiString &mapPath = TheGlobalData->m_mapName;
+			const char *basename = mapPath.reverseFind('\\');
+			if (!basename)
+				basename = mapPath.reverseFind('/');
+			const AsciiString mapName = basename ? AsciiString(basename + 1) : mapPath;
+			if (TheGlobalData->m_weather == WEATHER_SNOWY
+				|| mapName.compareNoCase("[RANK] Freezing Bursa ZH v1.map") == 0)
+				profile = WeatherSetting::DYNAMIC_SNOW;
+			else if (TheWeatherSetting->m_snowEnabled && rainTexture)
+				profile = WeatherSetting::DYNAMIC_RAIN;
+			else if (TheWeatherSetting->m_snowEnabled && snowTexture)
+				profile = WeatherSetting::DYNAMIC_SNOW;
+		}
+
+		m_schedulePrecipitation = profile == WeatherSetting::DYNAMIC_SNOW
+			|| profile == WeatherSetting::DYNAMIC_RAIN;
+		if (profile == WeatherSetting::DYNAMIC_DRY)
+			TheSnowManager->setDynamicWeatherVisible(FALSE);
+
+		if (m_schedulePrecipitation && (!TheWeatherSetting->m_snowEnabled
+			|| (profile == WeatherSetting::DYNAMIC_SNOW && rainTexture)
+			|| (profile == WeatherSetting::DYNAMIC_RAIN && snowTexture)))
+		{
+			// A temporary override is removed by the existing map weather cleanup.
+			auto *weather = newInstance(WeatherSetting);
+			weather->m_snowEnabled = TRUE;
+			weather->m_snowBoxDimensions = 100.0f;
+			if (profile == WeatherSetting::DYNAMIC_RAIN)
+			{
+				// The stock Eastern Everglades precipitation preset.
+				weather->m_snowTexture = "EXRainDrop.tga";
+				weather->m_snowFrequencyScaleX = 1.0f;
+				weather->m_snowFrequencyScaleY = 1.0f;
+				weather->m_snowAmplitude = 0.1f;
+				weather->m_snowVelocity = 25.0f;
+				weather->m_snowPointSize = 0.3f;
+				weather->m_snowQuadSize = 0.1f;
+			}
+			else
+			{
+				// Match the snow scale and fall speed used by stock winter maps.
+				weather->m_snowAmplitude = 4.0f;
+				weather->m_snowVelocity = 3.0f;
+				weather->m_snowPointSize = 0.16f;
+				weather->m_snowMaxPointSize = 10.0f;
+			}
+			weather->markAsOverride();
+			auto *base = const_cast<WeatherSetting *>(TheWeatherSetting.getNonOverloadedPointer());
+			base->friend_getFinalOverride()->setNextOverride(weather);
+			TheSnowManager->reloadWeather();
+		}
+	}
+
+	// Keep the weather roll independent from the simulation's random number stream.
+	std::mt19937 weatherRandom(static_cast<UnsignedInt>(TheGameInfo->getSeed()));
+	const Int phaseCount = TIME_OF_DAY_COUNT - TIME_OF_DAY_FIRST;
+	const Int firstTime = weatherRandom() % phaseCount;
+	// Reserve the all-dry and all-wet masks so the cycle always changes precipitation.
+	const UnsignedInt wetPhases = 1 + weatherRandom() % ((1u << phaseCount) - 2);
+	for (Int i = 0; i < phaseCount; ++i)
+	{
+		WeatherPhase &phase = m_weatherCycle[i];
+		phase.time = static_cast<TimeOfDay>(TIME_OF_DAY_FIRST + (firstTime + i) % phaseCount);
+		phase.duration = (120 + weatherRandom() % 121) * LOGICFRAMES_PER_SECOND;
+		phase.precipitation = (wetPhases & (1u << i)) != 0;
+	}
+
+	m_nextWeatherPhase = 0;
+	m_nextWeatherFrame = m_frame;
+	updateDynamicWeather();
+}
+
+void GameLogic::updateDynamicWeather()
+{
+	if (m_nextWeatherFrame == 0 || m_frame < m_nextWeatherFrame)
+		return;
+
+	const WeatherPhase &phase = m_weatherCycle[m_nextWeatherPhase];
+	if (TheWritableGlobalData->setTimeOfDay(phase.time))
+		TheGameClient->setTimeOfDay(phase.time);
+	if (m_schedulePrecipitation && TheSnowManager)
+		TheSnowManager->setDynamicWeatherVisible(phase.precipitation);
+
+	m_nextWeatherFrame += phase.duration;
+	m_nextWeatherPhase = (m_nextWeatherPhase + 1) % (TIME_OF_DAY_COUNT - TIME_OF_DAY_FIRST);
+}
+#endif
+
 void GameLogic::loadMapINI(AsciiString mapName)
 {
 
@@ -3986,6 +4135,10 @@ void GameLogic::update()
 
 	if (TheFramePacer->isTimeFrozen())
 		return;
+
+#if defined(GENERALS_ONLINE)
+	updateDynamicWeather();
+#endif
 
 	// Note - TerrainLogic update needs to happen after ScriptEngine update, but before object updates.  jba.
 	// This way changes in bridges are noted in the script engine before being cleared in TerrainLogic->update

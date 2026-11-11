@@ -38,6 +38,7 @@ class W3DSnowManager : public SnowManager
 	virtual void reset() override;
 	virtual void update () override;
 	virtual void updateIniSettings() override;
+	void reloadWeather() override;
 
 	void	render(RenderInfoClass &rinfo);
 	void	renderAsQuads(RenderInfoClass &rinfo, Int cubeOriginX, Int cubeOriginY, Int cubeDimX, Int cubeDimY);

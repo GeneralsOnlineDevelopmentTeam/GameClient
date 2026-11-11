@@ -54,6 +54,7 @@ private:
 	UnsignedInt m_exeCRC;
 	UnsignedInt m_iniCRC;
 	Bool m_isQM;
+	Bool m_dynamicWeather = FALSE;
 
 	AsciiString m_ladderIP;
 	AsciiString m_pingStr;
@@ -166,6 +167,8 @@ public:
 	AsciiString generateLadderGameResultsPacket(void);
 	void markGameAsQM(void) { m_isQM = TRUE; }
 	Bool isQMGame(void) { return m_isQM; }
+	Bool getDynamicWeather() const { return m_dynamicWeather; }
+	void setDynamicWeather(Bool enabled) { m_dynamicWeather = enabled; }
 
 	virtual void init(void);
 	virtual void resetAccepted(void);															///< Reset the accepted flag on all players

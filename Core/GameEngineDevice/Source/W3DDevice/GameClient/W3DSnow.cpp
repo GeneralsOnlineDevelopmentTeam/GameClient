@@ -154,6 +154,12 @@ void W3DSnowManager::reset()
 	SnowManager::reset();
 }
 
+void W3DSnowManager::reloadWeather()
+{
+	SnowManager::updateIniSettings();
+	ReleaseResources(); // Recreated by render() on the next visible frame.
+}
+
 void W3DSnowManager::update()
 {
 	// TheSuperHackers @tweak The snow render update is now decoupled from the logic step.
@@ -322,7 +328,7 @@ flush_particles:
 
 void W3DSnowManager::render(RenderInfoClass &rinfo)
 {
-	if (!TheWeatherSetting->m_snowEnabled || !m_isVisible)
+	if (!TheWeatherSetting->m_snowEnabled || !isWeatherVisible())
 		return;
 
 	Int usePointSprites = DX8Wrapper::Get_Current_Caps()->Support_PointSprites() && TheWeatherSetting->m_usePointSprites;
@@ -401,11 +407,8 @@ void W3DSnowManager::render(RenderInfoClass &rinfo)
 	REF_PTR_RELEASE(vmat);
 
 	//make sure we have all the resources we need
-	if (usePointSprites && !m_VertexBufferD3D)
-		ReAcquireResources();
-
-	if (!usePointSprites && !m_indexBuffer)
-		ReAcquireResources();
+	if ((usePointSprites ? m_VertexBufferD3D == nullptr : m_indexBuffer == nullptr) && !ReAcquireResources())
+		return;
 
 	DX8Wrapper::Set_Texture(0,m_snowTexture);
 

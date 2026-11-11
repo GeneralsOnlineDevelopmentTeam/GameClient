@@ -582,6 +582,7 @@ void NGMPGame::reset(void)
 {
 	GameInfo::reset();
 	m_isQM = FALSE;
+	m_dynamicWeather = FALSE;
 }
 
 void NGMPGame::StartCountdown()
