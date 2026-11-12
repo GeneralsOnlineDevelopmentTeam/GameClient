@@ -56,6 +56,7 @@ class AudioEventRTS;
 class Object;
 class Drawable;
 class Player;
+class WeatherSetting;
 class ThingTemplate;
 class Team;
 class CommandList;
@@ -172,7 +173,7 @@ public:
 	void startNewGame(Bool loadSaveGame);
 	void loadMapINI(AsciiString mapName);
 #if defined(GENERALS_ONLINE)
-	void startDynamicWeather(const Player *sender);
+	void startDynamicWeather(const Player *sender, Int debugProfile = -1);
 #endif
 
 	void updateLoadProgress( Int progress );
@@ -435,19 +436,9 @@ private:
 	WindowLayout* m_background;
 
 #if defined(GENERALS_ONLINE)
-	struct WeatherPhase
-	{
-		TimeOfDay time;
-		UnsignedInt duration;
-		Bool precipitation;
-	};
-
-	void updateDynamicWeather();
-	WeatherPhase m_weatherCycle[TIME_OF_DAY_COUNT - TIME_OF_DAY_FIRST];
-	UnsignedInt m_nextWeatherFrame = 0;
-	Int m_nextWeatherPhase = 0;
+	UnsignedInt m_weatherRoll = 0;
+	WeatherSetting *m_weatherOverride = nullptr;
 	NameKeyType m_weatherHost = NAMEKEY_INVALID;
-	Bool m_schedulePrecipitation = FALSE;
 #endif
 
 	Object* m_objList;																			///< All of the objects in the world.

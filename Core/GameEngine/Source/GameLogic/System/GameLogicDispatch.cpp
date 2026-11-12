@@ -370,7 +370,16 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 #if defined(GENERALS_ONLINE)
 	if (msg->getType() == GameMessage::MSG_START_DYNAMIC_WEATHER)
 	{
-		startDynamicWeather(msgPlayer);
+		if (msg->getArgumentCount() == 0)
+			startDynamicWeather(msgPlayer);
+#if GENERALS_ONLINE_WEATHER_DEBUG
+		else if (msg->getArgumentCount() == 1 && msg->getArgumentDataType(0) == ARGUMENTDATATYPE_INTEGER)
+		{
+			const Int profile = msg->getArgument(0)->integer;
+			if (profile >= 0 && profile <= 5)
+				startDynamicWeather(msgPlayer, profile);
+		}
+#endif
 		return;
 	}
 #endif

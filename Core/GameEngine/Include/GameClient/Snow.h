@@ -41,7 +41,9 @@ class WeatherSetting : public Overridable
 			DYNAMIC_AUTO,
 			DYNAMIC_DRY,
 			DYNAMIC_SNOW,
-			DYNAMIC_RAIN
+			DYNAMIC_RAIN,
+			DYNAMIC_HEAVY_RAIN,
+			DYNAMIC_STORM
 		};
 
 		Int m_dynamicWeatherProfile = DYNAMIC_AUTO;
@@ -100,10 +102,12 @@ class SnowManager : public SubsystemInterface
 
 	virtual void init() override;
 	virtual void reset() override;
+	virtual void update() override;
 	virtual void updateIniSettings ();
 	virtual void reloadWeather() { updateIniSettings(); }
 	void setVisible(Bool showWeather);	///<enable/disable rendering of weather - assuming it's available on map.
 	void setDynamicWeatherVisible(Bool visible);
+	void setDynamicRain(Int profile, UnsignedInt seed);
 
   protected :
 	Bool isWeatherVisible() const { return m_useDynamicVisibility ? m_dynamicVisible : m_isVisible; }
@@ -124,6 +128,14 @@ class SnowManager : public SubsystemInterface
 	Bool				m_isVisible;		///<used to prevent map weather (if defined) from rendering.
 	Bool				m_useDynamicVisibility = FALSE;
 	Bool				m_dynamicVisible = FALSE;
+
+  private:
+	void stopDynamicRain();
+	UnsignedInt m_rainSound = 0;
+	UnsignedInt m_thunderSound = 0;
+	UnsignedInt m_stormSeed = 0;
+	UnsignedInt m_nextLightningFrame = 0;
+	UnsignedInt m_thunderFrame = 0;
 };
 
 extern SnowManager *TheSnowManager;  ///< the ray effects singleton external

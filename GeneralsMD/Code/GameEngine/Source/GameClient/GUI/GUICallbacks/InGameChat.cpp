@@ -32,6 +32,7 @@
 
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
+#include "Common/MessageStream.h"
 #include "GameClient/DisconnectMenu.h"
 #include "GameClient/GameWindow.h"
 #include "GameClient/Gadget.h"
@@ -42,6 +43,7 @@
 #include "GameClient/GUICallbacks.h"
 #include "GameClient/InGameUI.h"
 #include "GameClient/LanguageFilter.h"
+#include "GameClient/Snow.h"
 #include "GameLogic/GameLogic.h"
 #include "GameNetwork/GameInfo.h"
 #include "GameNetwork/NetworkInterface.h"
@@ -177,6 +179,41 @@ Bool handleInGameSlashCommands(UnicodeString uText)
 	remainder.nextToken(&token);
 	token.toLower();
 
+#if GENERALS_ONLINE_WEATHER_DEBUG
+	if (token == "weather")
+	{
+		if (TheNetwork && (!TheNGMPGame || TheGameInfo != TheNGMPGame || !TheNGMPGame->amIHost()))
+		{
+			TheInGameUI->message(UnicodeString(L"Weather testing is available to the match host."));
+			return TRUE;
+		}
+
+		AsciiString option;
+		remainder.nextToken(&option);
+		option.toLower();
+		Int profile = WeatherSetting::DYNAMIC_AUTO;
+		if (option == "rain")
+			profile = WeatherSetting::DYNAMIC_RAIN;
+		else if (option == "heavy")
+			profile = WeatherSetting::DYNAMIC_HEAVY_RAIN;
+		else if (option == "storm")
+			profile = WeatherSetting::DYNAMIC_STORM;
+		else if (option == "snow")
+			profile = WeatherSetting::DYNAMIC_SNOW;
+		else if (option == "dry")
+			profile = WeatherSetting::DYNAMIC_DRY;
+		else if (!option.isEmpty() && option != "auto")
+		{
+			TheInGameUI->message(UnicodeString(L"Weather testing: /weather [auto|rain|heavy|storm|snow|dry]"));
+			return TRUE;
+		}
+
+		GameMessage *weather = TheMessageStream->appendMessage(GameMessage::MSG_START_DYNAMIC_WEATHER);
+		weather->appendIntegerArgument(profile);
+		return TRUE;
+	}
+#endif
+
 	if (token == "host")
 	{
 		UnicodeString s;
@@ -203,7 +240,11 @@ void ToggleInGameChat( Bool immediate )
 		return;
 
 #if defined(GENERALS_ONLINE)
-	if (TheNGMPGame == nullptr)
+	if (TheNGMPGame == nullptr
+#if GENERALS_ONLINE_WEATHER_DEBUG
+		&& !TheGameLogic->isInSkirmishGame()
+#endif
+		)
 #else
 	if (!TheGameInfo->isMultiPlayer() && TheGlobalData->m_netMinPlayers)
 #endif
@@ -221,7 +262,7 @@ void ToggleInGameChat( Bool immediate )
 				// Send what is there, clear it out, and hide the window
 				UnicodeString msg = GadgetTextEntryGetText( chatTextEntry );
 				msg.trim();
-				if (!msg.isEmpty() && !handleInGameSlashCommands(msg))
+				if (!msg.isEmpty() && !handleInGameSlashCommands(msg) && TheNetwork)
 				{
 					const Player *localPlayer = ThePlayerList->getLocalPlayer();
 					AsciiString playerName;

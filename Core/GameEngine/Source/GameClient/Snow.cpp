@@ -30,6 +30,11 @@
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the Game
 #include "GameClient/Snow.h"
 #include "GameClient/View.h"
+#include "GameClient/Display.h"
+#include "GameLogic/GameLogic.h"
+#include "GameLogic/TerrainLogic.h"
+#include "Common/AudioEventRTS.h"
+#include "Common/AudioHandleSpecialValues.h"
 
 
 SnowManager *TheSnowManager=nullptr;
@@ -91,14 +96,90 @@ void SnowManager::setDynamicWeatherVisible(Bool visible)
 	m_dynamicVisible = visible;
 }
 
+void SnowManager::stopDynamicRain()
+{
+	if (TheAudio)
+	{
+		TheAudio->removeAudioEvent(m_rainSound);
+		TheAudio->removeAudioEvent(m_thunderSound);
+	}
+	m_rainSound = AHSV_Error;
+	m_thunderSound = AHSV_Error;
+	m_nextLightningFrame = 0;
+	m_thunderFrame = 0;
+}
+
+void SnowManager::setDynamicRain(Int profile, UnsignedInt seed)
+{
+	stopDynamicRain();
+	if (TheAudio)
+	{
+		// Dynamic weather takes over the stock rain sounds from any map scripts.
+		TheAudio->removeAudioEvent(AsciiString("RainStereoLoop"));
+		TheAudio->removeAudioEvent(AsciiString("ThunderAmbienceStereo"));
+		TheAudio->removeAudioEvent(AsciiString("ThunderStrikesStereo"));
+		if (profile == WeatherSetting::DYNAMIC_HEAVY_RAIN || profile == WeatherSetting::DYNAMIC_STORM)
+		{
+			AudioEventRTS rain("RainStereoLoop");
+			m_rainSound = TheAudio->addAudioEvent(&rain);
+		}
+	}
+	if (profile == WeatherSetting::DYNAMIC_STORM && TheGameLogic)
+	{
+		m_stormSeed = seed;
+		m_nextLightningFrame = TheGameLogic->getFrame() + 2 * LOGICFRAMES_PER_SECOND;
+	}
+}
+
+void SnowManager::update()
+{
+	if (m_nextLightningFrame == 0 || !TheGameLogic)
+		return;
+
+	const UnsignedInt frame = TheGameLogic->getFrame();
+	if (m_thunderFrame != 0 && frame >= m_thunderFrame)
+	{
+		if (TheAudio)
+		{
+			TheAudio->removeAudioEvent(m_thunderSound);
+			AudioEventRTS thunder("ThunderStrikesStereo");
+			m_thunderSound = TheAudio->addAudioEvent(&thunder);
+		}
+		m_thunderFrame = 0;
+	}
+	if (frame < m_nextLightningFrame)
+		return;
+
+	if (TheDisplay && TheTerrainLogic)
+	{
+		Region3D extent;
+		TheTerrainLogic->getExtent(&extent);
+		const Coord3D position = {
+			(extent.lo.x + extent.hi.x) * 0.5f,
+			(extent.lo.y + extent.hi.y) * 0.5f,
+			extent.hi.z + 200.0f
+		};
+		const RGBColor color = { 0.65f, 0.7f, 0.85f };
+		const Real radius = max(extent.hi.x - extent.lo.x, extent.hi.y - extent.lo.y) + 500.0f;
+		TheDisplay->createLightPulse(&position, &color, radius, 100.0f, 1, LOGICFRAMES_PER_SECOND / 4);
+	}
+
+	// Visual randomness stays separate from the simulation and is seeded by the shared weather roll.
+	m_stormSeed = m_stormSeed * 1664525u + 1013904223u;
+	m_thunderFrame = frame + LOGICFRAMES_PER_SECOND / 2 + m_stormSeed % LOGICFRAMES_PER_SECOND;
+	m_nextLightningFrame = frame + (8 + (m_stormSeed >> 16) % 11) * LOGICFRAMES_PER_SECOND;
+}
+
 void SnowManager::reset()
 {
+	stopDynamicRain();
 	m_isVisible = TRUE;	//default to showing if it's enabled via INI.
 	m_useDynamicVisibility = FALSE;
 }
 
 SnowManager::~SnowManager()
 {
+	stopDynamicRain();
 	delete [] m_startingHeights;
 	m_startingHeights=nullptr;
 
@@ -109,7 +190,7 @@ SnowManager::~SnowManager()
 
 OVERRIDE<WeatherSetting> TheWeatherSetting = nullptr;
 
-static const char *const dynamicWeatherProfiles[] = { "AUTO", "DRY", "SNOW", "RAIN", nullptr };
+static const char *const dynamicWeatherProfiles[] = { "AUTO", "DRY", "SNOW", "RAIN", "HEAVY_RAIN", "STORM", nullptr };
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 const FieldParse WeatherSetting::m_weatherSettingFieldParseTable[] =

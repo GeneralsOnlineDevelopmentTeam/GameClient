@@ -162,6 +162,7 @@ void W3DSnowManager::reloadWeather()
 
 void W3DSnowManager::update()
 {
+	SnowManager::update();
 	// TheSuperHackers @tweak The snow render update is now decoupled from the logic step.
 	m_time += WW3D::Get_Logic_Frame_Time_Seconds();
 
