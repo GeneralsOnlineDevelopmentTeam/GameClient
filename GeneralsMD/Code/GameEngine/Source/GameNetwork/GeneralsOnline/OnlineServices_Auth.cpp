@@ -583,6 +583,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 
 void NGMP_OnlineServices_AuthInterface::OnLoginComplete(ELoginResult loginResult, const char* szWSAddr)
 {
+	m_bWaitingLogin = false;
 	if (loginResult == ELoginResult::Success)
 	{
 		// TODO_AC: Consider chaining this
