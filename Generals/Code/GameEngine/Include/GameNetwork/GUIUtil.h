@@ -50,3 +50,16 @@ void EnableAcceptControls(Bool Enabled, GameInfo *myGame, GameWindow *comboPlaye
 										GameWindow *comboColor[], GameWindow *comboPlayerTemplate[],
 										GameWindow *comboTeam[], GameWindow *buttonAccept[], GameWindow *buttonStart,
 										GameWindow *buttonMapStartPosition[], Int slotNum = -1);
+
+// TheSuperHackers @feature Gives every occupied, non-observer slot a random army from the armies
+// selectable in the army combo box. Returns TRUE if any slot was changed.
+Bool RandomizeArmies( GameInfo *myGame );
+
+// TheSuperHackers @feature Returns a random army from the armies selectable in the army combo box,
+// or PLAYERTEMPLATE_RANDOM if there are none.
+Int GetRandomSelectableArmy( GameInfo *myGame );
+
+// TheSuperHackers @feature Creates a "Random Armies" button styled like 'startButton', with the same
+// height, centered between 'startButton' and 'backButton'. Clicks go to the start button's owner.
+GameWindow *CreateRandomArmiesButton( GameWindow *startButton, GameWindow *backButton,
+																			const char *layoutFilename );

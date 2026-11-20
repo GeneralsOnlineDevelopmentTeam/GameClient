@@ -247,6 +247,8 @@ static GameWindow *comboBoxTeam[MAX_SLOTS] = {NULL,NULL,NULL,NULL,
 
 //static GameWindow *buttonStartPosition[MAX_SLOTS] = {NULL,NULL,NULL,NULL,
 //																								NULL,NULL,NULL,NULL };
+
+static GameWindow *buttonRandomArmies = NULL;
 //
 static GameWindow *buttonMapStartPosition[MAX_SLOTS] = {NULL,NULL,NULL,NULL,
 																								NULL,NULL,NULL,NULL };
@@ -1821,6 +1823,11 @@ void InitWOLGameGadgets()
 	{
 		buttonBack->winEnable(TRUE);
 	}
+
+	// GeneralsOnline: the lobby service only lets each player change their own army (and the host
+	// the AI armies), so every player gets the button and rolls their own army. Everybody sees the
+	// result in the army column.
+	buttonRandomArmies = CreateRandomArmiesButton( buttonStart, buttonBack, "GameSpyGameOptionsMenu.wnd" );
 		//GadgetButtonSetEnabledColor(buttonAccept[0], GameSpyColor[GSCOLOR_ACCEPT_TRUE]);
 
 		// TODO_NGMP: Where does this happen in the normal game?
@@ -1853,6 +1860,7 @@ void DeinitWOLGameGadgets()
 	checkBoxUseStats = NULL;
   checkBoxLimitSuperweapons = NULL;
   comboBoxStartingCash = NULL;
+	buttonRandomArmies = NULL;
 
 //	GameWindow *staticTextTitle = NULL;
 	for (Int i = 0; i < MAX_SLOTS; i++)
@@ -4128,6 +4136,48 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 						{
 							pLobbyInterface->SendChatMessageToCurrentLobby(txtInput, false);
 						}
+					}
+				}
+				else if ( buttonRandomArmies && control == buttonRandomArmies )
+				{
+					NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+					NGMPGame* myGame = pLobbyInterface == nullptr ? nullptr : pLobbyInterface->GetCurrentGame();
+					if (myGame)
+					{
+						// roll my own army, and as host also the AI armies
+						Bool rolled = FALSE;
+						for (Int i = 0; i < MAX_SLOTS; ++i)
+						{
+							GameSlot *slot = myGame->getSlot(i);
+							if (!slot || slot->getPlayerTemplate() == PLAYERTEMPLATE_OBSERVER)
+								continue;
+
+							const Bool isMine = (i == myGame->getLocalSlotNum());
+							const Bool isMyAI = slot->isAI() && pLobbyInterface->IsHost();
+							if (!isMine && !isMyAI)
+								continue;
+
+							const Int army = GetRandomSelectableArmy( myGame );
+							if (army == PLAYERTEMPLATE_RANDOM)
+								break;
+
+							// select the army in the combo box and apply it like a manual selection,
+							// which also sends it to the lobby service
+							for (Int idx = 0; idx < GadgetComboBoxGetLength(comboBoxPlayerTemplate[i]); ++idx)
+							{
+								if ((Int)(intptr_t)GadgetComboBoxGetItemData(comboBoxPlayerTemplate[i], idx) == army)
+								{
+									GadgetComboBoxSetSelectedPos(comboBoxPlayerTemplate[i], idx, TRUE);
+									handlePlayerTemplateSelection(i);
+									rolled = TRUE;
+									break;
+								}
+							}
+						}
+
+						// the army can be rolled only once per lobby
+						if (rolled)
+							buttonRandomArmies->winEnable( FALSE );
 					}
 				}
 				else if ( controlID == buttonSelectMapID )
