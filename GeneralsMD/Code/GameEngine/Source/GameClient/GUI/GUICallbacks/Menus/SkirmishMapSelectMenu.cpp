@@ -146,6 +146,10 @@ void showSkirmishGameOptionsUnderlyingGUIElements( Bool show )
 	win	= TheWindowManager->winGetWindowFromId( parent, TheNameKeyGenerator->nameToKey("SkirmishGameOptionsMenu.wnd:StaticTextTeam") );
 	win->winHide( !show );
 
+	win	= TheWindowManager->winGetWindowFromId( parent, TheNameKeyGenerator->nameToKey("SkirmishGameOptionsMenu.wnd:ButtonRandomArmies") );
+	if (win)
+		win->winHide( !show );
+
 	win	= TheWindowManager->winGetWindowFromId( parent, TheNameKeyGenerator->nameToKey("SkirmishGameOptionsMenu.wnd:StaticTextFaction") );
 	win->winHide( !show );
 

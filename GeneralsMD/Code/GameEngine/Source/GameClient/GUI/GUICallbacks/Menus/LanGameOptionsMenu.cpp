@@ -135,6 +135,7 @@ static GameWindow *comboBoxColor[MAX_SLOTS] = {0};
 static GameWindow *comboBoxPlayerTemplate[MAX_SLOTS] = {0};
 
 static GameWindow *comboBoxTeam[MAX_SLOTS] = {0};
+static GameWindow *buttonRandomArmies = nullptr;
 
 //static GameWindow *buttonStartPosition[MAX_SLOTS] = {0};
 //
@@ -786,6 +787,10 @@ void InitLanGameGadgets()
 	if( buttonAccept[0] )
 		GadgetButtonSetEnabledColor(buttonAccept[0], acceptTrueColor );
 
+	// only the host rolls the armies; everybody else sees the result in the army column
+	buttonRandomArmies = CreateRandomArmiesButton( buttonStart, buttonBack, "LanGameOptionsMenu.wnd" );
+	if (buttonRandomArmies)
+		buttonRandomArmies->winHide( !TheLAN->AmIHost() );
 }
 
 void DeinitLanGameGadgets()
@@ -800,6 +805,7 @@ void DeinitLanGameGadgets()
 	textEntryMapDisplay = nullptr;
   checkboxLimitSuperweapons = nullptr;
   comboBoxStartingCash = nullptr;
+	buttonRandomArmies = nullptr;
 	if (windowMap)
 	{
 		windowMap->winSetUserData(nullptr);
@@ -1246,6 +1252,19 @@ WindowMsgHandledType LanGameOptionsMenuSystem( GameWindow *window, UnsignedInt m
 					// Echo the user's input to the chat window
 					if (!txtInput.isEmpty())
 						TheLAN->RequestChat(txtInput, LANAPIInterface::LANCHAT_EMOTE);
+				}
+				else if ( buttonRandomArmies && control == buttonRandomArmies )
+				{
+					LANGameInfo *myGame = TheLAN->GetMyGame();
+					if (myGame && myGame->amIHost() && RandomizeArmies( myGame ))
+					{
+						// the armies can be rolled only once per lobby
+						buttonRandomArmies->winEnable( FALSE );
+						// send around the new slotlist; everyone has to accept the new armies again
+						myGame->resetAccepted();
+						TheLAN->RequestGameOptions(GenerateGameOptionsString(), true);
+						lanUpdateSlotList();
+					}
 				}
 				else if ( controlID == buttonSelectMapID )
 				{

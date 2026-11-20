@@ -90,6 +90,7 @@ static const char *gadgetsToHide[] =
 	"MapWindow",
 	//"StaticTextGameName",
 	"StaticTextTeam",
+	"ButtonRandomArmies",
 	"StaticTextFaction",
 	"StaticTextColor",
 	"TextEntryMapDisplay",

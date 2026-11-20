@@ -128,6 +128,7 @@ static GameWindow *comboBoxColor[MAX_SLOTS] = {0};
 static GameWindow *comboBoxPlayerTemplate[MAX_SLOTS] = {0};
 
 static GameWindow *comboBoxTeam[MAX_SLOTS] = {0};
+static GameWindow *buttonRandomArmies = nullptr;
 
 //static GameWindow *buttonStartPosition[MAX_SLOTS] = {0};
 //
@@ -1083,6 +1084,8 @@ void InitSkirmishGameGadgets()
 //			buttonStartPosition[i]->winHide(TRUE); // not using these right now
 	}
 
+	buttonRandomArmies = CreateRandomArmiesButton( buttonStart, buttonExit, "SkirmishGameOptionsMenu.wnd" );
+
 	populateSkirmishBattleHonors();
 }
 
@@ -1131,6 +1134,7 @@ static const char *gadgetsToHide[] =
 	"StaticTextColor",
 	"StaticTextTeam",
 	"StaticTextFaction",
+	"ButtonRandomArmies",
 	nullptr
 };
 static const char *perPlayerGadgetsToHide[] =
@@ -1524,6 +1528,15 @@ WindowMsgHandledType SkirmishGameOptionsMenuSystem( GameWindow *window, Unsigned
 //					GameWindow *sliderGameSpeed = TheWindowManager->winGetWindowFromId( parentSkirmishGameOptions, sliderGameSpeedID );
 //					GadgetSliderSetPosition( sliderGameSpeed, TheGlobalData->m_framesPerSecondLimit );
 //				}
+				else if ( buttonRandomArmies && control == buttonRandomArmies )
+				{
+					if (RandomizeArmies( TheSkirmishGameInfo ))
+					{
+						// the armies can be rolled only once per lobby
+						buttonRandomArmies->winEnable( FALSE );
+						skirmishUpdateSlotList();
+					}
+				}
 				else if ( controlID == buttonSelectMapID )
 				{
 					sandboxOk = FALSE;
