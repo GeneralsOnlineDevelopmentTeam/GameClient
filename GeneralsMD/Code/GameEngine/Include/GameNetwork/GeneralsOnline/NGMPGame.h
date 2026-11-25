@@ -54,7 +54,7 @@ private:
 	UnsignedInt m_exeCRC;
 	UnsignedInt m_iniCRC;
 	Bool m_isQM;
-	Bool m_dynamicWeather = FALSE;
+	Bool m_dynamicWeather = TRUE;
 
 	AsciiString m_ladderIP;
 	AsciiString m_pingStr;
