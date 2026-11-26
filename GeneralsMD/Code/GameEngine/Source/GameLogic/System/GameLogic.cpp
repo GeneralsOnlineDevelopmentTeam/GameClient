@@ -55,6 +55,7 @@
 #include "Common/ThingFactory.h"
 #include "Common/Team.h"
 #include "Common/ThingTemplate.h"
+#include "Common/TerrainTypes.h"
 #include "GameClient/Water.h"
 #include "GameClient/Snow.h"
 #include "Common/WellKnownKeys.h"
@@ -119,6 +120,10 @@ struct QuitGameException {};
 #include "../ngmp_interfaces.h"
 
 #include "../NextGenMP_defines.h"
+
+#if defined(GENERALS_ONLINE)
+#include <random>
+#endif
 
 DECLARE_PERF_TIMER(SleepyMaintenance)
 
@@ -314,6 +319,11 @@ void GameLogic::setDefaults(Bool loadingSaveGame)
 {
 	m_frame = 0;
 	m_hasUpdated = FALSE;
+#if defined(GENERALS_ONLINE)
+	m_weatherRoll = 0;
+	m_weatherOverride = nullptr;
+	m_weatherHost = NAMEKEY_INVALID;
+#endif
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 	m_frameLegacy = 0;
 	m_frameLegacyLast = 0;
@@ -558,6 +568,9 @@ void GameLogic::reset()
 	// clear any table of contents we have
 	m_objectTOC.clear();
 
+#if defined(GENERALS_ONLINE)
+	const Bool hadWeatherPreset = m_weatherOverride != nullptr;
+#endif
 	setDefaults(FALSE);
 
 	m_isScoringEnabled = TRUE;
@@ -573,6 +586,10 @@ void GameLogic::reset()
 	// Clean up any weather overrides that were generated for this map.
 	WeatherSetting* ws = (WeatherSetting*)TheWeatherSetting.getNonOverloadedPointer();
 	TheWeatherSetting = (WeatherSetting*)ws->deleteOverrides();
+#if defined(GENERALS_ONLINE)
+	if (hadWeatherPreset && TheSnowManager && TheWeatherSetting != nullptr)
+		TheSnowManager->reloadWeather();
+#endif
 
 	m_rankPointsToAddAtGameStart = 0;
 }
@@ -1392,6 +1409,30 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 			m_superweaponRestriction = 0;
 		}
 	}
+
+#if defined(GENERALS_ONLINE)
+	m_weatherRoll = 0;
+	m_weatherOverride = nullptr;
+	m_weatherHost = NAMEKEY_INVALID;
+	if (TheNetwork && TheNGMPGame && game == TheNGMPGame && !TheNGMPGame->isQMGame())
+	{
+		auto *lobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+		if (lobbyInterface)
+		{
+			const LobbyEntry &lobby = lobbyInterface->GetCurrentLobby();
+			for (const LobbyMemberEntry &member : lobby.members)
+			{
+				if (member.IsHuman() && member.user_id == lobby.owner && member.m_SlotIndex < MAX_SLOTS)
+				{
+					AsciiString name;
+					name.format("player%d", static_cast<Int>(member.m_SlotIndex));
+					m_weatherHost = TheNameKeyGenerator->nameToKey(name);
+					break;
+				}
+			}
+		}
+	}
+#endif
 
 	checkForDuplicateColors(game);
 
@@ -2604,6 +2645,181 @@ static void findAndSelectCommandCenter(Object *obj, void* alreadyFound)
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
+#if defined(GENERALS_ONLINE)
+static Int getDynamicWeatherProfileFromTerrain()
+{
+	if (TheGlobalData->m_weather == WEATHER_SNOWY)
+		return WeatherSetting::DYNAMIC_SNOW;
+
+	Region3D extent;
+	TheTerrainLogic->getExtent(&extent);
+	if (!TheTerrainVisual || extent.hi.x <= extent.lo.x || extent.hi.y <= extent.lo.y)
+		return WeatherSetting::DYNAMIC_DRY;
+
+	Int snow = 0;
+	Int desert = 0;
+	Int temperate = 0;
+	// A regular grid weights materials by their coverage instead of counting texture names.
+	const Int samplesPerAxis = 32;
+	for (Int y = 0; y < samplesPerAxis; ++y)
+	{
+		const Real worldY = extent.lo.y + (y + 0.5f) * (extent.hi.y - extent.lo.y) / samplesPerAxis;
+		for (Int x = 0; x < samplesPerAxis; ++x)
+		{
+			const Real worldX = extent.lo.x + (x + 0.5f) * (extent.hi.x - extent.lo.x) / samplesPerAxis;
+			TerrainType *terrain = TheTerrainVisual->getTerrainTile(worldX, worldY);
+			if (!terrain)
+				continue;
+
+			switch (terrain->getClass())
+			{
+				case TERRAIN_SNOW_1:
+				case TERRAIN_SNOW_2:
+				case TERRAIN_SNOW_3:
+				case TERRAIN_RUGGED_SNOW:
+				case TERRAIN_FLAT_SNOW:
+					++snow;
+					break;
+				case TERRAIN_DESERT_1:
+				case TERRAIN_DESERT_2:
+				case TERRAIN_DESERT_3:
+				case TERRAIN_LIVE_DESERT:
+				case TERRAIN_DRY_DESERT:
+				case TERRAIN_ACCENT_SAND:
+				case TERRAIN_SAND:
+					++desert;
+					break;
+				case TERRAIN_EASTERN_EUROPE_1:
+				case TERRAIN_EASTERN_EUROPE_2:
+				case TERRAIN_EASTERN_EUROPE_3:
+				case TERRAIN_SWISS_1:
+				case TERRAIN_SWISS_2:
+				case TERRAIN_SWISS_3:
+				case TERRAIN_DIRT:
+				case TERRAIN_GRASS:
+				case TERRAIN_TROPICAL_BEACH:
+				case TERRAIN_BEACH_PARK:
+				case TERRAIN_COBBLESTONE_GRASS:
+				case TERRAIN_ACCENT_GRASS:
+				case TERRAIN_RESIDENTIAL:
+				case TERRAIN_FIELD:
+				case TERRAIN_ASPHALT:
+				case TERRAIN_CONCRETE:
+				case TERRAIN_CHINA:
+				case TERRAIN_URBAN:
+					++temperate;
+					break;
+			}
+		}
+	}
+
+	if (snow > 0 && snow >= desert && snow >= temperate)
+		return WeatherSetting::DYNAMIC_SNOW;
+	if (temperate > desert)
+		return WeatherSetting::DYNAMIC_RAIN;
+	return WeatherSetting::DYNAMIC_DRY;
+}
+
+void GameLogic::startDynamicWeather(const Player *sender, Int debugProfile)
+{
+	const Bool debugRoll = debugProfile >= WeatherSetting::DYNAMIC_AUTO;
+	if (!TheGameInfo || (m_weatherRoll != 0 && !debugRoll))
+		return;
+
+	const Bool replay = TheRecorder && TheRecorder->isPlaybackMode();
+	if (!replay)
+	{
+		if (TheNetwork)
+		{
+			if (m_weatherHost == NAMEKEY_INVALID || sender->getPlayerNameKey() != m_weatherHost)
+				return;
+		}
+		else if (!isInSkirmishGame() || sender != ThePlayerList->getLocalPlayer())
+			return;
+	}
+
+	// Each roll is reproducible in multiplayer and replays without consuming logic randomness.
+	std::mt19937 weatherRandom(static_cast<UnsignedInt>(TheGameInfo->getSeed()) + m_weatherRoll);
+	++m_weatherRoll;
+	const TimeOfDay time = static_cast<TimeOfDay>(
+		TIME_OF_DAY_FIRST + weatherRandom() % (TIME_OF_DAY_COUNT - TIME_OF_DAY_FIRST));
+	const Bool randomPrecipitation = (weatherRandom() & 1u) != 0;
+	Int profile = WeatherSetting::DYNAMIC_DRY;
+	Bool precipitation = FALSE;
+	if (TheSnowManager && TheWeatherSetting != nullptr)
+	{
+		const Int configuredProfile = TheWeatherSetting->m_dynamicWeatherProfile;
+		profile = debugRoll && debugProfile != WeatherSetting::DYNAMIC_AUTO ? debugProfile : configuredProfile;
+		if (profile == WeatherSetting::DYNAMIC_AUTO)
+			profile = getDynamicWeatherProfileFromTerrain();
+		precipitation = profile != WeatherSetting::DYNAMIC_DRY
+			&& (randomPrecipitation || (debugRoll && debugProfile != WeatherSetting::DYNAMIC_AUTO));
+		if (precipitation && profile == WeatherSetting::DYNAMIC_RAIN
+			&& !(debugRoll && debugProfile == WeatherSetting::DYNAMIC_RAIN))
+		{
+			profile = WeatherSetting::DYNAMIC_RAIN + weatherRandom() % 3;
+		}
+
+		if (precipitation)
+		{
+			if (!m_weatherOverride)
+			{
+				// Reuse one temporary override for all debug rolls. Map cleanup owns it.
+				m_weatherOverride = newInstance(WeatherSetting);
+				m_weatherOverride->m_dynamicWeatherProfile = configuredProfile;
+				m_weatherOverride->markAsOverride();
+				auto *base = const_cast<WeatherSetting *>(TheWeatherSetting.getNonOverloadedPointer());
+				base->friend_getFinalOverride()->setNextOverride(m_weatherOverride);
+			}
+
+			WeatherSetting *weather = m_weatherOverride;
+			struct RainPreset
+			{
+				Real density;
+				Real amplitude;
+				Real pointSize;
+				Real quadSize;
+			};
+			static const RainPreset rainPresets[] = {
+				{ 0.35f, 0.1f, 0.18f, 0.06f }, // Light rain
+				{ 1.0f, 0.1f, 0.3f, 0.1f },   // Heavy rain
+				{ 1.4f, 0.5f, 0.3f, 0.1f }    // Storm
+			};
+			const RainPreset *rain = profile >= WeatherSetting::DYNAMIC_RAIN
+				? &rainPresets[profile - WeatherSetting::DYNAMIC_RAIN] : nullptr;
+			weather->m_snowEnabled = TRUE;
+			weather->m_snowTexture = rain ? "EXRainDrop.tga" : "EXSnowFlake.tga";
+			weather->m_snowBoxDimensions = 100.0f;
+			weather->m_snowBoxDensity = rain ? rain->density : 1.0f;
+			weather->m_snowFrequencyScaleX = rain ? 1.0f : 0.0533f;
+			weather->m_snowFrequencyScaleY = rain ? 1.0f : 0.0275f;
+			weather->m_snowAmplitude = rain ? rain->amplitude : 4.0f;
+			weather->m_snowVelocity = rain ? 25.0f : 3.0f;
+			weather->m_snowPointSize = rain ? rain->pointSize : 0.16f;
+			weather->m_snowQuadSize = rain ? rain->quadSize : 0.5f;
+			weather->m_snowMaxPointSize = rain ? 64.0f : 10.0f;
+			TheSnowManager->reloadWeather();
+		}
+		TheSnowManager->setDynamicWeatherVisible(precipitation);
+		TheSnowManager->setDynamicRain(precipitation ? profile : WeatherSetting::DYNAMIC_DRY, weatherRandom());
+	}
+
+	if (TheWritableGlobalData->setTimeOfDay(time))
+		TheGameClient->setTimeOfDay(time);
+
+#if GENERALS_ONLINE_WEATHER_DEBUG
+	if (debugRoll && TheInGameUI)
+	{
+		static const char *const profileNames[] = { "AUTO", "DRY", "SNOW", "LIGHT RAIN", "HEAVY RAIN", "STORM" };
+		UnicodeString message;
+		message.format(L"Weather #%u: %hs / %hs (profile %hs)", m_weatherRoll,
+			TimeOfDayNames[time], precipitation ? profileNames[profile] : "DRY", profileNames[profile]);
+		TheInGameUI->message(message);
+	}
+#endif
+}
+#endif
+
 void GameLogic::loadMapINI(AsciiString mapName)
 {
 

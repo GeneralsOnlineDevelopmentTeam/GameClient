@@ -52,6 +52,10 @@
 #include "Common/Recorder.h"
 #include "GameClient/MessageBox.h"
 #include "../NGMP_include.h"
+#if defined(GENERALS_ONLINE)
+#include "GameNetwork/GeneralsOnline/NGMPGame.h"
+#include "GameNetwork/GeneralsOnline/OnlineServices_LobbyInterface.h"
+#endif
 
 
 #if defined(DEBUG_CRC) && !RETAIL_COMPATIBLE_NETWORKING
@@ -545,6 +549,15 @@ Bool Network::processCommand(GameMessage* msg)
 				m_localStatus = NETLOCALSTATUS_INGAME;
 				NetCommandList *netcmdlist = m_conMgr->getFrameCommandList(0); // clear out frame 0 since we skipped it
 				deleteInstance(netcmdlist);
+#if defined(GENERALS_ONLINE)
+				if (TheNGMPGame && TheGameInfo == TheNGMPGame && TheNGMPGame->amIHost()
+					&& !TheNGMPGame->isQMGame() && TheNGMPGame->getDynamicWeather())
+				{
+					GameMessage *weather = newInstance(GameMessage)(GameMessage::MSG_START_DYNAMIC_WEATHER);
+					m_conMgr->sendLocalGameMessage(weather, getExecutionFrame());
+					deleteInstance(weather);
+				}
+#endif
 			} else {
 				return FALSE;
 			}

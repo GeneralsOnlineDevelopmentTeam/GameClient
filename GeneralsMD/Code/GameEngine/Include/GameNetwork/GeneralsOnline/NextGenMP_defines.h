@@ -8,6 +8,11 @@
 
 #define GENERALS_ONLINE_COMMUNITY_PATCH_CHANGES 1
 
+// Temporary weather testing through the in-game /weather command. Set to 0 to disable.
+#ifndef GENERALS_ONLINE_WEATHER_DEBUG
+#define GENERALS_ONLINE_WEATHER_DEBUG 0
+#endif
+
 #define GENERALS_ONLINE_USE_PLUGINS_INTERFACE
 
 //#define USE_MAULLER_ONEDRIVE_FIX 1

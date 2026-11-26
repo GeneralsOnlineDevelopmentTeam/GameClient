@@ -56,6 +56,7 @@ class AudioEventRTS;
 class Object;
 class Drawable;
 class Player;
+class WeatherSetting;
 class ThingTemplate;
 class Team;
 class CommandList;
@@ -171,6 +172,9 @@ public:
 	// super hack
 	void startNewGame(Bool loadSaveGame);
 	void loadMapINI(AsciiString mapName);
+#if defined(GENERALS_ONLINE)
+	void startDynamicWeather(const Player *sender, Int debugProfile = -1);
+#endif
 
 	void updateLoadProgress( Int progress );
 	void deleteLoadScreen();
@@ -430,6 +434,12 @@ private:
 	/// @todo remove this hack
 	Bool m_startNewGame;
 	WindowLayout* m_background;
+
+#if defined(GENERALS_ONLINE)
+	UnsignedInt m_weatherRoll = 0;
+	WeatherSetting *m_weatherOverride = nullptr;
+	NameKeyType m_weatherHost = NAMEKEY_INVALID;
+#endif
 
 	Object* m_objList;																			///< All of the objects in the world.
 	//	ObjectPtrHash m_objHash;																///< Used for ObjectID lookups

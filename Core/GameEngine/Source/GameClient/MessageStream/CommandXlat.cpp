@@ -3269,7 +3269,11 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 
 		//-----------------------------------------------------------------------------------------
 		case GameMessage::MSG_META_CHAT_EVERYONE:
-			if (TheGameLogic->isInMultiplayerGame() && !TheGameLogic->isInReplayGame())
+			if ((TheGameLogic->isInMultiplayerGame()
+#if GENERALS_ONLINE_WEATHER_DEBUG
+				|| TheGameLogic->isInSkirmishGame()
+#endif
+				) && !TheGameLogic->isInReplayGame())
 			{
 				Player *localPlayer = ThePlayerList->getLocalPlayer();
 				// TheSuperHackers @tweak skyaero 19/07/2025 Observers can now chat
@@ -5720,6 +5724,9 @@ static Bool isSystemMessage( const GameMessage *msg )
 		case GameMessage::MSG_DESTROY_SELECTED_GROUP:
 		case GameMessage::MSG_LOGIC_CRC:
 		case GameMessage::MSG_SET_REPLAY_CAMERA:
+#if defined(GENERALS_ONLINE)
+		case GameMessage::MSG_START_DYNAMIC_WEATHER:
+#endif
 		case GameMessage::MSG_FRAME_TICK:
 		case GameMessage::MSG_META_DEMO_INSTANT_QUIT:
 			return TRUE;
